@@ -4,11 +4,19 @@
 <tr>
 <td align="left"><a href="editing.md">← Back to Editing</a></td>
 <td align="center"></td>
-<td align="right"><a href="configure-tools.md">→ Next: Configure Tools</a></td>
+<td align="right"><a href="harness-standard.md">→ Next: Harness standard</a></td>
 </tr>
 </table>
 
-A repository appears under **Repositories** in the sidebar. Its harness is read from its own `.claude` folder and its `CLAUDE.md` files, with the same kinds as the global harness. Click a repo to open its page.
+A repository appears under **Repositories** in the sidebar and in the activity bar. Its harness is read from its own `.claude` folder and its `CLAUDE.md` files, with the same kinds as the global harness. Click a repo to open its page.
+
+| Section | Description |
+| --- | --- |
+| [Where repos come from](#where-repos-come-from) | The three sources and the order of the list |
+| [Repository page](#repository-page) | The tiles, the sections and the buttons on a repo page |
+| [Activity bar node](#activity-bar-node) | The Repositories node, its check badges and its buttons |
+| [Add a repo](#add-a-repo) | Adds repo folders |
+| [Remove a repo](#remove-a-repo) | Hides repos or added folders |
 
 ## Where repos come from
 
@@ -32,10 +40,18 @@ The repo page shows the repo name, its path and its asset count. It has these pa
 
 - One tile for each section, with its count. Click a tile to open the first item in that section.
 - **Recently changed**, with the 12 most recently changed items in the repo.
-- **New in** the repo name (plus icon) creates an item in this repo. See [Editing](editing.md#create-rename-duplicate-and-delete).
+- **Harness standard**, with the findings of the check. See [Harness standard](harness-standard.md).
+- **Effective harness**, with what a session in the repo loads. See [Effective harness](effective-harness.md).
+- Header buttons: check the repo, fix its settings and hooks, init a product repo, and **New in** the repo name (plus icon) to create an item in this repo. See [Editing](editing.md#create-rename-duplicate-and-delete) and [Init product repo](init-product-repo.md).
 - The trash button removes this repo from the harness. Nothing is deleted on disk.
 
 The terminal icon on a repo row in the sidebar opens a terminal in that repo running `claude`. See [Commands](commands.md#open-claude-here).
+
+## Activity bar node
+
+The activity bar tree has a **Repositories** node below the global sections. Its count is the number of repos. Expand it to list the repos, and each repo shows its check badge and a short result, such as `fail 2 · review 1`. Click a repo to open its page.
+
+The activity bar title bar has a [Fleet overview](fleet-overview.md) button. The **Repositories** node has two inline buttons: a check button that runs the harness standard check on every repo, and a table button that opens the Fleet overview. Its right-click menu has **Fix Settings and Hooks...**, **Retire Clean Copies...** and **Marketplace Health**. A repo row's menu has **Init Product Repo...** and **Open Repo**. The check runs when you expand the node. See [Harness standard](harness-standard.md#badges) for what each badge means.
 
 ## Add a repo
 

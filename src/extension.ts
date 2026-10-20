@@ -1,9 +1,21 @@
 import { exec } from 'child_process';
+import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
+import { Constitution } from './constitution';
+import { FileEdit, fleetRow, guardInfo, guardReasons, marketplaceHealth, renameCatalog, renameCommands, renameInSettings } from './fleet';
+import { registerLenses } from './lenses';
+import { InitForm, PLUGIN_INSTALL, applyFix, initArgs, parseInitOutput, previewFix, runScript } from './standard';
 import {
   Asset,
+  backupStamp,
+  effectiveHarness,
+  pluginViews,
+  retireAsset,
+  retireBlock,
+  rosterOf,
+  ruleInfo,
   addMcpServer,
   createAsset,
   jsonAt,
@@ -40,13 +52,21 @@ import { HarnessPanel, PanelHost } from './panel';
 import { pickTools, splitTools, TOOL_FIELDS } from './tools';
 import { HarnessTree, Node } from './tree';
 
-const WATCHED = '{CLAUDE.md,settings.json,settings.local.json,agents/**,skills/**,commands/**,output-styles/**,rules/**,workflows/**,plugins/installed_plugins.json}';
+const WATCHED = '{CLAUDE.md,settings.json,settings.local.json,agents/**,skills/**,commands/**,output-styles/**,rules/**,workflows/**,hooks/**,plugins/installed_plugins.json,plugins/known_marketplaces.json}';
 
 export function activate(context: vscode.ExtensionContext): void {
   let global: HarnessScope = globalScope(vscode.workspace.getConfiguration('claudeHarness').get<string>('root'));
   let scopes: HarnessScope[] = [global];
   let views: ScopeView[] = [];
-  const tree = new HarnessTree();
+  let plugins: ScopeView[] = [];
+  const constitution = new Constitution(
+    () => global.root,
+    () => path.join(global.root, 'settings.json')
+  );
+  const tree = new HarnessTree(
+    dir => constitution.summary(dir),
+    dirs => constitution.ensure(dirs)
+  );
   let watcher: vscode.FileSystemWatcher | undefined;
   let timer: NodeJS.Timeout | undefined;
 
@@ -101,9 +121,10 @@ export function activate(context: vscode.ExtensionContext): void {
       globalMcp.items.push(...cliServers.filter(c => !globalMcp.items.some(a => a.name === c.name)).map(c => ({ ...c })));
     }
     applyMcpState(views, global.userConfig);
-    linkCopies(views);
+    plugins = pluginViews(global.root);
+    linkCopies(views, plugins);
     for (const a of views.flatMap(v => v.categories.find(c => c.kind === 'plugin')?.items ?? [])) if (pluginIsMod(global.root, a.name)) a.description += ' · mod';
-    tree.setCategories(views[0].categories);
+    tree.setCategories(views[0].categories, views.slice(1));
     HarnessPanel.update();
     lensesChanged.fire();
   };
@@ -120,7 +141,133 @@ export function activate(context: vscode.ExtensionContext): void {
     watcher.onDidDelete(scheduleRefresh);
   };
 
-  const host: PanelHost = { views: () => views, find, refresh };
+  const repoViews = () => views.filter(v => v.id !== global.id);
+  const viewOfScope = (id: string) => views.find(v => v.id === id);
+  const rosterFor = (base: string | undefined) => rosterOf([views[0], ...views.filter(v => v.id !== global.id && base && samePath(v.path, base))].filter(Boolean), plugins);
+  const inside = (file: string, dir: string) => {
+    const rel = path.relative(dir, file);
+    return !!rel && !rel.startsWith('..') && !path.isAbsolute(rel);
+  };
+  const repoOfFile = (file: string) =>
+    repoViews()
+      .filter(v => inside(file, v.path))
+      .sort((a, b) => b.path.length - a.path.length)[0];
+  const harnessFileOf = (file: string) => {
+    const repo = repoOfFile(file);
+    if (!repo) return undefined;
+    const rel = path.relative(repo.path, file).split(path.sep).join('/');
+    return rel === 'CLAUDE.md' || rel === 'CLAUDE.local.md' || rel.startsWith('.claude/') ? repo : undefined;
+  };
+  const checksChanged = new vscode.EventEmitter<void>();
+  constitution.changed(() => {
+    tree.setCategories(views[0]?.categories ?? [], repoViews());
+    HarnessPanel.update();
+    checksChanged.fire();
+  });
+
+  const host: PanelHost = {
+    views: () => views,
+    find,
+    refresh,
+    checks: () => Object.fromEntries(repoViews().map(v => [v.id, constitution.summary(v.path)])),
+    ensureChecks: ids => constitution.ensure(ids.map(id => viewOfScope(id)?.path).filter((p): p is string => !!p && p !== global.base)),
+    fleet: () => {
+      constitution.ensure(repoViews().map(v => v.path));
+      return repoViews().map(v => fleetRow(v, constitution.get(v.path)));
+    },
+    effective: id => {
+      const scope = scopes.find(s => s.id === id);
+      if (!scope || scope.id === global.id) return undefined;
+      return { effective: effectiveHarness(global, scope), check: constitution.summary(scope.base, true) };
+    },
+    ruleInfo: id => {
+      const asset = find(id);
+      if (!asset || asset.kind !== 'rule') return undefined;
+      const scope = scopeOf(asset);
+      const base = scope.id === global.id ? repoViews().find(v => v.local)?.path : scope.base;
+      const roster = rosterFor(base);
+      if (!base) return { ...ruleInfo(asset, '', roster), globs: [], total: 0, base: '' };
+      return ruleInfo(asset, base, roster);
+    },
+    marketplaces: () => marketplaceHealth(global.root),
+    initForm: async dir => {
+      const { plugin, py } = await constitution.tools();
+      return {
+        name: path.basename(dir),
+        hasClaudeMd: fs.existsSync(path.join(dir, 'CLAUDE.md')),
+        agents: [...rosterFor(dir).agents].sort((a, b) => a.localeCompare(b)),
+        error: !plugin ? `The harness-plugin is not installed. Run: ${PLUGIN_INSTALL}` : !py ? 'Python 3 was not found on PATH.' : undefined,
+      };
+    },
+    initRun: async (dir, form: InitForm, apply) => {
+      const { plugin, py } = await constitution.tools();
+      if (!plugin || !py) return { error: !plugin ? `The harness-plugin is not installed. Run: ${PLUGIN_INSTALL}` : 'Python 3 was not found on PATH.' };
+      if (!form.summary.trim()) return { error: 'Write a summary of one to three sentences first.' };
+      const roster = rosterFor(dir);
+      const unknown = form.areas.filter(a => a.owner.trim() && !roster.agents.has(a.owner.trim())).map(a => a.owner.trim());
+      if (unknown.length) return { error: `No agent named ${unknown.join(', ')} on disk.` };
+      const r = await runScript(py, plugin.init, initArgs(dir, form, apply));
+      if (r.code !== 0) return { error: r.stderr.trim() || `init-product-repo.py exited with ${r.code}` };
+      if (apply) {
+        const config = vscode.workspace.getConfiguration('claudeHarness');
+        if (!scopes.some(s => samePath(s.base, dir))) {
+          const folders = config.get<string[]>('repoFolders') ?? [];
+          if (!folders.some(f => samePath(f, dir))) await config.update('repoFolders', [...folders, dir], vscode.ConfigurationTarget.Global);
+        }
+        loadScopes();
+        refresh();
+        constitution.ensure([dir], true);
+      }
+      return parseInitOutput(r.stdout);
+    },
+  };
+
+  const guard = async (dirs: string[], title: string): Promise<string[] | undefined> => {
+    const infos = await Promise.all(dirs.map(d => guardInfo(d)));
+    const items = infos.map(g => {
+      const reasons = guardReasons(g);
+      return { label: `${reasons.length ? '$(warning)' : '$(repo)'} ${path.basename(g.dir)}`, description: reasons.join(' · ') || 'clean', detail: g.dir, picked: !reasons.length, dir: g.dir };
+    });
+    if (items.length === 1 && items[0].picked) return dirs;
+    const picked = await vscode.window.showQuickPick(items, { canPickMany: true, title, placeHolder: 'Repos with uncommitted harness files, a busy Claude session or stale worktree copies are unticked. Tick one to include it anyway.' });
+    return picked?.map(p => p.dir);
+  };
+
+  const needTools = async () => {
+    const tools = await constitution.tools();
+    if (!tools.plugin) {
+      const pick = await vscode.window.showWarningMessage('The harness-plugin is not installed, so this command is off.', { detail: PLUGIN_INSTALL, modal: true }, 'Copy Install Command');
+      if (pick) await vscode.env.clipboard.writeText(PLUGIN_INSTALL);
+      return undefined;
+    }
+    if (!tools.py) {
+      void vscode.window.showErrorMessage('Python 3 was not found on PATH (python, py -3 or python3), so this command is off.');
+      return undefined;
+    }
+    return { plugin: tools.plugin, py: tools.py };
+  };
+
+  const repoOfArg = (arg: unknown): HarnessScope | undefined => {
+    const id = typeof arg === 'string' ? arg : arg && typeof arg === 'object' ? ((arg as { scope?: string }).scope ?? ((arg as Node).type === 'repo' ? (arg as Extract<Node, { type: 'repo' }>).view.id : undefined)) : undefined;
+    const scope = scopes.find(s => s.id === id);
+    return scope && scope.id !== global.id ? scope : undefined;
+  };
+
+  const pickRepos = async (title: string, preselect: (v: ScopeView) => boolean = () => false) => {
+    const items = repoViews().map(v => ({ label: `$(repo) ${v.label}`, description: v.path, picked: preselect(v), dir: v.path }));
+    return (await vscode.window.showQuickPick(items, { canPickMany: true, title, matchOnDescription: true }))?.map(i => i.dir);
+  };
+
+  const previewEdits = async (edits: FileEdit[], title: string) => {
+    const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-edit-'));
+    for (const [i, e] of edits.slice(0, 8).entries()) {
+      const after = path.join(temp, `${i}-${path.basename(e.file)}`);
+      fs.writeFileSync(after, e.after, 'utf8');
+      await vscode.commands.executeCommand('vscode.diff', vscode.Uri.file(e.file), vscode.Uri.file(after), `${title}: ${path.basename(path.dirname(path.dirname(e.file)))}/${path.basename(e.file)} (now ↔ after)`, { preview: false });
+    }
+  };
+
+  const backupRoot = () => path.join(global.root, 'repo-sync-backups');
 
   const assetOf = (arg: unknown): Asset | undefined => {
     if (typeof arg === 'string') return find(arg);
@@ -475,13 +622,222 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('claudeHarness.togglePlugin', (arg?: unknown) => {
       const asset = assetOf(arg);
       if (asset?.kind === 'plugin') run(() => setPluginEnabled(scopeOf(asset), asset.name, !asset.enabled));
+    }),
+
+    constitution,
+    checksChanged,
+    vscode.workspace.onDidSaveTextDocument(doc => {
+      const repo = harnessFileOf(doc.uri.fsPath);
+      if (repo) constitution.ensure([repo.path]);
+    }),
+    vscode.workspace.onDidOpenTextDocument(doc => {
+      const repo = doc.uri.scheme === 'file' && path.basename(doc.uri.fsPath) === 'CLAUDE.md' ? harnessFileOf(doc.uri.fsPath) : undefined;
+      if (repo) constitution.ensure([repo.path]);
+    }),
+    vscode.commands.registerCommand('claudeHarness.showRepo', (arg?: unknown) => {
+      const repo = repoOfArg(arg);
+      if (!repo) return;
+      constitution.ensure([repo.base]);
+      HarnessPanel.showPage(context, host, { repo: repo.id });
+    }),
+    vscode.commands.registerCommand('claudeHarness.showFleet', () => {
+      constitution.ensure(repoViews().map(v => v.path));
+      HarnessPanel.showPage(context, host, { page: 'fleet' });
+    }),
+    vscode.commands.registerCommand('claudeHarness.showMarketplaces', () => HarnessPanel.showPage(context, host, { page: 'marketplaces' })),
+    vscode.commands.registerCommand('claudeHarness.checkRepos', (arg?: unknown) => {
+      const repo = repoOfArg(arg);
+      constitution.reset();
+      constitution.ensure(repo ? [repo.base] : repoViews().map(v => v.path), true);
+    }),
+    vscode.commands.registerCommand('claudeHarness.openStandard', async () => {
+      const tools = await needTools();
+      if (tools) await vscode.commands.executeCommand('vscode.open', vscode.Uri.file(path.join(tools.plugin.dir, 'skills', 'fix-constitution', 'references', 'standard.md')));
+    }),
+
+    vscode.commands.registerCommand('claudeHarness.fixSettings', async (arg?: unknown) => {
+      const tools = await needTools();
+      if (!tools) return;
+      const one = repoOfArg(arg);
+      let dirs = one ? [one.base] : await pickRepos('Fix settings and hooks in', v => /settings|hook/.test(JSON.stringify(constitution.get(v.path).result?.findings ?? [])));
+      if (!dirs?.length) return;
+      const mode = await vscode.window.showQuickPick(
+        [
+          { label: 'Fix plugins, marketplaces and hooks', keep: false },
+          { label: 'Keep plugin settings', description: '--keep-plugins: only replaced hooks are removed', keep: true },
+        ],
+        { title: 'What fix-settings may change' }
+      );
+      if (!mode) return;
+      dirs = await guard(dirs, 'Fix settings in these repos');
+      if (!dirs?.length) return;
+      const settings = path.join(global.root, 'settings.json');
+      const previews = await Promise.all(
+        dirs.map(async dir => {
+          try {
+            return { dir, preview: await previewFix(tools.plugin, tools.py, dir, mode.keep, settings) };
+          } catch (e) {
+            return { dir, error: (e as Error).message };
+          }
+        })
+      );
+      const failed = previews.filter(p => p.error);
+      if (failed.length) void vscode.window.showErrorMessage(`fix-settings failed in ${failed.map(f => path.basename(f.dir)).join(', ')}: ${failed[0].error}`);
+      const changed = previews.filter(p => p.preview && p.preview.changes.length);
+      if (!changed.length) {
+        if (!failed.length) void vscode.window.showInformationMessage(`Nothing to fix in ${dirs.length === 1 ? path.basename(dirs[0]) : `${dirs.length} repos`}.`);
+        return;
+      }
+      let opened = 0;
+      for (const p of changed)
+        for (const f of p.preview!.files)
+          if (f.after && opened++ < 8)
+            await vscode.commands.executeCommand('vscode.diff', vscode.Uri.file(f.before), vscode.Uri.file(f.after), `${path.basename(p.dir)}: ${f.rel} (now ↔ after fix)`, { preview: false });
+      const detail = changed.map(p => `${path.basename(p.dir)}\n${p.preview!.changes.map(c => `  ${c}`).join('\n')}`).join('\n\n');
+      const ok = await vscode.window.showWarningMessage(`Apply fix-settings to ${changed.length === 1 ? path.basename(changed[0].dir) : `${changed.length} repos`}?`, { modal: true, detail }, 'Apply');
+      if (ok !== 'Apply') return;
+      for (const p of changed) {
+        try {
+          await applyFix(tools.plugin, tools.py, p.dir, mode.keep, settings);
+        } catch (e) {
+          void vscode.window.showErrorMessage(`fix-settings failed in ${path.basename(p.dir)}: ${(e as Error).message}`);
+        }
+      }
+      refresh();
+      constitution.ensure(changed.map(p => p.dir), true);
+      void vscode.window.showInformationMessage(`Applied fix-settings to ${changed.length === 1 ? path.basename(changed[0].dir) : `${changed.length} repos`}.`);
+    }),
+
+    vscode.commands.registerCommand('claudeHarness.initRepo', async (arg?: unknown) => {
+      let dir = repoOfArg(arg)?.base;
+      if (!dir) {
+        const picked = await vscode.window.showOpenDialog({ canSelectFolders: true, canSelectFiles: false, openLabel: 'Init Product Repo', title: 'Folder of the new product repo' });
+        dir = picked?.[0]?.fsPath;
+      }
+      if (dir) HarnessPanel.showPage(context, host, { page: 'init', dir });
+    }),
+
+    vscode.commands.registerCommand('claudeHarness.retire', async (arg?: unknown) => {
+      const asset = assetOf(arg);
+      if (!asset) return;
+      const scope = scopeOf(asset);
+      const block = retireBlock(asset, scope.id === global.id ? undefined : scope.base);
+      if (block) {
+        void vscode.window.showInformationMessage(`${asset.name} cannot be retired. ${block}`);
+        return;
+      }
+      const reasons = guardReasons(await guardInfo(scope.base));
+      const stamp = backupStamp();
+      const target = asset.dir ?? asset.file;
+      const dest = path.join(backupRoot(), stamp, path.basename(scope.base), path.relative(scope.base, target));
+      const same = (asset.copies ?? []).filter(c => c.same && (c.scope === global.id || c.scope.startsWith('plugin:'))).map(c => c.label);
+      const detail = [`Identical to: ${same.join(', ')}`, `Backs up ${target}`, `to ${dest}`, 'then deletes it from the repo.', reasons.length ? `\nCareful: ${reasons.join(', ')}.` : ''].filter(Boolean).join('\n');
+      const ok = await vscode.window.showWarningMessage(`Retire the copy of ${asset.name} in ${scope.label}?`, { modal: true, detail }, 'Retire');
+      if (ok !== 'Retire') return;
+      if (run(() => retireAsset(asset, scope.base, backupRoot(), stamp))) void vscode.window.showInformationMessage(`Retired ${asset.name}. Backup: ${dest}`);
+    }),
+
+    vscode.commands.registerCommand('claudeHarness.retireCopies', async () => {
+      const candidates = repoViews().flatMap(v =>
+        v.categories
+          .filter(c => c.kind === 'skill' || c.kind === 'agent')
+          .flatMap(c => c.items)
+          .filter(a => !retireBlock(a, v.path))
+          .map(a => ({ asset: a, view: v }))
+      );
+      if (!candidates.length) {
+        void vscode.window.showInformationMessage('No product repo holds an identical copy of a global or plugin skill or agent.');
+        return;
+      }
+      const picked = await vscode.window.showQuickPick(
+        candidates.map(c => ({
+          label: `$(${c.asset.kind === 'skill' ? 'mortar-board' : 'hubot'}) ${c.asset.name}`,
+          description: `${c.view.label} · identical to ${(c.asset.copies ?? []).filter(x => x.same && (x.scope === global.id || x.scope.startsWith('plugin:'))).map(x => x.label).join(', ')}`,
+          picked: true,
+          c,
+        })),
+        { canPickMany: true, title: 'Retire clean copies', matchOnDescription: true }
+      );
+      if (!picked?.length) return;
+      const dirs = await guard([...new Set(picked.map(p => p.c.view.path))], 'Retire copies in these repos');
+      if (!dirs?.length) return;
+      const chosen = picked.filter(p => dirs.some(d => samePath(d, p.c.view.path)));
+      if (!chosen.length) return;
+      const stamp = backupStamp();
+      const ok = await vscode.window.showWarningMessage(
+        `Retire ${chosen.length} ${chosen.length === 1 ? 'copy' : 'copies'} from ${dirs.length} ${dirs.length === 1 ? 'repo' : 'repos'}?`,
+        { modal: true, detail: `Each is backed up to ${path.join(backupRoot(), stamp)}\\<repo>\\ first, then deleted.\n\n${chosen.map(p => `${p.c.view.label}: ${p.c.asset.name}`).join('\n')}` },
+        'Retire'
+      );
+      if (ok !== 'Retire') return;
+      run(() => chosen.forEach(p => retireAsset(p.c.asset, p.c.view.path, backupRoot(), stamp)));
+      constitution.ensure(dirs, true);
+      void vscode.window.showInformationMessage(`Retired ${chosen.length} ${chosen.length === 1 ? 'copy' : 'copies'}. Backup: ${path.join(backupRoot(), stamp)}`);
+    }),
+
+    vscode.commands.registerCommand('claudeHarness.renameMarketplace', async (arg?: unknown) => {
+      const markets = marketplaceHealth(global.root);
+      const market =
+        markets.find(m => m.name === arg) ??
+        (await vscode.window.showQuickPick(markets.map(m => ({ label: m.name, description: `${m.kind} · ${m.source}`, m })), { title: 'Rename which marketplace?' }))?.m;
+      if (!market) return;
+      if (market.kind !== 'directory') {
+        void vscode.window.showWarningMessage(`${market.name} is a ${market.kind} marketplace: its name comes from the marketplace.json at its source, so it can only be renamed there.`);
+        return;
+      }
+      const to = await vscode.window.showInputBox({
+        prompt: `New name for ${market.name}`,
+        value: market.name,
+        validateInput: v => (!/^[a-z0-9][a-z0-9-]*$/.test(v) ? 'Lowercase letters, digits and dashes.' : markets.some(m => m.name === v) ? `${v} already exists.` : undefined),
+      });
+      if (!to || to === market.name) return;
+      const repoEdits = repoViews().flatMap(v => ['settings.json', 'settings.local.json'].map(f => ({ dir: v.path, edit: renameInSettings(path.join(v.path, '.claude', f), market.name, to) })).filter(x => x.edit));
+      const dirs = repoEdits.length ? await guard([...new Set(repoEdits.map(x => x.dir))], `Rewrite @${market.name} in these repos`) : [];
+      if (!dirs) return;
+      const edits = [renameInSettings(path.join(global.root, 'settings.json'), market.name, to), renameCatalog(market.location, to), ...repoEdits.filter(x => dirs.some(d => samePath(d, x.dir))).map(x => x.edit)].filter(
+        (e): e is FileEdit => !!e
+      );
+      await previewEdits(edits, `Rename ${market.name}`);
+      const commands = renameCommands(market, to);
+      const ok = await vscode.window.showWarningMessage(
+        `Rename ${market.name} to ${to}?`,
+        { modal: true, detail: `Rewrites ${edits.length} ${edits.length === 1 ? 'file' : 'files'}:\n${edits.map(e => `  ${e.file}`).join('\n')}\n\nThen a terminal re-registers the marketplace:\n${commands.map(c => `  ${c}`).join('\n')}` },
+        'Rename'
+      );
+      if (ok !== 'Rename') return;
+      run(() => edits.forEach(e => fs.writeFileSync(e.file, e.after, 'utf8')));
+      const t = vscode.window.createTerminal({ name: `Rename ${market.name}`, cwd: os.homedir() });
+      t.show();
+      for (const c of commands) t.sendText(c);
     })
   );
+
+  registerLenses(context, {
+    problemsFor: file => constitution.problemsFor(file),
+    baseOf: file => {
+      const repo = harnessFileOf(file);
+      if (!repo) return undefined;
+      const rel = path.relative(repo.path, file).split(path.sep).join('/');
+      return rel === 'CLAUDE.md' || rel.startsWith('.claude/rules/') ? repo.path : undefined;
+    },
+    roster: base => rosterFor(base),
+    alsoDirs: () => [path.join(global.root, 'skills')],
+    changed: listener => {
+      const a = checksChanged.event(listener);
+      const b = lensesChanged.event(listener);
+      return { dispose: () => (a.dispose(), b.dispose()) };
+    },
+  });
 
   loadScopes();
   watch();
   refresh();
   loadCliServers();
+  const openRepos = vscode.workspace.textDocuments
+    .filter(doc => doc.uri.scheme === 'file' && path.basename(doc.uri.fsPath) === 'CLAUDE.md')
+    .map(doc => harnessFileOf(doc.uri.fsPath)?.path)
+    .filter((dir): dir is string => !!dir);
+  if (openRepos.length) constitution.ensure([...new Set(openRepos)]);
 }
 
 export function deactivate(): void {}

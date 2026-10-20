@@ -12,6 +12,13 @@
     expanded: new Set(saved.expanded || []),
     mcpSort: saved.mcpSort || 'name',
     mcpInfo: {},
+    checks: {},
+    page: undefined,
+    fleet: undefined,
+    effective: {},
+    ruleInfo: {},
+    markets: undefined,
+    init: undefined,
   };
   const app = document.getElementById('app');
 
@@ -69,8 +76,46 @@
   };
   const showRepo = id => {
     state.repo = id;
+    state.page = undefined;
+    if (id) state.effective[id] = undefined;
     if (state.detail) select(undefined);
     else render();
+  };
+  const showPage = (page, extra) => {
+    state.page = page;
+    state.repo = undefined;
+    if (page === 'init') state.init = { dir: extra, form: { summary: '', areas: [{ name: '', globs: '', owner: '' }], rules: '' }, data: undefined, result: undefined };
+    if (page === 'fleet') vscode.postMessage({ type: 'fleet' });
+    if (page === 'marketplaces') vscode.postMessage({ type: 'marketplaces' });
+    if (page === 'init') vscode.postMessage({ type: 'initForm', dir: extra });
+    if (state.detail) select(undefined);
+    else render();
+  };
+  const CHECK = {
+    pass: ['pass', 'ok', 'Passes the harness standard'],
+    fail: ['error', 'bad', 'Fails the harness standard'],
+    review: ['warning', 'warn', 'Lines to review'],
+    running: ['sync', 'muted', 'Checking...'],
+    error: ['circle-slash', 'bad', 'Check failed'],
+    'no-plugin': ['circle-slash', 'muted', 'harness-plugin not installed'],
+    'no-python': ['circle-slash', 'muted', 'Python 3 not found'],
+  };
+  const checkText = c =>
+    !c || c.state === 'unchecked'
+      ? 'not checked'
+      : c.state === 'pass'
+        ? 'pass'
+        : c.state === 'fail'
+          ? `fail ${c.fail || 0}${c.review ? ` · review ${c.review}` : ''}`
+          : c.state === 'review'
+            ? `review ${c.review || 0}`
+            : c.state === 'running'
+              ? 'checking...'
+              : c.error || c.state;
+  const checkBadge = c => {
+    if (!c || !CHECK[c.state]) return null;
+    const [glyph, tone, title] = CHECK[c.state];
+    return el('span', { className: `check-badge ${tone}`, title: c.error || `${title}${c.fail !== undefined ? ` (fail ${c.fail}, review ${c.review})` : ''}` }, icon(glyph));
   };
   const command = (cmd, extra) => vscode.postMessage(Object.assign({ type: 'command', command: cmd }, extra));
   const save = () => {
@@ -200,6 +245,7 @@
           icon(open ? 'chevron-down' : 'chevron-right'),
           icon('repo'),
           el('span', { className: 'label' }, view.label),
+          checkBadge(state.checks[view.id]),
           iconBtn('terminal', `Open Claude in ${view.label}`, e => {
             e.stopPropagation();
             command('openClaude', { scope: view.id });
@@ -237,6 +283,8 @@
         el('span', {}, 'Claude Harness'),
         el('span', { className: 'spacer' }),
         iconBtn('home', 'Overview', () => showRepo(undefined)),
+        iconBtn('table', 'Fleet overview', () => showPage('fleet')),
+        iconBtn('package', 'Marketplace health', () => showPage('marketplaces')),
         iconBtn('add', 'New...', () => command('create')),
         iconBtn('refresh', 'Refresh', () => command('refresh'))
       ),
@@ -388,6 +436,9 @@
         el(
           'div',
           { className: 'toolbar' },
+          iconBtn('checklist', 'Check against the harness standard', () => command('checkRepos', { scope: view.id })),
+          iconBtn('wrench', 'Fix settings and hooks...', () => command('fixSettings', { scope: view.id })),
+          iconBtn('new-folder', 'Init product repo...', () => showPage('init', view.path)),
           iconBtn('add', `New in ${view.label}`, () => command('create', { scope: view.id })),
           iconBtn('trash', `Remove ${view.label} from the harness`, () => {
             state.repo = undefined;
@@ -434,9 +485,356 @@
                 )
               )
             )
-          : null
+          : null,
+        renderStandard(view),
+        renderEffective(view)
       )
     );
+  }
+
+  const openAt = (file, line) => vscode.postMessage({ type: 'openAt', file, line });
+  const LEVEL_ICONS = { FAIL: 'error', REVIEW: 'warning', INFO: 'info' };
+
+  function renderStandard(view) {
+    const eff = state.effective[view.id];
+    const live = state.checks[view.id];
+    const c = eff && eff.check && (!live || eff.check.state === live.state) ? eff.check : live;
+    const findings = (c && c.findings) || [];
+    return el(
+      'div',
+      { className: 'recent' },
+      el('div', { className: 'group-label' }, 'Harness standard'),
+      el('div', { className: 'check-line' }, checkBadge(c) || icon('circle-large-outline'), el('span', {}, checkText(c)), c && c.kind ? el('span', { className: 'desc' }, `${c.kind} repo`) : null),
+      findings.map(f =>
+        el(
+          'div',
+          { className: 'row', title: f.file ? `${f.file}${f.line ? `:${f.line}` : ''}` : f.text, onclick: f.file ? () => openAt(f.file, f.line) : undefined },
+          el('span', { className: `check-badge ${f.level === 'FAIL' ? 'bad' : f.level === 'REVIEW' ? 'warn' : 'muted'}` }, icon(LEVEL_ICONS[f.level] || 'info')),
+          el('span', { className: 'name wrap' }, f.text.replace(/^(FAIL|REVIEW|INFO) /, ''))
+        )
+      )
+    );
+  }
+
+  function memoryRows(node, depth) {
+    return [
+      el(
+        'div',
+        { className: `row indent-${Math.min(depth, 5)}`, title: node.file, onclick: node.exists ? () => openAt(node.file) : undefined },
+        icon(depth ? 'arrow-small-right' : 'markdown'),
+        el('span', { className: 'name' }, node.label),
+        el('span', { className: 'desc' }, node.exists ? (depth ? 'imported' : node.file) : 'not found')
+      ),
+      ...node.imports.flatMap(n => memoryRows(n, depth + 1)),
+    ];
+  }
+
+  function renderEffective(view) {
+    const eff = state.effective[view.id];
+    if (eff === undefined) {
+      state.effective[view.id] = null;
+      vscode.postMessage({ type: 'effective', scope: view.id });
+    }
+    if (!eff) return el('div', { className: 'empty flush' }, 'Reading what a session here loads...');
+    const e = eff.effective;
+    const plugin = p =>
+      [
+        ['user', p.user],
+        ['project', p.project],
+        ['local', p.local],
+      ]
+        .filter(([, v]) => v !== undefined)
+        .map(([k, v]) => `${k} ${v ? 'on' : 'off'}`)
+        .join(' · ');
+    return el(
+      'div',
+      { className: 'effective' },
+      el('div', { className: 'group-label' }, 'Effective harness: what a session here loads'),
+      el('div', { className: 'sub-label' }, 'Memory, imports expanded'),
+      e.memory.length ? e.memory.flatMap(n => memoryRows(n, 0)) : el('div', { className: 'empty flush' }, 'No CLAUDE.md'),
+      el('div', { className: 'sub-label' }, `Rules (${e.rules.length})`),
+      e.rules.length
+        ? e.rules.map(r =>
+            el(
+              'div',
+              { className: 'row', title: r.file, onclick: () => openAt(r.file) },
+              icon(r.always ? 'law' : r.total ? 'filter' : 'warning'),
+              el('span', { className: 'name' }, `${r.scope === view.label ? '' : `${r.scope} · `}${r.name}`),
+              el('span', { className: 'desc' }, r.always ? 'always loaded' : `${r.globs.map(g => g.glob).join(', ')} · ${r.total} ${r.total === 1 ? 'file' : 'files'}${e.capped ? '+' : ''}`)
+            )
+          )
+        : el('div', { className: 'empty flush' }, 'No rules'),
+      el('div', { className: 'sub-label' }, `Plugins (${e.plugins.filter(p => p.enabled).length} on)`),
+      e.plugins.length
+        ? e.plugins.map(p =>
+            el(
+              'div',
+              { className: `row${p.enabled ? '' : ' disabled'}` },
+              icon(p.enabled ? 'pass-filled' : 'circle-large-outline'),
+              el('span', { className: 'name' }, p.key),
+              el('span', { className: `desc${p.duplicate ? ' warn' : ''}` }, [plugin(p), p.duplicate ? 'duplicate: already on for the user' : ''].filter(Boolean).join(' · '))
+            )
+          )
+        : el('div', { className: 'empty flush' }, 'No plugins'),
+      el('div', { className: 'sub-label' }, `Hooks (${e.hooks.length})`),
+      e.hooks.length
+        ? e.hooks.map(h =>
+            el(
+              'div',
+              { className: 'row', title: h.command },
+              icon(h.event === 'mod' ? 'extensions' : 'zap'),
+              el('span', { className: 'name' }, h.matcher ? `${h.event} · ${h.matcher}` : h.event),
+              el('span', { className: 'desc' }, `${h.command} · ${h.source}`)
+            )
+          )
+        : el('div', { className: 'empty flush' }, 'No hooks')
+    );
+  }
+
+  function renderRuleInfo(a) {
+    const info = state.ruleInfo[a.id];
+    if (info === undefined) {
+      state.ruleInfo[a.id] = null;
+      vscode.postMessage({ type: 'ruleInfo', id: a.id });
+    }
+    if (!info) return el('div', { className: 'empty flush' }, 'Matching paths...');
+    return el(
+      'div',
+      {},
+      el('div', { className: 'group-label' }, 'Paths'),
+      info.base ? el('div', { className: 'empty flush' }, `Matched against ${info.base}`) : null,
+      info.globs.length
+        ? info.globs.map(g =>
+            el(
+              'div',
+              { className: 'row', title: g.sample.join('\n') },
+              icon(g.matches ? 'pass' : 'warning'),
+              el('span', { className: 'name' }, g.glob),
+              el('span', { className: 'desc' }, `${g.matches} ${g.matches === 1 ? 'file' : 'files'}${info.capped ? '+' : ''}${g.sample.length ? ` · ${g.sample.join(', ')}` : ''}`)
+            )
+          )
+        : el('div', { className: 'empty flush' }, 'No paths: the rule loads in every session'),
+      info.owner
+        ? el(
+            'div',
+            { className: 'row' },
+            icon(info.ownerFound ? 'pass' : 'error'),
+            el('span', { className: 'name' }, `Owner agent: ${info.owner}`),
+            el('span', { className: 'desc' }, info.ownerFound ? 'found on disk' : 'no agent with this name on disk')
+          )
+        : el('div', { className: 'empty flush' }, 'No Owner agent line')
+    );
+  }
+
+  function pageHead(glyph, title, sub, ...tools) {
+    return el('header', { className: 'main-head' }, el('span', { className: 'big' }, icon(glyph)), el('div', { className: 'title' }, el('h1', {}, title), el('div', { className: 'path' }, sub)), el('div', { className: 'toolbar' }, ...tools));
+  }
+
+  const liveCheck = r => state.checks[r.id] || { state: r.checkState };
+
+  function renderFleet() {
+    const rows = state.fleet;
+    const body = el('div', { className: 'main-body' });
+    if (!rows) body.append(el('div', { className: 'empty flush' }, 'Reading the repos...'));
+    else {
+      const heads = ['Repo', 'Layout', 'Standard', 'Lines', 'Em dashes', 'Restated', 'Plugins', 'Hook copies', 'Copies'];
+      body.append(
+        el(
+          'div',
+          { className: 'table-wrap' },
+          el(
+            'table',
+            { className: 'grid' },
+            el('thead', {}, el('tr', {}, heads.map((h, i) => el('th', { className: i >= 3 ? 'num' : '' }, h)))),
+            el(
+              'tbody',
+              {},
+              rows.map(r =>
+                el(
+                  'tr',
+                  {
+                    className: 'clickable',
+                    title: r.path,
+                    onclick: () => {
+                      state.openRepos.add(r.id);
+                      persist();
+                      showRepo(r.id);
+                    },
+                  },
+                  el('td', {}, el('span', { className: 'cell' }, icon('repo'), r.label)),
+                  el('td', { className: r.layout === 'router' ? '' : 'warn' }, r.layout),
+                  el('td', {}, el('span', { className: 'cell' }, checkBadge(liveCheck(r)), checkText(liveCheck(r)))),
+                  el('td', { className: `num${r.lines > 120 ? ' warn' : ''}` }, r.lines || ''),
+                  el('td', { className: `num${r.emDashes ? ' warn' : ''}` }, r.emDashes),
+                  el('td', { className: `num${r.check && r.check.restated ? ' warn' : ''}` }, r.check ? r.check.restated : ''),
+                  el('td', { className: 'num', title: r.plugins.join('\n') }, r.plugins.length || ''),
+                  el('td', { className: 'num' }, r.hookCopies || ''),
+                  el('td', { className: 'num' }, r.copies || '')
+                )
+              )
+            )
+          )
+        ),
+        el('div', { className: 'empty flush' }, 'Lines and em dashes count the root CLAUDE.md. Restated comes from the harness standard check. Copies count skills and agents that also exist in another scope or a plugin.')
+      );
+    }
+    return el(
+      'section',
+      { className: 'main' },
+      pageHead(
+        'table',
+        'Fleet overview',
+        rows ? `${rows.length} repositories` : 'Reading...',
+        iconBtn('checklist', 'Check every repo against the harness standard', () => command('checkRepos')),
+        iconBtn('wrench', 'Fix settings and hooks...', () => command('fixSettings')),
+        iconBtn('archive', 'Retire clean copies...', () => command('retireCopies')),
+        iconBtn('refresh', 'Reload the table', () => vscode.postMessage({ type: 'fleet' }))
+      ),
+      body
+    );
+  }
+
+  function renderMarkets() {
+    const list = state.markets;
+    const body = el('div', { className: 'main-body' });
+    if (!list) body.append(el('div', { className: 'empty flush' }, 'Reading the marketplaces...'));
+    else if (!list.length) body.append(el('div', { className: 'empty flush' }, 'No marketplace registered. Add one with claude plugin marketplace add.'));
+    else
+      for (const m of list) {
+        const ahead = m.plugins.filter(p => p.ahead).length;
+        body.append(
+          el(
+            'div',
+            { className: 'recent' },
+            el('div', { className: 'market-head' }, icon('package'), el('span', { className: 'label' }, m.name), ahead ? el('span', { className: 'tag warn' }, `${ahead} ahead`) : null, el('span', { className: 'spacer' }),
+              m.kind === 'directory' ? el('button', { className: 'secondary', onclick: () => command('renameMarketplace', { market: m.name }) }, icon('edit'), 'Rename...') : null),
+            el('div', { className: 'facts' }, [
+              [el('span', { className: 'key' }, 'Source'), el('span', { className: 'value' }, `${m.kind} · ${m.source}`)],
+              [el('span', { className: 'key' }, 'Location'), el('span', { className: 'value' }, m.location)],
+            ].flat()),
+            m.plugins.length
+              ? el(
+                  'div',
+                  { className: 'table-wrap' },
+                  el(
+                    'table',
+                    { className: 'grid' },
+                    el('thead', {}, el('tr', {}, ['Plugin', 'Installed', 'Source', 'State'].map(h => el('th', {}, h)))),
+                    el(
+                      'tbody',
+                      {},
+                      m.plugins.map(p =>
+                        el(
+                          'tr',
+                          {},
+                          el('td', {}, p.name),
+                          el('td', {}, p.installed || 'not installed'),
+                          el('td', {}, p.source || ''),
+                          el('td', { className: p.ahead ? 'warn' : '' }, [p.ahead ? 'source ahead of the installed copy' : p.installed ? 'current' : '', p.enabled ? 'enabled' : ''].filter(Boolean).join(' · '))
+                        )
+                      )
+                    )
+                  )
+                )
+              : el('div', { className: 'empty flush' }, 'No plugins installed from it')
+          )
+        );
+      }
+    return el('section', { className: 'main' }, pageHead('package', 'Marketplace health', list ? `${list.length} marketplaces` : 'Reading...', iconBtn('refresh', 'Reload', () => vscode.postMessage({ type: 'marketplaces' }))), body);
+  }
+
+  const initForm = () => ({ summary: state.init.form.summary, areas: state.init.form.areas, rules: state.init.form.rules.split(/\r?\n/) });
+
+  function renderInit() {
+    const s = state.init;
+    const data = s.data;
+    const body = el('div', { className: 'main-body' });
+    let createBtn;
+    const syncCreate = () => {
+      if (createBtn) createBtn.disabled = !(s.result && !s.result.error && !s.applied && s.previewKey === JSON.stringify(initForm()));
+    };
+    if (!data) body.append(el('div', { className: 'empty flush' }, 'Loading...'));
+    else {
+      if (data.error) body.append(el('div', { className: 'notice bad' }, data.error));
+      if (data.hasClaudeMd) body.append(el('div', { className: 'notice' }, 'This folder has a CLAUDE.md. Init only creates missing files and never overwrites one.'));
+      const owners = data.agents || [];
+      body.append(
+        el('div', { className: 'group-label' }, 'Summary'),
+        el('textarea', { className: 'text', rows: 3, placeholder: 'One to three sentences: what the product is and its stack.', value: s.form.summary, oninput: e => ((s.form.summary = e.target.value), syncCreate()) }),
+        el('div', { className: 'group-label' }, 'Areas'),
+        el(
+          'div',
+          { className: 'areas' },
+          s.form.areas.map((a, i) =>
+            el(
+              'div',
+              { className: 'area' },
+              el('input', { type: 'text', placeholder: 'name, e.g. api', value: a.name, oninput: e => ((a.name = e.target.value), syncCreate()) }),
+              el('input', { type: 'text', placeholder: 'globs, e.g. src/api/**', value: a.globs, oninput: e => ((a.globs = e.target.value), syncCreate()) }),
+              el(
+                'select',
+                { onchange: e => ((a.owner = e.target.value), syncCreate()) },
+                el('option', { value: '', selected: !a.owner }, 'Owner agent'),
+                owners.map(o => el('option', { value: o, selected: a.owner === o }, o))
+              ),
+              iconBtn('close', 'Remove area', () => {
+                s.form.areas.splice(i, 1);
+                renderMain();
+              })
+            )
+          )
+        ),
+        el('div', { className: 'add-field' }, el('button', { className: 'secondary', onclick: () => (s.form.areas.push({ name: '', globs: '', owner: '' }), renderMain()) }, icon('add'), 'Add area')),
+        el('div', { className: 'group-label' }, 'Repo rules'),
+        el('textarea', { className: 'text', rows: 3, placeholder: 'One repo-only hard rule per line.', value: s.form.rules, oninput: e => ((s.form.rules = e.target.value), syncCreate()) })
+      );
+      createBtn = el(
+        'button',
+        {
+          className: 'primary',
+          onclick: () => vscode.postMessage({ type: 'initRun', dir: s.dir, form: initForm(), apply: true }),
+        },
+        icon('new-file'),
+        'Create files'
+      );
+      body.append(
+        el(
+          'div',
+          { className: 'toolbar' },
+          el(
+            'button',
+            {
+              className: 'secondary',
+              onclick: () => {
+                s.pendingKey = JSON.stringify(initForm());
+                vscode.postMessage({ type: 'initRun', dir: s.dir, form: initForm(), apply: false });
+              },
+            },
+            icon('eye'),
+            'Preview'
+          ),
+          createBtn
+        )
+      );
+      syncCreate();
+      if (s.result) {
+        if (s.result.error) body.append(el('div', { className: 'notice bad' }, s.result.error));
+        else
+          body.append(
+            el(
+              'div',
+              {},
+              el('div', { className: 'group-label' }, s.applied ? 'Created' : 'Preview: nothing is written yet'),
+              (s.result.files || []).map(f => el('div', { className: 'row' }, icon(f.action === 'create' ? 'new-file' : 'circle-slash'), el('span', { className: 'name' }, f.rel), el('span', { className: 'desc' }, f.action === 'create' ? (s.applied ? 'created' : 'will be created') : 'exists, skipped'))),
+              el('div', { className: 'empty flush' }, s.result.summary || '')
+            )
+          );
+      }
+    }
+    const wrap = el('div', { className: 'init-form' });
+    wrap.append(...[...body.childNodes]);
+    body.append(wrap);
+    return el('section', { className: 'main' }, pageHead('new-folder', 'Init product repo', s.dir), body);
   }
 
   const fit = box => {
@@ -527,6 +925,9 @@
     );
   }
 
+  const retirable = a =>
+    (a.kind === 'skill' || a.kind === 'agent') && a.scope !== 'global' && (a.copies || []).some(c => c.same && (c.scope === 'global' || c.scope.startsWith('plugin:')));
+
   let headNode;
   function renderHead() {
     const d = state.detail;
@@ -551,6 +952,7 @@
         canRename ? iconBtn('copy', 'Duplicate', () => command('duplicate', { id: d.asset.id })) : null,
         iconBtn('go-to-file', 'Open in editor', () => command('openFile', { id: d.asset.id })),
         iconBtn('folder-opened', 'Reveal in File Explorer', () => command('reveal', { id: d.asset.id })),
+        retirable(d.asset) ? iconBtn('archive', 'Retire this copy: back it up, then delete it', () => command('retire', { id: d.asset.id })) : null,
         canRename || (d.asset.kind === 'mcp' && d.asset.file && d.asset.jsonPath) ? iconBtn('trash', 'Delete', () => command('delete', { id: d.asset.id })) : null,
         d.asset.kind === 'plugin' ? iconBtn('trash', 'Uninstall plugin', () => command('uninstallPlugin', { id: d.asset.id })) : null
       ),
@@ -586,6 +988,7 @@
     const body = el('div', { className: 'main-body' });
     if (d.mode === 'markdown') {
       body.append(renderFields());
+      if (d.asset.kind === 'rule') body.append(renderRuleInfo(d.asset));
       body.append(
         el(
           'div',
@@ -690,7 +1093,17 @@
 
   function renderMain() {
     const repo = state.repo && viewOf(state.repo);
-    const main = state.detail ? renderDetail() : repo ? renderRepo(repo) : renderOverview();
+    const main = state.detail
+      ? renderDetail()
+      : state.page === 'fleet'
+        ? renderFleet()
+        : state.page === 'marketplaces'
+          ? renderMarkets()
+          : state.page === 'init' && state.init
+            ? renderInit()
+            : repo
+              ? renderRepo(repo)
+              : renderOverview();
     const current = app.querySelector('.main');
     current ? current.replaceWith(main) : app.append(main);
   }
@@ -706,12 +1119,51 @@
     const m = e.data;
     if (m.type === 'state') {
       state.views = m.views || (m.categories ? [{ id: 'global', label: 'Global', path: '', categories: m.categories }] : []);
+      const before = state.checks;
+      state.checks = m.checks || {};
       const scroll = app.querySelector('.list') ? app.querySelector('.list').scrollTop : 0;
       const sidebar = renderSidebar();
       const current = app.querySelector('.sidebar');
       current ? current.replaceWith(sidebar) : render();
       app.querySelector('.list').scrollTop = scroll;
-      if (current && !state.detail && state.repo) renderMain();
+      if (state.repo && before[state.repo] && state.checks[state.repo] && before[state.repo].state !== state.checks[state.repo].state && !['running', 'unchecked'].includes(state.checks[state.repo].state))
+        vscode.postMessage({ type: 'effective', scope: state.repo });
+      if (state.page === 'fleet' && !state.detail) {
+        clearTimeout(state.fleetTimer);
+        state.fleetTimer = setTimeout(() => vscode.postMessage({ type: 'fleet' }), 400);
+      }
+      if (current && !state.detail && (state.repo || state.page === 'fleet')) renderMain();
+    } else if (m.type === 'page') {
+      if (m.repo) {
+        state.openRepos.add(m.repo);
+        persist();
+        state.effective[m.repo] = undefined;
+        showRepo(m.repo);
+      } else if (m.page) showPage(m.page, m.dir);
+    } else if (m.type === 'fleet') {
+      state.fleet = m.rows;
+      if (state.page === 'fleet' && !state.detail) renderMain();
+    } else if (m.type === 'marketplaces') {
+      state.markets = m.list;
+      if (state.page === 'marketplaces' && !state.detail) renderMain();
+    } else if (m.type === 'effective') {
+      state.effective[m.scope] = m.data || { effective: { memory: [], rules: [], plugins: [], hooks: [] } };
+      if (!state.detail && state.repo === m.scope) renderMain();
+    } else if (m.type === 'ruleInfo') {
+      state.ruleInfo[m.id] = m.info || { globs: [], base: '' };
+      if (state.detail && state.detail.asset.id === m.id) renderMain();
+    } else if (m.type === 'initForm') {
+      if (state.init && state.init.dir === m.dir) {
+        state.init.data = m.data || { agents: [] };
+        if (state.page === 'init' && !state.detail) renderMain();
+      }
+    } else if (m.type === 'initResult') {
+      if (state.init && state.init.dir === m.dir) {
+        state.init.result = m.data;
+        state.init.applied = !!m.apply && m.data && !m.data.error;
+        if (!m.apply) state.init.previewKey = state.init.pendingKey;
+        if (state.page === 'init' && !state.detail) renderMain();
+      }
     } else if (m.type === 'mcpInfo') {
       state.mcpInfo[m.id] = m.info;
       if (state.detail && state.detail.asset.id === m.id) renderMain();
@@ -725,6 +1177,7 @@
       if (m.external && isDirty()) return;
       if (m.external && m.detail && state.detail && snapshot(m.detail) === snapshot(state.detail) && m.detail.asset.enabled === state.detail.asset.enabled) return;
       state.detail = m.detail;
+      if (m.detail && m.detail.asset.kind === 'rule' && !m.external) state.ruleInfo[m.detail.asset.id] = undefined;
       if (m.detail) {
         state.expanded.add(`${m.detail.asset.scope || 'global'}|${m.detail.asset.kind}`);
         if (m.detail.asset.scope && m.detail.asset.scope !== 'global') state.openRepos.add(m.detail.asset.scope);

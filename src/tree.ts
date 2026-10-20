@@ -1,11 +1,38 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { Asset, Category, copiesText } from './harness';
+import type { CheckSummary } from './constitution';
+import { Asset, Category, ScopeView, copiesText } from './harness';
 
 export type Node =
   | { type: 'category'; category: Category }
   | { type: 'asset'; asset: Asset }
-  | { type: 'file'; asset: Asset; rel: string; file: string; isDir: boolean; children: string[] };
+  | { type: 'file'; asset: Asset; rel: string; file: string; isDir: boolean; children: string[] }
+  | { type: 'repos' }
+  | { type: 'repo'; view: ScopeView };
+
+const CHECK_ICONS: Record<string, [string, string | undefined]> = {
+  pass: ['pass', 'testing.iconPassed'],
+  fail: ['error', 'list.errorForeground'],
+  review: ['warning', 'list.warningForeground'],
+  running: ['sync~spin', undefined],
+  error: ['circle-slash', 'list.errorForeground'],
+  'no-plugin': ['circle-slash', undefined],
+  'no-python': ['circle-slash', undefined],
+  unchecked: ['repo', undefined],
+};
+
+export const checkText = (s: CheckSummary): string =>
+  s.state === 'pass'
+    ? 'passes the standard'
+    : s.state === 'fail'
+      ? `fail ${s.fail ?? 0}${s.review ? ` · review ${s.review}` : ''}`
+      : s.state === 'review'
+        ? `review ${s.review ?? 0}`
+        : s.state === 'running'
+          ? 'checking...'
+          : s.state === 'unchecked'
+            ? ''
+            : s.error ?? s.state;
 
 function fileNodes(asset: Asset, prefix: string): Node[] {
   const files = (asset.files ?? []).filter(f => f !== 'SKILL.md' && f.startsWith(prefix));
@@ -29,14 +56,26 @@ export class HarnessTree implements vscode.TreeDataProvider<Node> {
   private readonly changed = new vscode.EventEmitter<Node | undefined>();
   readonly onDidChangeTreeData = this.changed.event;
   private categories: Category[] = [];
+  private repos: ScopeView[] = [];
 
-  setCategories(categories: Category[]): void {
+  constructor(
+    private readonly checkOf: (dir: string) => CheckSummary = () => ({ state: 'unchecked' }),
+    private readonly onExpandRepos: (dirs: string[]) => void = () => undefined
+  ) {}
+
+  setCategories(categories: Category[], repos: ScopeView[] = this.repos): void {
     this.categories = categories;
+    this.repos = repos;
     this.changed.fire(undefined);
   }
 
   getChildren(node?: Node): Node[] {
-    if (!node) return this.categories.map(category => ({ type: 'category', category }));
+    if (!node) return [...this.categories.map(category => ({ type: 'category' as const, category })), ...(this.repos.length ? [{ type: 'repos' as const }] : [])];
+    if (node.type === 'repos') {
+      this.onExpandRepos(this.repos.map(v => v.path));
+      return this.repos.map(view => ({ type: 'repo', view }));
+    }
+    if (node.type === 'repo') return [];
     if (node.type === 'category') return node.category.items.map(asset => ({ type: 'asset', asset }));
     if (node.type === 'asset' && node.asset.kind === 'skill') return fileNodes(node.asset, '');
     if (node.type === 'file' && node.isDir) return fileNodes(node.asset, `${node.rel}/`);
@@ -44,6 +83,27 @@ export class HarnessTree implements vscode.TreeDataProvider<Node> {
   }
 
   getTreeItem(node: Node): vscode.TreeItem {
+    if (node.type === 'repos') {
+      const item = new vscode.TreeItem('Repositories', vscode.TreeItemCollapsibleState.Collapsed);
+      item.id = 'repos';
+      item.description = String(this.repos.length);
+      item.iconPath = new vscode.ThemeIcon('repo');
+      item.tooltip = 'Expanding this runs the harness standard check on every repo.';
+      item.contextValue = 'repos';
+      return item;
+    }
+    if (node.type === 'repo') {
+      const check = this.checkOf(node.view.path);
+      const [glyph, color] = CHECK_ICONS[check.state] ?? CHECK_ICONS.unchecked;
+      const item = new vscode.TreeItem(node.view.label, vscode.TreeItemCollapsibleState.None);
+      item.id = `repo:${node.view.id}`;
+      item.description = checkText(check);
+      item.tooltip = new vscode.MarkdownString(`**${node.view.label}**\n\n\`${node.view.path}\`${check.error ? `\n\n${check.error}` : ''}`);
+      item.iconPath = new vscode.ThemeIcon(glyph, color ? new vscode.ThemeColor(color) : undefined);
+      item.contextValue = 'repo';
+      item.command = { command: 'claudeHarness.showRepo', title: 'Open', arguments: [node.view.id] };
+      return item;
+    }
     if (node.type === 'category') {
       const { category } = node;
       const item = new vscode.TreeItem(category.label, category.items.length ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.None);

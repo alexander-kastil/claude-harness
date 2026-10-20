@@ -3,6 +3,8 @@ import * as os from 'os';
 import * as vscode from 'vscode';
 import { Asset, Field, ScopeView, fromFields, globalScope, kindInfo, mcpToken, readMarkdown, readText, toFields, writeMarkdown, writeText } from './harness';
 import { McpInfo, StdioConfig, probeHttp, probeStdio } from './probe';
+import type { CheckSummary } from './constitution';
+import type { InitForm } from './standard';
 import { pickTools, splitTools } from './tools';
 
 export interface Detail {
@@ -35,17 +37,33 @@ type Message =
   | { type: 'configureTools'; id: string; key: string; value: string }
   | { type: 'mcpSignIn'; id: string }
   | { type: 'mcpRetry'; id: string }
-  | { type: 'command'; command: string; id?: string; kind?: string; scope?: string; rel?: string };
+  | { type: 'command'; command: string; id?: string; kind?: string; scope?: string; rel?: string; market?: string }
+  | { type: 'fleet' }
+  | { type: 'effective'; scope: string }
+  | { type: 'ruleInfo'; id: string }
+  | { type: 'marketplaces' }
+  | { type: 'initForm'; dir: string }
+  | { type: 'initRun'; dir: string; form: InitForm; apply: boolean }
+  | { type: 'openAt'; file: string; line?: number };
 
 export interface PanelHost {
   views(): ScopeView[];
   find(id: string): Asset | undefined;
   refresh(): void;
+  checks?(): Record<string, CheckSummary>;
+  ensureChecks?(scopeIds: string[]): void;
+  fleet?(): unknown;
+  effective?(scopeId: string): unknown;
+  ruleInfo?(id: string): unknown;
+  marketplaces?(): unknown;
+  initForm?(dir: string): Promise<unknown>;
+  initRun?(dir: string, form: InitForm, apply: boolean): Promise<unknown>;
 }
 
 export class HarnessPanel {
   private static current: HarnessPanel | undefined;
   private selected: string | undefined;
+  private page: { page?: string; repo?: string; dir?: string } | undefined;
 
   static show(context: vscode.ExtensionContext, host: PanelHost, id?: string): void {
     if (HarnessPanel.current) {
@@ -66,6 +84,18 @@ export class HarnessPanel {
     HarnessPanel.current?.postState();
   }
 
+  static showPage(context: vscode.ExtensionContext, host: PanelHost, page: { page?: string; repo?: string; dir?: string }): void {
+    if (!HarnessPanel.current) HarnessPanel.show(context, host);
+    HarnessPanel.current!.panel.reveal();
+    HarnessPanel.current!.selected = undefined;
+    HarnessPanel.current!.page = page;
+    HarnessPanel.current!.post({ type: 'page', ...page });
+  }
+
+  static post(message: unknown): void {
+    HarnessPanel.current?.post(message);
+  }
+
   private constructor(
     private readonly context: vscode.ExtensionContext,
     private readonly panel: vscode.WebviewPanel,
@@ -84,7 +114,7 @@ export class HarnessPanel {
   }
 
   private postState(): void {
-    this.post({ type: 'state', views: this.host.views() });
+    this.post({ type: 'state', views: this.host.views(), checks: this.host.checks?.() ?? {} });
     if (this.selected) this.post({ type: 'detail', detail: this.detail(this.selected), external: true });
   }
 
@@ -101,7 +131,7 @@ export class HarnessPanel {
       const doc = readMarkdown(asset.file);
       return { asset, mode: 'markdown', fields: colorBelowTools(toFields(doc.data)), knownFields: info.fields, body: doc.body };
     }
-    if (asset.kind === 'workflow') return { asset, mode: 'code', fields: [], knownFields: [], body: readText(asset.file) };
+    if (asset.kind === 'workflow' || asset.kind === 'hookScript') return { asset, mode: 'code', fields: [], knownFields: [], body: readText(asset.file) };
     if (asset.kind === 'settings') return { asset, mode: 'settings', fields: [], knownFields: [], body: readText(asset.file) };
     if (asset.kind === 'plugin') return { asset, mode: 'plugin', fields: [], knownFields: [], body: '' };
     if (asset.kind === 'mcp') {
@@ -174,7 +204,7 @@ export class HarnessPanel {
     if (!asset) return false;
     try {
       if (kindInfo(asset.kind).markdown) writeMarkdown(asset.file, fromFields(pending.fields), pending.body);
-      else if (asset.kind === 'workflow') writeText(asset.file, pending.body);
+      else if (asset.kind === 'workflow' || asset.kind === 'hookScript') writeText(asset.file, pending.body);
       else if (asset.kind === 'settings') {
         JSON.parse(pending.body);
         writeText(asset.file, pending.body);
@@ -194,6 +224,7 @@ export class HarnessPanel {
       case 'ready':
         this.postState();
         this.post({ type: 'detail', detail: this.selected ? this.detail(this.selected) : undefined });
+        if (this.page && !this.selected) this.post({ type: 'page', ...this.page });
         return;
       case 'select': {
         if (m.pending) {
@@ -226,13 +257,38 @@ export class HarnessPanel {
         if (tools) this.post({ type: 'tools', id: m.id, key: m.key, value: tools.join(', ') });
         return;
       }
+      case 'fleet':
+        this.post({ type: 'fleet', rows: this.host.fleet?.() ?? [] });
+        return;
+      case 'effective':
+        this.host.ensureChecks?.([m.scope]);
+        this.post({ type: 'effective', scope: m.scope, data: this.host.effective?.(m.scope) });
+        return;
+      case 'ruleInfo':
+        this.post({ type: 'ruleInfo', id: m.id, info: this.host.ruleInfo?.(m.id) });
+        return;
+      case 'marketplaces':
+        this.post({ type: 'marketplaces', list: this.host.marketplaces?.() ?? [] });
+        return;
+      case 'initForm':
+        this.post({ type: 'initForm', dir: m.dir, data: await this.host.initForm?.(m.dir) });
+        return;
+      case 'initRun':
+        this.post({ type: 'initResult', dir: m.dir, apply: m.apply, data: await this.host.initRun?.(m.dir, m.form, m.apply) });
+        return;
+      case 'openAt': {
+        const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(m.file));
+        const line = Math.max(0, (m.line ?? 1) - 1);
+        await vscode.window.showTextDocument(doc, { selection: new vscode.Range(line, 0, line, 0) });
+        return;
+      }
       case 'command':
         if (m.command === 'openFile' && m.id && m.rel) {
           const asset = this.host.find(m.id);
           if (asset?.dir) await vscode.commands.executeCommand('vscode.open', vscode.Uri.joinPath(vscode.Uri.file(asset.dir), ...m.rel.split('/')));
           return;
         }
-        await vscode.commands.executeCommand(`claudeHarness.${m.command}`, m.id ?? (m.kind || m.scope ? { kind: m.kind, scope: m.scope } : undefined));
+        await vscode.commands.executeCommand(`claudeHarness.${m.command}`, m.id ?? m.market ?? (m.kind || m.scope ? { kind: m.kind, scope: m.scope } : undefined));
         return;
     }
   }

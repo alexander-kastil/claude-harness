@@ -8,7 +8,7 @@
 </tr>
 </table>
 
-Claude Harness lists eleven kinds of harness items. Each kind is a section in the sidebar. The global harness lives in `~/.claude`, or in the folder set by `claudeHarness.root`. Each repository has the same kinds in its own `.claude` folder, plus its `CLAUDE.md` files and `.mcp.json`.
+Claude Harness lists twelve kinds of harness items. Each kind is a section in the sidebar. The global harness lives in `~/.claude`, or in the folder set by `claudeHarness.root`. Each repository has the same kinds in its own `.claude` folder, plus its `CLAUDE.md` files and `.mcp.json`.
 
 ## Kinds
 
@@ -22,13 +22,14 @@ Claude Harness lists eleven kinds of harness items. Each kind is a section in th
 | Output styles | `output-styles/*.md` | Yes | Yes |
 | Workflows | `workflows/*.js` and `workflows/*.mjs` | Yes, as code | Yes |
 | Hooks | `hooks` in `settings.json` | No, read-only | No |
+| Hook Scripts | Files in the `hooks/` folder, including subfolders, such as `.claude/hooks/` in a repo | Yes, as code | No |
 | MCP servers | `mcpServers` in `~/.claude.json` for the global harness, and in `.mcp.json` for a repo. Also the list from `claude mcp list`. | Switch and delete | No |
 | Plugins | `enabledPlugins` in `settings.json` | Switch only | No |
 | Settings | `settings.json` and `settings.local.json` | Yes, as JSON | No |
 
 ## Read-only and switch-only kinds
 
-Hooks show their JSON in the detail view. Click **Open in editor** to change them in the file. Settings files are edited as JSON in the detail view; see [Settings](settings.md).
+Hooks show their JSON in the detail view. Click **Open in editor** to change them in the file. Hook Scripts open as code, like workflows, and you edit the text in the detail view. Hook scripts can be copies too; see [Duplicates](duplicates.md). Settings files are edited as JSON in the detail view; see [Settings](settings.md).
 
 MCP servers and plugins have a switch in their detail view. The switch changes which folders use the item, or whether the plugin is enabled. It does not change the server or plugin itself. A server stored in a file can also be deleted from its detail view. See [MCP switches](mcp-toggles.md) and [Plugins](plugins.md).
 

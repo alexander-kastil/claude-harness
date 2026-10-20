@@ -20,17 +20,21 @@ The main window shows your global harness and each repository in one place. The 
 
 ## Sidebar
 
-The sidebar has a search box and three buttons in its header:
+The sidebar has a search box and five buttons in its header:
 
 | Control | What it does |
 | --- | --- |
 | Overview (home icon) | Shows the overview page |
+| Fleet overview (table icon) | Shows one table of every repo. See [Fleet overview](fleet-overview.md). |
+| Marketplace health (package icon) | Shows the marketplaces and their plugins. See [Marketplace health](marketplace-health.md). |
 | New (plus icon) | Creates an item. See [Editing](editing.md#create-rename-duplicate-and-delete). |
 | Refresh | Reloads the harness and the MCP server list |
 
 The search box filters every section by name and description.
 
-Below the global sections, the **Repositories** group lists each repo. Click a repo to open its page. Its chevron expands its sections. Use the buttons on the group header to add or remove repos. See [Repositories](repositories.md).
+Below the global sections, the **Repositories** group lists each repo, with its check badge. Click a repo to open its page. Its chevron expands its sections. Use the buttons on the group header to add or remove repos. See [Repositories](repositories.md).
+
+A repo page has these parts, from top to bottom: one tile for each section, **Recently changed**, **Harness standard** and **Effective harness**. The page header also has buttons to check the repo, fix its settings and hooks, init a product repo and create an item in it. See [Harness standard](harness-standard.md), [Effective harness](effective-harness.md) and [Init product repo](init-product-repo.md).
 
 ## Overview
 
@@ -47,7 +51,7 @@ The activity bar view shows the global harness as a tree. Expand a section to se
 | Click an item | Opens it in the main window |
 | Right-click an item | Opens the file, reveals it, and for editable items renames, duplicates or deletes it |
 | Plugin row button | Enables or disables the plugin. See [Plugins](plugins.md). |
-| Title bar buttons | Open the main window, create an item and refresh |
+| Title bar buttons | Open the main window, create an item, refresh, open Claude Here and open the Fleet overview |
 
 ---
 
