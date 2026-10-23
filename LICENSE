@@ -1,12 +1,33 @@
-# Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License
+Claude Harness License 1.0
+Copyright (c) 2026 Alexander Kastil, integrations.at (https://integrations.at). All rights reserved.
 
-This work is licensed under a Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License
+Permitted use
+You may install and use Claude Harness for the internal business operations of you and
+your company, on any number of machines used by you or your company. Your company is any
+organization you work for, plus every organization that controls it, is controlled by it,
+or is under common control with it.
 
-Permission is hereby granted to to use, modify, and distribute the workshop materials provided under the following conditions:
+Not permitted
+- Distributing the software or any part of it, for example republishing it, bundling it
+  into another product or offering it in another extension marketplace. Linking to the
+  official Visual Studio Marketplace listing or this repository is fine.
+- Making changes or new works based on the software, including forks released as a
+  separate product, ports, and tools or extensions that reuse its source code.
 
-Personal Use: Users may use the materials for personal learning and educational purposes.
-Modification: Users may modify the materials to suit their needs.
-Non-Commercial Use: Commercial use by other trainers or organizations is strictly prohibited.
-Attribution: Users must give appropriate credit to Alexander Kastil, integrations.at (https://integrations.at) and include a link to the original materials.
-Share-Alike: Any derivative works based on these materials must be shared under the same license terms.
-For commercial use please contact the author via LinkedIn or email
+Contributions
+You may fork this repository and change your fork solely to propose a pull request to the
+official repository. By submitting a contribution you grant the licensor a perpetual,
+worldwide, irrevocable, royalty-free license to use, change, sublicense and distribute it
+as part of the software.
+
+Violations
+If you are notified in writing of a violation and come into full compliance within 32 days,
+your license continues; otherwise it ends immediately.
+
+No warranty
+As far as the law allows, the software comes as is, without any warranty, and the licensor
+is not liable for any damages arising from its use.
+
+Other rights
+For anything beyond these terms, such as redistribution or bundling, contact
+alexander.kastil@integrations.at.

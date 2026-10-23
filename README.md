@@ -43,4 +43,4 @@ To contribute from a fork, follow the steps in [CONTRIBUTE.md](CONTRIBUTE.md).
 
 ## License
 
-Creative Commons Attribution-NonCommercial-ShareAlike 4.0, (c) 2026 Alexander Kastil, [integrations.at](https://integrations.at). See [LICENSE](LICENSE).
+Claude Harness License 1.0: free for internal use, no redistribution or derived works. (c) 2026 Alexander Kastil, [integrations.at](https://integrations.at). See [LICENSE](LICENSE).
