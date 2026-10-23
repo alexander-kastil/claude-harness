@@ -36,23 +36,14 @@ export function renderCategories(list, view, q, nested) {
         'div',
         {
           className: `section-head${nested ? ' nested' : ''}${current ? ' selected' : ''}`,
-          title: `Search and filter the ${cat.label.toLowerCase()}`,
-          onclick: () => showKindPage(cat.kind, view.id),
-        },
-        el(
-          'span',
-          {
-            className: 'twistie',
-            title: collapsed ? 'Expand' : 'Collapse',
-            onclick: e => {
-              e.stopPropagation();
-              collapsed ? state.expanded.add(key) : state.expanded.delete(key);
-              persist();
-              render();
-            },
+          title: collapsed ? 'Expand' : 'Collapse',
+          onclick: () => {
+            collapsed ? state.expanded.add(key) : state.expanded.delete(key);
+            persist();
+            render();
           },
-          icon(collapsed ? 'chevron-right' : 'chevron-down')
-        ),
+        },
+        el('span', { className: 'twistie' }, icon(collapsed ? 'chevron-right' : 'chevron-down')),
         el('span', { className: 'label' }, cat.label),
         lv && !collapsed && items.length > 1 && (groups.length > 1 || !isGrouped(cat.kind) || Object.keys(lv.groupings).length > 1)
           ? el(
@@ -151,8 +142,7 @@ export function renderSessionsNode(list, view, q) {
   if (q && !all.length) return;
   const key = `${view.id}|sessions`;
   const collapsed = !state.expanded.has(key) && !q;
-  const toggle = e => {
-    e.stopPropagation();
+  const toggle = () => {
     collapsed ? state.expanded.add(key) : state.expanded.delete(key);
     persist();
     render();
@@ -161,8 +151,8 @@ export function renderSessionsNode(list, view, q) {
   list.append(
     el(
       'div',
-      { className: `section-head nested${current ? ' selected' : ''}`, title: 'Search and filter the sessions', onclick: () => showSessionsPage(view.id) },
-      el('span', { className: 'twistie', onclick: toggle, title: collapsed ? 'Expand' : 'Collapse' }, icon(collapsed ? 'chevron-right' : 'chevron-down')),
+      { className: `section-head nested${current ? ' selected' : ''}`, title: collapsed ? 'Expand' : 'Collapse', onclick: toggle },
+      el('span', { className: 'twistie' }, icon(collapsed ? 'chevron-right' : 'chevron-down')),
       el('span', { className: 'label' }, 'Sessions'),
       iconBtn('desktop-download', 'Import a session transcript', e => {
         e.stopPropagation();

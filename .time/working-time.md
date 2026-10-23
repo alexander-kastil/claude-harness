@@ -22,5 +22,6 @@
 | 2026-10-23 | 0.40 | 14:43 | 15:21 | Version 0.2.37: one Mods switch for all installed mods, including mods that keep no log of their own |
 | 2026-10-23 | 0.80 | 17:30 | 18:18 | Versions 0.2.38 to 0.2.43: prompts as their own boxes on the delegation map, a button to discuss a session with Claude, in-panel confirmations and live refresh of running sessions |
 | 2026-10-23 | 0.05 | 17:56 | 18:21 | Review of where the delegation map work went wrong, with lessons recorded for the next release |
+| 2026-10-23 | 0.32 | 18:06 | 18:40 | Version 0.2.44: every list grouped by where each item comes from, green mod markers and denials shown as stop signs |
 
-**Total: 15.58h**
+**Total: 15.90h**

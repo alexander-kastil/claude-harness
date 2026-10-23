@@ -1054,9 +1054,10 @@ table.grid .cell {
   background: var(--tone);
 }
 
+/* The eight colors Claude Code accepts for an agent, fixed: a theme's chart and terminal colors differ per theme and leave two of them alike. */
 .tl .ac-red,
 .swatch.ac-red {
-  --tone: var(--vscode-charts-red);
+  --tone: #ef4444;
   fill: var(--tone);
   stroke: var(--tone);
   background: var(--tone);
@@ -1064,7 +1065,7 @@ table.grid .cell {
 
 .tl .ac-blue,
 .swatch.ac-blue {
-  --tone: var(--vscode-charts-blue);
+  --tone: #3b82f6;
   fill: var(--tone);
   stroke: var(--tone);
   background: var(--tone);
@@ -1072,7 +1073,7 @@ table.grid .cell {
 
 .tl .ac-green,
 .swatch.ac-green {
-  --tone: var(--vscode-charts-green);
+  --tone: #22c55e;
   fill: var(--tone);
   stroke: var(--tone);
   background: var(--tone);
@@ -1080,7 +1081,7 @@ table.grid .cell {
 
 .tl .ac-yellow,
 .swatch.ac-yellow {
-  --tone: var(--vscode-charts-yellow);
+  --tone: #eab308;
   fill: var(--tone);
   stroke: var(--tone);
   background: var(--tone);
@@ -1088,7 +1089,7 @@ table.grid .cell {
 
 .tl .ac-purple,
 .swatch.ac-purple {
-  --tone: var(--vscode-charts-purple);
+  --tone: #a855f7;
   fill: var(--tone);
   stroke: var(--tone);
   background: var(--tone);
@@ -1096,7 +1097,7 @@ table.grid .cell {
 
 .tl .ac-orange,
 .swatch.ac-orange {
-  --tone: var(--vscode-charts-orange);
+  --tone: #f97316;
   fill: var(--tone);
   stroke: var(--tone);
   background: var(--tone);
@@ -1104,7 +1105,7 @@ table.grid .cell {
 
 .tl .ac-pink,
 .swatch.ac-pink {
-  --tone: var(--vscode-terminal-ansiMagenta);
+  --tone: #ec4899;
   fill: var(--tone);
   stroke: var(--tone);
   background: var(--tone);
@@ -1112,7 +1113,7 @@ table.grid .cell {
 
 .tl .ac-cyan,
 .swatch.ac-cyan {
-  --tone: var(--vscode-terminal-ansiCyan);
+  --tone: #06b6d4;
   fill: var(--tone);
   stroke: var(--tone);
   background: var(--tone);
@@ -3234,6 +3235,77 @@ mark {
 .dv-chip .codicon {
   font-size: 13px;
   opacity: 0.8;
+}
+
+/* Edit mode: the agent's color as one swatch per color Claude Code accepts. */
+.color-picker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.color-picker .color-pick {
+  box-sizing: border-box;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 50%;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--vscode-descriptionForeground);
+  background-clip: padding-box;
+}
+
+.color-picker .color-pick.none {
+  background: transparent;
+  border: 1px dashed var(--vscode-descriptionForeground);
+}
+
+.color-picker .color-pick[aria-checked='true'] {
+  box-shadow: 0 0 0 2px var(--vscode-editor-background), 0 0 0 4px var(--vscode-focusBorder);
+}
+
+.color-picker .color-pick:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: 3px;
+}
+
+.color-picker .color-code-box {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 6px;
+}
+
+.color-picker .color-preview {
+  box-sizing: border-box;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+}
+
+.color-picker .color-preview.empty {
+  background: transparent;
+  border: 1px dashed var(--vscode-descriptionForeground);
+}
+
+.color-picker .color-code {
+  width: 92px;
+  font-family: var(--vscode-editor-font-family);
+}
+
+.color-picker .color-code.invalid {
+  border-color: var(--vscode-inputValidation-errorBorder, var(--vscode-errorForeground));
+  outline-color: var(--vscode-inputValidation-errorBorder, var(--vscode-errorForeground));
+}
+
+.color-picker .color-name {
+  margin-left: 4px;
+  color: var(--vscode-descriptionForeground);
 }
 
 .dv-dot {

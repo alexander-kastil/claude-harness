@@ -15,7 +15,6 @@ Six VS Code settings control what Claude Harness lists. Find them under **Claude
 | `claudeHarness.root` | The folder of the global harness. Empty means `~/.claude`. | Empty |
 | `claudeHarness.repoFolders` | Folders added with **Add Repo**. Each is a repo folder or a parent folder. | `[]` |
 | `claudeHarness.removedRepos` | Repo folders hidden with **Remove Repo**. Adding the repo or its parent folder again shows it. | `[]` |
-
 | `claudeHarness.plan` | The plan of the account in the global harness folder: Pro, Max 5x, Max 20x, Team Standard, Team Premium or API billing. | Empty |
 | `claudeHarness.weekStart` | When the weekly limit of the main account resets, as weekday and UTC hour, for example `Mon 11:00`. | Empty |
 | `claudeHarness.accounts` | More Claude accounts on this machine, each `{ "label", "path", "plan" }`. | `[]` |

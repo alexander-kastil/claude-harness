@@ -3,7 +3,7 @@
 // costs in context sit on top; below them one view at a time behind tabs: the document, references, files, connections, tools.
 import type { Asset, ScopeView } from '../harness';
 import type { Detail } from '../shared/messages';
-import { AGENT_COLORS, command, kindLabel, labelOf, metaOf, openAt, persist, pluginOf, skillPluginOf, sourceName, state, viewOf, vscode } from './core';
+import { agentColorClass, command, kindLabel, labelOf, metaOf, openAt, persist, pluginOf, skillPluginOf, sourceName, state, viewOf, vscode } from './core';
 import { renderRuleInfo } from './detail';
 import { el, icon, plural } from './dom';
 import { hideHover } from './hover';
@@ -16,17 +16,28 @@ import type { Entry } from './refs';
 import { tabBar } from './repo-page';
 import type { Draft } from './state';
 import { groupHead } from './tables';
+import { askUsage, usageTab } from './usage-tab';
 
 type Child = Node | string | null | undefined | false | Child[];
 
-interface Tab {
+export interface Tab {
   id: string;
   label: string;
   glyph: string;
   about: string;
   count?: number | string;
   body: () => Child;
+  /** Runs when the reader picks the tab. */
+  onOpen?: () => void;
+  /** Its count and body change when data arrives later; see refreshUsage. */
+  live?: boolean;
 }
+
+// The tab bar and panel of the page on screen when one of its tabs is live.
+let redrawLive: (() => void) | undefined;
+
+/** Where the element was used arrived: the Used in badge, and the list when that tab is open, update in place. */
+export const refreshUsage = () => redrawLive?.();
 
 // The views under the top info, one at a time behind a tab bar, the way the session page groups its delegation
 // views. The tab is remembered per kind; switching swaps the panel in place so the page keeps its scroll.
@@ -37,7 +48,22 @@ function tabbed(a: Asset, tabs: (Tab | null)[]): HTMLElement {
   const barOf = () => tabBar(list.map(t => [t.id, t.label, t.glyph, t.about, t.count]), current().id, pick, `${kindLabel(a.kind)} views`);
   let bar = list.length > 1 ? barOf() : null;
   let panel = panelOf();
+  if (list.some(t => t.live))
+    redrawLive = () => {
+      if (!panel.isConnected) return;
+      const focused = !!bar && bar.contains(document.activeElement);
+      const nextBar = barOf();
+      bar?.replaceWith(nextBar);
+      bar = nextBar;
+      if (current().live) {
+        const nextPanel = panelOf();
+        panel.replaceWith(nextPanel);
+        panel = nextPanel;
+      }
+      if (focused) (bar.querySelector('.view-tab.active') as HTMLElement | null)?.focus();
+    };
   function pick(id: string, focus?: boolean) {
+    list.find(t => t.id === id)?.onOpen?.();
     state.detailTabs[a.kind] = id;
     persist();
     hideHover();
@@ -53,7 +79,7 @@ function tabbed(a: Asset, tabs: (Tab | null)[]): HTMLElement {
 }
 
 // `el` flattens one level only; a card body nests groups of rows, so it is flattened fully first.
-const card = (title: string, count: number | string | null, ...body: Child[]) =>
+export const card = (title: string, count: number | string | null, ...body: Child[]) =>
   el('section', { className: 'dv-card' }, el('div', { className: 'dv-card-head' }, el('span', { className: 'dv-card-title' }, title), count === null ? null : el('span', { className: 'dv-count' }, String(count))), (body as unknown[]).flat(Infinity));
 
 const tile = (n: string, label: string, glyph: string, note: string, tone?: string) =>
@@ -108,7 +134,7 @@ function factChips(a: Asset, draft: Draft): HTMLElement | null {
     const v = f.value;
     const text = String(v);
     if (f.key === 'model') chips.push(chip('chip', 'Model', text));
-    else if (f.key === 'color') chips.push(el('span', { className: 'dv-chip' }, el('span', { className: `swatch dv-dot ${AGENT_COLORS.includes(text) ? `ac-${text}` : ''}` }), el('span', { className: 'k' }, 'Color'), text));
+    else if (f.key === 'color') chips.push(el('span', { className: 'dv-chip' }, el('span', { className: `swatch dv-dot ${agentColorClass(text)}` }), el('span', { className: 'k' }, 'Color'), text));
     else if (f.key === 'disable-model-invocation') chips.push(v === true ? chip('lock', 'Manual only', undefined, 'Claude never starts it on its own; only you can, by name.') : chip('unlock', 'Model can invoke'));
     else if (f.key === 'user-invocable') chips.push(v === false ? chip('eye-closed', 'Hidden from the / menu') : chip('eye', 'In the / menu'));
     else if (f.key === 'keep-coding-instructions') chips.push(chip('code', v === true ? 'Keeps coding instructions' : 'Replaces coding instructions'));
@@ -428,6 +454,9 @@ function markdownView(d: Detail, draft: Draft): Child[] {
   const named = namedTools(draft.body);
   const allowedCount = new Set([...tools.map(t => t.replace(/\(.*$/, '')), ...named]).size;
   const allowedToolsTab = { id: 'tools', label: 'Tools', glyph: 'tools', about: 'The tools it runs without asking, and the ones its instructions name.', count: allowedCount || undefined, body: () => allowedToolsCard(a, tools, named, draft) };
+  // Every render asks where it was used, so the badge fills in from an existing index; open on the tab, it builds one.
+  const usedIn = a.kind === 'agent' || a.kind === 'skill' ? usageTab(a) : null;
+  if (usedIn) askUsage(a, state.detailTabs[a.kind] === 'usage');
   return [
     hero(a, v, draft, description),
     kpisFor(a, draft, description, mentions, mentioned, tools),
@@ -439,6 +468,7 @@ function markdownView(d: Detail, draft: Draft): Child[] {
         about: DOC_ABOUT[a.kind] || 'The file as Claude reads it.',
         body: () => (outline ? el('div', { className: 'dv-grid' }, el('div', { className: 'dv-main' }, docCard(a, draft.body, doc)), el('aside', { className: 'dv-side' }, outline)) : docCard(a, draft.body, doc)),
       },
+      usedIn,
       a.kind === 'skill' && references.length
         ? { id: 'references', label: 'References', glyph: 'library', about: 'The markdown files beside SKILL.md that Claude reads when the instructions send it there.', count: references.length, body: () => filesCard(a, 'References', references) }
         : null,

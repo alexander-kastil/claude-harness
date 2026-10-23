@@ -3,6 +3,7 @@ import { onMessage } from './bridge';
 import { showConfirm } from './confirm';
 import { app, isDirty, persist, save, showPage, showRepo, snapshot, state, viewOf, vscode } from './core';
 import { clone, renderDetail } from './detail';
+import { refreshUsage } from './detail-view';
 import { refreshCard } from './hover';
 import { renderKindPage } from './kind-page';
 import { renderOverview } from './overview';
@@ -158,6 +159,14 @@ onMessage(m => {
       if (!m.apply) state.init.previewKey = state.init.pendingKey;
       if (state.page === 'init' && !state.detail) renderMain();
     }
+  } else if (m.type === 'usageInfo') {
+    // Progress keeps the sessions already known, so the badge stays; the answer replaces both. The tab updates in place:
+    // a repaint of the page would ask again.
+    const before = state.usage[m.id];
+    // An answer equal to the one on the page changes nothing: every repaint of the page asks again.
+    const same = !m.indexing && !!m.sessions && !before?.indexing && JSON.stringify(before?.sessions) === JSON.stringify(m.sessions);
+    state.usage[m.id] = m.indexing ? { sessions: before?.sessions, indexing: m.indexing } : m.sessions ? { sessions: m.sessions } : { built: false };
+    if (!same && state.detail && state.detail.asset.id === m.id) refreshUsage();
   } else if (m.type === 'mcpInfo') {
     state.mcpInfo[m.id] = m.info;
     if (state.detail && state.detail.asset.id === m.id) renderMain();

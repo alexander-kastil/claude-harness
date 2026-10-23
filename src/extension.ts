@@ -56,6 +56,8 @@ import { Account, accountWeek, findAccountSession, importTranscript, listAccount
 import { STYLE_MODELS, StyleModel, draftStyle, stylePrompt, writeStyleDraft } from './style';
 import { pickTools, splitTools, TOOL_FIELDS } from './tools';
 import { HarnessTree, Node } from './tree';
+import { UsageIndex } from './usage';
+import { usageRows, usageTarget } from './usage-rows';
 
 const WATCHED = '{CLAUDE.md,settings.json,settings.local.json,agents/**,skills/**,commands/**,output-styles/**,rules/**,workflows/**,hooks/**,plugins/installed_plugins.json,plugins/known_marketplaces.json}';
 
@@ -95,6 +97,8 @@ export function activate(context: vscode.ExtensionContext): void {
   );
   let watcher: vscode.FileSystemWatcher | undefined;
   let timer: NodeJS.Timeout | undefined;
+  // Where each agent and skill was used, over the transcripts of every account; built the first time the Used in tab opens.
+  const usageIndex = new UsageIndex(path.join(context.globalStorageUri.fsPath, 'usage-index.json'));
 
   const assets = () => views.flatMap(v => v.categories.flatMap(c => c.items));
   const find = (id: string): Asset | undefined => assets().find(a => a.id === id);
@@ -376,6 +380,26 @@ export function activate(context: vscode.ExtensionContext): void {
         void vscode.window.showErrorMessage(`Could not import the transcript: ${(e as Error).message}`);
         return undefined;
       }
+    },
+    usage: async (id, build, progress) => {
+      const asset = find(id);
+      const target = asset ? usageTarget(asset, views) : undefined;
+      if (!target) return undefined;
+      if (!build && !(await usageIndex.exists())) return { built: false };
+      const list = accounts();
+      // Progress at most four times a second, and none for a refresh that is over sooner.
+      let shown = Date.now();
+      const data = await usageIndex.refresh(
+        list.map(a => a.root),
+        p => {
+          if (Date.now() - shown < 250) return;
+          shown = Date.now();
+          progress(p);
+        },
+        // Opening the tab always looks for new transcripts; a repaint of the page does not within 3 s of the last look.
+        build ? 0 : 3000
+      );
+      return { sessions: usageRows(data, target, repoViews().map(v => ({ id: v.id, label: v.label, path: v.path })), list) };
     },
   };
 

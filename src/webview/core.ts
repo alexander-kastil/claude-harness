@@ -25,6 +25,7 @@ export const state: State = {
   fleet: undefined,
   effective: {},
   ruleInfo: {},
+  usage: {},
   markets: undefined,
   init: undefined,
   sessions: {},
@@ -314,3 +315,30 @@ export const openAt = (file, line) => vscode.postMessage({ type: 'openAt', file,
 
 // Claude Code's agent colors; an agent definition's `color` field or a teammate's spawn color wins over the palette.
 export const AGENT_COLORS = ['red', 'blue', 'green', 'yellow', 'purple', 'orange', 'pink', 'cyan'];
+
+/** A color code the picker accepts and the file keeps: #rgb or #rrggbb. */
+export const HEX_COLOR = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i;
+
+// A color that is not one of the eight names (a hex code, a CSS color name) is drawn as itself: the page style sheet gets
+// one rule per value, the same declarations the .ac-* rules have, so every surface that puts a class on a mark paints it.
+// A constructed style sheet, because the page's CSP allows no inline style.
+let customSheet;
+const customDone = new Set();
+
+/** The class that paints an agent's color: `ac-<name>` for the eight, `ac-x-<value>` for any other color; '' when it is no color. */
+export const agentColorClass = value => {
+  const v = typeof value === 'string' ? value.trim().toLowerCase() : '';
+  if (!v) return '';
+  if (AGENT_COLORS.includes(v)) return `ac-${v}`;
+  if (!HEX_COLOR.test(v) && !(/^[a-z]+$/.test(v) && CSS.supports('color', v))) return '';
+  const cls = `ac-x-${v.replace('#', 'h')}`;
+  if (!customDone.has(cls)) {
+    customDone.add(cls);
+    if (!customSheet) {
+      customSheet = new CSSStyleSheet();
+      document.adoptedStyleSheets = [...document.adoptedStyleSheets, customSheet];
+    }
+    customSheet.insertRule(`.tl .${cls}, .swatch.${cls} { --tone: ${v}; fill: ${v}; stroke: ${v}; background: ${v}; }`, customSheet.cssRules.length);
+  }
+  return cls;
+};

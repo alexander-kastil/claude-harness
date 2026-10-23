@@ -6,7 +6,7 @@ import { McpInfo, StdioConfig, probeHttp, probeStdio } from './probe';
 import type { CheckSummary } from './constitution';
 import type { ScaffoldForm } from './standard';
 import type { SessionSummary } from './sessions';
-import type { Answer, Confirm, Detail, Page, Pending, Standard, StyleDraft, ToHost, ToWebview } from './shared/messages';
+import type { Answer, Confirm, Detail, Page, Pending, Progress, Standard, StyleDraft, ToHost, ToWebview, UsageReply } from './shared/messages';
 import { pickTools, splitTools } from './tools';
 
 export type { Detail, Page } from './shared/messages';
@@ -45,6 +45,8 @@ export interface PanelHost {
   analyzeSession?(scopeId: string, id: string, answer: Answer, ask: (c: Confirm) => void): Promise<void>;
   /** Picks a transcript and copies it into the repo; returns the session id, or nothing when cancelled or failed. */
   importSession?(scopeId: string): Promise<string | undefined>;
+  /** The sessions that used an agent or skill, from the transcript index; `build` builds the index when there is none yet. */
+  usage?(id: string, build: boolean, progress: (p: Progress) => void): Promise<UsageReply | undefined>;
 }
 
 export class HarnessPanel {
@@ -307,6 +309,16 @@ export class HarnessPanel {
         if (!id) return;
         this.post({ type: 'sessions', scope: m.scope, list: this.host.sessions?.(m.scope) ?? [] });
         this.post({ type: 'page', page: 'session', repo: m.scope, session: id });
+        return;
+      }
+      case 'usage': {
+        let reply: UsageReply | undefined;
+        try {
+          reply = await this.host.usage?.(m.id, m.build, indexing => this.post({ type: 'usageInfo', id: m.id, indexing }));
+        } catch {
+          reply = { built: false };
+        }
+        if (reply) this.post({ type: 'usageInfo', id: m.id, ...reply });
         return;
       }
       case 'openAt': {

@@ -1169,6 +1169,63 @@
       "catalogue": {
         "action": "none"
       }
+    },
+    {
+      "date": "2026-10-23",
+      "from": "18:06",
+      "to": "18:40",
+      "sessionId": "0be6f7fb-b93f-4557-a45b-7d14671f1cad",
+      "branch": "mod-visualization",
+      "commits": [],
+      "surfaces": [
+        "claude-harness"
+      ],
+      "files": [
+        "src/webview/core.ts",
+        "src/webview/kind-page.ts",
+        "src/webview/sidebar.ts",
+        "src/webview/map.ts",
+        "media/panel.css"
+      ],
+      "mechanism": {
+        "takes": "the agents, skills, commands, rules, hooks and MCP servers found in the user folder, in every known repository and in every enabled plugin",
+        "does": "groups each list by the place an item is loaded from (user-wide, a plugin, the open repository, other repositories), keeps the older groupings as a second view, and when opened from a repository shows everything that loads there; on the session diagram it colours each layer switch like the marks it shows and reduces a refused action to a stop sign whose details sit in its hover card",
+        "returns": "list pages and a sidebar that answer where a capability comes from, and a session diagram with fewer words on it"
+      },
+      "portsAsIs": [
+        "grouping configuration items by load location instead of by author",
+        "a layer switch framed in its layer's colour",
+        "an icon-only marker with its facts in a hover card"
+      ],
+      "perCustomer": [
+        "which locations a tool loads configuration from"
+      ],
+      "evidence": [
+        "design-preview renders of the Agents, Skills, Commands and Rules pages from the real harness: Global 16, From plugins 2, a repo's 8",
+        "delegation map renders in dark and light: green mod chips, matched toggle frames, stop signs at the two denials",
+        "unit tests: 55 passed",
+        "sideloaded 0.2.44, installed=True"
+      ],
+      "toolchain": {
+        "skills": [
+          "vscode-extension",
+          "learn-loop-plugin:claude-learn",
+          "learn-loop-harvest-plugin:claude-learn-harvest",
+          "learn-loop-worktime-plugin:claude-learn-worktime",
+          "learn-loop-worktime-plugin:track-time"
+        ],
+        "mcpServers": [],
+        "agents": [
+          "subagent-delegation-plugin:fact-gatherer",
+          "ui-specialist",
+          "fork"
+        ]
+      },
+      "industry": "software development tooling",
+      "status": "Built and running in-house",
+      "catalogue": {
+        "action": "none"
+      }
     }
   ]
 }

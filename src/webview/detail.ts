@@ -1,6 +1,6 @@
 // @ts-nocheck
 // The element editor: frontmatter, body, files, MCP details.
-import { MODELS, RENAMABLE, SOURCES, TOOL_FIELDS, categoryOf, command, editable, isDirty, labelOf, pluginOf, save, select, state, std, viewOf, vscode } from './core';
+import { AGENT_COLORS, HEX_COLOR, MODELS, RENAMABLE, SOURCES, TOOL_FIELDS, agentColorClass, categoryOf, command, editable, isDirty, labelOf, metaOf, pluginOf, save, select, state, std, viewOf, vscode } from './core';
 import { renderView, setMode } from './detail-view';
 import { el, icon, iconBtn } from './dom';
 import { hideHover } from './hover';
@@ -49,7 +49,104 @@ export const fit = box => {
   box.style.height = `${box.scrollHeight + 2}px`;
 };
 
+// The eight swatches of the picker: first the colors the owner's agents use (a name, a hex code, a CSS color name), from
+// every agent the harness loads (global, every repo, plugins), case-insensitive, most used first; then Claude Code's own
+// names, in their order, until eight are on the row. More than eight used colors show the eight most used.
+function usedColors() {
+  const count = new Map();
+  for (const v of state.views)
+    for (const c of v.categories)
+      if (c.kind === 'agent')
+        for (const a of c.items) {
+          const color = String(metaOf(a).color || '').trim().toLowerCase();
+          if (color && agentColorClass(color)) count.set(color, (count.get(color) || 0) + 1);
+        }
+  const row = [...count].sort((x, y) => y[1] - x[1] || x[0].localeCompare(y[0])).map(e => e[0]).slice(0, AGENT_COLORS.length);
+  for (const name of AGENT_COLORS) if (row.length < AGENT_COLORS.length && !row.includes(name)) row.push(name);
+  return row;
+}
+
+// An agent's color: None, eight swatches (see usedColors), and a field for a hex code with a preview that also holds the
+// current color when no swatch shows it. Each swatch is drawn in its own tone. The choice goes into the draft's `color` field
+// (added on the first pick, removed by None) and is written by the form's Save like any field; the file writer quotes a
+// hex code, which YAML would read as a comment. A code that is no hex color is marked and never put into the draft.
+function colorPicker() {
+  const at = () => state.draft.fields.findIndex(f => f.key === 'color');
+  const current = () => (at() < 0 ? '' : String(state.draft.fields[at()].value).trim().toLowerCase());
+  const row = usedColors();
+  const values = ['', ...row];
+  const name = el('span', { className: 'color-name' });
+  const buttons = [];
+  const code = el('input', { type: 'text', className: 'color-code', placeholder: '#rrggbb', maxlength: '7', spellcheck: false, 'aria-label': 'Color code', title: 'A hex color code: #rgb or #rrggbb' });
+  const preview = el('span', { className: 'swatch color-preview empty', 'aria-hidden': 'true' });
+  const typed = () => code.value.trim().toLowerCase();
+  const showCode = () => {
+    const v = typed();
+    // A hex code, or the color the file already has when no swatch shows it.
+    const ok = HEX_COLOR.test(v) || (!!v && v === current() && !!agentColorClass(v));
+    preview.className = `swatch color-preview${ok ? ` ${agentColorClass(v)}` : ' empty'}`;
+    code.classList.toggle('invalid', !!v && !ok);
+    code.setAttribute('aria-invalid', v && !ok ? 'true' : 'false');
+    return !v || ok;
+  };
+  const paint = () => {
+    const now = current();
+    // One tab stop for the group: the picked swatch, or None while no swatch is picked; arrows move inside it.
+    const stop = row.includes(now) ? now : '';
+    buttons.forEach(([value, b]) => {
+      b.setAttribute('aria-checked', value === now ? 'true' : 'false');
+      b.tabIndex = value === stop ? 0 : -1;
+    });
+    if (document.activeElement !== code) code.value = now && !row.includes(now) ? now : '';
+    const ok = showCode();
+    name.textContent = ok ? now || 'none' : 'Not a color code: the last valid color stays';
+  };
+  const pick = value => {
+    const i = at();
+    if (!value) {
+      if (i >= 0) state.draft.fields.splice(i, 1);
+    } else if (i >= 0) state.draft.fields[i] = Object.assign({}, state.draft.fields[i], { value });
+    else state.draft.fields.push({ key: 'color', type: 'string', value });
+    paint();
+    refreshHead();
+  };
+  const move = (value, step) => {
+    const next = values[(values.indexOf(value) + step + values.length) % values.length];
+    pick(next);
+    buttons.find(([v]) => v === next)[1].focus();
+  };
+  code.addEventListener('input', () => {
+    if (showCode() && typed()) pick(typed());
+    else paint();
+  });
+  const group = el('div', { className: 'color-picker', role: 'radiogroup', 'aria-label': 'Color' });
+  for (const value of values) {
+    const b = el(
+      'button',
+      {
+        type: 'button',
+        role: 'radio',
+        className: value ? `swatch color-pick ${agentColorClass(value)}` : 'color-pick none',
+        title: value || 'None',
+        'aria-label': value || 'None',
+        onclick: () => pick(value),
+        onkeydown: e => {
+          if (e.key === 'ArrowRight' || e.key === 'ArrowDown') (e.preventDefault(), move(value, 1));
+          else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') (e.preventDefault(), move(value, -1));
+        },
+      },
+      value ? null : icon('circle-slash')
+    );
+    buttons.push([value, b]);
+    group.append(b);
+  }
+  group.append(el('span', { className: 'color-code-box' }, preview, code), name);
+  paint();
+  return group;
+}
+
 export function fieldInput(f, i) {
+  if (f.key === 'color' && state.detail.asset.kind === 'agent') return colorPicker();
   const update = value => {
     state.draft.fields[i] = Object.assign({}, f, { value });
     refreshHead();
@@ -89,6 +186,8 @@ export function renderFields() {
       })
     );
   });
+  // An agent always shows its color; without the key, the picker adds it on the first pick and writes nothing until then.
+  if (d.asset.kind === 'agent' && !state.draft.fields.some(f => f.key === 'color')) grid.append(el('span', { className: 'key', title: 'color' }, 'color'), colorPicker(), el('span'));
   const present = new Set(state.draft.fields.map(f => f.key));
   const options = d.knownFields.filter(k => !present.has(k));
   const keyInput = el('input', { type: 'text', placeholder: 'field name', list: 'known-fields' });
@@ -104,7 +203,7 @@ export function renderFields() {
     'div',
     {},
     el('div', { className: 'group-label' }, 'Frontmatter'),
-    state.draft.fields.length ? grid : el('div', { className: 'empty flush' }, 'No frontmatter'),
+    grid.childElementCount ? grid : el('div', { className: 'empty flush' }, 'No frontmatter'),
     el(
       'div',
       { className: 'add-field' },

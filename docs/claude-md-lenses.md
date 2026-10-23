@@ -17,6 +17,7 @@ Claude Harness adds CodeLens lines and quick fixes to a repo's root `CLAUDE.md` 
 A pointer is a path, skill or agent named in backticks. A pointer that does not exist on disk shows a lens:
 
 - `Path not found: db/deltas/: Repoint... | Drop line` for a path in a rules file
+- `Pointer not found: db/deltas/: Repoint... | Drop line` for a pointer that the harness check reports
 - `Skill ... not found: Repoint... | Drop line` for a skill
 - `Agent not found: weather-reviewer: Repoint... | Drop line` for an agent
 

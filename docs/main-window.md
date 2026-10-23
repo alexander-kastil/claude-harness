@@ -32,13 +32,15 @@ The sidebar has a search box and five buttons in its header:
 
 The search box filters every section by name and description.
 
-Below the global sections, the **Repositories** group lists each repo. Click a repo to open its page. Its chevron expands its sections. When a repo is open, its sections start with a **Sessions** node, above **Memory**, with its count. Click the label or the search icon to open the [Sessions page](sessions.md#sessions-page). Use the buttons on the group header to sort the repos by last used or A-Z, and to add or remove repos. See [Repositories](repositories.md).
+Click a section header to fold or unfold it. A section's type page opens from its tile on the overview or on a repo page.
 
-A repo page has these parts, from top to bottom: one tile for each section, **Recently changed** and **Effective harness**. The page header has a button to create an item in the repo. See [Effective harness](effective-harness.md). Provider features appear when a harness standard provider plugin is installed.
+Below the global sections, the **Repositories** group lists each repo. Click a repo to open its page. Its chevron expands its sections. When a repo is open, its sections start with a **Sessions** node, above **Memory**, with its count. Click the search icon to open the [Sessions page](sessions.md#sessions-page), and click the row to fold or unfold the sessions. Use the buttons on the group header to sort the repos by last used or A-Z, and to add or remove repos. See [Repositories](repositories.md).
+
+A repo page has three tabs: **Overview**, with one tile for each section and **Recently changed**, **Effective harness** and **Sessions**. The page header has a button to create an item in the repo. See [Repositories](repositories.md#repository-page) and [Effective harness](effective-harness.md). Provider features appear when a harness standard provider plugin is installed.
 
 ## Overview
 
-The overview shows the number of global assets and repositories. It has one tile for each global section with its count. Click a tile to open the first item in that section.
+The overview shows the number of global assets and repositories. It has one tile for each global section with its count. Click a tile to open that section's type page: its items, with a search box and filters.
 
 The **Recently changed** list shows the 12 most recently changed memory, rules, agents, skills, commands, output styles and workflows across all scopes.
 

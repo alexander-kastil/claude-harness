@@ -214,7 +214,7 @@ const parseLine = (line: string): Rec[] => {
   }
 };
 
-const textOf = (content: unknown): string =>
+export const textOf = (content: unknown): string =>
   typeof content === 'string'
     ? content
     : Array.isArray(content)
@@ -232,7 +232,7 @@ export function promptText(content: unknown): string | undefined {
   return text.startsWith('<') ? undefined : text.replace(/\s+/g, ' ');
 }
 
-const isPrompt = (o: Rec) => o.type === 'user' && !o.isSidechain && !o.isMeta && !o.toolUseResult && o.origin?.kind !== 'task-notification';
+export const isPrompt = (o: Rec) => o.type === 'user' && !o.isSidechain && !o.isMeta && !o.toolUseResult && o.origin?.kind !== 'task-notification';
 
 const STYLE_SIGNALS: [StyleSignal, RegExp][] = [
   ['length', /\b(too long|shorter|shorten|more concise|be concise|be brief|too verbose|less text|too much text|tl;?dr|kürzer|zu lang)\b/i],

@@ -5,6 +5,14 @@ import type { Asset, Category, Field, ScopeView } from '../harness';
 import type { McpInfo } from '../probe';
 import type { SessionSummary } from '../sessions';
 import type { ScaffoldForm } from '../standard';
+import type { Progress } from '../usage';
+import type { UsageSession } from '../usage-rows';
+
+export type { Progress } from '../usage';
+export type { UsageSession } from '../usage-rows';
+
+/** The host's answer to `usage`: the sessions that used the element, or no index yet when the webview did not ask to build one. */
+export type UsageReply = { sessions: UsageSession[] } | { built: false };
 
 export interface Detail {
   asset: Asset;
@@ -98,7 +106,9 @@ export type ToHost =
   | { type: 'exportSession'; scope: string; id: string }
   | ({ type: 'analyzeSession'; scope: string; id: string } & Answer)
   | { type: 'importSession'; scope: string }
-  | { type: 'openAt'; file: string; line?: number };
+  | { type: 'openAt'; file: string; line?: number }
+  /** Where an agent or skill was used; `build` builds the transcript index when none exists yet. */
+  | { type: 'usage'; id: string; build: boolean };
 
 /** Host to webview. Payloads the host passes through from a reader stay `unknown` here. */
 export type ToWebview =
@@ -117,4 +127,6 @@ export type ToWebview =
   | { type: 'weekly'; list: unknown }
   | { type: 'session'; scope: string; id: string; data: unknown }
   | ({ type: 'styleDraft'; scope: string; id: string } & StyleDraft)
-  | { type: 'confirm'; ask: Confirm };
+  | { type: 'confirm'; ask: Confirm }
+  /** For `usage`: progress messages carry `indexing` while the index is built or brought up to date, the last one `sessions` or `built: false`. */
+  | { type: 'usageInfo'; id: string; sessions?: UsageSession[]; indexing?: Progress; built?: false };

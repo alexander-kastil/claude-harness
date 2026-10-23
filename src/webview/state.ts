@@ -3,11 +3,18 @@
 import type { CheckSummary } from '../constitution';
 import type { Field, ScopeView } from '../harness';
 import type { McpInfo } from '../probe';
-import type { Detail, Standard } from '../shared/messages';
+import type { Detail, Progress, Standard, UsageSession } from '../shared/messages';
 
 export interface Draft {
   fields: Field[];
   body: string;
+}
+
+/** What the host last said about where an agent or skill was used; `indexing` while the index is read, kept beside the last sessions. */
+export interface UsageState {
+  sessions?: UsageSession[];
+  indexing?: Progress;
+  built?: false;
 }
 
 export interface State {
@@ -29,6 +36,8 @@ export interface State {
   fleet?: any;
   effective: Record<string, any>;
   ruleInfo: Record<string, any>;
+  /** The Used in tab of agents and skills, by element id. */
+  usage: Record<string, UsageState | undefined>;
   markets?: any;
   init?: any;
   sessions: Record<string, any[] | null | undefined>;
