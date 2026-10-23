@@ -23,5 +23,7 @@
 | 2026-10-23 | 0.80 | 17:30 | 18:18 | Versions 0.2.38 to 0.2.43: prompts as their own boxes on the delegation map, a button to discuss a session with Claude, in-panel confirmations and live refresh of running sessions |
 | 2026-10-23 | 0.05 | 17:56 | 18:21 | Review of where the delegation map work went wrong, with lessons recorded for the next release |
 | 2026-10-23 | 0.32 | 18:06 | 18:40 | Version 0.2.44: every list grouped by where each item comes from, green mod markers and denials shown as stop signs |
+| 2026-10-23 | 1.17 | 18:23 | 19:50 | Versions 0.3.0 and 0.3.1: each agent and skill shows the sessions it was used in, sidebar sections fold on click, and agent colours get a picker with your own colours and colour codes |
+| 2026-10-23 | 0.08 | 18:39 | 19:55 | Version 0.3.1 published to the Marketplace, with up-to-date docs and screenshots, a complete changelog and a new repository description |
 
-**Total: 15.90h**
+**Total: 17.15h**

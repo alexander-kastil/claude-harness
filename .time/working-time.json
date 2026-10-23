@@ -1226,6 +1226,137 @@
       "catalogue": {
         "action": "none"
       }
+    },
+    {
+      "date": "2026-10-23",
+      "from": "18:23",
+      "to": "19:50",
+      "sessionId": "ba2f09da-bc41-408c-aa79-ceb72f1faf96",
+      "branch": "mod-visualization",
+      "commits": [],
+      "surfaces": [
+        "claude-harness"
+      ],
+      "files": [
+        "src/usage-scan.ts",
+        "src/usage.ts",
+        "src/usage-rows.ts",
+        "src/webview/usage-tab.ts",
+        "src/webview/sidebar.ts",
+        "src/webview/core.ts",
+        "src/webview/detail.ts",
+        "media/panel.css"
+      ],
+      "mechanism": {
+        "takes": "every session log an AI coding assistant has written on the machine: thousands of append-only JSON-lines files, several GB in total",
+        "does": "streams each log once through a cheap substring prefilter, records every launch of a named agent, every skill call and every slash command with its session, keeps a persisted per-file offset index so later refreshes read only appended bytes, builds lazily on first view with progress, and attributes each use to the definition in scope (plugin prefix, a repository's own copy over the global one)",
+        "returns": "for any agent or skill, the sessions that used it with date, repository, session title and use count, each linked to its session view, answered in about 50 ms once the first build is done"
+      },
+      "portsAsIs": [
+        "incremental offset index over append-only logs",
+        "lazy first build with progress, refresh on every view",
+        "scope-aware attribution of named components to the sessions that used them",
+        "colour field with the user's own colours first and a validated custom code"
+      ],
+      "perCustomer": [
+        "the log format and which records count as a use",
+        "where component definitions live and how copies shadow each other"
+      ],
+      "evidence": [
+        "test/unit/usage.test.ts: 15 tests; npm test 71 pass, 0 fail",
+        "usage-bench over the real logs: files=3234 bytes=6652318957 first_ms=5927 lag_ms=3 refresh_ms=48 index_bytes=2095825",
+        "isolated VS Code check: Used in tab on a skill (10 sessions) and an agent (78 sessions), sidebar rows fold on click, swatch picker and hex field, invalid code refused",
+        "installed as 0.3.1 in the owner's VS Code"
+      ],
+      "toolchain": {
+        "skills": [
+          "vscode-extension",
+          "list-peer-sessions",
+          "report-plugin:report",
+          "learn-loop-plugin:claude-learn",
+          "learn-loop-harvest-plugin:claude-learn-harvest",
+          "learn-loop-worktime-plugin:claude-learn-worktime",
+          "learn-loop-worktime-plugin:track-time"
+        ],
+        "mcpServers": [],
+        "agents": [
+          "subagent-delegation-plugin:fact-gatherer",
+          "general-purpose",
+          "vscode-ext-specialist",
+          "fork"
+        ]
+      },
+      "industry": "software development tooling",
+      "status": "Built and running in-house",
+      "catalogue": {
+        "action": "none"
+      }
+    },
+    {
+      "date": "2026-10-23",
+      "from": "18:39",
+      "to": "19:55",
+      "sessionId": "fb8f85de-c0c0-4f5b-8443-84fd114a5f96",
+      "branch": "mod-visualization",
+      "commits": [
+        "b23c345",
+        "df6222c",
+        "082732d",
+        "965d842"
+      ],
+      "surfaces": [
+        "claude-harness"
+      ],
+      "files": [
+        "CHANGELOG.md",
+        "docs/sessions.md",
+        "docs/images/session-map.png",
+        "docs/images/repo-effective.png",
+        ".claude/commands/ext-deploy-marketplace.md"
+      ],
+      "mechanism": {
+        "takes": "a feature branch with finished work, a base branch that gained other contributors' changes, and the list of versions already published to an extension store",
+        "does": "merges the base branch first, checks every documentation page and screenshot against the merged code, fills the release notes from the commit history mapped to publish dates, then releases by fast-forwarding a protected release branch that triggers the publishing pipeline",
+        "returns": "a published extension version whose release notes, documentation and screenshots match the code that shipped"
+      },
+      "portsAsIs": [
+        "release-notes gap check that maps commits to publish dates",
+        "documentation screenshots rendered from mocked panel pages with made-up data",
+        "fast-forward-only release branch guarded by a ruleset with an admin bypass"
+      ],
+      "perCustomer": [
+        "the extension and its store listing",
+        "the documentation pages and their screenshots"
+      ],
+      "evidence": [
+        "pipeline run 320 log: DONE Published integrations-at.claude-harness v0.3.1",
+        "npm test: 71 pass, 0 fail on the merged code",
+        "pull request 9 merged into master",
+        "changelog-gaps.mjs: commits=55 releases=8 unpublished=0 missing_entries=0"
+      ],
+      "toolchain": {
+        "skills": [
+          "merge-commit",
+          "vscode-extension",
+          "report-plugin:report",
+          "plugin-authoring",
+          "learn-loop-plugin:claude-learn",
+          "learn-loop-harvest-plugin:claude-learn-harvest",
+          "learn-loop-worktime-plugin:claude-learn-worktime"
+        ],
+        "mcpServers": [],
+        "agents": [
+          "docs-agent",
+          "vscode-ext-specialist",
+          "subagent-delegation-plugin:fact-gatherer",
+          "general-purpose"
+        ]
+      },
+      "industry": "software tooling for developers",
+      "status": "Live",
+      "catalogue": {
+        "action": "none"
+      }
     }
   ]
 }
