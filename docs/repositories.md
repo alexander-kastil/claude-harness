@@ -36,11 +36,12 @@ In the sidebar, repos that are open as workspace folders are listed first under 
 
 ## Repository page
 
-The repo page shows the repo name, its path and its asset count. Three tabs sit under the header: **Overview**, **Effective harness** and **Sessions**.
+The repo page shows the repo name, its path and its asset count. Four tabs sit under the header: **Overview**, **Effective harness**, **Sessions** and **Models**.
 
 - **Overview** has one tile for each section, with its count. Click a tile to open that section's type page for the repo: its items, with a search box and filters. Below the tiles, **Recently changed** lists the 10 most recently changed items in the repo.
 - **Effective harness** shows what a session in the repo loads. See [Effective harness](effective-harness.md).
 - **Sessions** lists the repo's sessions, newest first, with the 10 newest and **Show all**. **Search and filter** opens the [Sessions page](sessions.md#sessions-page).
+- **Models** shows the tokens and cost by model over the last 7 days, for each account, across all repos. See [Last 7 days](sessions.md#last-7-days).
 - Header buttons: **New in** the repo name (plus icon) creates an item in this repo. See [Editing](editing.md#create-rename-duplicate-and-delete). The trash button removes this repo from the harness. Nothing is deleted on disk.
 - With a harness standard provider installed, the header also has buttons to check the repo against the standard, align its `CLAUDE.md`, fix its settings and hooks, and scaffold its harness.
 

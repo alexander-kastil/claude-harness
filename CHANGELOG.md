@@ -20,6 +20,8 @@ All notable changes to Claude Harness are listed here, newest first. The format 
 - A click on a section header in the sidebar folds or unfolds it, and so does a click on a repo's Sessions row, instead of opening the type page or the sessions page. The type pages open from the tiles of the overview and the repo page, the sessions page from the repo page's Search and filter button.
 - The eight named agent colors are fixed values instead of theme colors, so an agent has the same color in every theme. A hex value or CSS color name in an agent's `color` field shows as that color in the tables, the session lanes and on its page.
 - The VSIX ships only the files its runtime packages need, so the download is smaller.
+- The last 7 days by model moved from the sessions page to a Models tab on the repo page, still over all repos of each account.
+- The cost card and the weekly summary say less: a shorter billing description, no asterisks, and no hover cards repeating how the limits were measured.
 - Draft output style asks in a card under its button instead of a system dialog, like Analyze, with a Don't ask again switch that remembers the answer.
 - A type page opened from a repo starts filtered to Global and that repo, the elements that load there, instead of the repo alone.
 - The license is the Claude Harness License 1.0, replacing CC BY-NC-SA 4.0: free for internal use in your company, no redistribution or derived works. See [LICENSE](LICENSE).

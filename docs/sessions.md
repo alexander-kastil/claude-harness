@@ -14,7 +14,7 @@ Claude Harness lists the Claude Code sessions that ran in each repo. A session p
 | --- | --- |
 | [Sessions in the tree](#sessions-in-the-tree) | The session rows under each repo in the activity bar |
 | [Sessions page](#sessions-page) | The search box, its suggestions, filters and chips |
-| [Several accounts](#several-accounts) | Sessions of more than one Claude config folder |
+| [Several accounts](#several-accounts) | Sessions of more than one Claude config folder, and the last 7 days of each account |
 | [Session page](#session-page) | The header, the cost, the four KPIs and the agent details |
 | [Delegation views](#delegation-views) | The six views of how the work was delegated |
 | [Used in](#used-in) | The sessions that launched an agent or used a skill |
@@ -54,13 +54,15 @@ When `claudeHarness.accounts` lists more than one Claude config folder, the sess
 
 ### Last 7 days
 
-The top of the sessions page sums what each account used in the last 7 days, or since the last reset of its weekly limit when `weekStart` is set for it (see [Settings](settings.md#several-accounts)); the heading then reads **Since** and the date, over all its repos and including the agents' transcripts. One block per account shows the tokens and, per model, the tokens, the cost at Anthropic API list prices and the number of replies, costliest model first. A reply that appears in more than one transcript, as after a resumed session, counts once. When the account has a plan, the cost is shown as a share of that plan's weekly limit, marked `*`, and each model row reads for example `67.5% of limit`; without a plan the rows show dollars. A plan can also carry the limit of one model family: Team Premium and Team Standard have a Fable limit of their own (about $215 and $43), and an extra line shows the Fable cost as a share of it. The Fable figures come from the same single measurement as Team Premium, so they are estimates too: Anthropic publishes no figure for it, so the limit is an estimate. Team plans expose no rate limits to Claude Code's status line, so their share cannot be checked against it. The refresh button reads the week again.
+The **Models** tab of a repo page sums what each account used in the last 7 days, or since the last reset of its weekly limit when `weekStart` is set for it (see [Settings](settings.md#several-accounts)). Its heading then reads **Since** and the date. The totals cover all repos of the account and include the agents' transcripts. Each account has its own block: its tokens, then per model the tokens, the cost at Anthropic API list prices and the number of replies, costliest model first. A reply that appears in more than one transcript, as after a resumed session, counts once.
+
+When the account has a plan, the block shows the cost as a share of that plan's weekly limit, and each model row reads for example `67.5% of limit`. Without a plan the rows show dollars. Team Premium and Team Standard also have a limit for the Fable model family (about $215 and $43), which gets a row of its own. The limits are estimates, because Anthropic publishes none. The tab reads the week again each time you open it.
 
 ## Session page
 
-The header shows the repo, the start and end, the duration, the branch and the model. Its export button saves the transcript as a JSONL file. Below it, the cost row shows an estimated cost at Anthropic API list prices. A Claude subscription bills differently. Two bars split the cost by **Who spent it** (the main thread and each agent type) and by **Spent on** (cache reads, cache writes, output and input).
+The header shows the repo, the start and end, the duration, the branch and the model. Its export button saves the transcript as a JSONL file. Below it, the cost row shows the estimated cost at Anthropic API list prices. Two bars split the cost by **Who spent it** (the main thread and each agent type) and by **Spent on** (cache reads, cache writes, output and input).
 
-The **Billing** switch in the cost row shows the same cost as a share of one weekly limit of your plan: Pro, Max 5x, Max 20x, Team Standard, Team Premium, or API billing for dollars. Anthropic publishes no figure for a weekly limit, so the limits are estimates, marked with `*`. Max 5x and Max 20x come from third-party measurements. Team Premium (about $1,010 a week) was measured against the Claude app's usage card on one Team Premium seat on 2026-10-22: one sample, still an estimate. Pro and Team Standard are derived as one fifth of Max 5x and of Team Premium, following the plan prices. Team plans expose no rate limits to Claude Code's status line, so the share cannot be read from there.
+The **Billing** switch in the cost row shows the same cost as a share of one weekly limit of your plan: Pro, Max 5x, Max 20x, Team Standard, Team Premium, or API billing for dollars. Anthropic publishes no weekly limit, so each limit is an estimate, and the switch's tooltip gives its figure. Pro and Team Standard are one fifth of Max 5x and of Team Premium. The headline reads **Weekly limit used** on a plan and **Estimated cost** on API billing.
 Four KPIs follow the cost row:
 
 | KPI | Shows |
