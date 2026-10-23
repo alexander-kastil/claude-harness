@@ -1245,7 +1245,9 @@ table.grid .cell {
   overflow: hidden;
 }
 
-.hc-tip .hc-text.tip-lines.cut {
+.hc-tip .hc-text.tip-lines.cut,
+.hc-ev-detail.cut,
+.hc-paste-body.cut {
   -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 22px), transparent);
   mask-image: linear-gradient(to bottom, #000 calc(100% - 22px), transparent);
 }
@@ -1449,6 +1451,178 @@ table.grid .cell {
 
 .dg-empty {
   padding: 16px;
+}
+
+/* Full timeline: the toggles sit right of the Sum / Full timeline switch, each a framed button of the same height. */
+.dg-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 10px 12px 0;
+}
+
+.dg-bar > .dg-modes {
+  margin: 0;
+}
+
+/* The first line of a step's prompt; a prompt that was only pasted text reads muted. */
+.dg-prompt {
+  fill: var(--vscode-foreground);
+  font-size: 11px;
+  pointer-events: none;
+}
+
+.dg-prompt.muted {
+  fill: var(--vscode-descriptionForeground);
+}
+
+/* Event layer: chips and quiet markers are buttons laid over the diagram. Tone shows in the icon and the border. */
+.dg-stage {
+  position: relative;
+}
+
+.dg-measure {
+  position: absolute;
+  top: 0;
+  left: -10000px;
+  visibility: hidden;
+}
+
+.dg-chip {
+  --ev-tone: var(--vscode-charts-orange);
+  position: absolute;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  box-sizing: border-box;
+  height: 20px;
+  padding: 0 8px 0 6px;
+  border: 1px solid var(--ev-tone);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ev-tone) 12%, var(--vscode-editor-background));
+  color: var(--vscode-foreground);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+/* The hit area reaches 26px while the pill stays 20px. */
+.dg-chip::after {
+  content: '';
+  position: absolute;
+  inset: -4px -2px;
+}
+
+.dg-chip:hover {
+  background: color-mix(in srgb, var(--ev-tone) 22%, var(--vscode-editor-background));
+}
+
+.dg-chip .codicon {
+  font-size: 12px;
+  color: var(--ev-tone);
+}
+
+.dg-chip.ev-warn {
+  --ev-tone: var(--vscode-charts-red);
+}
+
+.dg-chip.ev-quiet {
+  --ev-tone: var(--vscode-descriptionForeground);
+}
+
+.dg-mark {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+}
+
+.dg-mark svg {
+  display: block;
+}
+
+.dg-mark circle {
+  fill: var(--vscode-editor-background);
+  stroke: var(--vscode-descriptionForeground);
+  stroke-width: 1;
+  stroke-dasharray: 2 1.6;
+}
+
+.dg-mark:hover circle {
+  stroke: var(--vscode-foreground);
+}
+
+.dg-chip:focus,
+.dg-mark:focus {
+  outline: none;
+}
+
+.dg-chip:focus-visible,
+.dg-mark:focus-visible {
+  outline: 2px solid var(--vscode-focusBorder);
+  outline-offset: 1px;
+}
+
+/* Event card: one section per layer, each event on the rail with a dot in its tone. */
+.hc-ev-sec {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.hc-ev-sec + .hc-ev-sec {
+  padding-top: 10px;
+  border-top: 1px solid var(--vscode-editorHoverWidget-border, var(--vscode-panel-border));
+}
+
+.hc-ev-sec .hc-type {
+  flex: none;
+}
+
+.hc-tl-item.ev-act::before {
+  background: var(--vscode-charts-orange);
+}
+
+.hc-tl-item.ev-warn::before {
+  background: var(--vscode-charts-red);
+}
+
+.hc-tl-item.ev-quiet::before {
+  background: var(--vscode-descriptionForeground);
+}
+
+.hc-ev-hook {
+  font-family: var(--vscode-editor-font-family);
+}
+
+.hc-ev-text {
+  overflow-wrap: anywhere;
+}
+
+.hc-ev-detail {
+  max-height: calc(8 * 1.45em);
+  overflow: hidden;
+  margin-top: 3px;
+  padding: 6px 8px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--vscode-foreground) 6%, transparent);
+  font-family: var(--vscode-editor-font-family);
+  font-size: 11px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 /* Each run is its own ribbon; a hairline in the background color keeps stacked and back-to-back runs apart. */
@@ -1928,6 +2102,49 @@ mark {
   overflow: hidden;
   overflow-wrap: anywhere;
   line-height: 1.45;
+}
+
+/* The map's step card with Prompts on: the whole prompt, the user's words as text and each paste as a muted block. */
+.hc-tl-prompt.full {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.hc-tl-words {
+  overflow-wrap: anywhere;
+}
+
+.hc-paste {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  padding: 6px 8px;
+  border-left: 2px solid var(--vscode-panel-border);
+  border-radius: 2px 4px 4px 2px;
+  background: color-mix(in srgb, var(--vscode-foreground) 5%, transparent);
+  color: var(--vscode-descriptionForeground);
+}
+
+.hc-paste-head {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10.5px;
+  font-weight: 600;
+}
+
+.hc-paste-head .codicon {
+  font-size: 12px;
+}
+
+.hc-paste-body {
+  max-height: calc(4 * 1.45em);
+  overflow: hidden;
+  font-size: 11px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
 }
 
 .hc-tl-runs {

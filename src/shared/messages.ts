@@ -36,6 +36,29 @@ export type Page = { page?: string; repo?: string; dir?: string; session?: strin
 
 export type StyleDraft = { state: 'idle' } | { state: 'running'; model: string } | { state: 'done'; file: string; cost?: number } | { state: 'error'; error: string };
 
+/** One line of a provider plugin's per-session event log (`.claude-plugin/harness-events.json` names the log). */
+export interface ModEvent {
+  /** ISO 8601 UTC, when the hook decided. */
+  at: string;
+  hook: string;
+  /** One plain sentence: what the plugin did. */
+  text: string;
+  /** Short chip label. */
+  label?: string;
+  /** `act` when absent. */
+  tone?: 'act' | 'warn' | 'quiet';
+  /** The subagent the event concerns: its row in the map. */
+  agentId?: string;
+  /** Verbatim text the plugin injected or answered with. */
+  detail?: string;
+}
+
+/** The events of one provider for one session. The session data carries `layers` only when a log exists and holds events. */
+export interface EventLayer {
+  label: string;
+  events: ModEvent[];
+}
+
 /** Webview to host. */
 export type ToHost =
   | { type: 'ready' }

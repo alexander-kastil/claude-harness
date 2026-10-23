@@ -41,6 +41,10 @@ export interface State {
   sessionView: string;
   decisionMode: string;
   mapMode: string;
+  /** Full timeline: the first line of each prompt on its step. */
+  mapPrompts: boolean;
+  /** Full timeline: event layers by label; a layer missing here is on. */
+  mapLayers: Record<string, boolean>;
   billing: string;
   /** The plan picked on the Billing switch in this panel; until then a session starts on its account's plan. */
   billingPick?: string;

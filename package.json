@@ -2,7 +2,7 @@
   "name": "claude-harness",
   "displayName": "Claude Harness",
   "description": "Visualize and edit your Claude Code harness in VS Code: memory, rules, agents, skills, commands, output styles, workflows, hooks, MCP servers and plugins, globally and per repository.",
-  "version": "0.2.35",
+  "version": "0.2.36",
   "publisher": "integrations-at",
   "license": "CC-BY-NC-SA-4.0",
   "icon": "media/icon.png",

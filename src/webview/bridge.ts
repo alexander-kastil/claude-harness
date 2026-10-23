@@ -15,6 +15,10 @@ export interface Saved {
   sessionView?: string;
   decisionView?: string;
   mapMode?: string;
+  /** The Delegation map's Full timeline shows each prompt's first line on its step; off unless switched on. */
+  mapPrompts?: boolean;
+  /** Event layers switched off on the Delegation map, by layer label; a layer is on unless stored false. */
+  mapLayers?: Record<string, boolean>;
   billing?: string;
   styleModel?: string;
   repoTab?: string;

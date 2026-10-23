@@ -1,9 +1,10 @@
 // @ts-nocheck
 // The Delegation map and its process diagram.
-import { state } from './core';
+import { bindEvents, chipText, promptLine, toneOf, toneOfAll } from '../shared/event-layers';
+import { persist, state } from './core';
 import { DECISION_LABELS, decisionCard } from './decisions';
-import { clip, el, fmtDur, fmtTime, plural, shortModel, shortType, svg } from './dom';
-import { hideHover, placeCard } from './hover';
+import { clip, el, fmtDur, fmtTime, icon, plural, shortModel, shortType, svg } from './dom';
+import { hideHover, placeCard, tabTip } from './hover';
 import { colorsOf, endOfAgent, modeSwitch, widthOf } from './session-common';
 import { bindAgent, bindMainHover, laneName } from './timeline';
 
@@ -83,7 +84,11 @@ export function drawMap(host, d) {
     drawMap(host, d);
   });
   if (mode === 'timeline') {
-    host.replaceChildren(sw, drawProcess(W, d));
+    // A redraw, such as the one a toggle's new height sets off, keeps the focus on the toggle that had it.
+    const focused = host.contains(document.activeElement) ? document.activeElement.dataset.toggle : undefined;
+    host.replaceChildren(el('div', { className: 'dg-bar' }, sw, mapToggles(host, d)), drawProcess(W, d));
+    const again = focused && [...host.querySelectorAll('[data-toggle]')].find(x => x.dataset.toggle === focused);
+    if (again) again.focus();
     return;
   }
   // A tree table across the full width: rows indent by depth and end at the right edge, the facts sit in
@@ -167,29 +172,203 @@ export function drawMap(host, d) {
   host.replaceChildren(sw, root);
 }
 
+// Full timeline toggles right of the Sum / Full timeline switch: the prompt line on each step, then one per event layer.
+function mapToggles(host, d) {
+  const toggle = (key, text, glyph, about, on, flip) => {
+    const tip = target => {
+      const r = target.getBoundingClientRect();
+      placeCard(`toggle:${key}`, () => tabTip(text, glyph, about), { x: r.left - 14, y: r.bottom - 6 });
+    };
+    return el(
+      'div',
+      { className: 'dg-modes dg-toggle' },
+      el(
+        'button',
+        {
+          className: `view-tab dg-mode${on ? ' active' : ''}`,
+          'aria-pressed': on ? 'true' : 'false',
+          'aria-description': about,
+          'data-toggle': key,
+          onclick: () => {
+            hideHover();
+            flip();
+            persist();
+            drawMap(host, d);
+            const b = [...host.querySelectorAll('[data-toggle]')].find(x => x.dataset.toggle === key);
+            if (b) b.focus();
+          },
+          onmouseenter: e => tip(e.currentTarget),
+          onmouseleave: hideHover,
+          onfocus: e => tip(e.currentTarget),
+          onblur: hideHover,
+        },
+        icon(glyph),
+        el('span', {}, text)
+      )
+    );
+  };
+  return [
+    toggle('prompts', 'Prompts', 'comment', 'The first line of each prompt on its step.', state.mapPrompts, () => (state.mapPrompts = !state.mapPrompts)),
+    ...(d.layers || []).map(l => {
+      const on = state.mapLayers[l.label] !== false;
+      return toggle(`layer:${l.label}`, l.label, 'plug', `${l.label} events on the steps and agents they concern.`, on, () => (state.mapLayers = { ...state.mapLayers, [l.label]: !on }));
+    }),
+  ];
+}
+
+const fmtSec = t => new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+const TONE_ICON = { act: 'plug', warn: 'warning', quiet: 'circle-outline' };
+
+// The events of one step or agent row, one section per layer: who they concern, how many and when, then each event.
+export function eventsCard(name, sets) {
+  return el(
+    'div',
+    { className: 'hc hc-ev' },
+    sets.map(({ label, events }) => {
+      const first = Date.parse(events[0].at);
+      const last = Date.parse(events[events.length - 1].at);
+      return el(
+        'div',
+        { className: 'hc-ev-sec' },
+        el('div', { className: 'hc-head' }, icon('plug'), el('span', { className: 'hc-type' }, label), el('span', { className: 'hc-name' }, name)),
+        el('div', { className: 'hc-sub' }, `${plural(events.length, 'event')} · ${last > first ? `${fmtSec(first)} to ${fmtSec(last)}` : fmtSec(first)}`),
+        el(
+          'ol',
+          { className: 'hc-tl' },
+          events.map(e =>
+            el(
+              'li',
+              { className: `hc-tl-item ev-${toneOf(e)}` },
+              el('div', { className: 'hc-tl-when' }, el('span', { className: 'hc-tl-time' }, fmtSec(Date.parse(e.at))), el('span', { className: 'hc-ev-hook' }, e.hook)),
+              el('div', { className: 'hc-ev-text' }, e.text),
+              e.detail ? el('div', { className: 'hc-ev-detail tip-lines' }, e.detail) : null
+            )
+          )
+        )
+      );
+    })
+  );
+}
+
+// A chip with the layers' labels, or for a step whose events all looked and did nothing, a hollow dashed marker.
+// Both are buttons laid over the diagram; hover and focus open the event card.
+function eventMark(sets, name, key, quiet) {
+  const all = sets.flatMap(s => s.events);
+  const tone = toneOfAll(all);
+  const aria = sets.map(s => `${s.label}: ${plural(s.events.length, 'event')}`).join(', ');
+  const node = quiet
+    ? el('button', { className: 'dg-mark', 'aria-label': aria }, svg('svg', { width: 10, height: 10, viewBox: '0 0 10 10', 'aria-hidden': 'true' }, svg('circle', { cx: 5, cy: 5, r: 4.5 })))
+    : el('button', { className: `dg-chip ev-${tone}`, 'aria-label': aria }, icon(TONE_ICON[tone]), el('span', {}, chipText(all)));
+  const cardKey = `events:${key}:${sets.map(s => s.label).join('|')}`;
+  const open = () => {
+    const r = node.getBoundingClientRect();
+    placeCard(cardKey, () => eventsCard(name, sets), { x: r.left - 14, y: r.bottom - 6 });
+  };
+  node.addEventListener('mouseenter', open);
+  node.addEventListener('focus', open);
+  node.addEventListener('mouseleave', hideHover);
+  node.addEventListener('blur', hideHover);
+  node.addEventListener('keydown', e => {
+    if (e.key === 'Escape') hideHover();
+  });
+  return { node, h: quiet ? 24 : 20, text: quiet ? '' : chipText(all) };
+}
+
+// Widths of the marks as the panel renders them, measured off screen before the diagram is laid out.
+function measureMarks(marks) {
+  if (!marks.length) return;
+  const box = el('div', { className: 'dg-measure', 'aria-hidden': 'true' }, marks.map(m => m.node));
+  document.body.append(box);
+  for (const m of marks) m.w = m.node.offsetWidth || (m.text ? Math.ceil(m.text.length * 6.6) + 34 : 24);
+  box.remove();
+}
+
+let measureCtx;
+
+const textWidth = (text, font) => {
+  measureCtx = measureCtx || document.createElement('canvas').getContext('2d');
+  if (!measureCtx) return text.length * 6;
+  measureCtx.font = font;
+  return measureCtx.measureText(text).width;
+};
+
+// One line cut to `px` with an ellipsis.
+const fitLine = (text, px, font) => {
+  if (textWidth(text, font) <= px) return text;
+  let lo = 0;
+  let hi = text.length;
+  while (lo < hi) {
+    const mid = Math.ceil((lo + hi) / 2);
+    if (textWidth(`${text.slice(0, mid).trimEnd()}…`, font) <= px) lo = mid;
+    else hi = mid - 1;
+  }
+  return `${text.slice(0, lo).trimEnd()}…`;
+};
+
 // Full timeline as a process from top to bottom: your prompts are the steps of the main thread; a delegation branches
 // to the agents it started, and each agent's report joins the main thread again (dashed) after the step it reached.
+// With Prompts on, each step shows its prompt's first line; an event layer adds a chip beside the steps and on the
+// connectors of the agents its events concern.
 export function drawProcess(W, d) {
   const steps = [...(d.decisions || [])].sort((p, q) => p.at - q.at);
   if (!steps.length) return el('div', { className: 'empty flush dg-empty' }, 'No prompts in this session.');
   const colors = colorsOf(d);
   const selected = state.session && state.session.selected;
   const { msgs } = mapFacts(d);
+  const byId = new Map(d.agents.map(a => [a.id, a]));
   const PAD = 12;
-  const STEP_W = 124;
-  const STEP_H = 34;
+  const showPrompts = !!state.mapPrompts;
+  const promptAt = new Map(d.prompts.map(p => [p.at, p.text]));
+  const lines = steps.map(s => (showPrompts ? promptLine(promptAt.get(s.at) || '') : ''));
+  const lineFont = `11px ${getComputedStyle(document.body).fontFamily}`;
+  // Event layers that are on, bound to the steps and the agent rows.
+  const stepSets = steps.map(() => []);
+  const agentSets = new Map();
+  for (const l of d.layers || []) {
+    if (state.mapLayers[l.label] === false || !(l.events || []).length) continue;
+    const bound = bindEvents(l.events, steps.map(s => s.at), byId.keys());
+    bound.steps.forEach((events, i) => events.length && stepSets[i].push({ label: l.label, events }));
+    for (const [id, events] of Object.entries(bound.agents)) agentSets.set(id, [...(agentSets.get(id) || []), { label: l.label, events }]);
+  }
+  const stepMarks = stepSets.map((sets, i) =>
+    sets.length
+      ? eventMark(
+          sets,
+          `${fmtTime(steps[i].at)} · ${DECISION_LABELS[steps[i].action] || steps[i].action}`,
+          `step:${steps[i].at}`,
+          sets.every(s => s.events.every(e => toneOf(e) === 'quiet'))
+        )
+      : undefined
+  );
+  const agentMarks = new Map(
+    [...agentSets].map(([id, sets]) => {
+      const a = byId.get(id);
+      return [id, eventMark(sets, [shortType(a.type), a.description].filter(Boolean).join(' · '), `agent:${id}`, false)];
+    })
+  );
+  measureMarks([...stepMarks.filter(Boolean), ...agentMarks.values()]);
+  const stepMarkW = Math.max(0, ...stepMarks.filter(Boolean).map(m => m.w));
+  const agentMarkW = Math.max(0, ...[...agentMarks.values()].map(m => m.w));
+  const stepRoom = stepMarkW ? stepMarkW + 8 : 0;
+  const agentRoom = agentMarkW ? agentMarkW + 12 : 0;
+  const BASE_W = 124;
+  const STEP_H = showPrompts ? 50 : 34;
   const ROW = 36;
   const GAP = 22;
   const INDENT = 22;
   const stepX = PAD + 10;
+  // A step grows to fit its prompt line, while the agent rows keep their facts and room for a name beside it.
+  const STEP_W = showPrompts
+    ? Math.max(BASE_W, Math.min(280, W - PAD - MAP_ROW_MIN - 40 - stepX - 48 - stepRoom - agentRoom, Math.ceil(Math.max(...lines.map(l => textWidth(l || 'Pasted text', lineFont)))) + 16))
+    : BASE_W;
   const spineX = stepX + STEP_W / 2;
-  const returnX = stepX + STEP_W + 14;
+  const returnX = stepX + STEP_W + 14 + stepRoom;
   const branchX = returnX + 16;
-  const agentsX = branchX + 18;
+  const agentsX = branchX + 18 + agentRoom;
   const width = Math.max(W, agentsX + MAP_ROW_MIN + PAD);
   const right = width - PAD;
   const colOfTime = t => steps.reduce((c, s, i) => (typeof t === 'number' && s.at <= t ? i : c), 0);
-  const byId = new Map(d.agents.map(a => [a.id, a]));
   const startOf = a => (typeof a.launchedAt === 'number' ? a.launchedAt : typeof a.start === 'number' ? a.start : 0);
   const ordered = [...d.agents].sort((p, q) => startOf(p) - startOf(q));
   // Each run: the step that started it (its parent's step for a nested agent) and the step its report reached.
@@ -235,6 +414,10 @@ export function drawProcess(W, d) {
   root.append(svg('defs', {}, svg('marker', { id: 'dg-arrow', viewBox: '0 0 8 8', refX: 7, refY: 4, markerWidth: 6, markerHeight: 6, orient: 'auto-start-reverse' }, svg('path', { d: 'M 0 0 L 8 4 L 0 8 z', class: 'dg-arrowhead' }))));
   const edges = svg('g', {});
   const arrow = (dPath, back) => edges.append(svg('path', { d: dPath, class: `dg-edge${back ? ' back' : ''}`, 'marker-end': 'url(#dg-arrow)' }));
+  // A step's chip or marker sits level with its first line, the time; the step's branch to its agents then leaves
+  // below the mark, so the mark never reads as part of the delegation.
+  const FIRST_LINE = 10;
+  const branchY = i => stepTop[i] + (stepMarks[i] ? Math.max(STEP_H / 2, FIRST_LINE + 17) : STEP_H / 2);
   // The main thread's flow: start, every prompt in order, end.
   arrow(`M ${spineX} ${startY + 7} V ${stepTop[0]}`);
   steps.forEach((s, i) => arrow(`M ${spineX} ${stepTop[i] + STEP_H} V ${i + 1 < steps.length ? stepTop[i + 1] : endY - 7}`));
@@ -243,7 +426,7 @@ export function drawProcess(W, d) {
       const p = t.parent;
       arrow(`M ${p.x + 10} ${p.y + MAP_ROW_H} V ${t.y + MAP_ROW_H / 2} H ${t.x}`);
     } else {
-      arrow(`M ${stepX + STEP_W} ${stepTop[t.c] + STEP_H / 2} H ${branchX} V ${t.y + 11} H ${t.x}`);
+      arrow(`M ${stepX + STEP_W} ${branchY(t.c)} H ${branchX} V ${t.y + 11} H ${t.x}`);
       arrow(`M ${t.x} ${t.y + 21} H ${returnX} V ${joinY(t.rc)} H ${spineX + 1}`, true);
     }
   }
@@ -253,24 +436,48 @@ export function drawProcess(W, d) {
   steps.forEach((s, i) => {
     if (s.launches < 2 || s.shape !== 'agents together') return;
     const gx = branchX;
-    const gy = stepTop[i] + STEP_H / 2;
+    const gy = branchY(i);
     root.append(svg('path', { d: `M ${gx} ${gy - 7} L ${gx + 7} ${gy} L ${gx} ${gy + 7} L ${gx - 7} ${gy} Z`, class: 'dg-gateway' }), svg('path', { d: `M ${gx - 3.5} ${gy} H ${gx + 3.5} M ${gx} ${gy - 3.5} V ${gy + 3.5}`, class: 'dg-edge' }));
   });
+  const marks = [];
+  const lay = (m, x, cy) => {
+    m.node.style.left = `${x}px`;
+    m.node.style.top = `${cy - m.h / 2}px`;
+    marks.push(m.node);
+  };
   steps.forEach((s, i) => {
     const yy = stepTop[i];
+    const action = DECISION_LABELS[s.action] || s.action;
+    const line = lines[i] || 'Pasted text';
     const g = svg(
       'g',
-      { class: 'dg-decision' },
+      { class: 'dg-decision', tabindex: '0', 'aria-label': `${fmtTime(s.at)}, ${action}${showPrompts ? `, ${line}` : ''}` },
       svg('rect', { x: stepX, y: yy, width: STEP_W, height: STEP_H, rx: 5, class: `dg-node${s.action === 'delegated' ? ' gold' : ''}` }),
       svg('text', { x: stepX + 8, y: yy + 14, class: 'dg-label strong' }, fmtTime(s.at)),
-      svg('text', { x: stepX + 8, y: yy + 28, class: 'dg-meta' }, clip(DECISION_LABELS[s.action] || s.action, Math.floor((STEP_W - 14) / 5.6)))
+      svg('text', { x: stepX + 8, y: yy + 28, class: 'dg-meta' }, clip(action, Math.floor((STEP_W - 14) / 5.6))),
+      showPrompts ? svg('text', { x: stepX + 8, y: yy + 42, class: `dg-prompt${lines[i] ? '' : ' muted'}` }, fitLine(line, STEP_W - 16, lineFont)) : null
     );
-    const card = e => placeCard(`step:${s.at}`, () => decisionCard(fmtTime(s.at), [s], d), { x: e.clientX, y: e.clientY });
+    const key = `step:${s.at}${showPrompts ? ':full' : ''}`;
+    const build = () => decisionCard(fmtTime(s.at), [s], d, showPrompts);
+    const card = e => placeCard(key, build, { x: e.clientX, y: e.clientY });
     g.addEventListener('mouseenter', card);
     g.addEventListener('mousemove', card);
     g.addEventListener('mouseleave', hideHover);
+    g.addEventListener('focus', () => {
+      const r = g.getBoundingClientRect();
+      placeCard(key, build, { x: r.right, y: r.bottom });
+    });
+    g.addEventListener('blur', hideHover);
+    g.addEventListener('keydown', e => {
+      if (e.key === 'Escape') hideHover();
+    });
     root.append(g);
+    if (stepMarks[i]) lay(stepMarks[i], stepX + STEP_W + 6, yy + FIRST_LINE);
   });
-  for (const t of runs) root.append(mapAgentRow(t.a, t.x, t.y, right, d, colors, msgs, selected));
-  return root;
+  for (const t of runs) {
+    root.append(mapAgentRow(t.a, t.x, t.y, right, d, colors, msgs, selected));
+    if (agentMarks.has(t.a.id)) lay(agentMarks.get(t.a.id), branchX + 12, t.y + MAP_ROW_H / 2);
+  }
+  if (!marks.length) return root;
+  return el('div', { className: 'dg-stage', style: `width: ${width}px; height: ${H}px` }, root, marks);
 }

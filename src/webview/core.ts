@@ -33,6 +33,8 @@ export const state: State = {
   sessionView: saved.sessionView || 'timeline',
   decisionMode: saved.decisionView || 'timeline',
   mapMode: saved.mapMode || 'timeline',
+  mapPrompts: saved.mapPrompts === true,
+  mapLayers: saved.mapLayers || {},
   billing: saved.billing || 'api',
   styleModel: saved.styleModel || 'sonnet',
   repoTab: saved.repoTab || 'overview',
@@ -43,7 +45,7 @@ export const state: State = {
 
 export const app = document.getElementById('app') as HTMLElement;
 
-export const persist = () => vscode.setState({ filter: state.filter, expanded: [...state.expanded], openRepos: [...state.openRepos], listViews: state.listViews, foldedGroups: [...state.foldedGroups], repoSort: state.repoSort, sessionView: state.sessionView, decisionView: state.decisionMode, mapMode: state.mapMode, billing: state.billing, styleModel: state.styleModel, repoTab: state.repoTab, detailMode: state.detailMode, detailTabs: state.detailTabs });
+export const persist = () => vscode.setState({ filter: state.filter, expanded: [...state.expanded], openRepos: [...state.openRepos], listViews: state.listViews, foldedGroups: [...state.foldedGroups], repoSort: state.repoSort, sessionView: state.sessionView, decisionView: state.decisionMode, mapMode: state.mapMode, mapPrompts: state.mapPrompts, mapLayers: state.mapLayers, billing: state.billing, styleModel: state.styleModel, repoTab: state.repoTab, detailMode: state.detailMode, detailTabs: state.detailTabs });
 
 export const SOURCES = {
   user: { icon: 'account', label: 'Your config (~/.claude.json)' },

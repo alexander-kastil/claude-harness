@@ -5,6 +5,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { Constitution } from './constitution';
 import { FileEdit, fleetRow, guardInfo, guardReasons, lastSessionAt, marketplaceHealth, renameCatalog, renameCommands, renameInSettings } from './fleet';
+import { EventSource, eventLayers, findEventSources } from './events';
 import { registerLenses } from './lenses';
 import { NO_PROVIDER, Provider, ScaffoldForm, applyFix, findProvider, parseScaffoldOutput, previewFix, runScript, scaffoldArgs } from './standard';
 import {
@@ -68,12 +69,16 @@ export function activate(context: vscode.ExtensionContext): void {
   let views: ScopeView[] = [];
   let plugins: ScopeView[] = [];
   let provider: Provider | undefined;
+  // Plugins that log events per session; each adds a layer to the session views.
+  let eventSources: EventSource[] = [];
   const constitution = new Constitution(
     () => provider,
     () => path.join(global.root, 'settings.json')
   );
   const loadProvider = () => {
-    const next = findProvider(pluginDirs(global.root, true));
+    const dirs = pluginDirs(global.root, true);
+    const next = findProvider(dirs);
+    eventSources = findEventSources(dirs);
     const changed = next?.dir !== provider?.dir;
     provider = next;
     void vscode.commands.executeCommand('setContext', 'claudeHarness.standard', !!provider);
@@ -286,7 +291,8 @@ export function activate(context: vscode.ExtensionContext): void {
         const color = asset ? readMarkdown(asset.file).data.color : undefined;
         if (typeof color === 'string') agentColors[type] = color.trim().toLowerCase();
       }
-      return { ...detail, repo: view!.label, agentColors, account: summary.account, plan: accounts().find(a => a.root === (summary.accountRoot ?? global.root))?.plan };
+      const layers = eventLayers(eventSources, summary.file, summary.id);
+      return { ...detail, repo: view!.label, agentColors, account: summary.account, plan: accounts().find(a => a.root === (summary.accountRoot ?? global.root))?.plan, ...(layers.length ? { layers } : {}) };
     },
     draftStyle: async (id, sessionId, model, started) => {
       const scope = scopes.find(s => s.id === id && s.id !== global.id);
