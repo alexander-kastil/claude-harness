@@ -26,10 +26,10 @@ A copy shows in the sidebar and tree as **also in Global (identical)**, or with 
 
 **Retire Copy** is the archive button in the toolbar of a repo skill or agent. It is offered only when a global or plugin copy is identical. Retiring does this:
 
-1. Copies the file or skill folder to `~/.claude/repo-sync-backups/<yyyymmdd-hhmmss>/<repo>/<path>`.
+1. Copies the file or skill folder to `repo-sync-backups/<yyyymmdd-hhmmss>/<repo>/<path>` in the global harness folder: `~/.claude`, or the folder set by `claudeHarness.root`.
 2. Deletes it from the repo.
 
-A confirmation shows the identical copy, the backup path and the file that goes. Nothing else changes.
+A confirmation shows the identical copy, the backup path and the file that goes. When the repo has uncommitted harness files, a busy Claude session or stale worktree copies, the confirmation also names them under **Careful**. Nothing else changes.
 
 ![Repo skill marked as also in Global (identical), with the Retire button in the toolbar](images/retire-copy.png)
 

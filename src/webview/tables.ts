@@ -1,6 +1,6 @@
 // @ts-nocheck
 // The grid table every main page uses, and its asset flavour.
-import { AGENT_COLORS, SOURCES, app, categoryOf, labelOf, metaOf, persist, select, state } from './core';
+import { SOURCES, agentColorClass, app, categoryOf, labelOf, metaOf, persist, select, state } from './core';
 import { el, fmtAgo, highlight, icon, pressable } from './dom';
 
 // A group header: the whole bar folds and unfolds its group, by click or by Enter and Space. `redraw` repaints
@@ -81,8 +81,8 @@ export function assetTable(entries, facts, q, label, showScope = new Set(entries
       track: 'minmax(140px, 1fr)',
       cls: 'at-name',
       cell: e => {
-        const color = AGENT_COLORS.includes(metaOf(e.a).color) ? metaOf(e.a).color : '';
-        return [icon(glyphOf(e.a)), color ? el('span', { className: `swatch ac-${color}` }) : null, el('span', { className: 'at-label' }, highlight(rowName(e.a), q))];
+        const color = agentColorClass(metaOf(e.a).color);
+        return [icon(glyphOf(e.a)), color ? el('span', { className: `swatch ${color}` }) : null, el('span', { className: 'at-label' }, highlight(rowName(e.a), q))];
       },
     },
     { head: 'Description', track: 'minmax(0, 2fr)', muted: true, wide: true, cell: e => highlight(descOf(e.a) || '', q), title: e => descOf(e.a) },

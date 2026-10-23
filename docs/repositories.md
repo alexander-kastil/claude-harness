@@ -13,7 +13,7 @@ A repository appears under **Repositories** in the sidebar and in the activity b
 | Section | Description |
 | --- | --- |
 | [Where repos come from](#where-repos-come-from) | The three sources and the order of the list |
-| [Repository page](#repository-page) | The tiles, the sections and the buttons on a repo page |
+| [Repository page](#repository-page) | The tabs and the buttons on a repo page |
 | [Activity bar node](#activity-bar-node) | The Repositories node and its buttons |
 | [Add a repo](#add-a-repo) | Adds repo folders |
 | [Remove a repo](#remove-a-repo) | Hides repos or added folders |
@@ -36,14 +36,14 @@ In the sidebar, repos that are open as workspace folders are listed first under 
 
 ## Repository page
 
-The repo page shows the repo name, its path and its asset count. It has these parts:
+The repo page shows the repo name, its path and its asset count. Four tabs sit under the header: **Overview**, **Effective harness**, **Sessions** and **Models**.
 
-- One tile for each section, with its count. Click a tile to open the first item in that section.
-- **Recently changed**, with the 12 most recently changed items in the repo.
-- **Sessions**, with the 10 newest sessions and **Show all**. See [Sessions](sessions.md#sessions-page).
-- **Effective harness**, with what a session in the repo loads. See [Effective harness](effective-harness.md).
-- Header buttons: **New in** the repo name (plus icon) to create an item in this repo. See [Editing](editing.md#create-rename-duplicate-and-delete).
-- The trash button removes this repo from the harness. Nothing is deleted on disk.
+- **Overview** has one tile for each section, with its count. Click a tile to open that section's type page for the repo: its items, with a search box and filters. Below the tiles, **Recently changed** lists the 10 most recently changed items in the repo.
+- **Effective harness** shows what a session in the repo loads. See [Effective harness](effective-harness.md).
+- **Sessions** lists the repo's sessions, newest first, with the 10 newest and **Show all**. **Search and filter** opens the [Sessions page](sessions.md#sessions-page).
+- **Models** shows the tokens and cost by model over the last 7 days, for each account, across all repos. See [Last 7 days](sessions.md#last-7-days).
+- Header buttons: **New in** the repo name (plus icon) creates an item in this repo. See [Editing](editing.md#create-rename-duplicate-and-delete). The trash button removes this repo from the harness. Nothing is deleted on disk.
+- With a harness standard provider installed, the header also has buttons to check the repo against the standard, align its `CLAUDE.md`, fix its settings and hooks, and scaffold its harness.
 
 The terminal icon on a repo row in the sidebar opens a terminal in that repo running `claude`. See [Commands](commands.md#open-claude-here).
 

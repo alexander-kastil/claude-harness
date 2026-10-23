@@ -1,6 +1,30 @@
 # Changelog
 
-All notable changes to Claude Harness are listed here, newest first. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions with no version change in the package.json history (0.1.3, 0.1.5 to 0.1.18, 0.1.20 to 0.1.24, 0.1.27, 0.2.1 and 0.2.3 to 0.2.11) and development builds (0.2.14 to 0.2.22, 0.2.24 to 0.2.30 and 0.2.32 to 0.2.34) have no entry.
+All notable changes to Claude Harness are listed here, newest first. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions with no version change in the package.json history (0.1.3, 0.1.5 to 0.1.18, 0.1.20 to 0.1.24, 0.1.27, 0.2.1 and 0.2.3 to 0.2.11) and development builds (0.2.14 to 0.2.22, 0.2.24 to 0.2.30, 0.2.32 to 0.2.34, 0.2.36 to 0.2.44 and 0.3.0) have no entry.
+
+## [0.3.1] - 2026-10-23
+
+### Added
+
+- Prompts on the Delegation map's Full timeline: each prompt is its own box on the main thread, above the step it started, with its first line inside and the whole prompt, pasted blocks set apart, in its hover card. Off by default. See [Sessions](docs/sessions.md#delegation-map).
+- Mods on the Delegation map's Full timeline: one toggle shows what every mod did, as a chip beside each step and on the connector of each agent it concerns, with one section per mod in the hover card. A hook that denied a tool call shows as a stop sign. It reads the hook traces Claude Code writes into the main and subagent transcripts, so it needs nothing installed: a hook whose text opens with `<name>: ` gets its own mod, any other hook output goes under Hooks. On by default, and shown only when the session has hook traces. See [Sessions](docs/sessions.md#mod-events).
+- A mod can ship `.claude-plugin/harness-events.json`, pointing to a per-session event log, to put its own events and labels on the map. A transcript trace that the log already holds shows once. See [Sessions](docs/sessions.md#mod-events).
+- Analyze on the Delegation map opens a new Claude in a terminal on a copy of the session, in the folder the session ran in, to ask about it in a chat. The original session stays untouched. When the session started agents, the copy is told where their transcripts are. See [Sessions](docs/sessions.md#delegation-map).
+- A live session's page reads the transcript again every 5 seconds while it is in sight, repaints only when something changed, and keeps the scroll position.
+- A Used in tab on the page of an agent or skill lists the sessions that used it, newest first: when, the repo, the session (a click opens it) and how often it was launched or used. It reads the transcripts of every account, the agents' own included, and keeps an index, so a later visit reads only what was added since. A global agent or skill leaves out the sessions of repos that have their own copy. See [Sessions](docs/sessions.md#used-in).
+- Edit mode of an agent always has a color row: eight swatches, first the colors your agents already use, most used first, then Claude Code's own colors; a field for any hex code, where an invalid code is never saved; and None, which removes the `color` field. See [Editing](docs/editing.md#edit-an-item).
+- A contributor guide, [CONTRIBUTE.md](CONTRIBUTE.md), walks through forking the repo, a feature branch, syncing with the owner's master, trying the change in VS Code and the pull request, with a Claude Code command for each step (`/ext-contribute-setup`, `/ext-contribute-start`, `/ext-sideload`, `/ext-contribute-sync`, `/ext-contribute-pr`, `/ext-contribute-finish` and `/ext-contribute-cleanup`).
+
+### Changed
+
+- A click on a section header in the sidebar folds or unfolds it, and so does a click on a repo's Sessions row, instead of opening the type page or the sessions page. The type pages open from the tiles of the overview and the repo page, the sessions page from the repo page's Search and filter button.
+- The eight named agent colors are fixed values instead of theme colors, so an agent has the same color in every theme. A hex value or CSS color name in an agent's `color` field shows as that color in the tables, the session lanes and on its page.
+- The VSIX ships only the files its runtime packages need, so the download is smaller.
+- The last 7 days by model moved from the sessions page to a Models tab on the repo page, still over all repos of each account.
+- The cost card and the weekly summary say less: a shorter billing description, no asterisks, and no hover cards repeating how the limits were measured.
+- Draft output style asks in a card under its button instead of a system dialog, like Analyze, with a Don't ask again switch that remembers the answer.
+- A type page opened from a repo starts filtered to Global and that repo, the elements that load there, instead of the repo alone.
+- The license is the Claude Harness License 1.0, replacing CC BY-NC-SA 4.0: free for internal use in your company, no redistribution or derived works. See [LICENSE](LICENSE).
 
 ## [0.2.35] - 2026-10-22
 
@@ -129,7 +153,7 @@ All notable changes to Claude Harness are listed here, newest first. The format 
 - Repositories node in the activity bar, with a check badge for each repo when a provider is installed. See [Repositories](docs/repositories.md#activity-bar-node).
 - CodeLens and quick fixes on `CLAUDE.md` and `.claude/rules/*.md` for dead pointers. With a provider, they also cover restated house rules and boilerplate headings. See [CLAUDE.md lenses](docs/claude-md-lenses.md).
 - Effective harness section on each repo page, listing the memory, rules, plugins and hooks that a session loads. See [Effective harness](docs/effective-harness.md).
-- Duplicate finder covers hook scripts, and marks a copy as nearly identical when only whitespace or version lines differ. See [Duplicates](docs/duplicates.md).
+- Duplicate finder covers hook scripts and copies inside plugins, and marks a copy as nearly identical when only whitespace or version lines differ. See [Duplicates](docs/duplicates.md).
 - Retire Copy and Retire Clean Copies back up a repo copy that matches a global or plugin copy, then delete it. See [Duplicates](docs/duplicates.md#retire-a-copy).
 - Fleet overview: one table of every repo. See [Fleet overview](docs/fleet-overview.md).
 - Fix Settings and Hooks previews the settings and hook fixes of a repo, shows diffs, and applies after a confirmation, when a provider is installed.
@@ -138,7 +162,7 @@ All notable changes to Claude Harness are listed here, newest first. The format 
 - Marketplace health page, and Rename Marketplace for directory marketplaces. See [Marketplace health](docs/marketplace-health.md).
 - Bulk-edit guard: a pick list before a bulk change, such as Retire Clean Copies and Rename Marketplace. It unticks repos with uncommitted harness files, a busy Claude session or stale worktree copies. See [Bulk-edit guard](docs/bulk-edits.md).
 - Hook Scripts kind, for the files in the `hooks` folder. There are now twelve kinds. See [Harness kinds](docs/harness-kinds.md).
-- Commands: Fleet Overview, Marketplace Health, Retire Clean Copies, Rename Marketplace, Retire Copy, Open Repo, Remove Line and Repoint, and, with a provider, the harness standard check, fixing settings and hooks and scaffolding a repo. See [Commands](docs/commands.md).
+- Commands: Fleet Overview, Marketplace Health, Retire Clean Copies, Rename Marketplace, Retire Copy, Open Repo, Remove Line and Repoint, and, with a provider, the harness standard check, fixing settings and hooks, scaffolding a repo and opening the harness standard. See [Commands](docs/commands.md).
 
 ### Changed
 

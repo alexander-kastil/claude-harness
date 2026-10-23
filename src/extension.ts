@@ -5,6 +5,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { Constitution } from './constitution';
 import { FileEdit, fleetRow, guardInfo, guardReasons, lastSessionAt, marketplaceHealth, renameCatalog, renameCommands, renameInSettings } from './fleet';
+import { EventSource, eventLayers, findEventSources, transcriptLayers } from './events';
 import { registerLenses } from './lenses';
 import { NO_PROVIDER, Provider, ScaffoldForm, applyFix, findProvider, parseScaffoldOutput, previewFix, runScript, scaffoldArgs } from './standard';
 import {
@@ -55,6 +56,8 @@ import { Account, accountWeek, findAccountSession, importTranscript, listAccount
 import { STYLE_MODELS, StyleModel, draftStyle, stylePrompt, writeStyleDraft } from './style';
 import { pickTools, splitTools, TOOL_FIELDS } from './tools';
 import { HarnessTree, Node } from './tree';
+import { UsageIndex } from './usage';
+import { usageRows, usageTarget } from './usage-rows';
 
 const WATCHED = '{CLAUDE.md,settings.json,settings.local.json,agents/**,skills/**,commands/**,output-styles/**,rules/**,workflows/**,hooks/**,plugins/installed_plugins.json,plugins/known_marketplaces.json}';
 
@@ -68,12 +71,16 @@ export function activate(context: vscode.ExtensionContext): void {
   let views: ScopeView[] = [];
   let plugins: ScopeView[] = [];
   let provider: Provider | undefined;
+  // Plugins that log events per session; each adds a layer to the session views.
+  let eventSources: EventSource[] = [];
   const constitution = new Constitution(
     () => provider,
     () => path.join(global.root, 'settings.json')
   );
   const loadProvider = () => {
-    const next = findProvider(pluginDirs(global.root, true));
+    const dirs = pluginDirs(global.root, true);
+    const next = findProvider(dirs);
+    eventSources = findEventSources(dirs);
     const changed = next?.dir !== provider?.dir;
     provider = next;
     void vscode.commands.executeCommand('setContext', 'claudeHarness.standard', !!provider);
@@ -90,6 +97,8 @@ export function activate(context: vscode.ExtensionContext): void {
   );
   let watcher: vscode.FileSystemWatcher | undefined;
   let timer: NodeJS.Timeout | undefined;
+  // Where each agent and skill was used, over the transcripts of every account; built the first time the Used in tab opens.
+  const usageIndex = new UsageIndex(path.join(context.globalStorageUri.fsPath, 'usage-index.json'));
 
   const assets = () => views.flatMap(v => v.categories.flatMap(c => c.items));
   const find = (id: string): Asset | undefined => assets().find(a => a.id === id);
@@ -286,23 +295,24 @@ export function activate(context: vscode.ExtensionContext): void {
         const color = asset ? readMarkdown(asset.file).data.color : undefined;
         if (typeof color === 'string') agentColors[type] = color.trim().toLowerCase();
       }
-      return { ...detail, repo: view!.label, agentColors, account: summary.account, plan: accounts().find(a => a.root === (summary.accountRoot ?? global.root))?.plan };
+      // Mod events: the logs of the plugins that ship an events manifest, then what the transcript shows of every hook.
+      const { hooks, ...rest } = detail;
+      const logs = eventLayers(eventSources, summary.file, summary.id);
+      const layers = [...logs, ...transcriptLayers(hooks, logs, eventSources)];
+      return { ...rest, repo: view!.label, agentColors, account: summary.account, plan: accounts().find(a => a.root === (summary.accountRoot ?? global.root))?.plan, ...(layers.length ? { layers } : {}) };
     },
-    draftStyle: async (id, sessionId, model, started) => {
+    draftStyle: async (id, sessionId, model, started, answer, ask) => {
       const scope = scopes.find(s => s.id === id && s.id !== global.id);
       const summary = scope ? findAccountSession(scope.base, accounts(), sessionId) : undefined;
       if (!scope || !summary) return { state: 'error', error: 'The session transcript is gone.' };
       if (!STYLE_MODELS.includes(model as StyleModel)) return { state: 'error', error: `Unknown model ${model}.` };
       const scan = (await readSession(summary)).style;
-      const choice = await vscode.window.showWarningMessage(
-        `Draft an output style with Claude ${model}?`,
-        {
-          modal: true,
-          detail: `This runs claude -p on your own Claude login, so it counts against your plan. It sends the scan of this session: ${scan.corrections.length} ${scan.corrections.length === 1 ? 'correction' : 'corrections'} you made, the interrupts and the length and format of the replies. No code and no whole replies. The draft is saved to ${path.join(scope.root, 'output-styles')}.`,
-        },
-        'Draft'
-      );
-      if (choice !== 'Draft') return { state: 'idle' };
+      // Asked in the panel, until the owner switches on Don't ask again.
+      if (!answer.confirmed && !context.globalState.get<boolean>('draftStyleRemembered')) {
+        ask({ kind: 'draftStyle', scope: id, id: sessionId, model, corrections: scan.corrections.length, folder: path.join(scope.root, 'output-styles') });
+        return { state: 'idle' };
+      }
+      if (answer.remember) await context.globalState.update('draftStyleRemembered', true);
       started();
       const result = await draftStyle(stylePrompt(scan), model as StyleModel, os.tmpdir());
       if ('error' in result) return { state: 'error', error: result.error };
@@ -335,6 +345,28 @@ export function activate(context: vscode.ExtensionContext): void {
       }
       void vscode.window.showInformationMessage(`Exported the session transcript to ${target.fsPath}.`);
     },
+    analyzeSession: async (id, sessionId, answer, ask) => {
+      const scope = scopes.find(s => s.id === id && s.id !== global.id);
+      const summary = scope ? findAccountSession(scope.base, accounts(), sessionId) : undefined;
+      if (!scope || !summary) return void vscode.window.showErrorMessage('The session transcript is gone.');
+      // The copy resumes from the folder the session ran in, since Claude Code finds a transcript by that folder.
+      const recorded = (await readSession(summary)).cwd;
+      const cwd = recorded && fs.existsSync(recorded) ? recorded : scope.base;
+      // Asked in the panel, until the owner switches on Don't ask again.
+      if (!answer.confirmed && !context.globalState.get<boolean>('analyzeRemembered')) return ask({ kind: 'analyze', scope: id, id: sessionId, cwd, live: !!summary.live });
+      if (answer.remember) await context.globalState.update('analyzeRemembered', true);
+      // The copy holds the main thread with each agent's report; the agents' own work is in their transcripts, so the
+      // first message tells the copy where they are (a resumed session ignores --append-system-prompt). The message rides
+      // the command line, so a path with a character a shell reads is left out.
+      const agents = path.join(path.dirname(summary.file), summary.id, 'subagents').replace(/\\/g, '/');
+      const hint = fs.existsSync(agents) && /^[\w .:/-]+$/.test(agents)
+        ? ` "This is a copy of the session, opened so I can analyze it. The agents of the session wrote their transcripts to ${agents}, one agent-ID.jsonl per agent. When a question is about the work inside an agent, read that transcript a part at a time. Reply only: Ready."`
+        : '';
+      const env = summary.accountRoot && path.resolve(summary.accountRoot) !== path.resolve(global.root) ? { CLAUDE_CONFIG_DIR: summary.accountRoot } : undefined;
+      const t = vscode.window.createTerminal({ name: `Analyze: ${summary.title.slice(0, 40)}`, cwd, env });
+      t.show();
+      t.sendText(`claude --resume ${summary.id} --fork-session${hint}`);
+    },
     importSession: async id => {
       const scope = scopes.find(s => s.id === id && s.id !== global.id);
       if (!scope) return undefined;
@@ -348,6 +380,26 @@ export function activate(context: vscode.ExtensionContext): void {
         void vscode.window.showErrorMessage(`Could not import the transcript: ${(e as Error).message}`);
         return undefined;
       }
+    },
+    usage: async (id, build, progress) => {
+      const asset = find(id);
+      const target = asset ? usageTarget(asset, views) : undefined;
+      if (!target) return undefined;
+      if (!build && !(await usageIndex.exists())) return { built: false };
+      const list = accounts();
+      // Progress at most four times a second, and none for a refresh that is over sooner.
+      let shown = Date.now();
+      const data = await usageIndex.refresh(
+        list.map(a => a.root),
+        p => {
+          if (Date.now() - shown < 250) return;
+          shown = Date.now();
+          progress(p);
+        },
+        // Opening the tab always looks for new transcripts; a repaint of the page does not within 3 s of the last look.
+        build ? 0 : 3000
+      );
+      return { sessions: usageRows(data, target, repoViews().map(v => ({ id: v.id, label: v.label, path: v.path })), list) };
     },
   };
 

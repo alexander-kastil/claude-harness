@@ -1,6 +1,6 @@
 // @ts-nocheck
 // Shared pieces of the session diagrams: colors, axes, hover cards, mode switches.
-import { AGENT_COLORS, persist, total } from './core';
+import { agentColorClass, persist, total } from './core';
 import { el, fmtDur, fmtNum, fmtTime, icon, shortModel, shortType, svg } from './dom';
 import { hideHover, placeCard, tabTip } from './hover';
 
@@ -121,7 +121,7 @@ export const PALETTE_HUES = ['blue', 'green', 'orange', 'purple', 'yellow', 'red
 
 export function colorsOf(d) {
   const map = new Map();
-  const namedOf = type => (AGENT_COLORS.includes((d.agentColors || {})[type]) ? d.agentColors[type] : undefined);
+  const namedOf = type => ((d.agentColors || {})[type] && agentColorClass(d.agentColors[type]) ? d.agentColors[type].trim().toLowerCase() : undefined);
   for (const a of d.agents) if (!map.has(a.type)) map.set(a.type, -1);
   // A type without its own color takes a palette hue no named type uses, while one is left.
   const taken = new Set([...map.keys()].map(namedOf).filter(Boolean));
@@ -133,7 +133,7 @@ export function colorsOf(d) {
     taken.add(PALETTE_HUES[i]);
     map.set(type, i);
   }
-  const baseOf = type => (namedOf(type) ? `ac-${namedOf(type)}` : `c${map.get(type)}`);
+  const baseOf = type => (namedOf(type) ? agentColorClass(namedOf(type)) : `c${map.get(type)}`);
   const hueOf = base => (base.startsWith('ac-') ? base.slice(3) : PALETTE_HUES[Number(base.slice(1))]);
   // Types that share a hue keep it; the second and third get a lighter and a deeper shade.
   const shade = new Map();
@@ -145,7 +145,7 @@ export function colorsOf(d) {
     shade.set(type, k ? ` tint-${((k - 1) % 2) + 1}` : '');
   }
   const typeTone = type => `${baseOf(type)}${shade.get(type) || ''}`;
-  const tone = a => (AGENT_COLORS.includes(a.color) && `ac-${a.color}` !== baseOf(a.type) ? `ac-${a.color}` : typeTone(a.type));
+  const tone = a => (agentColorClass(a.color) && agentColorClass(a.color) !== baseOf(a.type) ? agentColorClass(a.color) : typeTone(a.type));
   return { tone, typeTone, types: [...map.keys()] };
 }
 

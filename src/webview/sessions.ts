@@ -203,10 +203,7 @@ export function renderSessionsPage() {
     p.active = 0;
     update();
   });
-  input.addEventListener('focus', () => {
-    p.open = true;
-    drawSuggest();
-  });
+  // The suggestions open on typing or the arrow keys, never on focus alone, so the latest sessions stay in sight.
   input.addEventListener('blur', () => {
     p.open = false;
     drawSuggest();

@@ -15,6 +15,10 @@ export interface Saved {
   sessionView?: string;
   decisionView?: string;
   mapMode?: string;
+  /** The Delegation map's Full timeline shows each prompt's first line on its step; off unless switched on. */
+  mapPrompts?: boolean;
+  /** The Delegation map's Full timeline shows what every mod did; on unless stored false. */
+  mapMods?: boolean;
   billing?: string;
   styleModel?: string;
   repoTab?: string;

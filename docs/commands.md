@@ -40,6 +40,11 @@ Every command is in the **Claude Harness** category. Commands marked *hidden* do
 | Open Session | Opens a Claude Code session's page. See [Sessions](sessions.md). | Session rows in the tree |
 | Remove Line (*hidden*) | Deletes a line that a CodeLens or quick fix flags. See [CLAUDE.md lenses](claude-md-lenses.md). | CodeLens, quick fix |
 | Repoint... (*hidden*) | Replaces a dead pointer with a name you pick. See [CLAUDE.md lenses](claude-md-lenses.md#dead-pointers). | CodeLens |
+| Check Harness | Runs the harness standard checks of the provider plugin. A repo row checks that repo. | Palette, repo rows |
+| Fix Settings and Hooks... | Applies the provider plugin's fixes to a repo's settings and hooks | Palette, repo rows |
+| Scaffold Repo Harness... | Scaffolds a repo's harness with the provider plugin | Palette, repo rows |
+| Align CLAUDE.md... | Aligns a repo's `CLAUDE.md` with the provider plugin | Palette, repo rows |
+| Open the Harness Standard | Opens the harness standard that the provider plugin ships | Palette |
 
 Provider commands appear when a harness standard provider plugin is installed.
 

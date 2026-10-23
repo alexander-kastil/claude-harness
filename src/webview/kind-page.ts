@@ -151,7 +151,7 @@ export const KIND_FACTS = {
   skill: [
     ['Tools', 80, toolsText],
     ['Files', 48, a => String(Math.max(1, (a.files || []).length))],
-    ['Origin', 150, a => (a.source === 'plugin' ? pluginLabel(skillPluginOf(a)) : a.link ? `linked from ${linkName(a.link)}` : 'own')],
+    ['Origin', 150, a => (a.source === 'plugin' ? pluginLabel(skillPluginOf(a)) : a.link ? `linked from ${linkName(a.link)}` : '-')],
   ],
   command: [['Tools', 80, toolsText]],
   rule: [['Loads', 170, a => (metaOf(a).paths ? metaOf(a).paths.join(', ') : 'always')]],
@@ -166,11 +166,14 @@ export const KIND_FACTS = {
   settings: [['Keys', 52, a => a.description.replace(/ keys$/, '')]],
 };
 
+// Opened from a repo, the page lists what loads there: Global, the plugins it enables, and the repo's own files.
 export const showKindPage = (kind, scope) => {
   const view = viewOf(scope);
+  const global = state.views[0];
+  const loaded = !view ? [] : global && view.id !== global.id ? [global, view] : [view];
   state.page = 'kind';
   state.repo = undefined;
-  state.kindPage = { kind, origin: scope, query: '', facets: view ? [{ kind: 'scope', value: view.id, label: `Scope: ${view.label}` }] : [], open: false, active: 0, focus: true };
+  state.kindPage = { kind, origin: scope, query: '', facets: loaded.map(v => ({ kind: 'scope', value: v.id, label: `Scope: ${v.label}` })), open: false, active: 0, focus: true };
   hideHover();
   if (state.detail) select(undefined);
   else render();
@@ -220,7 +223,7 @@ export function renderKindPage() {
   const drawResults = () => {
     const hits = filterEntries(p.kind, entries, textQ(), p.facets);
     const cols = p.kind === 'mcp' && hits.some(e => twinsOf(e.a).length) ? [...facts, ['Duplicate of', 170, a => twinText(a) || '-']] : facts;
-    // Lists with origins (MCP servers, skills) get one table per origin, in the sidebar's order.
+    // Grouped lists get one table per group, in the sidebar's order: by default where each item lives.
     const groups = LIST_VIEWS[p.kind] ? groupItems(p.kind, hits, e => e.a) : [];
     const scoped = new Set(hits.map(e => e.v.id)).size > 1;
     const body =

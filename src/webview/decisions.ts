@@ -1,5 +1,6 @@
 // @ts-nocheck
 // The Decisions view.
+import { promptParts } from '../shared/event-layers';
 import { state, total } from './core';
 import { clip, el, fmtDur, fmtTime, icon, svg } from './dom';
 import { hideHover, placeCard } from './hover';
@@ -18,6 +19,22 @@ export const DECISION_MODES = [
 ];
 
 export const STATUS_GLYPH = { done: 'pass', failed: 'error', stopped: 'debug-stop', unknown: 'question', running: 'clock' };
+
+// A whole prompt: the user's own words as text, each pasted block muted under "Pasted text" and cut to a few lines.
+const fullPrompt = text =>
+  el(
+    'div',
+    { className: 'hc-tl-prompt full' },
+    promptParts(text).map(p =>
+      p.kind === 'text'
+        ? el('div', { className: 'hc-tl-words' }, p.text)
+        : el('div', { className: 'hc-paste' }, el('div', { className: 'hc-paste-head' }, icon('clippy'), el('span', {}, 'Pasted text')), el('div', { className: 'hc-paste-body tip-lines' }, p.text))
+    )
+  );
+
+// One prompt whole, for its own box on the Delegation map.
+export const promptCard = (label, text) =>
+  el('div', { className: 'hc hc-decision' }, el('div', { className: 'hc-head' }, icon('comment'), el('span', { className: 'hc-type' }, 'Prompt'), el('span', { className: 'hc-name' }, label)), fullPrompt(text));
 
 // The prompts on a time rail. Each prompt carries the agents it launched, one by name or several as a team,
 // and every agent gets a run bar on a track that spans the prompt to the last report.

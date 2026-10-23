@@ -13,7 +13,7 @@ The MCP Servers section lists the servers in the global harness and in each repo
 | Section | Description |
 | --- | --- |
 | [Where the servers come from](#where-the-servers-come-from) | The five sources and the list they appear in |
-| [Sort the list](#sort-the-list) | Sort by name, source or status |
+| [Group and sort the list](#group-and-sort-the-list) | Group by where a server lives or by source, sort by name or status |
 | [Server details](#server-details) | The facts and config shown for a server |
 | [Tools](#tools) | Tool names read from the server, the messages shown when a server does not answer, and sign-in |
 | [Delete a server](#delete-a-server) | Remove a server's entry from its config file |
@@ -33,15 +33,18 @@ The global list also includes servers that `claude mcp list` reports but that ar
 
 The status comes from `claude mcp list`. Claude Harness runs that command when it starts and when you click **Refresh**.
 
-## Sort the list
+## Group and sort the list
 
-The sort control appears in the MCP Servers header when the section has more than one server. Claude Harness remembers your choice.
+The view control in the MCP Servers header groups the list or sorts it. Claude Harness remembers your choice. The list starts grouped by where each server lives.
 
 | Option | Order |
 | --- | --- |
-| Sort: name | Alphabetical. The `claude.ai ` prefix and the `plugin:` prefix are not counted. |
-| Sort: source | Your config, Local to this repo, Repo `.mcp.json`, claude.ai connector, then Plugin. Each group is sorted by name. |
-| Sort: status | Connected first, then servers that need sign-in, then other statuses, then servers that are not configured, then servers that are off. Each group is sorted by name. |
+| Group by where it lives (default) | Global first, then claude.ai connectors, then plugins, then each repo in the sidebar's order, the open workspace first. |
+| Group by source | Registered manually, claude.ai connectors, then From plugins. |
+| Sort by name | Alphabetical. The `claude.ai ` prefix and the `plugin:` prefix are not counted. |
+| Sort by status | Connected first, then servers that need sign-in, then other statuses, then servers that are not configured, then servers that are off. Each group is sorted by name. |
+
+In a grouped list, the servers of each group follow their source: your config, Local to this repo, Repo `.mcp.json`, claude.ai connector, then Plugin. Servers of the same plugin stay together, then they are sorted by name.
 
 ## Server details
 

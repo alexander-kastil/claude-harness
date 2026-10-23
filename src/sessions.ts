@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
+import { TranscriptHook, transcriptHooks } from './events';
 import { projectSlug } from './fleet';
 
 export interface Usage {
@@ -181,6 +182,8 @@ export interface SessionDetail {
   children: SessionSummary[];
   findings: SessionFinding[];
   style: StyleScan;
+  /** What hooks did, read from the main and the subagent transcripts; the host turns them into mod layers. */
+  hooks: TranscriptHook[];
 }
 
 type Rec = Record<string, any>;
@@ -206,7 +209,7 @@ const parseLine = (line: string): Rec[] => {
   }
 };
 
-const textOf = (content: unknown): string =>
+export const textOf = (content: unknown): string =>
   typeof content === 'string'
     ? content
     : Array.isArray(content)
@@ -224,7 +227,7 @@ export function promptText(content: unknown): string | undefined {
   return text.startsWith('<') ? undefined : text.replace(/\s+/g, ' ');
 }
 
-const isPrompt = (o: Rec) => o.type === 'user' && !o.isSidechain && !o.isMeta && !o.toolUseResult && o.origin?.kind !== 'task-notification';
+export const isPrompt = (o: Rec) => o.type === 'user' && !o.isSidechain && !o.isMeta && !o.toolUseResult && o.origin?.kind !== 'task-notification';
 
 const STYLE_SIGNALS: [StyleSignal, RegExp][] = [
   ['length', /\b(too long|shorter|shorten|more concise|be concise|be brief|too verbose|less text|too much text|tl;?dr|kürzer|zu lang)\b/i],
@@ -852,6 +855,7 @@ export async function readSession(summary: SessionSummary): Promise<SessionDetai
 
   type Sub = { id: string; meta: Rec; thread: Thread; transcript: string; mtime: number };
   const subs: Sub[] = [];
+  const hooks = transcriptHooks(main);
   for (const f of agentFiles) {
     const transcript = path.join(dir, f);
     let meta: Rec = {};
@@ -861,7 +865,9 @@ export async function readSession(summary: SessionSummary): Promise<SessionDetai
       meta = {};
     }
     const id = f.replace(/^agent-/, '').replace(/\.jsonl$/, '');
-    subs.push({ id, meta, thread: readThread(await readRecords(transcript), id, launches, undefined), transcript, mtime: fs.statSync(transcript).mtimeMs });
+    const subRecords = await readRecords(transcript);
+    hooks.push(...transcriptHooks(subRecords, id));
+    subs.push({ id, meta, thread: readThread(subRecords, id, launches, undefined), transcript, mtime: fs.statSync(transcript).mtimeMs });
   }
 
   const live = !!summary.live;
@@ -1023,6 +1029,7 @@ export async function readSession(summary: SessionSummary): Promise<SessionDetai
     children: summary.children,
     findings,
     style: scanStyle(main, prompts),
+    hooks,
   };
   details.set(file, { mtime: newest, size: stat.size, detail });
   return detail;

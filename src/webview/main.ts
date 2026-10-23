@@ -1,7 +1,9 @@
 // Entry: renders the page for the current state and handles the host messages.
 import { onMessage } from './bridge';
+import { showConfirm } from './confirm';
 import { app, isDirty, persist, save, showPage, showRepo, snapshot, state, viewOf, vscode } from './core';
 import { clone, renderDetail } from './detail';
+import { refreshUsage } from './detail-view';
 import { refreshCard } from './hover';
 import { renderKindPage } from './kind-page';
 import { renderOverview } from './overview';
@@ -50,6 +52,34 @@ export function render() {
   });
 }
 
+// A live session's page reads the transcript again in the background every few seconds while it is in sight.
+const LIVE_MS = 5000;
+
+// What a repaint would change: new records, prompts, events, usage, or an agent's progress.
+const sessionSig = (d: any) =>
+  d && !d.error ? JSON.stringify([d.end, d.live, d.prompts?.length, d.events?.length, d.usage, (d.agents || []).map((a: any) => [a.id, a.status, a.end, a.tools])]) : '';
+
+// A live repaint keeps the page where the owner had scrolled it, also after the diagrams have drawn, until they scroll.
+const keepMainScroll = (paint: () => void) => {
+  const top = app.querySelector<HTMLElement>('.main-body')?.scrollTop ?? 0;
+  paint();
+  const body = app.querySelector<HTMLElement>('.main-body');
+  if (!body || !top) return;
+  body.scrollTop = top;
+  const hold = new ResizeObserver(() => (body.scrollTop = top));
+  [...body.children].forEach(c => hold.observe(c));
+  const release = () => hold.disconnect();
+  body.addEventListener('wheel', release, { once: true });
+  body.addEventListener('keydown', release, { once: true });
+  setTimeout(release, 800);
+};
+
+setInterval(() => {
+  const s = state.session;
+  if (state.page !== 'session' || state.detail || !s || !s.data || !s.data.live || document.hidden) return;
+  vscode.postMessage({ type: 'session', scope: s.scope, id: s.id });
+}, LIVE_MS);
+
 onMessage(m => {
   if (m.type === 'state') {
     state.views = m.views || (m.categories ? [{ id: 'global', label: 'Global', path: '', categories: m.categories }] : []);
@@ -91,15 +121,25 @@ onMessage(m => {
     if (!state.detail && !state.page && state.repo === m.scope) renderMain();
     if (!state.detail && state.page === 'sessions' && state.sessionsPage && state.sessionsPage.scope === m.scope && state.sessionsPage.refresh) state.sessionsPage.refresh();
   } else if (m.type === 'session') {
-    if (state.session && state.session.scope === m.scope && state.session.id === m.id) {
-      state.session.data = m.data;
-      if (state.page === 'session' && !state.detail) renderMain();
+    const s = state.session;
+    if (s && s.scope === m.scope && s.id === m.id) {
+      const onScreen = !!s.data;
+      s.data = m.data;
+      if (state.page !== 'session' || state.detail) return;
+      // A live session's fresh read repaints only when something changed, and waits while a card is open.
+      const sig = sessionSig(m.data);
+      if (onScreen && (sig === s.shown || document.querySelector('.tl-hover.show, .cf'))) return;
+      s.shown = sig;
+      if (onScreen) keepMainScroll(renderMain);
+      else renderMain();
     }
   } else if (m.type === 'styleDraft') {
     if (state.session && state.session.scope === m.scope && state.session.id === m.id) {
       state.session.styleDraft = m;
-      if (state.page === 'session' && !state.detail) renderMain();
+      if (state.page === 'session' && !state.detail) keepMainScroll(renderMain);
     }
+  } else if (m.type === 'confirm') {
+    if (state.page === 'session' && !state.detail) showConfirm(m.ask);
   } else if (m.type === 'effective') {
     state.effective[m.scope] = m.data || { effective: { memory: [], rules: [], plugins: [], hooks: [] } };
     if (!state.detail && state.repo === m.scope) renderMain();
@@ -119,6 +159,14 @@ onMessage(m => {
       if (!m.apply) state.init.previewKey = state.init.pendingKey;
       if (state.page === 'init' && !state.detail) renderMain();
     }
+  } else if (m.type === 'usageInfo') {
+    // Progress keeps the sessions already known, so the badge stays; the answer replaces both. The tab updates in place:
+    // a repaint of the page would ask again.
+    const before = state.usage[m.id];
+    // An answer equal to the one on the page changes nothing: every repaint of the page asks again.
+    const same = !m.indexing && !!m.sessions && !before?.indexing && JSON.stringify(before?.sessions) === JSON.stringify(m.sessions);
+    state.usage[m.id] = m.indexing ? { sessions: before?.sessions, indexing: m.indexing } : m.sessions ? { sessions: m.sessions } : { built: false };
+    if (!same && state.detail && state.detail.asset.id === m.id) refreshUsage();
   } else if (m.type === 'mcpInfo') {
     state.mcpInfo[m.id] = m.info;
     if (state.detail && state.detail.asset.id === m.id) renderMain();

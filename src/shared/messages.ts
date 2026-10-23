@@ -5,6 +5,14 @@ import type { Asset, Category, Field, ScopeView } from '../harness';
 import type { McpInfo } from '../probe';
 import type { SessionSummary } from '../sessions';
 import type { ScaffoldForm } from '../standard';
+import type { Progress } from '../usage';
+import type { UsageSession } from '../usage-rows';
+
+export type { Progress } from '../usage';
+export type { UsageSession } from '../usage-rows';
+
+/** The host's answer to `usage`: the sessions that used the element, or no index yet when the webview did not ask to build one. */
+export type UsageReply = { sessions: UsageSession[] } | { built: false };
 
 export interface Detail {
   asset: Asset;
@@ -36,6 +44,46 @@ export type Page = { page?: string; repo?: string; dir?: string; session?: strin
 
 export type StyleDraft = { state: 'idle' } | { state: 'running'; model: string } | { state: 'done'; file: string; cost?: number } | { state: 'error'; error: string };
 
+/** One line of a provider plugin's per-session event log (`.claude-plugin/harness-events.json` names the log). */
+export interface ModEvent {
+  /** ISO 8601 UTC, when the hook decided. */
+  at: string;
+  hook: string;
+  /** One plain sentence: what the plugin did. */
+  text: string;
+  /** Short chip label. */
+  label?: string;
+  /** `act` when absent. */
+  tone?: 'act' | 'warn' | 'quiet';
+  /** The subagent the event concerns: its row in the map. */
+  agentId?: string;
+  /** Verbatim text the plugin injected or answered with. */
+  detail?: string;
+}
+
+/**
+ * The events of one mod for one session, from a plugin's event log or from the hooks the transcript shows; one mod can
+ * have a layer of each. The session data carries `layers` only when one of them holds events.
+ */
+export interface EventLayer {
+  label: string;
+  events: ModEvent[];
+}
+
+/**
+ * A question the host asks in the panel instead of a system dialog. The webview shows it as a card under the button
+ * marked `data-confirm="<kind>"` and answers by posting the held-back message again with an {@link Answer}.
+ */
+export type Confirm =
+  | { kind: 'analyze'; scope: string; id: string; cwd: string; live: boolean }
+  | { kind: 'draftStyle'; scope: string; id: string; model: string; corrections: number; folder: string };
+
+/** The owner's answer on a confirm card: go ahead, and whether to skip the card from now on. */
+export interface Answer {
+  confirmed?: boolean;
+  remember?: boolean;
+}
+
 /** Webview to host. */
 export type ToHost =
   | { type: 'ready' }
@@ -54,10 +102,13 @@ export type ToHost =
   | { type: 'sessions'; scope: string }
   | { type: 'weekly' }
   | { type: 'session'; scope: string; id: string }
-  | { type: 'draftStyle'; scope: string; id: string; model: string }
+  | ({ type: 'draftStyle'; scope: string; id: string; model: string } & Answer)
   | { type: 'exportSession'; scope: string; id: string }
+  | ({ type: 'analyzeSession'; scope: string; id: string } & Answer)
   | { type: 'importSession'; scope: string }
-  | { type: 'openAt'; file: string; line?: number };
+  | { type: 'openAt'; file: string; line?: number }
+  /** Where an agent or skill was used; `build` builds the transcript index when none exists yet. */
+  | { type: 'usage'; id: string; build: boolean };
 
 /** Host to webview. Payloads the host passes through from a reader stay `unknown` here. */
 export type ToWebview =
@@ -75,4 +126,7 @@ export type ToWebview =
   | { type: 'sessions'; scope: string; list: SessionSummary[] }
   | { type: 'weekly'; list: unknown }
   | { type: 'session'; scope: string; id: string; data: unknown }
-  | ({ type: 'styleDraft'; scope: string; id: string } & StyleDraft);
+  | ({ type: 'styleDraft'; scope: string; id: string } & StyleDraft)
+  | { type: 'confirm'; ask: Confirm }
+  /** For `usage`: progress messages carry `indexing` while the index is built or brought up to date, the last one `sessions` or `built: false`. */
+  | { type: 'usageInfo'; id: string; sessions?: UsageSession[]; indexing?: Progress; built?: false };

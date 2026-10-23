@@ -25,6 +25,7 @@ export const state: State = {
   fleet: undefined,
   effective: {},
   ruleInfo: {},
+  usage: {},
   markets: undefined,
   init: undefined,
   sessions: {},
@@ -33,6 +34,8 @@ export const state: State = {
   sessionView: saved.sessionView || 'timeline',
   decisionMode: saved.decisionView || 'timeline',
   mapMode: saved.mapMode || 'timeline',
+  mapPrompts: saved.mapPrompts === true,
+  mapMods: saved.mapMods !== false,
   billing: saved.billing || 'api',
   styleModel: saved.styleModel || 'sonnet',
   repoTab: saved.repoTab || 'overview',
@@ -43,7 +46,7 @@ export const state: State = {
 
 export const app = document.getElementById('app') as HTMLElement;
 
-export const persist = () => vscode.setState({ filter: state.filter, expanded: [...state.expanded], openRepos: [...state.openRepos], listViews: state.listViews, foldedGroups: [...state.foldedGroups], repoSort: state.repoSort, sessionView: state.sessionView, decisionView: state.decisionMode, mapMode: state.mapMode, billing: state.billing, styleModel: state.styleModel, repoTab: state.repoTab, detailMode: state.detailMode, detailTabs: state.detailTabs });
+export const persist = () => vscode.setState({ filter: state.filter, expanded: [...state.expanded], openRepos: [...state.openRepos], listViews: state.listViews, foldedGroups: [...state.foldedGroups], repoSort: state.repoSort, sessionView: state.sessionView, decisionView: state.decisionMode, mapMode: state.mapMode, mapPrompts: state.mapPrompts, mapMods: state.mapMods, billing: state.billing, styleModel: state.styleModel, repoTab: state.repoTab, detailMode: state.detailMode, detailTabs: state.detailTabs });
 
 export const SOURCES = {
   user: { icon: 'account', label: 'Your config (~/.claude.json)' },
@@ -97,15 +100,6 @@ export const sourceName = a => (a.source === 'plugin' ? pluginLabel(pluginOf(a))
 
 export const twinText = a => twinsOf(a).map(sourceName).join(', ');
 
-// Skills: your own folders, folders linked in from elsewhere, and the skills of enabled plugins.
-export const SKILL_ORIGINS = [
-  ['own', 'Own skills', 'mortar-board'],
-  ['linked', 'Linked', 'link'],
-  ['plugin', 'From plugins', 'extensions'],
-];
-
-export const skillOriginOf = a => (a.source === 'plugin' ? 'plugin' : a.link ? 'linked' : 'own');
-
 export const skillPluginOf = a => (a.source === 'plugin' && String(a.scope).startsWith('plugin:') ? a.scope.slice('plugin:'.length).split('@')[0] : '');
 
 // The folder a linked skill lives in: the repo above `.claude`, else the folder above `skills` (such as ~/.agents).
@@ -133,11 +127,6 @@ export const byName = (a, b) => a.name.localeCompare(b.name);
 
 export const byRecent = (a, b) => (b.mtime || 0) - (a.mtime || 0) || byName(a, b);
 
-export const AGENT_ORIGINS = [
-  ['own', 'Own agents', 'hubot'],
-  ['plugin', 'From plugins', 'extensions'],
-];
-
 export const RULE_GROUPS = [
   ['always', 'Always loaded', 'law'],
   ['scoped', 'Path-scoped', 'filter'],
@@ -151,48 +140,76 @@ export const eventRank = e => (HOOK_EVENTS.includes(e) ? HOOK_EVENTS.indexOf(e) 
 
 export const marketOf = a => a.name.split('@')[1] || 'local';
 
-// Grouped lists, in the sidebar and on the type pages. `of` names an item's group, `groups(items)` lists the
-// groups in order as [id, label, glyph], `within` orders a group. The View: picker starts on `group`.
+// Where an item lives, which decides where it loads: Global, an enabled plugin, a claude.ai connector, or a repo.
+export const whereOf = a => (a.source === 'plugin' || a.source === 'claude.ai' ? a.source : a.scope);
+
+// Global first, then the connectors and plugins it loads, then the repos in the sidebar's order, the open workspace first.
+export const whereGroups = items => {
+  const ids = new Set(items.map(whereOf));
+  const [global, ...repos] = state.views;
+  const known = [
+    global && [global.id, global.label, 'globe'],
+    ['claude.ai', 'claude.ai connectors', 'cloud'],
+    ['plugin', 'From plugins', 'extensions'],
+    ...repos.map(v => [v.id, v.local ? `This repo · ${v.label}` : v.label, 'repo']),
+  ].filter(Boolean);
+  const rest = [...ids].filter(id => !known.some(g => g[0] === id)).map(id => [id, (viewOf(id) || { label: id }).label, 'folder']);
+  return [...known.filter(g => ids.has(g[0])), ...rest];
+};
+
+const where = within => ({ of: whereOf, groups: whereGroups, within });
+
+const byPlugin = (a, b) => skillPluginOf(a).localeCompare(skillPluginOf(b)) || byName(a, b);
+
+const mcpOrder = (a, b) => SOURCE_ORDER.indexOf(a.source) - SOURCE_ORDER.indexOf(b.source) || pluginOf(a).localeCompare(pluginOf(b)) || byLabel(a, b);
+
+// Grouped lists, in the sidebar and on the type pages. Per grouping, `of` names an item's group, `groups(items)` lists
+// the groups in order as [id, label, glyph], `within` orders a group. A list starts on `group`; the View: picker offers
+// every grouping, then each sort.
 export const LIST_VIEWS = {
-  mcp: {
-    group: 'source',
-    of: originOf,
-    groups: () => ORIGINS,
-    within: (a, b) => SOURCE_ORDER.indexOf(a.source) - SOURCE_ORDER.indexOf(b.source) || pluginOf(a).localeCompare(pluginOf(b)) || byLabel(a, b),
-    sorts: { name: SORTS.name, status: SORTS.status },
+  mcp: { group: 'where', groupings: { where: where(mcpOrder), origin: { of: originOf, groups: () => ORIGINS, within: mcpOrder } }, sorts: { name: SORTS.name, status: SORTS.status } },
+  skill: { group: 'where', groupings: { where: where(byPlugin) }, sorts: { name: byName, recent: byRecent } },
+  agent: { group: 'where', groupings: { where: where(byPlugin) }, sorts: { name: byName, recent: byRecent } },
+  command: { group: 'where', groupings: { where: where(byName) }, sorts: {} },
+  rule: {
+    group: 'where',
+    groupings: { where: where(byName), loading: { of: a => (a.meta && a.meta.paths ? 'scoped' : 'always'), groups: () => RULE_GROUPS, within: byName } },
+    sorts: { name: byName, recent: byRecent },
   },
-  skill: { group: 'source', of: skillOriginOf, groups: () => SKILL_ORIGINS, within: (a, b) => skillPluginOf(a).localeCompare(skillPluginOf(b)) || byName(a, b), sorts: { name: byName, recent: byRecent } },
-  agent: { group: 'source', of: a => (a.source === 'plugin' ? 'plugin' : 'own'), groups: () => AGENT_ORIGINS, within: (a, b) => skillPluginOf(a).localeCompare(skillPluginOf(b)) || byName(a, b), sorts: { name: byName, recent: byRecent } },
-  rule: { group: 'loading', of: a => (a.meta && a.meta.paths ? 'scoped' : 'always'), groups: () => RULE_GROUPS, within: byName, sorts: { name: byName, recent: byRecent } },
+  outputStyle: { group: 'where', groupings: { where: where(byName) }, sorts: {} },
+  workflow: { group: 'where', groupings: { where: where(byName) }, sorts: {} },
+  hookScript: { group: 'where', groupings: { where: where(byName) }, sorts: {} },
   hook: {
-    group: 'event',
-    of: eventOf,
-    groups: items => [...new Set(items.map(eventOf))].sort((x, y) => eventRank(x) - eventRank(y) || x.localeCompare(y)).map(e => [e, e, 'zap']),
-    within: byName,
+    group: 'where',
+    groupings: {
+      where: where(byName),
+      event: { of: eventOf, groups: items => [...new Set(items.map(eventOf))].sort((x, y) => eventRank(x) - eventRank(y) || x.localeCompare(y)).map(e => [e, e, 'zap']), within: byName },
+    },
     sorts: { name: byName },
   },
   plugin: {
     group: 'marketplace',
-    of: marketOf,
-    groups: items => [...new Set(items.map(marketOf))].sort().map(m => [m, m, 'package']),
-    within: byName,
+    groupings: { marketplace: { of: marketOf, groups: items => [...new Set(items.map(marketOf))].sort().map(m => [m, m, 'package']), within: byName } },
     sorts: { name: byName, state: (a, b) => Number(!!b.enabled) - Number(!!a.enabled) || byName(a, b) },
   },
 };
 
-export const listModes = kind => [LIST_VIEWS[kind].group, ...Object.keys(LIST_VIEWS[kind].sorts)];
+export const listModes = kind => [...Object.keys(LIST_VIEWS[kind].groupings), ...Object.keys(LIST_VIEWS[kind].sorts)];
 
 export const listMode = kind => (listModes(kind).includes(state.listViews[kind]) ? state.listViews[kind] : LIST_VIEWS[kind].group);
 
-export const isGrouped = kind => !!LIST_VIEWS[kind] && listMode(kind) === LIST_VIEWS[kind].group;
+export const isGrouped = kind => !!LIST_VIEWS[kind] && !!LIST_VIEWS[kind].groupings[listMode(kind)];
+
+// The grouping in use; a sorted list still groups on its type page, by the grouping it starts on.
+const groupingOf = kind => LIST_VIEWS[kind].groupings[isGrouped(kind) ? listMode(kind) : LIST_VIEWS[kind].group];
 
 // Groups present in a list, each with its items in order: [[id, label, glyph], items][].
 export const groupItems = (kind, items, of = x => x) => {
-  const lv = LIST_VIEWS[kind];
-  return lv
+  const g = groupingOf(kind);
+  return g
     .groups(items.map(of))
-    .map(g => [g, items.filter(x => lv.of(of(x)) === g[0]).sort((x, y) => lv.within(of(x), of(y)))])
-    .filter(g => g[1].length);
+    .map(head => [head, items.filter(x => g.of(of(x)) === head[0]).sort((x, y) => g.within(of(x), of(y)))])
+    .filter(group => group[1].length);
 };
 
 export const sortList = (kind, items) => {
@@ -298,3 +315,30 @@ export const openAt = (file, line) => vscode.postMessage({ type: 'openAt', file,
 
 // Claude Code's agent colors; an agent definition's `color` field or a teammate's spawn color wins over the palette.
 export const AGENT_COLORS = ['red', 'blue', 'green', 'yellow', 'purple', 'orange', 'pink', 'cyan'];
+
+/** A color code the picker accepts and the file keeps: #rgb or #rrggbb. */
+export const HEX_COLOR = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i;
+
+// A color that is not one of the eight names (a hex code, a CSS color name) is drawn as itself: the page style sheet gets
+// one rule per value, the same declarations the .ac-* rules have, so every surface that puts a class on a mark paints it.
+// A constructed style sheet, because the page's CSP allows no inline style.
+let customSheet;
+const customDone = new Set();
+
+/** The class that paints an agent's color: `ac-<name>` for the eight, `ac-x-<value>` for any other color; '' when it is no color. */
+export const agentColorClass = value => {
+  const v = typeof value === 'string' ? value.trim().toLowerCase() : '';
+  if (!v) return '';
+  if (AGENT_COLORS.includes(v)) return `ac-${v}`;
+  if (!HEX_COLOR.test(v) && !(/^[a-z]+$/.test(v) && CSS.supports('color', v))) return '';
+  const cls = `ac-x-${v.replace('#', 'h')}`;
+  if (!customDone.has(cls)) {
+    customDone.add(cls);
+    if (!customSheet) {
+      customSheet = new CSSStyleSheet();
+      document.adoptedStyleSheets = [...document.adoptedStyleSheets, customSheet];
+    }
+    customSheet.insertRule(`.tl .${cls}, .swatch.${cls} { --tone: ${v}; fill: ${v}; stroke: ${v}; background: ${v}; }`, customSheet.cssRules.length);
+  }
+  return cls;
+};

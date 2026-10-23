@@ -23,6 +23,8 @@ The **Paths** section lists each glob in the rule's `paths:` field:
 
 A rule with no paths shows "No paths: the rule loads in every session."
 
+The section starts with a **Matched against** line that names the repo folder the globs are matched in. With a harness standard provider installed, it also ends with a row for the owner agent named in the rule, marked as found on disk or not.
+
 Provider features appear when a harness standard provider plugin is installed.
 
 ---

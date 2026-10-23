@@ -216,3 +216,27 @@ test('mcp servers switch on and off per repo and in every folder', () => {
   assert.deepEqual(after.projects[repoKey].enabledMcpjsonServers, ['db']);
   assert.deepEqual(after.projects['/other'].disabledMcpServers, []);
 });
+
+test('a hex color is written quoted, so YAML does not read it as a comment, and reads back as the code', () => {
+  const original = '---\nname: a\nmodel: opus\n---\nBody\n';
+  const doc = readMarkdown(writeTemp(original));
+  const fields = [...toFields(doc.data), { key: 'color', type: 'string' as const, value: '#ff8800' }];
+  const out = serializeMarkdown(original, fromFields(fields), doc.body);
+  assert.match(out, /^color: ["']#ff8800["']$/m);
+  const back = readMarkdown(writeTemp(out));
+  assert.equal(back.data.color, '#ff8800');
+  assert.equal(back.data.name, 'a');
+  // Changing a stored code and swapping it for a name keep the file valid; removing it leaves no color line.
+  const again = serializeMarkdown(out, { ...back.data, color: '#abc' }, back.body);
+  assert.equal(readMarkdown(writeTemp(again)).data.color, '#abc');
+  const named = serializeMarkdown(again, { ...back.data, color: 'pink' }, back.body);
+  assert.match(named, /^color: ["']?pink["']?$/m);
+  const { color: _gone, ...rest } = back.data;
+  assert.doesNotMatch(serializeMarkdown(out, rest, back.body), /color/);
+});
+
+function writeTemp(text: string): string {
+  const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'harness-color-')), 'agent.md');
+  fs.writeFileSync(file, text);
+  return file;
+}

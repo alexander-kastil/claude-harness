@@ -18,6 +18,7 @@ Markdown items (memory, rules, agents, skills, commands and output styles) show 
 - To add a field, type its name in **field name** and click **Add field**. The box suggests the fields that kind usually has.
 - To remove a field, click its close button.
 - For a tools field, click **Configure Tools...** below it. See [Configure Tools](configure-tools.md).
+- An agent has a **color** row in edit mode. **None** removes the color field. The eight swatches are the colors your agents already use, most used first, then Claude Code's own colors (red, blue, green, yellow, purple, orange, pink and cyan) until there are eight. For any other color, type a hex code (`#rgb` or `#rrggbb`) in the code box. The picked color is written when you click **Save**. A color that an agent already uses, a hex code or a CSS color name, is drawn as itself in the tables, the session lanes and the detail page.
 
 ## Save or revert
 

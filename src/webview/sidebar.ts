@@ -11,9 +11,10 @@ import { groupHead, rowName } from './tables';
 
 // One toggle per list view in a category header: the grouping first, then each sort.
 const VIEW_MODES = {
-  source: ['list-tree', 'Group by source'],
-  loading: ['list-tree', 'Group by when it loads'],
-  event: ['list-tree', 'Group by event'],
+  where: ['list-tree', 'Group by where it lives'],
+  origin: ['plug', 'Group by source'],
+  loading: ['law', 'Group by when it loads'],
+  event: ['zap', 'Group by event'],
   marketplace: ['list-tree', 'Group by marketplace'],
   name: ['case-sensitive', 'Sort by name'],
   recent: ['history', 'Sort by last change'],
@@ -35,25 +36,16 @@ export function renderCategories(list, view, q, nested) {
         'div',
         {
           className: `section-head${nested ? ' nested' : ''}${current ? ' selected' : ''}`,
-          title: `Search and filter the ${cat.label.toLowerCase()}`,
-          onclick: () => showKindPage(cat.kind, view.id),
-        },
-        el(
-          'span',
-          {
-            className: 'twistie',
-            title: collapsed ? 'Expand' : 'Collapse',
-            onclick: e => {
-              e.stopPropagation();
-              collapsed ? state.expanded.add(key) : state.expanded.delete(key);
-              persist();
-              render();
-            },
+          title: collapsed ? 'Expand' : 'Collapse',
+          onclick: () => {
+            collapsed ? state.expanded.add(key) : state.expanded.delete(key);
+            persist();
+            render();
           },
-          icon(collapsed ? 'chevron-right' : 'chevron-down')
-        ),
+        },
+        el('span', { className: 'twistie' }, icon(collapsed ? 'chevron-right' : 'chevron-down')),
         el('span', { className: 'label' }, cat.label),
-        lv && !collapsed && items.length > 1 && (groups.length > 1 || !isGrouped(cat.kind))
+        lv && !collapsed && items.length > 1 && (groups.length > 1 || !isGrouped(cat.kind) || Object.keys(lv.groupings).length > 1)
           ? el(
               'span',
               { className: 'view-modes', role: 'group', 'aria-label': 'View' },
@@ -150,8 +142,7 @@ export function renderSessionsNode(list, view, q) {
   if (q && !all.length) return;
   const key = `${view.id}|sessions`;
   const collapsed = !state.expanded.has(key) && !q;
-  const toggle = e => {
-    e.stopPropagation();
+  const toggle = () => {
     collapsed ? state.expanded.add(key) : state.expanded.delete(key);
     persist();
     render();
@@ -160,8 +151,8 @@ export function renderSessionsNode(list, view, q) {
   list.append(
     el(
       'div',
-      { className: `section-head nested${current ? ' selected' : ''}`, title: 'Search and filter the sessions', onclick: () => showSessionsPage(view.id) },
-      el('span', { className: 'twistie', onclick: toggle, title: collapsed ? 'Expand' : 'Collapse' }, icon(collapsed ? 'chevron-right' : 'chevron-down')),
+      { className: `section-head nested${current ? ' selected' : ''}`, title: collapsed ? 'Expand' : 'Collapse', onclick: toggle },
+      el('span', { className: 'twistie' }, icon(collapsed ? 'chevron-right' : 'chevron-down')),
       el('span', { className: 'label' }, 'Sessions'),
       iconBtn('desktop-download', 'Import a session transcript', e => {
         e.stopPropagation();

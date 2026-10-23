@@ -925,6 +925,307 @@
       "catalogue": {
         "action": "none"
       }
+    },
+    {
+      "date": "2026-10-23",
+      "from": "13:28",
+      "to": "14:57",
+      "sessionId": "3445b7c5-b9d5-46df-ab31-9b3a3bc50654",
+      "branch": "mod-visualization",
+      "commits": [
+        "57bbf77"
+      ],
+      "surfaces": [
+        "claude-harness"
+      ],
+      "files": [
+        "src/events.ts",
+        "src/shared/event-layers.ts",
+        "src/webview/map.ts",
+        "src/webview/decisions.ts",
+        "media/panel.css",
+        "test/unit/events.test.ts"
+      ],
+      "mechanism": {
+        "takes": "a coding agent's session transcripts plus per-session event logs that installed add-ons write about their own decisions, each log declared in a small manifest the add-on ships",
+        "does": "finds every add-on that declares a log, resolves the log for the session on screen, binds each event to the handoff or prompt step it concerns, and draws a labelled chip there whose hover card lists what the add-on did, when, and the exact text it injected or refused with; a second switch adds each step's prompt line with pasted blocks folded into a marked block",
+        "returns": "a process diagram of the session that shows where automation hooks acted and what they changed, while the public build names none of the private add-ons"
+      },
+      "portsAsIs": [
+        "manifest-declared per-session event logs read by a session viewer",
+        "event chips and hover cards bound to diagram handoffs and steps",
+        "prompt lines with pasted blocks folded"
+      ],
+      "perCustomer": [
+        "which add-ons ship a manifest",
+        "the event vocabulary each add-on writes"
+      ],
+      "evidence": [
+        "test/unit/events.test.ts",
+        "tests: 52 unit tests pass, compile clean",
+        "real-data design round on two sessions with backfilled logs, dark and light themes",
+        "sideloaded 0.2.36, installed=True, files=325",
+        "VSIX grep found no private plugin or marketplace name"
+      ],
+      "toolchain": {
+        "skills": [
+          "vscode-extension",
+          "ui-ux-pro-max",
+          "plugin-authoring",
+          "report",
+          "claude-orchestration",
+          "claude-learn",
+          "claude-learn-harvest",
+          "claude-learn-worktime",
+          "track-time"
+        ],
+        "mcpServers": [
+          "chrome-devtools",
+          "subagent-delegation-plugin"
+        ],
+        "agents": [
+          "subagent-delegation-plugin:fact-gatherer",
+          "general-purpose",
+          "fork"
+        ]
+      },
+      "industry": "developer tooling",
+      "status": "Built and running in-house",
+      "catalogue": {
+        "action": "none"
+      }
+    },
+    {
+      "date": "2026-10-23",
+      "from": "14:43",
+      "to": "15:21",
+      "sessionId": "70cb38c9-70ed-459c-8384-aec3223a60b4",
+      "branch": "mod-visualization",
+      "commits": [
+        "187322e"
+      ],
+      "surfaces": [
+        "claude-harness"
+      ],
+      "files": [
+        "src/events.ts",
+        "src/sessions.ts",
+        "src/extension.ts",
+        "src/shared/event-layers.ts",
+        "src/webview/map.ts",
+        "test/unit/events.test.ts"
+      ],
+      "mechanism": {
+        "takes": "a coding agent's session transcripts, including its subagents' transcripts, plus any per-session event logs that installed add-ons declare in a manifest",
+        "does": "reads every hook trace the agent runtime records (injected context, hook output, hook errors and refused tool calls), attributes each to the add-on that names itself at the start of its text, drops traces an add-on's own log already reports, merges both sources per add-on, and draws one chip per diagram step or subagent row with a hover card that has one section per add-on; one switch shows or hides every add-on at once",
+        "returns": "a session process diagram showing what every installed add-on did and where, including add-ons that keep no log, without the viewer naming any add-on itself"
+      },
+      "portsAsIs": [
+        "hook traces read from the agent transcript without add-on cooperation",
+        "self-naming text prefix as the attribution contract",
+        "dedup of transcript traces against an add-on's own log",
+        "one switch for all add-ons with per-add-on sections in the hover card"
+      ],
+      "perCustomer": [
+        "which add-ons are installed",
+        "whether an add-on prefixes its texts with its name"
+      ],
+      "evidence": [
+        "test/unit/events.test.ts",
+        "tests: 55 unit tests pass, compile clean",
+        "real-data design round on two sessions, dark and light themes: one session showed two add-on sections in one card, the other showed its three transcript traces dropped as duplicates of the log",
+        "sideloaded 0.2.37, installed=True, files=325",
+        "transcript scan over 3225 files to rule out false denial matches"
+      ],
+      "toolchain": {
+        "skills": [
+          "ui-ux-pro-max",
+          "vscode-extension",
+          "report",
+          "claude-learn",
+          "claude-learn-harvest",
+          "claude-learn-worktime",
+          "track-time"
+        ],
+        "mcpServers": [],
+        "agents": [
+          "subagent-delegation-plugin:fact-gatherer",
+          "fork"
+        ]
+      },
+      "industry": "developer tooling",
+      "status": "Built and running in-house",
+      "catalogue": {
+        "action": "none"
+      }
+    },
+    {
+      "date": "2026-10-23",
+      "from": "17:30",
+      "to": "18:18",
+      "sessionId": "321bdafd-3b84-430f-a153-3647463c0540",
+      "branch": "mod-visualization",
+      "commits": [],
+      "surfaces": [
+        "claude-harness"
+      ],
+      "files": [
+        "src/webview/confirm.ts",
+        "src/webview/map.ts",
+        "src/webview/main.ts",
+        "src/webview/decisions.ts",
+        "src/shared/event-layers.ts",
+        "src/extension.ts",
+        "media/panel.css"
+      ],
+      "mechanism": {
+        "takes": "a recorded AI agent session, live or finished, with its prompts, the agents it started and the events of installed add-ons",
+        "does": "draws each user prompt as its own element on the session's process diagram, refreshes a running session in the background without moving the page, and opens a forked copy of the session in a terminal for questions after an in-panel consent card that can remember the answer",
+        "returns": "an always-current process view of the session and a chat that can explain why the session did what it did, while the original stays untouched"
+      },
+      "portsAsIs": [
+        "in-panel consent card anchored to its button, with a remember switch kept by the host",
+        "host-held consent gate with the webview re-posting the held-back request",
+        "fork-a-session-into-a-terminal for after-the-fact questions",
+        "background refresh of a live record that repaints only on change and keeps the scroll position"
+      ],
+      "perCustomer": [
+        "which questions need consent",
+        "where the session transcripts live"
+      ],
+      "evidence": [
+        "test/unit/events.test.ts",
+        "tests: 55 unit tests pass, compile clean",
+        "design round in a browser preview on the session from the owner's screenshot, dark and light: Mods off and on, prompt boxes, prompt hover card, confirmation card for both actions, Esc and outside-click close, scroll kept across a live repaint",
+        "resume plus fork verified on a small session from the command line; appended system prompt shown to be ignored on resume",
+        "sideloaded 0.2.38 to 0.2.43, installed=True, files=325"
+      ],
+      "toolchain": {
+        "skills": [
+          "vscode-extension",
+          "ui-ux-pro-max",
+          "report",
+          "claude-learn",
+          "claude-learn-harvest",
+          "claude-learn-worktime",
+          "track-time"
+        ],
+        "mcpServers": [
+          "chrome-devtools"
+        ],
+        "agents": [
+          "subagent-delegation-plugin:fact-gatherer",
+          "fork"
+        ]
+      },
+      "industry": "developer tooling",
+      "status": "Built and running in-house",
+      "catalogue": {
+        "action": "none"
+      }
+    },
+    {
+      "date": "2026-10-23",
+      "from": "17:56",
+      "to": "18:21",
+      "sessionId": "0b2093e0-de43-46ab-a9d7-a2c34c2254c6",
+      "branch": "mod-visualization",
+      "commits": [],
+      "surfaces": [
+        "claude-harness"
+      ],
+      "files": [
+        "tasks/lessons.md"
+      ],
+      "mechanism": {
+        "takes": "a forked copy of a finished AI coding session, opened from the session viewer",
+        "does": "walks the session's requests and fixes in order, names each misstep with its cause, and turns the ones not yet recorded into written rules for the next build",
+        "returns": "a short account of what went wrong and new entries in the project's lessons and the shared extension playbook"
+      },
+      "portsAsIs": [
+        "after-the-fact session review from a forked copy of the session"
+      ],
+      "perCustomer": [
+        "which lessons file and playbooks the rules land in"
+      ],
+      "evidence": [
+        "tasks/lessons.md: entry The sideload already compiles",
+        "copy of session 321bdafd-3b84-430f-a153-3647463c0540 opened through the Analyze button"
+      ],
+      "toolchain": {
+        "skills": [
+          "learn-loop-plugin:claude-learn",
+          "learn-loop-harvest-plugin:claude-learn-harvest",
+          "learn-loop-worktime-plugin:claude-learn-worktime",
+          "vscode-extension"
+        ],
+        "mcpServers": [],
+        "agents": [
+          "fork"
+        ]
+      },
+      "industry": "software development tooling",
+      "status": "Built and running in-house",
+      "catalogue": {
+        "action": "none"
+      }
+    },
+    {
+      "date": "2026-10-23",
+      "from": "18:06",
+      "to": "18:40",
+      "sessionId": "0be6f7fb-b93f-4557-a45b-7d14671f1cad",
+      "branch": "mod-visualization",
+      "commits": [],
+      "surfaces": [
+        "claude-harness"
+      ],
+      "files": [
+        "src/webview/core.ts",
+        "src/webview/kind-page.ts",
+        "src/webview/sidebar.ts",
+        "src/webview/map.ts",
+        "media/panel.css"
+      ],
+      "mechanism": {
+        "takes": "the agents, skills, commands, rules, hooks and MCP servers found in the user folder, in every known repository and in every enabled plugin",
+        "does": "groups each list by the place an item is loaded from (user-wide, a plugin, the open repository, other repositories), keeps the older groupings as a second view, and when opened from a repository shows everything that loads there; on the session diagram it colours each layer switch like the marks it shows and reduces a refused action to a stop sign whose details sit in its hover card",
+        "returns": "list pages and a sidebar that answer where a capability comes from, and a session diagram with fewer words on it"
+      },
+      "portsAsIs": [
+        "grouping configuration items by load location instead of by author",
+        "a layer switch framed in its layer's colour",
+        "an icon-only marker with its facts in a hover card"
+      ],
+      "perCustomer": [
+        "which locations a tool loads configuration from"
+      ],
+      "evidence": [
+        "design-preview renders of the Agents, Skills, Commands and Rules pages from the real harness: Global 16, From plugins 2, a repo's 8",
+        "delegation map renders in dark and light: green mod chips, matched toggle frames, stop signs at the two denials",
+        "unit tests: 55 passed",
+        "sideloaded 0.2.44, installed=True"
+      ],
+      "toolchain": {
+        "skills": [
+          "vscode-extension",
+          "learn-loop-plugin:claude-learn",
+          "learn-loop-harvest-plugin:claude-learn-harvest",
+          "learn-loop-worktime-plugin:claude-learn-worktime",
+          "learn-loop-worktime-plugin:track-time"
+        ],
+        "mcpServers": [],
+        "agents": [
+          "subagent-delegation-plugin:fact-gatherer",
+          "ui-specialist",
+          "fork"
+        ]
+      },
+      "industry": "software development tooling",
+      "status": "Built and running in-house",
+      "catalogue": {
+        "action": "none"
+      }
     }
   ]
 }

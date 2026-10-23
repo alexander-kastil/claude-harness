@@ -43,7 +43,7 @@ To see which installed plugins are behind their marketplace source, open [Market
 
 A plugin is a mod when its hooks file declares a `modules` array. The hooks file is `hooks/hooks.json`, or the path that the plugin's `.claude-plugin/plugin.json` sets in its `hooks` key. Claude Harness reads the plugin's files from the global harness folder, for repo plugins too.
 
-A mod gets ` · mod` after its description, for example `enabled · 0.2.0 · mod`. The mark shows in the plugin lists and on the plugin page.
+A mod gets ` · mod` after its description, for example `enabled · 0.2.0 · mod`. The mark shows in the plugin lists and on the plugin page. A mod can also log its events for the session views: see [Mod events](sessions.md#mod-events).
 
 ![Plugin list with a plugin marked as a mod](images/plugin-mod.png)
 
