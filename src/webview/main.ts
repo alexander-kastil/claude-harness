@@ -112,7 +112,7 @@ onMessage(m => {
     if (state.page === 'marketplaces' && !state.detail) renderMain();
   } else if (m.type === 'weekly') {
     state.weekly = m.list || [];
-    if (!state.detail && state.page === 'sessions' && state.sessionsPage && state.sessionsPage.drawWeek) state.sessionsPage.drawWeek();
+    if (!state.detail && state.repo && state.repoTab === 'models') renderMain();
   } else if (m.type === 'sessions') {
     state.sessions[m.scope] = m.list || [];
     refreshCard(`repo:${m.scope}`);

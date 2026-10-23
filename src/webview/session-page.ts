@@ -120,12 +120,9 @@ export const COST_KINDS = [
   ['input', 'Input'],
 ];
 
-// Weekly limits valued at API list prices. Anthropic publishes none: Max 5x from botfarm.run (March 2026),
-// Max 20x from wokey.ai (accounts measured 2026-10-12 to 2026-10-19). API billing has no grant.
-// Team Premium (1010) was measured against the Claude app's usage card on one Team Premium seat, 2026-10-22
-// (56 % used at 566 $ of list prices): one sample, still an estimate. Two figures are derived: Pro is one fifth of
-// Max 5x (about 105) and Team Standard one fifth of Team Premium (about 202), because claude.com/pricing sells Max 5x at 5 times Pro and Premium at 5 times Standard.
-// The ids and figures match PLANS in src/sessions.ts, which a unit test compares. Keep `api` last.
+// Weekly limits at API list prices; Anthropic publishes none. Max 5x: botfarm.run (03/2026), Max 20x: wokey.ai (10/2026),
+// Team Premium: measured on one seat (10/2026). Pro and Team Standard are a fifth of Max 5x and Team Premium.
+// Same ids and figures as PLANS in src/sessions.ts (unit test). Keep `api` last.
 export const BILLING = [
   ['pro', 'Pro', 'account', 105],
   ['max5', 'Max 5x', 'dashboard', 523],
@@ -135,9 +132,7 @@ export const BILLING = [
   ['api', 'API billing', 'credit-card', 0],
 ];
 
-export const TEAM_PLANS = new Set(['team', 'team-standard']);
-
-export const billingAbout = (label, grant) => (grant ? `This session as a share of one ${label} weekly limit, which measures at about $${grant.toLocaleString()} of API list prices.` : 'This session at Anthropic API list prices.');
+export const billingAbout = (label, grant) => (grant ? `Share of one ${label} weekly limit (about $${grant.toLocaleString()}, estimated).` : 'This session at Anthropic API list prices.');
 
 export function costBar(parts, total, label, fmt) {
   const bar = el('div', { className: 'cost-bar', role: 'img', 'aria-label': `${label}: ${parts.map(p => `${p.label} ${fmt(p.cost)}`).join(', ')}` });
@@ -194,7 +189,7 @@ export function renderCost(d, colors) {
     el(
       'div',
       { className: 'cost-head' },
-      el('div', {}, el('div', { className: 'cost-k' }, grant ? 'Weekly limit used' : 'Estimated cost'), el('div', { className: 'cost-v' }, fmt(total), grant ? '*' : '')),
+      el('div', {}, el('div', { className: 'cost-k' }, grant ? 'Weekly limit used' : 'Estimated cost'), el('div', { className: 'cost-v' }, fmt(total))),
       plans
     ),
     total > 0

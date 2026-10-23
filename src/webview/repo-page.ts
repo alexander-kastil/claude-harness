@@ -2,10 +2,11 @@
 // The repo page and its tabs.
 import { standardCard } from './standard-card';
 import { app, checkBadge, checkText, command, kindLabel, openAt, persist, showPage, state, std, total, vscode } from './core';
-import { el, fmtAgo, icon, iconBtn, plural, pressable } from './dom';
+import { el, fmtAgo, fmtDate, fmtNum, icon, iconBtn, plural, pressable, shortModel } from './dom';
 import { hideHover, placeCard, tabTip } from './hover';
 import { showKindPage } from './kind-page';
 import { renderMain } from './main';
+import { BILLING, fmtShare, fmtUsd } from './session-page';
 import { renderSessionList, showSessionsPage } from './sessions';
 import { assetTable, gridTable } from './tables';
 
@@ -14,6 +15,7 @@ export const REPO_TABS = [
   ['overview', 'Overview', 'dashboard', 'What the repo adds to the harness, how much of it every session loads, and what changed last.'],
   ['effective', 'Effective harness', 'layers', 'What a session here loads: memory with its imports, rules, plugins and hooks.'],
   ['sessions', 'Sessions', 'history', 'Every Claude Code session that ran in this repo.'],
+  ['models', 'Models', 'chip', 'Tokens and cost by model over the last 7 days, all repos of each account.'],
 ];
 
 export function tabBar(tabs, current, pick, label) {
@@ -121,6 +123,30 @@ export function repoSessions(view) {
   ];
 }
 
+// The last 7 days of each account by model, over all repos. A plan shows the cost as a share of its estimated weekly limit.
+export function repoModels() {
+  const totals = state.weekly;
+  if (totals === undefined) {
+    state.weekly = null;
+    vscode.postMessage({ type: 'weekly' });
+  }
+  if (!totals) return el('div', { className: 'empty flush' }, 'Reading the last 7 days...');
+  return totals.map(t => {
+    const plan = BILLING.find(b => b[0] === t.plan);
+    const head = [t.account, plan ? plan[1] : '', fmtNum(t.tokens) + ' tokens', t.limit ? `${fmtShare(t.cost, t.limit)} of the weekly limit` : fmtUsd(t.cost)].filter(Boolean).join(' · ');
+    const span = t.fromReset ? `Since ${fmtDate(t.since)}` : 'Last 7 days';
+    return el(
+      'div',
+      { className: 'recent' },
+      el('div', { className: 'group-label', title: `${span}, all repos and agents, at API list prices.${t.limit ? ' The limit is an estimate.' : ''}` }, `${span} · ${head}`),
+      t.models.length
+        ? t.models.map(m => el('div', { className: 'row' }, icon('chip'), el('span', { className: 'name' }, shortModel(m.model)), el('span', { className: 'desc' }, [`${fmtNum(m.input + m.cacheCreate + m.cacheRead + m.output)} tokens`, t.limit ? `${fmtShare(m.cost, t.limit)} of limit` : fmtUsd(m.cost), `${m.messages} replies`].join(' · '))))
+        : el('div', { className: 'empty flush' }, 'No usage in this window.'),
+      (t.families || []).map(x => el('div', { className: 'row' }, icon('dashboard'), el('span', { className: 'name' }, `${x.family[0].toUpperCase()}${x.family.slice(1)} limit`), el('span', { className: 'desc' }, `${fmtShare(x.cost, x.limit)} of its own limit`)))
+    );
+  });
+}
+
 export function renderRepo(view) {
   const tab = REPO_TABS.some(t => t[0] === state.repoTab) ? state.repoTab : 'overview';
   const sessions = state.sessions[view.id];
@@ -130,6 +156,7 @@ export function renderRepo(view) {
   }
   const pick = (id, focus) => {
     state.repoTab = id;
+    if (id === 'models') state.weekly = undefined;
     persist();
     hideHover();
     renderMain();
@@ -163,7 +190,7 @@ export function renderRepo(view) {
       'div',
       { className: 'main-body', onscroll: hideHover },
       tabBar(tabs, tab, pick, `${view.label} views`),
-      tab === 'effective' ? renderEffective(view) : tab === 'sessions' ? repoSessions(view) : repoOverview(view, pick)
+      tab === 'effective' ? renderEffective(view) : tab === 'sessions' ? repoSessions(view) : tab === 'models' ? repoModels() : repoOverview(view, pick)
     )
   );
 }
