@@ -43,8 +43,8 @@ export interface State {
   mapMode: string;
   /** Full timeline: the first line of each prompt on its step. */
   mapPrompts: boolean;
-  /** Full timeline: event layers by label; a layer missing here is on. */
-  mapLayers: Record<string, boolean>;
+  /** Full timeline: the events of every mod, switched on and off together. */
+  mapMods: boolean;
   billing: string;
   /** The plan picked on the Billing switch in this panel; until then a session starts on its account's plan. */
   billingPick?: string;

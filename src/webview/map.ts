@@ -1,6 +1,6 @@
 // @ts-nocheck
 // The Delegation map and its process diagram.
-import { bindEvents, chipText, promptLine, toneOf, toneOfAll } from '../shared/event-layers';
+import { bindEvents, chipText, modsOf, promptLine, toneOf, toneOfAll } from '../shared/event-layers';
 import { persist, state } from './core';
 import { DECISION_LABELS, decisionCard } from './decisions';
 import { clip, el, fmtDur, fmtTime, icon, plural, shortModel, shortType, svg } from './dom';
@@ -172,7 +172,8 @@ export function drawMap(host, d) {
   host.replaceChildren(sw, root);
 }
 
-// Full timeline toggles right of the Sum / Full timeline switch: the prompt line on each step, then one per event layer.
+// Full timeline toggles right of the Sum / Full timeline switch: the prompt line on each step, then Mods, which switches
+// the events of every mod on or off together.
 function mapToggles(host, d) {
   const toggle = (key, text, glyph, about, on, flip) => {
     const tip = target => {
@@ -209,18 +210,19 @@ function mapToggles(host, d) {
   };
   return [
     toggle('prompts', 'Prompts', 'comment', 'The first line of each prompt on its step.', state.mapPrompts, () => (state.mapPrompts = !state.mapPrompts)),
-    ...(d.layers || []).map(l => {
-      const on = state.mapLayers[l.label] !== false;
-      return toggle(`layer:${l.label}`, l.label, 'plug', `${l.label} events on the steps and agents they concern.`, on, () => (state.mapLayers = { ...state.mapLayers, [l.label]: !on }));
-    }),
-  ];
+    hasModEvents(d) ? toggle('mods', 'Mods', 'plug', 'What each mod did, on the steps and agents it concerns.', state.mapMods, () => (state.mapMods = !state.mapMods)) : null,
+  ].filter(Boolean);
 }
+
+// A session has mod events when at least one layer, from any source, holds one.
+const hasModEvents = d => modsOf(d.layers).length > 0;
 
 const fmtSec = t => new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
 const TONE_ICON = { act: 'plug', warn: 'warning', quiet: 'circle-outline' };
 
-// The events of one step or agent row, one section per layer: who they concern, how many and when, then each event.
+// The events of one step or agent row, one section per mod headed by its label: who they concern, how many and when,
+// then each event.
 export function eventsCard(name, sets) {
   return el(
     'div',
@@ -308,8 +310,8 @@ const fitLine = (text, px, font) => {
 
 // Full timeline as a process from top to bottom: your prompts are the steps of the main thread; a delegation branches
 // to the agents it started, and each agent's report joins the main thread again (dashed) after the step it reached.
-// With Prompts on, each step shows its prompt's first line; an event layer adds a chip beside the steps and on the
-// connectors of the agents its events concern.
+// With Prompts on, each step shows its prompt's first line; with Mods on, one chip beside each step and on the connector
+// of each agent the events of any mod concern.
 export function drawProcess(W, d) {
   const steps = [...(d.decisions || [])].sort((p, q) => p.at - q.at);
   if (!steps.length) return el('div', { className: 'empty flush dg-empty' }, 'No prompts in this session.');
@@ -322,14 +324,14 @@ export function drawProcess(W, d) {
   const promptAt = new Map(d.prompts.map(p => [p.at, p.text]));
   const lines = steps.map(s => (showPrompts ? promptLine(promptAt.get(s.at) || '') : ''));
   const lineFont = `11px ${getComputedStyle(document.body).fontFamily}`;
-  // Event layers that are on, bound to the steps and the agent rows.
+  // With Mods on, the events of every mod, one set per mod label whatever source its layers came from, bound to the
+  // steps and the agent rows.
   const stepSets = steps.map(() => []);
   const agentSets = new Map();
-  for (const l of d.layers || []) {
-    if (state.mapLayers[l.label] === false || !(l.events || []).length) continue;
-    const bound = bindEvents(l.events, steps.map(s => s.at), byId.keys());
-    bound.steps.forEach((events, i) => events.length && stepSets[i].push({ label: l.label, events }));
-    for (const [id, events] of Object.entries(bound.agents)) agentSets.set(id, [...(agentSets.get(id) || []), { label: l.label, events }]);
+  for (const mod of state.mapMods ? modsOf(d.layers) : []) {
+    const bound = bindEvents(mod.events, steps.map(s => s.at), byId.keys());
+    bound.steps.forEach((events, i) => events.length && stepSets[i].push({ label: mod.label, events }));
+    for (const [id, events] of Object.entries(bound.agents)) agentSets.set(id, [...(agentSets.get(id) || []), { label: mod.label, events }]);
   }
   const stepMarks = stepSets.map((sets, i) =>
     sets.length

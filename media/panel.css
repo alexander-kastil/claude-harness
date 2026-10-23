@@ -1574,7 +1574,7 @@ table.grid .cell {
   outline-offset: 1px;
 }
 
-/* Event card: one section per layer, each event on the rail with a dot in its tone. */
+/* Event card: one section per mod, each event on the rail with a dot in its tone. */
 .hc-ev-sec {
   display: flex;
   flex-direction: column;

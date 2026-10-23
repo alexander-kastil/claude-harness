@@ -1,6 +1,6 @@
 // Pure helpers of the Delegation map's Full timeline that the unit tests reach: the prompt line on a step and the
 // binding of an event layer to the map's rows. No DOM and no Node APIs, so the webview bundle and the tests share them.
-import type { ModEvent } from './messages';
+import type { EventLayer, ModEvent } from './messages';
 
 export type Tone = 'act' | 'warn' | 'quiet';
 
@@ -76,6 +76,16 @@ export function bindEvents(events: ModEvent[], promptTimes: number[], agentIds: 
     if (at >= 0) steps[at].push(e);
   }
   return { steps, agents };
+}
+
+/**
+ * One entry per mod: the layers that share a label, whatever source they came from, merged into one in time order.
+ * Mods keep the order their labels first appear in; a layer without events adds nothing.
+ */
+export function modsOf(layers: EventLayer[] = []): EventLayer[] {
+  const out = new Map<string, ModEvent[]>();
+  for (const l of layers) if (l.label && (l.events || []).length) out.set(l.label, [...(out.get(l.label) ?? []), ...l.events]);
+  return [...out].map(([label, events]) => ({ label, events: events.map((e, i) => ({ e, i })).sort((a, b) => byTime(a.e, b.e) || a.i - b.i).map(x => x.e) }));
 }
 
 /** The strongest tone of a set: warn over act over quiet. */

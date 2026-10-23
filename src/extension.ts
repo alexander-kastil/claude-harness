@@ -5,7 +5,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { Constitution } from './constitution';
 import { FileEdit, fleetRow, guardInfo, guardReasons, lastSessionAt, marketplaceHealth, renameCatalog, renameCommands, renameInSettings } from './fleet';
-import { EventSource, eventLayers, findEventSources } from './events';
+import { EventSource, eventLayers, findEventSources, transcriptLayers } from './events';
 import { registerLenses } from './lenses';
 import { NO_PROVIDER, Provider, ScaffoldForm, applyFix, findProvider, parseScaffoldOutput, previewFix, runScript, scaffoldArgs } from './standard';
 import {
@@ -291,8 +291,11 @@ export function activate(context: vscode.ExtensionContext): void {
         const color = asset ? readMarkdown(asset.file).data.color : undefined;
         if (typeof color === 'string') agentColors[type] = color.trim().toLowerCase();
       }
-      const layers = eventLayers(eventSources, summary.file, summary.id);
-      return { ...detail, repo: view!.label, agentColors, account: summary.account, plan: accounts().find(a => a.root === (summary.accountRoot ?? global.root))?.plan, ...(layers.length ? { layers } : {}) };
+      // Mod events: the logs of the plugins that ship an events manifest, then what the transcript shows of every hook.
+      const { hooks, ...rest } = detail;
+      const logs = eventLayers(eventSources, summary.file, summary.id);
+      const layers = [...logs, ...transcriptLayers(hooks, logs, eventSources)];
+      return { ...rest, repo: view!.label, agentColors, account: summary.account, plan: accounts().find(a => a.root === (summary.accountRoot ?? global.root))?.plan, ...(layers.length ? { layers } : {}) };
     },
     draftStyle: async (id, sessionId, model, started) => {
       const scope = scopes.find(s => s.id === id && s.id !== global.id);

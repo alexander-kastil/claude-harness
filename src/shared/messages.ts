@@ -53,7 +53,10 @@ export interface ModEvent {
   detail?: string;
 }
 
-/** The events of one provider for one session. The session data carries `layers` only when a log exists and holds events. */
+/**
+ * The events of one mod for one session, from a plugin's event log or from the hooks the transcript shows; one mod can
+ * have a layer of each. The session data carries `layers` only when one of them holds events.
+ */
 export interface EventLayer {
   label: string;
   events: ModEvent[];

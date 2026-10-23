@@ -3,8 +3,8 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { test } from 'node:test';
-import { EVENTS_MANIFEST, eventLayers, eventLogPath, eventSourceAt, findEventSources, readEventLog } from '../../src/events';
-import { bindEvents, chipText, promptLine, promptParts, toneOfAll } from '../../src/shared/event-layers';
+import { EVENTS_MANIFEST, UNNAMED_MOD, eventLayers, eventLogPath, eventSourceAt, findEventSources, readEventLog, transcriptHooks, transcriptLayers } from '../../src/events';
+import { bindEvents, chipText, modsOf, promptLine, promptParts, toneOfAll } from '../../src/shared/event-layers';
 import type { ModEvent } from '../../src/shared/messages';
 
 const tmp = (prefix: string) => fs.mkdtempSync(path.join(os.tmpdir(), prefix));
@@ -100,6 +100,86 @@ test('eventLayers adds a layer only for a log that exists and holds events', () 
   assert.deepEqual(eventLayers([], transcript, 'sess-1'), []);
 });
 
+test('transcriptHooks reads every hook attachment and the tool calls a hook denied, and nothing else', () => {
+  const at = (s: number) => new Date(Date.UTC(2026, 9, 23, 9, 0, s)).toISOString();
+  const hook = (s: number, attachment: Record<string, unknown>) => ({ type: 'attachment', timestamp: at(s), attachment });
+  const result = (s: number, id: string, content: string, isError = true) => ({ type: 'user', timestamp: at(s), message: { content: [{ type: 'tool_result', tool_use_id: id, content, is_error: isError }] } });
+  const records = [
+    { type: 'assistant', timestamp: at(1), message: { content: [{ type: 'tool_use', id: 'toolu_a', name: 'Read' }, { type: 'tool_use', id: 'toolu_b', name: 'Bash' }, { type: 'tool_use', id: 'toolu_c', name: 'Edit' }] } },
+    hook(2, { type: 'hook_additional_context', content: ['format-mod: readme.md breaks the teaching format:'], hookName: 'tool.call', toolUseID: 'toolu_a-context', hookEvent: 'PostToolUse' }),
+    hook(3, { type: 'hook_additional_context', content: 'Agents for this prompt: `css-agent`.', hookName: 'prompt.submit', toolUseID: 'hook-1', hookEvent: 'UserPromptSubmit' }),
+    hook(4, { type: 'hook_success', hookName: 'UserPromptSubmit', hookEvent: 'UserPromptSubmit', content: '[Routing check]', stdout: '[Routing check]', exitCode: 0 }),
+    hook(5, { type: 'hook_non_blocking_error', hookName: 'PreToolUse:Edit', hookEvent: 'PreToolUse', toolUseID: 'toolu_c', stderr: 'No such file', stdout: '', exitCode: 127, content: '' }),
+    hook(6, { type: 'hook_blocking_error', hookName: 'PostToolUse:Edit', hookEvent: 'PostToolUse', toolUseID: 'toolu_c', blockingError: { blockingError: '[bash guard.sh]: bullets over 6 words', command: 'bash guard.sh' } }),
+    hook(7, { type: 'hook_system_message', content: 'cost-mod: the cache lapsed.', hookName: 'UserPromptSubmit', hookEvent: 'UserPromptSubmit' }),
+    hook(8, { type: 'hook_cancelled', hookName: 'Stop', hookEvent: 'Stop' }),
+    result(9, 'toolu_b', '<tool_use_error>guard-plugin: 4 lookups on the main thread this turn.</tool_use_error>'),
+    result(10, 'toolu_c', 'PreToolUse:Edit hook error: src/pricing.ts is frozen'),
+    // Not hook denials: an ordinary error, output that happens to start like a prefix, a wrapped error without one.
+    result(11, 'toolu_b', 'files: 10\r\nISSUES: 25'),
+    result(12, 'toolu_c', '<tool_use_error>File has not been read yet.</tool_use_error>'),
+    result(13, 'toolu_b', '<tool_use_error>root: fine</tool_use_error>', false),
+    { type: 'attachment', attachment: { type: 'hook_success', content: 'no time' } },
+    { type: 'attachment', timestamp: at(14), attachment: { type: 'output_style', style: 'x' } },
+  ];
+  const hooks = transcriptHooks(records);
+  assert.deepEqual(
+    hooks.map(h => [h.mod, h.event.hook, h.event.text, h.event.label, h.event.tone]),
+    [
+      ['format-mod', 'tool.call', 'Added context after Read.', 'context', undefined],
+      [undefined, 'prompt.submit', 'Added context on the prompt.', 'context', undefined],
+      [undefined, 'UserPromptSubmit', 'Wrote output on the prompt.', 'output', undefined],
+      [undefined, 'PreToolUse:Edit', 'Failed before Edit, exit code 127.', 'failed', 'warn'],
+      [undefined, 'PostToolUse:Edit', 'Sent a blocking error after Edit.', 'blocked', 'warn'],
+      ['cost-mod', 'UserPromptSubmit', 'Showed a message on the prompt.', 'message', undefined],
+      [undefined, 'Stop', 'Cancelled.', 'cancelled', undefined],
+      ['guard-plugin', 'Bash', 'Denied Bash.', 'denied', 'warn'],
+      [undefined, 'PreToolUse:Edit', 'Denied Edit.', 'denied', 'warn'],
+    ]
+  );
+  assert.equal(hooks[0].event.detail, 'format-mod: readme.md breaks the teaching format:');
+  assert.equal(hooks[3].event.detail, 'No such file');
+  assert.equal(hooks[4].event.detail, '[bash guard.sh]: bullets over 6 words');
+  assert.equal(hooks[6].event.detail, undefined);
+  assert.equal(hooks[7].event.detail, 'guard-plugin: 4 lookups on the main thread this turn.');
+  assert.equal(hooks[8].event.detail, 'src/pricing.ts is frozen');
+  assert.equal(hooks[0].event.at, at(2));
+  assert.ok(hooks.every(h => h.event.agentId === undefined));
+  assert.deepEqual(
+    transcriptHooks(records.slice(0, 2), 'a1').map(h => h.event.agentId),
+    ['a1']
+  );
+});
+
+test('transcriptLayers groups the traces by mod, joins a manifest plugin to its label and drops what a log already shows', () => {
+  const at = (s: number) => new Date(Date.UTC(2026, 9, 23, 9, 0, s)).toISOString();
+  const trace = (s: number, detail: string, mod?: string) => ({ mod, event: { at: at(s), hook: 'tool.call', text: 'Added context.', label: 'context', detail } });
+  const logs = [{ label: 'Guard mod', events: [{ at: at(1), hook: 'tool.call', text: 'Denied Bash.', detail: 'guard-plugin: 4 lookups.' }] }];
+  const sources = [{ plugin: 'guard-plugin', dir: '/p', label: 'Guard mod', events: '{sessionDir}/e.jsonl' }];
+  const layers = transcriptLayers(
+    [
+      trace(9, 'guard-plugin: 4 lookups.', 'guard-plugin'),
+      trace(8, 'guard-plugin: 5 lookups.', 'guard-plugin'),
+      trace(7, 'format-mod: b', 'format-mod'),
+      trace(3, 'format-mod: a', 'format-mod'),
+      trace(5, '[Routing check]'),
+      trace(6, 'x'.repeat(2500)),
+    ],
+    logs,
+    sources
+  );
+  assert.deepEqual(
+    layers.map(l => [l.label, l.events.map(e => e.at)]),
+    [
+      ['Guard mod', [at(8)]],
+      ['format-mod', [at(3), at(7)]],
+      [UNNAMED_MOD, [at(5), at(6)]],
+    ]
+  );
+  assert.equal(layers[2].events[1].detail?.length, 2004, 'a long detail is cut to 2000 characters and an ellipsis line');
+  assert.deepEqual(transcriptLayers([], logs, sources), []);
+});
+
 test('bindEvents puts an agent event on its row and any other event on the prompt whose window holds it', () => {
   const t = (s: number) => new Date(Date.UTC(2026, 9, 23, 9, 0, s)).toISOString();
   const ev = (s: number, hook: string, extra: Partial<ModEvent> = {}): ModEvent => ({ at: t(s), hook, text: hook, ...extra });
@@ -118,6 +198,24 @@ test('bindEvents puts an agent event on its row and any other event on the promp
     ['agent', 'late agent']
   );
   assert.equal(bound.agents.a2, undefined);
+});
+
+test('modsOf merges the layers of one label into one mod in time order, in the order the labels first appear', () => {
+  const ev = (s: number, hook: string): ModEvent => ({ at: new Date(Date.UTC(2026, 9, 23, 9, 0, s)).toISOString(), hook, text: hook });
+  const mods = modsOf([
+    { label: 'B mod', events: [ev(5, 'b5')] },
+    { label: 'A mod', events: [ev(9, 'a9'), ev(1, 'a1')] },
+    { label: 'Empty', events: [] },
+    { label: 'B mod', events: [ev(2, 'b2'), ev(5, 'b5 again')] },
+  ]);
+  assert.deepEqual(
+    mods.map(m => [m.label, m.events.map(e => e.hook)]),
+    [
+      ['B mod', ['b2', 'b5', 'b5 again']],
+      ['A mod', ['a1', 'a9']],
+    ]
+  );
+  assert.deepEqual(modsOf(undefined), []);
 });
 
 test('chipText lists the distinct labels of the events that acted, three at most, and toneOfAll picks the strongest tone', () => {
