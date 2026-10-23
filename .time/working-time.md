@@ -17,5 +17,6 @@
 | 2026-10-20 | 0.07 | 23:55 | 23:59 | Versions 0.2.7 and 0.2.8: delegation map switch between a summary by agent type and every run |
 | 2026-10-21 | 0.30 | 00:00 | 00:18 | Versions 0.2.9 to 0.2.12: delegation map as a top-to-bottom process with the same facts on every agent, and a full-width summary |
 | 2026-10-21 | 1.08 | 08:48 | 09:53 | Versions 0.2.14 to 0.2.23: session cost as a share of each Claude plan's weekly limit, output style drafts with Claude, session export and import, and one tooltip style |
+| 2026-10-23 | 1.37 | 12:00 | 13:22 | Contributor guide with an animated fork-to-pull-request diagram and Claude Code commands for every contribution step |
 
-**Total: 11.48h**
+**Total: 12.85h**

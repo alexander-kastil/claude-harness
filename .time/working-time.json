@@ -859,6 +859,72 @@
       "catalogue": {
         "action": "none"
       }
+    },
+    {
+      "date": "2026-10-23",
+      "from": "12:00",
+      "to": "13:22",
+      "sessionId": "aa76dbb2-6d40-4061-b7b7-fbdcde59e22f",
+      "branch": "master",
+      "commits": [
+        "1f20c91",
+        "1f5c2b2",
+        "2cc7f36",
+        "a734552",
+        "55ae020"
+      ],
+      "surfaces": [
+        "claude-harness"
+      ],
+      "files": [
+        "CONTRIBUTE.md",
+        "docs/images/pr-fork-workflow.svg",
+        ".claude/commands/ext-contribute-setup.md",
+        ".claude/commands/ext-contribute-sync.md",
+        ".claude/commands/ext-contribute-pr.md",
+        ".claude/commands/ext-sideload.md",
+        ".claude/commands/ext-contribute-cleanup.md"
+      ],
+      "mechanism": {
+        "takes": "an open-source project's contribution flow from a contributor's personal fork to a pull request against the owner's repository",
+        "does": "turns every step after the fork into a coding-agent command that checks the clone's remotes by their URL, branches off the owner's current main line, merges that line again right before and while the pull request is open, runs the tests before pushing, opens the pull request with maintainer edits allowed, installs the build into the editor or a separate editor instance, and deletes merged or abandoned branches, stopping on uncommitted work, a conflict, a failing test or an open pull request; an animated swimlane diagram shows where each branch lives and lights up each step together with the command that runs it",
+        "returns": "a contributor guide, seven agent commands and an animated top-to-bottom diagram of the flow"
+      },
+      "portsAsIs": [
+        "agent commands for a fork-and-pull-request contribution flow",
+        "remote check by URL that stops in the owner's own clone",
+        "animated swimlane diagram of a git flow drawn with CSS keyframes only, readable on GitHub"
+      ],
+      "perCustomer": [
+        "the owner's repository and default branch",
+        "the build, test and package scripts"
+      ],
+      "evidence": [
+        "diagram frames rendered and read at steps 1, 2, 5, 6, 8 and 9 and the final hold",
+        "the two diagram copies identical (diff -q)",
+        "commands written and linted, not yet run end to end by a contributor"
+      ],
+      "toolchain": {
+        "skills": [
+          "vscode-extension",
+          "create-pptx",
+          "report",
+          "claude-learn",
+          "claude-learn-harvest",
+          "claude-learn-worktime",
+          "track-time"
+        ],
+        "mcpServers": [],
+        "agents": [
+          "image-producer",
+          "fork"
+        ]
+      },
+      "industry": "software development, open-source maintenance",
+      "status": "Built and running in-house",
+      "catalogue": {
+        "action": "none"
+      }
     }
   ]
 }
