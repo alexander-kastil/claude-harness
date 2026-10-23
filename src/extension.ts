@@ -297,21 +297,18 @@ export function activate(context: vscode.ExtensionContext): void {
       const layers = [...logs, ...transcriptLayers(hooks, logs, eventSources)];
       return { ...rest, repo: view!.label, agentColors, account: summary.account, plan: accounts().find(a => a.root === (summary.accountRoot ?? global.root))?.plan, ...(layers.length ? { layers } : {}) };
     },
-    draftStyle: async (id, sessionId, model, started) => {
+    draftStyle: async (id, sessionId, model, started, answer, ask) => {
       const scope = scopes.find(s => s.id === id && s.id !== global.id);
       const summary = scope ? findAccountSession(scope.base, accounts(), sessionId) : undefined;
       if (!scope || !summary) return { state: 'error', error: 'The session transcript is gone.' };
       if (!STYLE_MODELS.includes(model as StyleModel)) return { state: 'error', error: `Unknown model ${model}.` };
       const scan = (await readSession(summary)).style;
-      const choice = await vscode.window.showWarningMessage(
-        `Draft an output style with Claude ${model}?`,
-        {
-          modal: true,
-          detail: `This runs claude -p on your own Claude login, so it counts against your plan. It sends the scan of this session: ${scan.corrections.length} ${scan.corrections.length === 1 ? 'correction' : 'corrections'} you made, the interrupts and the length and format of the replies. No code and no whole replies. The draft is saved to ${path.join(scope.root, 'output-styles')}.`,
-        },
-        'Draft'
-      );
-      if (choice !== 'Draft') return { state: 'idle' };
+      // Asked in the panel, until the owner switches on Don't ask again.
+      if (!answer.confirmed && !context.globalState.get<boolean>('draftStyleRemembered')) {
+        ask({ kind: 'draftStyle', scope: id, id: sessionId, model, corrections: scan.corrections.length, folder: path.join(scope.root, 'output-styles') });
+        return { state: 'idle' };
+      }
+      if (answer.remember) await context.globalState.update('draftStyleRemembered', true);
       started();
       const result = await draftStyle(stylePrompt(scan), model as StyleModel, os.tmpdir());
       if ('error' in result) return { state: 'error', error: result.error };
@@ -343,6 +340,28 @@ export function activate(context: vscode.ExtensionContext): void {
         return void vscode.window.showErrorMessage(`Could not export the transcript: ${(e as Error).message}`);
       }
       void vscode.window.showInformationMessage(`Exported the session transcript to ${target.fsPath}.`);
+    },
+    analyzeSession: async (id, sessionId, answer, ask) => {
+      const scope = scopes.find(s => s.id === id && s.id !== global.id);
+      const summary = scope ? findAccountSession(scope.base, accounts(), sessionId) : undefined;
+      if (!scope || !summary) return void vscode.window.showErrorMessage('The session transcript is gone.');
+      // The copy resumes from the folder the session ran in, since Claude Code finds a transcript by that folder.
+      const recorded = (await readSession(summary)).cwd;
+      const cwd = recorded && fs.existsSync(recorded) ? recorded : scope.base;
+      // Asked in the panel, until the owner switches on Don't ask again.
+      if (!answer.confirmed && !context.globalState.get<boolean>('analyzeRemembered')) return ask({ kind: 'analyze', scope: id, id: sessionId, cwd, live: !!summary.live });
+      if (answer.remember) await context.globalState.update('analyzeRemembered', true);
+      // The copy holds the main thread with each agent's report; the agents' own work is in their transcripts, so the
+      // first message tells the copy where they are (a resumed session ignores --append-system-prompt). The message rides
+      // the command line, so a path with a character a shell reads is left out.
+      const agents = path.join(path.dirname(summary.file), summary.id, 'subagents').replace(/\\/g, '/');
+      const hint = fs.existsSync(agents) && /^[\w .:/-]+$/.test(agents)
+        ? ` "This is a copy of the session, opened so I can analyze it. The agents of the session wrote their transcripts to ${agents}, one agent-ID.jsonl per agent. When a question is about the work inside an agent, read that transcript a part at a time. Reply only: Ready."`
+        : '';
+      const env = summary.accountRoot && path.resolve(summary.accountRoot) !== path.resolve(global.root) ? { CLAUDE_CONFIG_DIR: summary.accountRoot } : undefined;
+      const t = vscode.window.createTerminal({ name: `Analyze: ${summary.title.slice(0, 40)}`, cwd, env });
+      t.show();
+      t.sendText(`claude --resume ${summary.id} --fork-session${hint}`);
     },
     importSession: async id => {
       const scope = scopes.find(s => s.id === id && s.id !== global.id);

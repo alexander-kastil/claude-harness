@@ -1466,7 +1466,29 @@ table.grid .cell {
   margin: 0;
 }
 
-/* The first line of a step's prompt; a prompt that was only pasted text reads muted. */
+/* The Prompts and Mods frames carry the colour of what they show: a delegated prompt's gold, a mod's green. On and off alike. */
+.dg-toggle:has(> [data-toggle='prompts']) {
+  border-color: var(--vscode-charts-yellow);
+}
+
+.dg-toggle:has(> [data-toggle='mods']) {
+  border-color: var(--vscode-charts-green);
+}
+
+/* A prompt's own box on the Full timeline: a pill with a speech bubble, set apart from the square steps. */
+.dg-node.ask {
+  fill: var(--vscode-textBlockQuote-background, var(--vscode-editor-background));
+}
+
+.dg-ask-icon {
+  fill: none;
+  stroke: var(--vscode-descriptionForeground);
+  stroke-width: 1.2;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+
+/* The first line in a prompt box; a prompt that was only pasted text reads muted. */
 .dg-prompt {
   fill: var(--vscode-foreground);
   font-size: 11px;
@@ -1490,7 +1512,7 @@ table.grid .cell {
 }
 
 .dg-chip {
-  --ev-tone: var(--vscode-charts-orange);
+  --ev-tone: var(--vscode-charts-green);
   position: absolute;
   display: inline-flex;
   align-items: center;
@@ -1563,6 +1585,22 @@ table.grid .cell {
   stroke: var(--vscode-foreground);
 }
 
+/* A denial is a red stop sign with a light bar; the detail is in the hover card. */
+.dg-stop polygon {
+  fill: var(--vscode-charts-red);
+  stroke: none;
+  stroke-dasharray: none;
+}
+
+.dg-stop rect {
+  fill: var(--vscode-button-foreground);
+  stroke: none;
+}
+
+.dg-stop:hover polygon {
+  fill: color-mix(in srgb, var(--vscode-charts-red) 80%, var(--vscode-foreground));
+}
+
 .dg-chip:focus,
 .dg-mark:focus {
   outline: none;
@@ -1592,7 +1630,7 @@ table.grid .cell {
 }
 
 .hc-tl-item.ev-act::before {
-  background: var(--vscode-charts-orange);
+  background: var(--vscode-charts-green);
 }
 
 .hc-tl-item.ev-warn::before {
@@ -1975,6 +2013,225 @@ mark {
   .tl-hover.show {
     transition: none;
     transform: none;
+  }
+}
+
+/* The confirmation card: a popover under the button that asked, in the hover card's look, pointing at that button. It
+   grows from the button and leaves faster than it came; the switch remembers the answer, the buttons are the house ones. */
+.cf {
+  position: fixed;
+  z-index: 1001;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: min(380px, calc(100vw - 32px));
+  padding: 14px 16px 12px;
+  border: 1px solid var(--vscode-editorHoverWidget-border, var(--vscode-panel-border));
+  border-radius: 10px;
+  background: var(--vscode-editorHoverWidget-background, var(--vscode-editorWidget-background));
+  color: var(--vscode-editorHoverWidget-foreground, var(--vscode-foreground));
+  box-shadow: 0 1px 2px var(--vscode-widget-shadow, rgba(0, 0, 0, 0.25)), 0 16px 40px var(--vscode-widget-shadow, rgba(0, 0, 0, 0.35));
+  font-size: 12px;
+  line-height: 1.5;
+  transform-origin: var(--cf-arrow, 24px) top;
+  animation: cf-in 170ms cubic-bezier(0.2, 0.9, 0.3, 1.15) both;
+}
+
+.cf.up {
+  transform-origin: var(--cf-arrow, 24px) bottom;
+}
+
+.cf.leaving {
+  pointer-events: none;
+  animation: cf-out 90ms ease-in both;
+}
+
+.cf::before {
+  content: '';
+  position: absolute;
+  top: -6px;
+  left: calc(var(--cf-arrow, 24px) - 5px);
+  width: 10px;
+  height: 10px;
+  border-top: 1px solid var(--vscode-editorHoverWidget-border, var(--vscode-panel-border));
+  border-left: 1px solid var(--vscode-editorHoverWidget-border, var(--vscode-panel-border));
+  background: inherit;
+  transform: rotate(45deg);
+}
+
+.cf.up::before {
+  top: auto;
+  bottom: -6px;
+  transform: rotate(225deg);
+}
+
+@keyframes cf-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.97);
+  }
+}
+
+@keyframes cf-out {
+  to {
+    opacity: 0;
+    transform: translateY(-2px) scale(0.98);
+  }
+}
+
+.cf-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.cf-badge {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--vscode-button-background) 16%, transparent);
+  color: var(--vscode-button-background);
+}
+
+.cf-badge:has(.claude-mark) {
+  background: color-mix(in srgb, #d97757 16%, transparent);
+}
+
+.cf-badge .codicon {
+  font-size: 17px;
+}
+
+.cf-titles {
+  min-width: 0;
+}
+
+.cf-title {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.cf-sub {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.cf-facts {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 12px 0 0;
+  border-top: 1px solid var(--vscode-editorHoverWidget-border, var(--vscode-panel-border));
+  list-style: none;
+}
+
+.cf-facts li {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+}
+
+.cf-facts .codicon {
+  margin-top: 2px;
+  font-size: 14px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.cf-facts code {
+  padding: 0 4px;
+  border-radius: 3px;
+  background: var(--vscode-textCodeBlock-background, rgba(127, 127, 127, 0.15));
+  font-family: var(--vscode-editor-font-family);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.cf-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--vscode-editorHoverWidget-border, var(--vscode-panel-border));
+}
+
+.cf-remember {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11.5px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.cf-remember > span {
+  cursor: pointer;
+  user-select: none;
+}
+
+.cf-switch {
+  position: relative;
+  flex: none;
+  width: 30px;
+  height: 18px;
+  padding: 0;
+  border: 1px solid var(--vscode-input-border, var(--vscode-panel-border));
+  border-radius: 9px;
+  background: var(--vscode-input-background);
+  cursor: pointer;
+  transition: background-color 140ms ease, border-color 140ms ease;
+}
+
+.cf-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--vscode-descriptionForeground);
+  transition: transform 170ms cubic-bezier(0.3, 0.9, 0.4, 1.2), background-color 140ms ease;
+}
+
+.cf-switch.on {
+  border-color: var(--vscode-button-background);
+  background: var(--vscode-button-background);
+}
+
+.cf-switch.on .cf-thumb {
+  background: var(--vscode-button-foreground);
+  transform: translateX(12px);
+}
+
+.cf-actions {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.cf button:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: 2px;
+}
+
+.claude-mark {
+  flex: none;
+  fill: #d97757;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cf,
+  .cf.leaving {
+    animation: none;
+  }
+
+  .cf-switch,
+  .cf-thumb {
+    transition: none;
   }
 }
 

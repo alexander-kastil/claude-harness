@@ -191,7 +191,7 @@ test('bindEvents puts an agent event on its row and any other event on the promp
   );
   assert.deepEqual(
     bound.steps.map(list => list.map(e => e.hook)),
-    [['at first', 'gone agent', 'end of first'], ['at second'], ['after last']]
+    [['before first', 'at first', 'gone agent', 'end of first'], ['at second'], ['after last']]
   );
   assert.deepEqual(
     bound.agents.a1.map(e => e.hook),

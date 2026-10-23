@@ -58,7 +58,7 @@ export interface BoundEvents {
 /**
  * Binds one layer's events to rows: an event with the id of an agent on the map belongs to that agent's row; any other
  * event belongs to the prompt whose window [prompt time, next prompt time) holds its time. An event before the first
- * prompt, or with no readable time, belongs to no row.
+ * prompt, such as a session start hook, belongs to the first prompt; an event with no readable time belongs to no row.
  */
 export function bindEvents(events: ModEvent[], promptTimes: number[], agentIds: Iterable<string>): BoundEvents {
   const ids = new Set(agentIds);
@@ -71,8 +71,8 @@ export function bindEvents(events: ModEvent[], promptTimes: number[], agentIds: 
     }
     const t = timeOf(e);
     if (Number.isNaN(t)) continue;
-    let at = -1;
-    for (let i = 0; i < promptTimes.length; i++) if (promptTimes[i] <= t && (i + 1 === promptTimes.length || t < promptTimes[i + 1])) at = i;
+    let at = promptTimes.length ? 0 : -1;
+    for (let i = 1; i < promptTimes.length; i++) if (promptTimes[i] <= t) at = i;
     if (at >= 0) steps[at].push(e);
   }
   return { steps, agents };

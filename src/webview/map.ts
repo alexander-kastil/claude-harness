@@ -1,8 +1,9 @@
 // @ts-nocheck
 // The Delegation map and its process diagram.
 import { bindEvents, chipText, modsOf, promptLine, toneOf, toneOfAll } from '../shared/event-layers';
-import { persist, state } from './core';
-import { DECISION_LABELS, decisionCard } from './decisions';
+import { claudeMark } from './confirm';
+import { persist, state, vscode } from './core';
+import { DECISION_LABELS, decisionCard, promptCard } from './decisions';
 import { clip, el, fmtDur, fmtTime, icon, plural, shortModel, shortType, svg } from './dom';
 import { hideHover, placeCard, tabTip } from './hover';
 import { colorsOf, endOfAgent, modeSwitch, widthOf } from './session-common';
@@ -172,10 +173,10 @@ export function drawMap(host, d) {
   host.replaceChildren(sw, root);
 }
 
-// Full timeline toggles right of the Sum / Full timeline switch: the prompt line on each step, then Mods, which switches
-// the events of every mod on or off together.
+// Full timeline buttons right of the Sum / Full timeline switch: Prompts, which shows each prompt as its own box; Mods,
+// which switches the events of every mod on or off together; and Analyze, which opens a new Claude on a copy of the session.
 function mapToggles(host, d) {
-  const toggle = (key, text, glyph, about, on, flip) => {
+  const button = (key, text, glyph, about, attrs, onclick, mark = icon(glyph)) => {
     const tip = target => {
       const r = target.getBoundingClientRect();
       placeCard(`toggle:${key}`, () => tabTip(text, glyph, about), { x: r.left - 14, y: r.bottom - 6 });
@@ -186,31 +187,48 @@ function mapToggles(host, d) {
       el(
         'button',
         {
-          className: `view-tab dg-mode${on ? ' active' : ''}`,
-          'aria-pressed': on ? 'true' : 'false',
+          className: 'view-tab dg-mode',
           'aria-description': about,
           'data-toggle': key,
-          onclick: () => {
-            hideHover();
-            flip();
-            persist();
-            drawMap(host, d);
-            const b = [...host.querySelectorAll('[data-toggle]')].find(x => x.dataset.toggle === key);
-            if (b) b.focus();
-          },
+          onclick,
           onmouseenter: e => tip(e.currentTarget),
           onmouseleave: hideHover,
           onfocus: e => tip(e.currentTarget),
           onblur: hideHover,
+          ...attrs,
         },
-        icon(glyph),
+        mark,
         el('span', {}, text)
       )
     );
   };
+  const toggle = (key, text, glyph, about, on, flip) =>
+    button(key, text, glyph, about, { className: `view-tab dg-mode${on ? ' active' : ''}`, 'aria-pressed': on ? 'true' : 'false' }, () => {
+      hideHover();
+      flip();
+      persist();
+      drawMap(host, d);
+      const b = [...host.querySelectorAll('[data-toggle]')].find(x => x.dataset.toggle === key);
+      if (b) b.focus();
+    });
+  const s = state.session;
   return [
-    toggle('prompts', 'Prompts', 'comment', 'The first line of each prompt on its step.', state.mapPrompts, () => (state.mapPrompts = !state.mapPrompts)),
+    toggle('prompts', 'Prompts', 'comment', 'Each prompt as its own box on the main thread, above the step it started.', state.mapPrompts, () => (state.mapPrompts = !state.mapPrompts)),
     hasModEvents(d) ? toggle('mods', 'Mods', 'plug', 'What each mod did, on the steps and agents it concerns.', state.mapMods, () => (state.mapMods = !state.mapMods)) : null,
+    s
+      ? button(
+          'analyze',
+          'Analyze',
+          'comment-discussion',
+          'A new Claude in a terminal with a copy of this session, to ask about it in a chat. The session itself stays untouched.',
+          { 'data-confirm': 'analyze' },
+          () => {
+            hideHover();
+            vscode.postMessage({ type: 'analyzeSession', scope: s.scope, id: s.id });
+          },
+          claudeMark()
+        )
+      : null,
   ].filter(Boolean);
 }
 
@@ -253,15 +271,23 @@ export function eventsCard(name, sets) {
   );
 }
 
-// A chip with the layers' labels, or for a step whose events all looked and did nothing, a hollow dashed marker.
-// Both are buttons laid over the diagram; hover and focus open the event card.
+// A chip with the layers' labels, for a step whose events all looked and did nothing a hollow dashed marker, and for
+// a denial a stop sign alone, what was denied being in the card. All are buttons laid over the diagram; hover and
+// focus open the event card.
 function eventMark(sets, name, key, quiet) {
   const all = sets.flatMap(s => s.events);
   const tone = toneOfAll(all);
+  const stop = !quiet && tone === 'warn';
   const aria = sets.map(s => `${s.label}: ${plural(s.events.length, 'event')}`).join(', ');
   const node = quiet
     ? el('button', { className: 'dg-mark', 'aria-label': aria }, svg('svg', { width: 10, height: 10, viewBox: '0 0 10 10', 'aria-hidden': 'true' }, svg('circle', { cx: 5, cy: 5, r: 4.5 })))
-    : el('button', { className: `dg-chip ev-${tone}`, 'aria-label': aria }, icon(TONE_ICON[tone]), el('span', {}, chipText(all)));
+    : stop
+      ? el(
+          'button',
+          { className: 'dg-mark dg-stop', 'aria-label': aria },
+          svg('svg', { width: 16, height: 16, viewBox: '0 0 16 16', 'aria-hidden': 'true' }, svg('polygon', { points: '5,1 11,1 15,5 15,11 11,15 5,15 1,11 1,5' }), svg('rect', { x: 4, y: 7, width: 8, height: 2 }))
+        )
+      : el('button', { className: `dg-chip ev-${tone}`, 'aria-label': aria }, icon(TONE_ICON[tone]), el('span', {}, chipText(all)));
   const cardKey = `events:${key}:${sets.map(s => s.label).join('|')}`;
   const open = () => {
     const r = node.getBoundingClientRect();
@@ -274,7 +300,7 @@ function eventMark(sets, name, key, quiet) {
   node.addEventListener('keydown', e => {
     if (e.key === 'Escape') hideHover();
   });
-  return { node, h: quiet ? 24 : 20, text: quiet ? '' : chipText(all) };
+  return { node, h: quiet || stop ? 24 : 20, text: quiet || stop ? '' : chipText(all) };
 }
 
 // Widths of the marks as the panel renders them, measured off screen before the diagram is laid out.
@@ -310,8 +336,8 @@ const fitLine = (text, px, font) => {
 
 // Full timeline as a process from top to bottom: your prompts are the steps of the main thread; a delegation branches
 // to the agents it started, and each agent's report joins the main thread again (dashed) after the step it reached.
-// With Prompts on, each step shows its prompt's first line; with Mods on, one chip beside each step and on the connector
-// of each agent the events of any mod concern.
+// With Prompts on, each prompt is its own box above the step it started, its first line inside and the whole prompt in
+// its hover card; with Mods on, one chip beside each step and on the connector of each agent the events of any mod concern.
 export function drawProcess(W, d) {
   const steps = [...(d.decisions || [])].sort((p, q) => p.at - q.at);
   if (!steps.length) return el('div', { className: 'empty flush dg-empty' }, 'No prompts in this session.');
@@ -354,18 +380,24 @@ export function drawProcess(W, d) {
   const agentMarkW = Math.max(0, ...[...agentMarks.values()].map(m => m.w));
   const stepRoom = stepMarkW ? stepMarkW + 8 : 0;
   const agentRoom = agentMarkW ? agentMarkW + 12 : 0;
-  const BASE_W = 124;
-  const STEP_H = showPrompts ? 50 : 34;
+  const STEP_W = 124;
+  const STEP_H = 34;
+  const ASK_H = 26;
+  const ASK_GAP = 14;
   const ROW = 36;
   const GAP = 22;
   const INDENT = 22;
   const stepX = PAD + 10;
-  // A step grows to fit its prompt line, while the agent rows keep their facts and room for a name beside it.
-  const STEP_W = showPrompts
-    ? Math.max(BASE_W, Math.min(280, W - PAD - MAP_ROW_MIN - 40 - stepX - 48 - stepRoom - agentRoom, Math.ceil(Math.max(...lines.map(l => textWidth(l || 'Pasted text', lineFont)))) + 16))
-    : BASE_W;
-  const spineX = stepX + STEP_W / 2;
-  const returnX = stepX + STEP_W + 14 + stepRoom;
+  // A prompt box grows to fit its first line, while the agent rows keep their facts and room for a name beside it. The
+  // steps stay narrow and sit centred under their prompts on the main thread.
+  const ASK_W = showPrompts
+    ? Math.max(STEP_W, Math.min(320, W - PAD - MAP_ROW_MIN - stepX - 48 - agentRoom, Math.ceil(Math.max(...lines.map(l => textWidth(l || 'Pasted text', lineFont)))) + 36))
+    : 0;
+  const colW = Math.max(STEP_W, ASK_W);
+  const spineX = stepX + colW / 2;
+  const stepL = spineX - STEP_W / 2;
+  const stepR = spineX + STEP_W / 2;
+  const returnX = Math.max(stepR + stepRoom, stepX + colW) + 14;
   const branchX = returnX + 16;
   const agentsX = branchX + 18 + agentRoom;
   const width = Math.max(W, agentsX + MAP_ROW_MIN + PAD);
@@ -396,10 +428,15 @@ export function drawProcess(W, d) {
   };
   for (const t of runs) if (!t.parent) add(t, blocks[t.c]);
   const startY = PAD + 8;
+  const askTop = [];
   const stepTop = [];
   const blockEnd = [];
   let y = startY + 22;
   steps.forEach((s, i) => {
+    if (showPrompts) {
+      askTop.push(y);
+      y += ASK_H + ASK_GAP;
+    }
     stepTop.push(y);
     blocks[i].forEach((t, k) => {
       t.x = agentsX + t.depth * INDENT;
@@ -420,15 +457,19 @@ export function drawProcess(W, d) {
   // below the mark, so the mark never reads as part of the delegation.
   const FIRST_LINE = 10;
   const branchY = i => stepTop[i] + (stepMarks[i] ? Math.max(STEP_H / 2, FIRST_LINE + 17) : STEP_H / 2);
-  // The main thread's flow: start, every prompt in order, end.
-  arrow(`M ${spineX} ${startY + 7} V ${stepTop[0]}`);
-  steps.forEach((s, i) => arrow(`M ${spineX} ${stepTop[i] + STEP_H} V ${i + 1 < steps.length ? stepTop[i + 1] : endY - 7}`));
+  // The main thread's flow: start, every prompt (with Prompts on, its box and then its step) in order, end.
+  const topOf = i => (showPrompts ? askTop[i] : stepTop[i]);
+  arrow(`M ${spineX} ${startY + 7} V ${topOf(0)}`);
+  steps.forEach((s, i) => {
+    if (showPrompts) arrow(`M ${spineX} ${askTop[i] + ASK_H} V ${stepTop[i]}`);
+    arrow(`M ${spineX} ${stepTop[i] + STEP_H} V ${i + 1 < steps.length ? topOf(i + 1) : endY - 7}`);
+  });
   for (const t of runs) {
     if (t.parent) {
       const p = t.parent;
       arrow(`M ${p.x + 10} ${p.y + MAP_ROW_H} V ${t.y + MAP_ROW_H / 2} H ${t.x}`);
     } else {
-      arrow(`M ${stepX + STEP_W} ${branchY(t.c)} H ${branchX} V ${t.y + 11} H ${t.x}`);
+      arrow(`M ${stepR} ${branchY(t.c)} H ${branchX} V ${t.y + 11} H ${t.x}`);
       arrow(`M ${t.x} ${t.y + 21} H ${returnX} V ${joinY(t.rc)} H ${spineX + 1}`, true);
     }
   }
@@ -447,20 +488,8 @@ export function drawProcess(W, d) {
     m.node.style.top = `${cy - m.h / 2}px`;
     marks.push(m.node);
   };
-  steps.forEach((s, i) => {
-    const yy = stepTop[i];
-    const action = DECISION_LABELS[s.action] || s.action;
-    const line = lines[i] || 'Pasted text';
-    const g = svg(
-      'g',
-      { class: 'dg-decision', tabindex: '0', 'aria-label': `${fmtTime(s.at)}, ${action}${showPrompts ? `, ${line}` : ''}` },
-      svg('rect', { x: stepX, y: yy, width: STEP_W, height: STEP_H, rx: 5, class: `dg-node${s.action === 'delegated' ? ' gold' : ''}` }),
-      svg('text', { x: stepX + 8, y: yy + 14, class: 'dg-label strong' }, fmtTime(s.at)),
-      svg('text', { x: stepX + 8, y: yy + 28, class: 'dg-meta' }, clip(action, Math.floor((STEP_W - 14) / 5.6))),
-      showPrompts ? svg('text', { x: stepX + 8, y: yy + 42, class: `dg-prompt${lines[i] ? '' : ' muted'}` }, fitLine(line, STEP_W - 16, lineFont)) : null
-    );
-    const key = `step:${s.at}${showPrompts ? ':full' : ''}`;
-    const build = () => decisionCard(fmtTime(s.at), [s], d, showPrompts);
+  // A step or prompt box opens its card on hover, follows the pointer, and opens it at its corner on focus.
+  const hoverable = (g, key, build) => {
     const card = e => placeCard(key, build, { x: e.clientX, y: e.clientY });
     g.addEventListener('mouseenter', card);
     g.addEventListener('mousemove', card);
@@ -473,8 +502,35 @@ export function drawProcess(W, d) {
     g.addEventListener('keydown', e => {
       if (e.key === 'Escape') hideHover();
     });
-    root.append(g);
-    if (stepMarks[i]) lay(stepMarks[i], stepX + STEP_W + 6, yy + FIRST_LINE);
+    return g;
+  };
+  steps.forEach((s, i) => {
+    const yy = stepTop[i];
+    const action = DECISION_LABELS[s.action] || s.action;
+    if (showPrompts) {
+      // The prompt's own box: a speech bubble and the first line, the whole prompt in its card.
+      const ay = askTop[i];
+      const ax = spineX - ASK_W / 2;
+      const line = lines[i] || 'Pasted text';
+      const text = promptAt.get(s.at) || '';
+      const ask = svg(
+        'g',
+        { class: 'dg-decision dg-ask', tabindex: '0', 'aria-label': `Prompt at ${fmtTime(s.at)}: ${line}` },
+        svg('rect', { x: ax, y: ay, width: ASK_W, height: ASK_H, rx: ASK_H / 2, class: 'dg-node ask' }),
+        svg('path', { d: `M ${ax + 11} ${ay + 8} h 10 v 7 h -5 l -3 3 v -3 h -2 z`, class: 'dg-ask-icon' }),
+        svg('text', { x: ax + 28, y: ay + 17, class: `dg-prompt${lines[i] ? '' : ' muted'}` }, fitLine(line, ASK_W - 38, lineFont))
+      );
+      root.append(hoverable(ask, `ask:${s.at}`, () => promptCard(fmtTime(s.at), text)));
+    }
+    const g = svg(
+      'g',
+      { class: 'dg-decision', tabindex: '0', 'aria-label': `${fmtTime(s.at)}, ${action}` },
+      svg('rect', { x: stepL, y: yy, width: STEP_W, height: STEP_H, rx: 5, class: `dg-node${s.action === 'delegated' ? ' gold' : ''}` }),
+      svg('text', { x: stepL + 8, y: yy + 14, class: 'dg-label strong' }, fmtTime(s.at)),
+      svg('text', { x: stepL + 8, y: yy + 28, class: 'dg-meta' }, clip(action, Math.floor((STEP_W - 14) / 5.6)))
+    );
+    root.append(hoverable(g, `step:${s.at}`, () => decisionCard(fmtTime(s.at), [s], d)));
+    if (stepMarks[i]) lay(stepMarks[i], stepR + 6, yy + FIRST_LINE);
   });
   for (const t of runs) {
     root.append(mapAgentRow(t.a, t.x, t.y, right, d, colors, msgs, selected));

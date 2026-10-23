@@ -11,9 +11,10 @@ import { groupHead, rowName } from './tables';
 
 // One toggle per list view in a category header: the grouping first, then each sort.
 const VIEW_MODES = {
-  source: ['list-tree', 'Group by source'],
-  loading: ['list-tree', 'Group by when it loads'],
-  event: ['list-tree', 'Group by event'],
+  where: ['list-tree', 'Group by where it lives'],
+  origin: ['plug', 'Group by source'],
+  loading: ['law', 'Group by when it loads'],
+  event: ['zap', 'Group by event'],
   marketplace: ['list-tree', 'Group by marketplace'],
   name: ['case-sensitive', 'Sort by name'],
   recent: ['history', 'Sort by last change'],
@@ -53,7 +54,7 @@ export function renderCategories(list, view, q, nested) {
           icon(collapsed ? 'chevron-right' : 'chevron-down')
         ),
         el('span', { className: 'label' }, cat.label),
-        lv && !collapsed && items.length > 1 && (groups.length > 1 || !isGrouped(cat.kind))
+        lv && !collapsed && items.length > 1 && (groups.length > 1 || !isGrouped(cat.kind) || Object.keys(lv.groupings).length > 1)
           ? el(
               'span',
               { className: 'view-modes', role: 'group', 'aria-label': 'View' },

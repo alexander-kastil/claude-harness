@@ -32,10 +32,13 @@ const fullPrompt = text =>
     )
   );
 
+// One prompt whole, for its own box on the Delegation map.
+export const promptCard = (label, text) =>
+  el('div', { className: 'hc hc-decision' }, el('div', { className: 'hc-head' }, icon('comment'), el('span', { className: 'hc-type' }, 'Prompt'), el('span', { className: 'hc-name' }, label)), fullPrompt(text));
+
 // The prompts on a time rail. Each prompt carries the agents it launched, one by name or several as a team,
-// and every agent gets a run bar on a track that spans the prompt to the last report. `full` shows each prompt whole,
-// its pasted blocks set apart, instead of two lines.
-export function decisionCard(label, items, d, full) {
+// and every agent gets a run bar on a track that spans the prompt to the last report.
+export function decisionCard(label, items, d) {
   const promptAt = new Map(d.prompts.map(p => [p.at, p.text]));
   const byId = new Map(d.agents.map(a => [a.id, a]));
   const colors = colorsOf(d);
@@ -78,7 +81,7 @@ export function decisionCard(label, items, d, full) {
           'li',
           { className: `hc-tl-item${runs.length ? ' delegated' : ''}` },
           el('div', { className: 'hc-tl-when' }, el('span', { className: 'hc-tl-time' }, fmtTime(x.at)), i ? el('span', { className: 'hc-tl-gap' }, `+${fmtDur(x.at - shown[i - 1].at)}`) : null),
-          full ? fullPrompt(promptAt.get(x.at) || '') : el('div', { className: 'hc-tl-prompt' }, promptAt.get(x.at) || ''),
+          el('div', { className: 'hc-tl-prompt' }, promptAt.get(x.at) || ''),
           runs.length
             ? el(
                 'div',

@@ -18,5 +18,9 @@
 | 2026-10-21 | 0.30 | 00:00 | 00:18 | Versions 0.2.9 to 0.2.12: delegation map as a top-to-bottom process with the same facts on every agent, and a full-width summary |
 | 2026-10-21 | 1.08 | 08:48 | 09:53 | Versions 0.2.14 to 0.2.23: session cost as a share of each Claude plan's weekly limit, output style drafts with Claude, session export and import, and one tooltip style |
 | 2026-10-23 | 1.37 | 12:00 | 13:22 | Contributor guide with an animated fork-to-pull-request diagram and Claude Code commands for every contribution step |
+| 2026-10-23 | 1.48 | 13:28 | 14:57 | Version 0.2.36: prompts on the delegation map and a hover layer showing what installed mods did, fed by a new per-session mod log |
+| 2026-10-23 | 0.40 | 14:43 | 15:21 | Version 0.2.37: one Mods switch for all installed mods, including mods that keep no log of their own |
+| 2026-10-23 | 0.80 | 17:30 | 18:18 | Versions 0.2.38 to 0.2.43: prompts as their own boxes on the delegation map, a button to discuss a session with Claude, in-panel confirmations and live refresh of running sessions |
+| 2026-10-23 | 0.05 | 17:56 | 18:21 | Review of where the delegation map work went wrong, with lessons recorded for the next release |
 
-**Total: 12.85h**
+**Total: 15.58h**

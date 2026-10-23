@@ -6,7 +6,7 @@ import { McpInfo, StdioConfig, probeHttp, probeStdio } from './probe';
 import type { CheckSummary } from './constitution';
 import type { ScaffoldForm } from './standard';
 import type { SessionSummary } from './sessions';
-import type { Detail, Page, Pending, Standard, StyleDraft, ToHost, ToWebview } from './shared/messages';
+import type { Answer, Confirm, Detail, Page, Pending, Standard, StyleDraft, ToHost, ToWebview } from './shared/messages';
 import { pickTools, splitTools } from './tools';
 
 export type { Detail, Page } from './shared/messages';
@@ -38,8 +38,11 @@ export interface PanelHost {
   /** The last 7 days of every account by model, over all repos. */
   weekly?(): Promise<unknown>;
   /** Asks first, then drafts an output style from the session's style scan; `started` fires once the user agreed. */
-  draftStyle?(scopeId: string, id: string, model: string, started: () => void): Promise<StyleDraft>;
+  /** Without a confirmed answer and a remembered one, asks in the panel through `ask` and returns idle. */
+  draftStyle?(scopeId: string, id: string, model: string, started: () => void, answer: Answer, ask: (c: Confirm) => void): Promise<StyleDraft>;
   exportSession?(scopeId: string, id: string): Promise<void>;
+  /** Opens a terminal in the session's repo with a new Claude that is a copy of the session; asks first like draftStyle. */
+  analyzeSession?(scopeId: string, id: string, answer: Answer, ask: (c: Confirm) => void): Promise<void>;
   /** Picks a transcript and copies it into the repo; returns the session id, or nothing when cancelled or failed. */
   importSession?(scopeId: string): Promise<string | undefined>;
 }
@@ -286,7 +289,8 @@ export class HarnessPanel {
       case 'draftStyle': {
         const reply = (data: StyleDraft) => this.post({ type: 'styleDraft', scope: m.scope, id: m.id, ...data });
         try {
-          reply((await this.host.draftStyle?.(m.scope, m.id, m.model, () => reply({ state: 'running', model: m.model }))) ?? { state: 'idle' });
+          const answer = { confirmed: m.confirmed, remember: m.remember };
+          reply((await this.host.draftStyle?.(m.scope, m.id, m.model, () => reply({ state: 'running', model: m.model }), answer, ask => this.post({ type: 'confirm', ask }))) ?? { state: 'idle' });
         } catch (e) {
           reply({ state: 'error', error: (e as Error).message });
         }
@@ -294,6 +298,9 @@ export class HarnessPanel {
       }
       case 'exportSession':
         await this.host.exportSession?.(m.scope, m.id);
+        return;
+      case 'analyzeSession':
+        await this.host.analyzeSession?.(m.scope, m.id, { confirmed: m.confirmed, remember: m.remember }, ask => this.post({ type: 'confirm', ask }));
         return;
       case 'importSession': {
         const id = await this.host.importSession?.(m.scope);

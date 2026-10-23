@@ -62,6 +62,20 @@ export interface EventLayer {
   events: ModEvent[];
 }
 
+/**
+ * A question the host asks in the panel instead of a system dialog. The webview shows it as a card under the button
+ * marked `data-confirm="<kind>"` and answers by posting the held-back message again with an {@link Answer}.
+ */
+export type Confirm =
+  | { kind: 'analyze'; scope: string; id: string; cwd: string; live: boolean }
+  | { kind: 'draftStyle'; scope: string; id: string; model: string; corrections: number; folder: string };
+
+/** The owner's answer on a confirm card: go ahead, and whether to skip the card from now on. */
+export interface Answer {
+  confirmed?: boolean;
+  remember?: boolean;
+}
+
 /** Webview to host. */
 export type ToHost =
   | { type: 'ready' }
@@ -80,8 +94,9 @@ export type ToHost =
   | { type: 'sessions'; scope: string }
   | { type: 'weekly' }
   | { type: 'session'; scope: string; id: string }
-  | { type: 'draftStyle'; scope: string; id: string; model: string }
+  | ({ type: 'draftStyle'; scope: string; id: string; model: string } & Answer)
   | { type: 'exportSession'; scope: string; id: string }
+  | ({ type: 'analyzeSession'; scope: string; id: string } & Answer)
   | { type: 'importSession'; scope: string }
   | { type: 'openAt'; file: string; line?: number };
 
@@ -101,4 +116,5 @@ export type ToWebview =
   | { type: 'sessions'; scope: string; list: SessionSummary[] }
   | { type: 'weekly'; list: unknown }
   | { type: 'session'; scope: string; id: string; data: unknown }
-  | ({ type: 'styleDraft'; scope: string; id: string } & StyleDraft);
+  | ({ type: 'styleDraft'; scope: string; id: string } & StyleDraft)
+  | { type: 'confirm'; ask: Confirm };

@@ -257,7 +257,7 @@ export function renderStyle(d) {
       ),
       el(
         'button',
-        { className: 'primary', disabled: running, onclick: () => vscode.postMessage({ type: 'draftStyle', scope: s.scope, id: s.id, model: state.styleModel }) },
+        { className: 'primary', disabled: running, 'data-confirm': 'draftStyle', onclick: () => vscode.postMessage({ type: 'draftStyle', scope: s.scope, id: s.id, model: state.styleModel }) },
         running ? el('span', { className: 'codicon codicon-loading codicon-modifier-spin' }) : icon('sparkle'),
         running ? 'Drafting...' : 'Draft output style'
       ),
