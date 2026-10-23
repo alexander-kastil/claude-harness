@@ -1,9 +1,8 @@
 // @ts-nocheck
 // The sessions search page and session lists.
 import { select, showRepo, state, viewOf, vscode } from './core';
-import { el, fmtDate, fmtDur, fmtNum, highlight, icon, iconBtn, pageHead, shortModel } from './dom';
+import { el, fmtDate, fmtDur, highlight, icon, iconBtn, pageHead } from './dom';
 import { render, renderMain } from './main';
-import { BILLING, TEAM_PLANS, fmtShare, fmtUsd } from './session-page';
 import { gridTable } from './tables';
 
 export const sessionDesc = s =>
@@ -80,10 +79,7 @@ export function renderSessionsPage() {
   const reload = iconBtn('refresh', 'Read the sessions again', () => {
     state.sessions[p.scope] = null;
     vscode.postMessage({ type: 'sessions', scope: p.scope });
-    state.weekly = null;
-    vscode.postMessage({ type: 'weekly' });
     p.refresh();
-    p.drawWeek();
   });
   const results = el('div', { className: 'recent' });
   const suggest = el('div', { className: 'suggest', role: 'listbox', id: 'session-suggest', hidden: true });
@@ -239,38 +235,6 @@ export function renderSessionsPage() {
     list = state.sessions[p.scope];
     update();
   };
-  // The last 7 days of each account by model, over all repos. A plan shows the cost as a share of its estimated weekly limit.
-  const week = el('div', { className: 'week' });
-  const drawWeek = () => {
-    const totals = state.weekly;
-    if (!totals) {
-      week.replaceChildren(el('div', { className: 'empty flush' }, 'Reading the last 7 days...'));
-      return;
-    }
-    week.replaceChildren(
-      ...totals.map(t => {
-        const plan = BILLING.find(b => b[0] === t.plan);
-        const head = [t.account, plan ? plan[1] : '', fmtNum(t.tokens) + ' tokens', t.limit ? `${fmtShare(t.cost, t.limit)} of the weekly limit*` : fmtUsd(t.cost)].filter(Boolean).join(' · ');
-        const span = t.fromReset ? `Since ${fmtDate(t.since)}` : 'Last 7 days';
-        const limitNote = t.limit ? ' * Not exact prices: the limit of a plan is an estimate, from one measurement for Team Premium.' : '';
-        return el(
-          'div',
-          { className: 'recent' },
-          el('div', { className: 'group-label', title: `${span}, all repos and their agents, at Anthropic API list prices.${limitNote}${TEAM_PLANS.has(t.plan) ? ' Team plans expose no rate limits to Claude Code, so the share is an estimate.' : ''}` }, `${span} · ${head}`),
-          t.models.length
-            ? t.models.map(m => el('div', { className: 'row' }, icon('chip'), el('span', { className: 'name' }, shortModel(m.model)), el('span', { className: 'desc' }, [`${fmtNum(m.input + m.cacheCreate + m.cacheRead + m.output)} tokens`, t.limit ? `${fmtShare(m.cost, t.limit)} of limit` : fmtUsd(m.cost), `${m.messages} replies`].join(' · '))))
-            : el('div', { className: 'empty flush' }, 'No usage in this window.'),
-          (t.families || []).map(x => el('div', { className: 'row', title: `The ${x.family} weekly limit of this plan, about $${x.limit} at API list prices: an estimate from one measurement.` }, icon('dashboard'), el('span', { className: 'name' }, `${x.family[0].toUpperCase()}${x.family.slice(1)} limit`), el('span', { className: 'desc' }, `${fmtShare(x.cost, x.limit)} of its own limit*`)))
-        );
-      })
-    );
-  };
-  p.drawWeek = drawWeek;
-  if (state.weekly === undefined) {
-    state.weekly = null;
-    vscode.postMessage({ type: 'weekly' });
-  }
-  drawWeek();
   update();
   if (p.focus) {
     p.focus = false;
@@ -280,7 +244,7 @@ export function renderSessionsPage() {
     'section',
     { className: 'main' },
     pageHead('history', 'Sessions', view ? `${view.label} · ${view.path}` : '', back, reload),
-    el('div', { className: 'main-body' }, week, el('div', { className: 'session-search' }, el('div', { className: 'combo' }, icon('search'), input, suggest), chips), results)
+    el('div', { className: 'main-body' }, el('div', { className: 'session-search' }, el('div', { className: 'combo' }, icon('search'), input, suggest), chips), results)
   );
 }
 
