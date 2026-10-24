@@ -69,7 +69,7 @@ When the account has a plan, the block shows the cost as a share of that plan's 
 The same week shows in two more places:
 
 - The **overview** shows the cost and the number of sessions of the last 7 days for each repo, in its repository rows. See [Overview](main-window.md#overview).
-- An **agent page** has a **Last 7 days** tile with the agent type's launches in the window and their cost at API list prices.
+- An **agent page** has a **Last 7 days** chip in its header, next to **Model** and **Color**, with the agent type's launches in the window and their cost at API list prices.
 
 ![Models tab with the This repo row and the By agent type group](images/repo-models.png)
 

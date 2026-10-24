@@ -22,7 +22,7 @@ import { askSlim, pathText, slimCard, slimOf, spreadCard, tileFlags } from './sl
 import { groupHead } from './tables';
 import { askMore, moreOf } from './usage-more';
 import { askFired, askUsage, firedTab, hasFiredTab, hasUsageTab, pluginUsageTab, usageTab, usedRefList } from './usage-tab';
-import { weekAgentTile } from './week-tile';
+import { weekAgentChip } from './week-tile';
 
 type Child = Node | string | null | undefined | false | Child[];
 
@@ -133,7 +133,7 @@ function phraseGroup(label: string, phrases: string[]): HTMLElement {
 const DONE_KEYS = new Set(['name', 'description', 'tools', 'allowed-tools', 'disallowedTools', 'skills', 'version', 'metadata']);
 
 // Frontmatter as chips, each in words a reader understands at a glance.
-function factChips(a: Asset, draft: Draft): HTMLElement | null {
+function factChips(a: Asset, draft: Draft, more: HTMLElement[] = []): HTMLElement | null {
   const chips: HTMLElement[] = [];
   for (const f of draft.fields) {
     if (DONE_KEYS.has(f.key)) continue;
@@ -154,10 +154,11 @@ function factChips(a: Asset, draft: Draft): HTMLElement | null {
   }
   const version = fieldOf(draft, 'version');
   if (version) chips.unshift(chip('tag', 'Version', String(version)));
+  chips.push(...more);
   return chips.length ? el('div', { className: 'dv-chips' }, chips) : null;
 }
 
-function hero(a: Asset, v: ScopeView | undefined, draft: Draft | undefined, description: string, extra: Child[] = []): HTMLElement {
+function hero(a: Asset, v: ScopeView | undefined, draft: Draft | undefined, description: string, extra: Child[] = [], chips: HTMLElement[] = []): HTMLElement {
   const { text, groups } = splitDescription(description);
   const missing = !text && ['skill', 'agent', 'command'].includes(a.kind);
   const repo = v && v.id !== 'global' ? v.label : '';
@@ -178,7 +179,7 @@ function hero(a: Asset, v: ScopeView | undefined, draft: Draft | undefined, desc
     el('div', { className: 'dv-kicker' }, el('span', {}, kindLabel(a.kind)), el('span', { className: 'dv-origin' }, originText(a, v))),
     text ? descBlock(text) : when ? el('p', { className: 'dv-desc' }, when) : el('p', { className: `dv-desc muted${missing ? ' warn' : ''}` }, missing ? 'No description, so Claude cannot tell when to use it.' : 'No description.'),
     groups.map(([label, phrases]) => phraseGroup(label, phrases)),
-    draft ? factChips(a, draft) : null,
+    draft ? factChips(a, draft, chips) : null,
     extra
   );
 }
@@ -416,7 +417,7 @@ function kpisFor(a: Asset, draft: Draft, description: string, mentions: Entry[],
       tile(String(Math.max(1, (a.files || []).length)), 'Files', 'files', fileParts(a.files || [])),
       connections,
     ],
-    agent: [tile(desc.replace(' tokens', ''), 'Always loaded', 'layers', 'tokens: the description, in the agent list'), tile(fmtTokens(tokens(body)), 'System prompt', 'hubot', 'tokens, when the agent starts'), toolTile, connections, weekAgentTile(a)],
+    agent: [tile(desc.replace(' tokens', ''), 'Always loaded', 'layers', 'tokens: the description, in the agent list'), tile(fmtTokens(tokens(body)), 'System prompt', 'hubot', 'tokens, when the agent starts'), toolTile, connections],
     command: [tile(desc.replace(' tokens', ''), 'Always loaded', 'layers', 'tokens: the description'), tile(fmtTokens(tokens(body)), 'On use', 'play', `tokens, when you run /${a.name}`), tile(String(tools.length), 'Pre-approved', 'tools', 'tools that run without asking'), connections],
     rule: [
       tile(always ? 'Always' : 'On match', 'Loads', 'law', always ? 'in every session' : 'when Claude reads a matching file'),
@@ -475,7 +476,7 @@ function markdownView(d: Detail, draft: Draft): Child[] {
   const slimNote = slimCard(a, slim);
   const flagged = slim ? slim.spread.orphan.length + slim.spread.nested.length + slim.spread.giant.length + (slim.spread.manyTiny ? 1 : 0) : 0;
   return [
-    hero(a, v, draft, description),
+    hero(a, v, draft, description, [], a.kind === 'agent' ? [weekAgentChip(a)] : []),
     kpisFor(a, draft, description, mentions, mentioned, tools),
     tabbed(a, [
       {

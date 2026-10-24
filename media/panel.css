@@ -1913,6 +1913,29 @@ table.grid .cell {
 @media (max-width: 900px) {
   .kpis {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .kpis .tile {
+    gap: 2px;
+    padding: 10px 12px;
+  }
+
+  .kpis .tile .n {
+    font-size: 22px;
+  }
+
+  /* An odd tile would sit alone in the last row: it takes the whole row, figure beside label and note, one slim band. */
+  .kpis .tile:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    column-gap: 12px;
+    align-items: center;
+  }
+
+  .kpis .tile:last-child:nth-child(odd) .n {
+    grid-row: 1 / span 2;
   }
 }
 

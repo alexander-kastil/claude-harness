@@ -26,6 +26,8 @@ Every button that starts Claude shows the Claude icon. When the page is narrower
 
 ![The command bar of a skill page](images/command-bar.png)
 
+![The same command bar on a narrow page, with icons only](images/command-bar-narrow.png)
+
 ## Edit an item
 
 Pressing **View** with unsaved changes shows the same **Save changes** card as switching to another item: **Save** writes them and shows the page, **Don't Save** drops them, **Cancel** stays in Edit mode. **Revert** asks too: a **Discard your changes?** card with **Cancel** and **Discard**, without a **Don't ask again** switch.
@@ -49,6 +51,8 @@ Markdown items (memory, rules, agents, skills, commands and output styles) show 
 | Switch to another item | A **Save changes** card with the item's name appears under the button you pressed, with **Save**, **Don't Save** and **Cancel**. **Cancel**, or Esc, stays on the current item. When you start the switch from a tree menu in the activity bar, the question is a VS Code dialog instead. |
 
 ![Save changes card](images/save-card.png)
+
+![Discard your changes card](images/discard-card.png)
 
 After a save, the status bar shows "Saved" with the item name. If the file cannot be written, an error names the item.
 

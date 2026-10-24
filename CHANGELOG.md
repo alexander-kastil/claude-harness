@@ -62,6 +62,7 @@ All notable changes to Claude Harness are listed here, newest first. The format 
 - Below 640 px the sidebar sits above the page instead of beside it.
 - The Repositories table of the overview drops its secondary columns to fit a narrow panel.
 - The Used, Desc and Cost columns of the type pages have fixed widths, so the Description column keeps the rest.
+- The Last 7 days figure of an agent is a chip beside Model and Color instead of a tile on a row of its own. In a narrow panel the tiles are shorter, and an odd last tile spans the row as a slim band.
 - The selected row of the sidebar scrolls into view, the hover cards dismiss, and an empty search shows one message. Home clears the search of the overview. Section headers stay on one line, and a section with more than three views gets a View menu.
 - On the session page, Delegation is now called How the work ran, and the legend sits inside the view box. The labels of Concurrency and Scatter no longer overlap the axis ticks, the median lines or each other.
 - The agent count of a session page matches the list: only runs with a transcript count, and a note names the launches that never started.
