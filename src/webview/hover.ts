@@ -6,8 +6,16 @@ export let hover;
 
 export const hideHover = () => hover && hover.classList.remove('show');
 
+// After a press, no card opens again until the pointer really moves or a key is pressed: a click re-draws the page under a
+// stationary pointer, and the browser's follow-up mouseover would otherwise open the card over what was just clicked.
+let pressedAt;
+
+// The element the pointer last entered; a card opened without its own anchor belongs to it, and goes when it is removed.
+let lastOver;
+
 // One floating card for every rich hover; `build` runs again when the card's data arrives later.
 export function placeCard(key, build, at) {
+  if (pressedAt) return;
   if (!hover) {
     hover = el('div', { className: 'tl-hover', role: 'tooltip' });
     document.body.append(hover);
@@ -26,7 +34,9 @@ export function placeCard(key, build, at) {
   let left = at.x + gap;
   let top = at.y + gap;
   if (left + w > window.innerWidth - 8) left = Math.max(8, at.x - w - gap);
-  if (top + h > window.innerHeight - 8) top = Math.max(8, at.y - h - gap);
+  // Flipped above, a card keeps clear of the element it describes when the caller names that element's top edge.
+  if (top + h > window.innerHeight - 8) top = Math.max(8, (at.above !== undefined ? at.above : at.y - gap) - h);
+  hover.anchor = at.anchor || lastOver;
   hover.style.left = `${left}px`;
   hover.style.top = `${top}px`;
 }
@@ -76,7 +86,7 @@ export const showTip = (t, delay) => {
   tipTimer = setTimeout(() => {
     if (tipTarget !== t || !t.isConnected) return;
     const r = t.getBoundingClientRect();
-    placeCard(`tip:${text}`, () => tipCard(text, glyph && glyph.slice('codicon-'.length)), { x: r.left - 14, y: r.bottom - 6 });
+    placeCard(`tip:${text}`, () => tipCard(text, glyph && glyph.slice('codicon-'.length)), { x: r.left - 14, y: r.bottom - 6, above: r.top - 6, anchor: t });
   }, delay);
 };
 
@@ -85,6 +95,16 @@ export const hideTip = () => {
   tipTarget = undefined;
   if (hover && (hover.dataset.key || '').startsWith('tip:')) hideHover();
 };
+
+document.addEventListener(
+  'mouseover',
+  e => {
+    lastOver = e.target;
+    // Entering an element away from the press ends the block before the element's own mouseenter runs.
+    if (pressedAt && Math.hypot(e.clientX - pressedAt.x, e.clientY - pressedAt.y) > 3) pressedAt = undefined;
+  },
+  true
+);
 
 document.addEventListener('mouseover', e => {
   const t = tipHost(e.target);
@@ -103,6 +123,45 @@ document.addEventListener('focusin', e => {
 
 document.addEventListener('focusout', hideTip);
 
-document.addEventListener('mousedown', hideTip);
+// Every card goes on a press, a key, a wheel turn, any scroll, the pointer leaving the panel, and when the element it
+// described is no longer on the page (a tab that was redrawn under the pointer sends no mouseleave).
+const dismiss = () => {
+  clearTimeout(tipTimer);
+  tipTarget = undefined;
+  hideHover();
+};
+
+document.addEventListener(
+  'mousedown',
+  e => {
+    pressedAt = { x: e.clientX, y: e.clientY };
+    dismiss();
+  },
+  true
+);
+
+document.addEventListener(
+  'mousemove',
+  e => {
+    if (pressedAt && Math.hypot(e.clientX - pressedAt.x, e.clientY - pressedAt.y) > 3) pressedAt = undefined;
+    if (hover && hover.classList.contains('show') && hover.anchor && !hover.anchor.isConnected) dismiss();
+  },
+  true
+);
+
+document.addEventListener(
+  'keydown',
+  e => {
+    pressedAt = undefined;
+    if (e.key === 'Escape') dismiss();
+  },
+  true
+);
+
+document.addEventListener('wheel', dismiss, { capture: true, passive: true });
+
+document.addEventListener('scroll', dismiss, true);
+
+document.documentElement.addEventListener('mouseleave', dismiss);
 
 export const tabTip = (label, glyph, text) => el('div', { className: 'hc hc-tip' }, el('div', { className: 'hc-head' }, icon(glyph), el('span', { className: 'hc-type' }, label)), el('div', { className: 'hc-text' }, text));

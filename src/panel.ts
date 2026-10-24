@@ -1,12 +1,13 @@
 import * as crypto from 'crypto';
 import * as os from 'os';
 import * as vscode from 'vscode';
-import { Asset, Field, ScopeView, fromFields, globalScope, kindInfo, mcpToken, readMarkdown, readText, toFields, writeMarkdown, writeText } from './harness';
+import { Asset, Field, ScopeView, fromFields, globalScope, isPluginCopy, kindInfo, mcpToken, readMarkdown, readText, toFields, writeMarkdown, writeText } from './harness';
 import { McpInfo, StdioConfig, probeHttp, probeStdio } from './probe';
 import type { CheckSummary } from './constitution';
 import type { ScaffoldForm } from './standard';
 import type { SessionSummary } from './sessions';
-import type { Answer, Confirm, Detail, Page, Pending, Progress, Standard, StyleDraft, ToHost, ToWebview, UsageReply } from './shared/messages';
+import type { SlimReport } from './shared/slim';
+import type { Answer, Confirm, ConsolidateRoute,Detail, ModActivity, Page, PanelAsk, Pending, Progress, RepoTrace, Standard, StyleDraft, ToHost, ToWebview, UsageMoreReply, UsageReply, UsageTotal } from './shared/messages';
 import { pickTools, splitTools } from './tools';
 
 export type { Detail, Page } from './shared/messages';
@@ -43,10 +44,32 @@ export interface PanelHost {
   exportSession?(scopeId: string, id: string): Promise<void>;
   /** Opens a terminal in the session's repo with a new Claude that is a copy of the session; asks first like draftStyle. */
   analyzeSession?(scopeId: string, id: string, answer: Answer, ask: (c: Confirm) => void): Promise<void>;
+  /** Opens a terminal that resumes the session itself (no copy); asks first like analyzeSession. */
+  continueSession?(scopeId: string, id: string, answer: Answer, ask: (c: Confirm) => void): Promise<void>;
+  /** Opens a terminal in the asset's repo with Claude asked to review the file; asks first like analyzeSession. */
+  reviewAsset?(id: string, answer: Answer, ask: (c: Confirm) => void): Promise<void>;
+  /** Opens a terminal in the skill's repo with Claude asked to slim it, given what its size report found; asks first like reviewAsset. */
+  slimAsset?(id: string, answer: Answer, ask: (c: Confirm) => void): Promise<void>;
+  /** The size and spread of a skill, measured from its files. */
+  slim?(id: string): SlimReport | undefined;
+  /** Consolidates a repo skill into global or its plugin: always asks in the panel, then retires, moves, opens the diff editor or starts Claude on the merge. */
+  consolidateAsset?(id: string, answer: Answer & { target?: string; route?: ConsolidateRoute }, ask: (c: Confirm) => void): Promise<void>;
+  /** Opens a terminal with Claude started on the agent, skill or command. */
+  tryAsset?(id: string, answer: Answer, ask: (c: Confirm) => void): Promise<void>;
+  /** Opens a terminal at the repo with Claude asked to fix one finding of the standard check. */
+  fixFinding?(scopeId: string, finding: { text: string; file?: string; line?: number }): Promise<void>;
   /** Picks a transcript and copies it into the repo; returns the session id, or nothing when cancelled or failed. */
   importSession?(scopeId: string): Promise<string | undefined>;
   /** The sessions that used an agent or skill, from the transcript index; `build` builds the index when there is none yet. */
   usage?(id: string, build: boolean, progress: (p: Progress) => void): Promise<UsageReply | undefined>;
+  /** What the repo's newest session loaded and which hooks failed in its recent sessions. */
+  repoTrace?(scopeId: string): Promise<RepoTrace>;
+  /** The events a plugin with an events manifest produced across the newest sessions. */
+  modActivity?(id: string): Promise<ModActivity>;
+  /** The 7-day strip and the per-element or per-tool counts of an element, from the same index. */
+  usageMore?(id: string, build: boolean, progress: (p: Progress) => void): Promise<UsageMoreReply | undefined>;
+  /** The uses of every agent, skill or command; reads an index that exists, never builds one. */
+  usageTotals?(kind: string, build?: boolean): Promise<Record<string, UsageTotal> | undefined>;
 }
 
 export class HarnessPanel {
@@ -85,6 +108,22 @@ export class HarnessPanel {
     HarnessPanel.current?.post(message);
   }
 
+  private asks = new Map<string, (choice: 'ok' | 'alt' | 'cancel') => void>();
+
+  /** Asks in the open panel and waits for the owner's button; nothing when no panel is open, so the caller uses its own dialog. */
+  static ask(ask: Omit<PanelAsk, 'kind' | 'token'>): Promise<'ok' | 'alt' | 'cancel'> | undefined {
+    const panel = HarnessPanel.current;
+    if (!panel) return undefined;
+    const token = crypto.randomBytes(8).toString('hex');
+    return new Promise(resolve => {
+      panel.asks.set(token, choice => {
+        panel.asks.delete(token);
+        resolve(choice);
+      });
+      panel.post({ type: 'confirm', ask: { kind: 'panel', token, ...ask } });
+    });
+  }
+
   private constructor(
     private readonly context: vscode.ExtensionContext,
     private readonly panel: vscode.WebviewPanel,
@@ -107,9 +146,9 @@ export class HarnessPanel {
     if (this.selected) this.post({ type: 'detail', detail: this.detail(this.selected), external: true });
   }
 
-  select(id: string | undefined): void {
+  select(id: string | undefined, saved?: boolean): void {
     this.selected = id && this.host.find(id) ? id : undefined;
-    this.post({ type: 'detail', detail: this.selected ? this.detail(this.selected) : undefined });
+    this.post({ type: 'detail', detail: this.selected ? this.detail(this.selected) : undefined, saved });
   }
 
   private detail(id: string): Detail | undefined {
@@ -191,6 +230,10 @@ export class HarnessPanel {
   private save(pending: Pending): boolean {
     const asset = this.host.find(pending.id);
     if (!asset) return false;
+    if (isPluginCopy(asset)) {
+      void vscode.window.showErrorMessage(`${asset.name} comes from a plugin and is read-only: an update overwrites the installed copy.`);
+      return false;
+    }
     try {
       if (kindInfo(asset.kind).markdown) writeMarkdown(asset.file, fromFields(pending.fields), pending.body);
       else if (asset.kind === 'workflow' || asset.kind === 'hookScript') writeText(asset.file, pending.body);
@@ -216,17 +259,21 @@ export class HarnessPanel {
         if (this.page && !this.selected) this.post({ type: 'page', ...this.page });
         return;
       case 'select': {
+        let saved = false;
         if (m.pending) {
           const name = this.host.find(m.pending.id)?.name ?? m.pending.id;
-          const choice = await vscode.window.showWarningMessage(`Save changes to ${name}?`, { modal: true }, 'Save', "Don't Save");
-          if (!choice) return;
-          if (choice === 'Save' && !this.save(m.pending)) return;
+          const answer = await HarnessPanel.ask({ key: 'click', glyph: 'save', title: `Save changes to ${name}?`, sub: 'You have unsaved edits', facts: m.view ? ['Save writes them to the file, then shows the page.', "Don't Save drops them and shows the page."] : ['Save writes them to the file, then opens the next page.', "Don't Save drops them and opens the next page."], action: 'Save', alt: "Don't Save" });
+          if (!answer || answer === 'cancel') return;
+          if (answer === 'ok') {
+            if (!this.save(m.pending)) return;
+            saved = true;
+          }
         }
-        this.select(m.id);
+        this.select(m.id, saved || m.view);
         return;
       }
       case 'save':
-        if (this.save(m.pending)) this.post({ type: 'detail', detail: this.detail(m.pending.id) });
+        if (this.save(m.pending)) this.post({ type: 'detail', detail: this.detail(m.pending.id), saved: true });
         return;
       case 'mcpSignIn': {
         const asset = this.host.find(m.id);
@@ -304,6 +351,37 @@ export class HarnessPanel {
       case 'analyzeSession':
         await this.host.analyzeSession?.(m.scope, m.id, { confirmed: m.confirmed, remember: m.remember }, ask => this.post({ type: 'confirm', ask }));
         return;
+      case 'continueSession':
+        await this.host.continueSession?.(m.scope, m.id, { confirmed: m.confirmed, remember: m.remember }, ask => this.post({ type: 'confirm', ask }));
+        return;
+      case 'reviewAsset':
+        await this.host.reviewAsset?.(m.id, { confirmed: m.confirmed, remember: m.remember }, ask => this.post({ type: 'confirm', ask }));
+        return;
+      case 'slimAsset':
+        await this.host.slimAsset?.(m.id, { confirmed: m.confirmed, remember: m.remember }, ask => this.post({ type: 'confirm', ask }));
+        return;
+      case 'slim': {
+        let report: SlimReport | undefined;
+        try {
+          report = this.host.slim?.(m.id);
+        } catch {
+          report = undefined;
+        }
+        this.post({ type: 'slim', id: m.id, report });
+        return;
+      }
+      case 'consolidateAsset':
+        await this.host.consolidateAsset?.(m.id, { confirmed: m.confirmed, target: m.target, route: m.route }, ask => this.post({ type: 'confirm', ask }));
+        return;
+      case 'tryAsset':
+        await this.host.tryAsset?.(m.id, { confirmed: m.confirmed, remember: m.remember }, ask => this.post({ type: 'confirm', ask }));
+        return;
+      case 'fixFinding':
+        await this.host.fixFinding?.(m.scope, { text: m.text, file: m.file, line: m.line });
+        return;
+      case 'answer':
+        this.asks.get(m.token)?.(m.choice);
+        return;
       case 'importSession': {
         const id = await this.host.importSession?.(m.scope);
         if (!id) return;
@@ -321,6 +399,46 @@ export class HarnessPanel {
         if (reply) this.post({ type: 'usageInfo', id: m.id, ...reply });
         return;
       }
+      case 'repoTrace': {
+        let data: RepoTrace = { failures: [], scanned: 0 };
+        try {
+          data = (await this.host.repoTrace?.(m.scope)) ?? data;
+        } catch {
+          // an unreadable transcript shows no trace
+        }
+        this.post({ type: 'repoTrace', scope: m.scope, data });
+        return;
+      }
+      case 'modActivity': {
+        let data: ModActivity = { sessions: 0, groups: [] };
+        try {
+          data = (await this.host.modActivity?.(m.id)) ?? data;
+        } catch {
+          // an unreadable transcript shows no activity
+        }
+        this.post({ type: 'modActivity', id: m.id, data });
+        return;
+      }
+      case 'usageMore': {
+        let reply: UsageMoreReply | undefined;
+        try {
+          reply = await this.host.usageMore?.(m.id, m.build, indexing => this.post({ type: 'usageMore', id: m.id, indexing }));
+        } catch {
+          reply = { built: false };
+        }
+        if (reply) this.post({ type: 'usageMore', id: m.id, ...reply });
+        return;
+      }
+      case 'usageTotals': {
+        let totals: Record<string, UsageTotal> | undefined;
+        try {
+          totals = await this.host.usageTotals?.(m.kind, m.build);
+        } catch {
+          totals = undefined;
+        }
+        this.post(totals ? { type: 'usageTotals', kind: m.kind, totals } : { type: 'usageTotals', kind: m.kind, built: false });
+        return;
+      }
       case 'openAt': {
         const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(m.file));
         const line = Math.max(0, (m.line ?? 1) - 1);
@@ -331,6 +449,11 @@ export class HarnessPanel {
         if (m.command === 'openFile' && m.id && m.rel) {
           const asset = this.host.find(m.id);
           if (asset?.dir) await vscode.commands.executeCommand('vscode.open', vscode.Uri.joinPath(vscode.Uri.file(asset.dir), ...m.rel.split('/')));
+          return;
+        }
+        // These ask in the panel; the same commands from the left nav or a tree menu keep their dialog.
+        if (['delete', 'uninstallPlugin', 'retire', 'retireCopies'].includes(m.command)) {
+          await vscode.commands.executeCommand(`claudeHarness.${m.command}`, { fromPanel: true, id: m.id });
           return;
         }
         await vscode.commands.executeCommand(`claudeHarness.${m.command}`, m.id ?? m.market ?? (m.kind || m.scope ? { kind: m.kind, scope: m.scope } : undefined));

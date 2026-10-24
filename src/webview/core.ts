@@ -1,7 +1,7 @@
 // @ts-nocheck
 // Webview state, asset helpers and navigation shared by every page.
 import { saved, vscode } from './bridge';
-import { el, icon } from './dom';
+import { el, icon, plural } from './dom';
 import { render } from './main';
 import type { State } from './state';
 
@@ -20,6 +20,7 @@ export const state: State = {
   foldedGroups: new Set(saved.foldedGroups || []),
   repoSort: saved.repoSort || 'recent',
   mcpInfo: {},
+  mcpBusy: {},
   checks: {},
   page: undefined,
   fleet: undefined,
@@ -38,7 +39,9 @@ export const state: State = {
   mapMods: saved.mapMods !== false,
   billing: saved.billing || 'api',
   styleModel: saved.styleModel || 'sonnet',
+  reviewTab: saved.reviewTab || '',
   repoTab: saved.repoTab || 'overview',
+  overviewTab: saved.overviewTab || 'sessions',
   detailMode: saved.detailMode || 'view',
   detailTabs: saved.detailTabs || {},
   history: [],
@@ -46,7 +49,7 @@ export const state: State = {
 
 export const app = document.getElementById('app') as HTMLElement;
 
-export const persist = () => vscode.setState({ filter: state.filter, expanded: [...state.expanded], openRepos: [...state.openRepos], listViews: state.listViews, foldedGroups: [...state.foldedGroups], repoSort: state.repoSort, sessionView: state.sessionView, decisionView: state.decisionMode, mapMode: state.mapMode, mapPrompts: state.mapPrompts, mapMods: state.mapMods, billing: state.billing, styleModel: state.styleModel, repoTab: state.repoTab, detailMode: state.detailMode, detailTabs: state.detailTabs });
+export const persist = () => vscode.setState({ filter: state.filter, expanded: [...state.expanded], openRepos: [...state.openRepos], listViews: state.listViews, foldedGroups: [...state.foldedGroups], repoSort: state.repoSort, sessionView: state.sessionView, decisionView: state.decisionMode, mapMode: state.mapMode, mapPrompts: state.mapPrompts, mapMods: state.mapMods, billing: state.billing, styleModel: state.styleModel, reviewTab: state.reviewTab, repoTab: state.repoTab, overviewTab: state.overviewTab, detailMode: state.detailMode, detailTabs: state.detailTabs });
 
 export const SOURCES = {
   user: { icon: 'account', label: 'Your config (~/.claude.json)' },
@@ -63,9 +66,24 @@ export const labelOf = a =>
 
 export const pluginOf = a => (a.source === 'plugin' ? a.name.split(':')[1] : '');
 
-export const mcpDesc = a => [pluginOf(a) && pluginLabel(pluginOf(a)), a.enabled === false ? 'off' : a.offIn ? `off in ${a.offIn} folders` : '', a.status || a.target].filter(Boolean).join(' · ');
+// A server's error or status text as one reader line: a repeated code prefix reads once ("ECONNREFUSED: ECONNREFUSED: x"), and the
+// user's profile folder is shortened to ~ (an npm log prints the whole path).
+export const tidyError = text =>
+  String(text || '')
+    .replace(/\b([A-Z][A-Z0-9_]{2,}):\s+\1:\s*/g, '$1: ')
+    .replace(/[a-z]:[\\/]users[\\/][^\\/\s"')]+/gi, '~')
+    .replace(/(^|[\s"'(])\/(?:home|Users)\/[^/\s"')]+/g, '$1~');
 
-export const assetDesc = a => [a.version && `v${a.version}`, a.copies && a.copies.length ? `also in ${a.copies.map(c => `${c.label} (${c.same ? 'identical' : 'differs'})`).join(', ')}` : '', a.description].filter(Boolean).join(' · ');
+// An enabled server that did not connect: an error, where a server that only needs a sign-in is a warning.
+export const mcpFailed = a => a.enabled !== false && /fail|refused|econn|timed? ?out|exited|error/i.test(a.status || '');
+
+export const mcpDesc = a => [pluginOf(a) && pluginLabel(pluginOf(a)), a.enabled === false ? 'off' : a.offIn ? `off in ${plural(a.offIn, 'folder')}` : '', tidyError(a.status) || a.target].filter(Boolean).join(' · ');
+
+// A global item with a copy in a repo reads as the global one; a repo's own item keeps "also in".
+export const copiesText = a =>
+  a.copies && a.copies.length ? `${state.views[0] && a.scope === state.views[0].id ? 'global, with a copy in' : 'also in'} ${a.copies.map(c => `${c.label} (${c.same ? 'identical' : 'differs'})`).join(', ')}` : '';
+
+export const assetDesc = a => [a.version && `v${a.version}`, copiesText(a), a.description].filter(Boolean).join(' · ');
 
 export const statusRank = a => (a.enabled === false ? 9 : /^connected/i.test(a.status || '') ? 0 : /auth/i.test(a.status || '') ? 1 : /not configured/i.test(a.status || '') ? 3 : 2);
 
@@ -118,7 +136,7 @@ export const skillByline = a =>
     a.link && `linked from ${linkName(a.link)}`,
     a.version && `v${a.version}`,
     (a.files || []).length > 1 && `${a.files.length} files`,
-    a.copies && a.copies.length ? `also in ${a.copies.map(c => `${c.label} (${c.same ? 'identical' : 'differs'})`).join(', ')}` : '',
+    copiesText(a),
   ]
     .filter(Boolean)
     .join(' · ');
@@ -218,7 +236,10 @@ export const sortList = (kind, items) => {
   return groupItems(kind, items).flatMap(g => g[1]);
 };
 
-export const editable = () => state.detail && ['markdown', 'code', 'settings'].includes(state.detail.mode);
+// What a plugin ships is read-only: an update overwrites the installed copy.
+export const readOnly = a => !!a && (a.source === 'plugin' || String(a.scope).startsWith('plugin:'));
+
+export const editable = () => state.detail && ['markdown', 'code', 'settings'].includes(state.detail.mode) && !readOnly(state.detail.asset);
 
 export const snapshot = d => JSON.stringify({ fields: d.fields, body: d.body });
 

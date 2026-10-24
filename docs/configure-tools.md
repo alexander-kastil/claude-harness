@@ -2,7 +2,7 @@
 
 <table width="100%" border="1" cellpadding="10" cellspacing="0">
 <tr>
-<td align="left"><a href="repositories.md">← Back to Repositories</a></td>
+<td align="left"><a href="marketplace-health.md">← Back to Marketplace health</a></td>
 <td align="center"></td>
 <td align="right"><a href="mcp-servers.md">→ Next: MCP servers</a></td>
 </tr>
@@ -15,17 +15,17 @@ Agents, skills and commands list the tools they may use in their frontmatter. Th
 | Where | How |
 | --- | --- |
 | Detail view | Click **Configure Tools...** under a tools field. The field fills with your picks. Click **Save** to write them to the file. |
-| Editor | Open the item's file. Above each tools line in the frontmatter, click **Configure Tools...**. The link appears when the file starts with `---`. |
+| Editor | Open the item's file. Above each tools line in the frontmatter, click **Configure Tools...**. The link appears when the file starts with `---`, in agent files as well as skill and command files. |
 
 ## Pick tools
 
 The picker groups the tools in three parts:
 
-- **Built-in** lists the built-in tools, such as Read, Write, Edit, Bash, Glob, Grep, WebFetch and WebSearch.
+- **Built-in tools** lists the built-in tools, such as Read, Write, Edit, Bash, Glob, Grep, WebFetch and WebSearch.
 - **MCP Server: name** has one group for each MCP server in the global list, and for each server in the item's repo. Each group has an **all tools** entry, which is written as `mcp__<server>__*`. A single MCP tool appears only when a harness file already uses it.
 - **Other** lists tool names that are used in harness files but are neither built-in nor MCP tools.
 
-Select the tools you want and confirm.
+The first row is a heading, **Built-in tools**, that says where the MCP server groups are; it is not a tool, and you can type `mcp__` to show only the server groups. Select the tools you want and confirm.
 
 ## How the list is saved
 
@@ -38,7 +38,7 @@ Select the tools you want and confirm.
 
 <table width="100%" border="1" cellpadding="10" cellspacing="0">
 <tr>
-<td align="left"><a href="repositories.md">← Back to Repositories</a></td>
+<td align="left"><a href="marketplace-health.md">← Back to Marketplace health</a></td>
 <td align="center"><a href="#configure-tools">↑ Back to top</a></td>
 <td align="right"><a href="mcp-servers.md">→ Next: MCP servers</a></td>
 </tr>

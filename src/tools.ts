@@ -37,7 +37,10 @@ export async function pickTools(views: ScopeView[], asset: Asset | undefined, se
 
   type Item = vscode.QuickPickItem & { tool?: string };
   const item = (tool: string, label = tool, description?: string): Item => ({ label, description, tool, picked: selected.includes(tool) });
-  const items: Item[] = [{ label: 'Built-in', kind: vscode.QuickPickItemKind.Separator }, ...BUILT_IN_TOOLS.map(t => item(t))];
+  // VS Code draws a separator's label small and right-aligned on the row below it, so the first group gets a heading row of its own.
+  // It names the group and says where the MCP server groups are; it carries no tool and drops out of the result.
+  const hint: Item = { label: '$(tools) Built-in tools', description: servers.size ? 'the MCP server groups follow below; type mcp__ to show only them' : 'no MCP server found', alwaysShow: true };
+  const items: Item[] = [hint, ...BUILT_IN_TOOLS.map(t => item(t))];
   for (const [server, tools] of [...servers].sort(([a], [b]) => a.localeCompare(b))) {
     items.push({ label: `MCP Server: ${server}`, kind: vscode.QuickPickItemKind.Separator });
     items.push(item(`mcp__${server}__*`, `$(server) ${server}`, 'all tools'));
@@ -48,7 +51,7 @@ export async function pickTools(views: ScopeView[], asset: Asset | undefined, se
   const picked = await vscode.window.showQuickPick(items, {
     canPickMany: true,
     title: `Configure Tools${asset ? `: ${asset.name}` : ''}`,
-    placeHolder: 'Select the tools this file may use',
+    placeHolder: 'Select the tools this file may use, or type mcp__ for the MCP servers',
     matchOnDescription: true,
   });
   if (!picked) return undefined;

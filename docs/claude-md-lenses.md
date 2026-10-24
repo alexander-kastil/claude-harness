@@ -2,7 +2,7 @@
 
 <table width="100%" border="1" cellpadding="10" cellspacing="0">
 <tr>
-<td align="left"><a href="repositories.md">← Back to Repositories</a></td>
+<td align="left"><a href="sessions.md">← Back to Sessions</a></td>
 <td align="center"></td>
 <td align="right"><a href="effective-harness.md">→ Next: Effective harness</a></td>
 </tr>
@@ -39,7 +39,7 @@ The lenses refresh when you save the file.
 
 <table width="100%" border="1" cellpadding="10" cellspacing="0">
 <tr>
-<td align="left"><a href="repositories.md">← Back to Repositories</a></td>
+<td align="left"><a href="sessions.md">← Back to Sessions</a></td>
 <td align="center"><a href="#claudemd-lenses">↑ Back to top</a></td>
 <td align="right"><a href="effective-harness.md">→ Next: Effective harness</a></td>
 </tr>

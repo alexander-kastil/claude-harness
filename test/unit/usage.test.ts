@@ -6,7 +6,7 @@ import { test } from 'node:test';
 import { projectSlug } from '../../src/fleet';
 import type { Asset, ScopeView } from '../../src/harness';
 import { FileEntry, IndexData, USAGE_VERSION, UsageIndex, planOf } from '../../src/usage';
-import { usageRows, usageTarget } from '../../src/usage-rows';
+import { usageMore, usageRows, usageTarget, usageTotals } from '../../src/usage-rows';
 import { Hit, ScanState, hitsOf, listTranscripts, scanFile, scanLines } from '../../src/usage-scan';
 
 const at = (hms: string) => `2026-10-20T${hms}.000Z`;
@@ -140,7 +140,7 @@ test('the index builds once, refreshes only what grew, and rows count each use o
   const progress: number[] = [];
   const data = await index.refresh([root], p => progress.push(p.total));
   assert.ok(fs.existsSync(store));
-  assert.equal(JSON.parse(fs.readFileSync(store, 'utf8')).version, 1);
+  assert.equal(JSON.parse(fs.readFileSync(store, 'utf8')).version, USAGE_VERSION);
   assert.equal(Object.keys(data.files).length, 3);
   assert.equal(progress[0], 3);
   assert.equal(data.files[main].title, 'build the thing');
@@ -261,9 +261,16 @@ test('rows keep a repo copy apart from the global element, name sessions by cwd,
   assert.equal(usageRows(data, { kind: 'agent', name: 'dotnet-expert', outside: [] }, repos, accounts).find(r => r.id === idA)?.account, undefined);
 });
 
-test('a target exists only for agents and skills, and a plugin element or an unlisted repo has no copy to separate', () => {
+test('a target exists for the elements the index knows, and a plugin element or an unlisted repo has no copy to separate', () => {
   const asset = (kind: string, scope: string, source?: string) => ({ id: 'x', scope, kind, name: 'n', description: '', file: '', mtime: 0, ...(source ? { source } : {}) }) as unknown as Asset;
-  assert.equal(usageTarget(asset('rule', 'global'), []), undefined);
+  assert.equal(usageTarget(asset('hook', 'global'), []), undefined);
+  assert.deepEqual(usageTarget(asset('command', 'global'), []), { kind: 'command', name: 'n', outside: [] });
+  assert.deepEqual(usageTarget(asset('rule', 'global'), []), { kind: 'memory', name: '', outside: [] });
+  assert.deepEqual(usageTarget(asset('plugin', 'global'), []), { kind: 'plugin', name: 'n', outside: [] });
+  assert.deepEqual(usageTarget({ ...asset('mcp', 'global', 'claude.ai'), name: 'claude.ai Docs' }, []), { kind: 'mcp', name: 'mcp__claude_ai_Docs__', outside: [] });
+  assert.deepEqual(usageTarget({ ...asset('mcp', 'global', 'plugin'), name: 'plugin:design:slack' }, []), { kind: 'mcp', name: 'mcp__plugin_design_slack__', outside: [] });
+  // An output style is matched by its frontmatter name, not its file name.
+  assert.deepEqual(usageTarget(asset('outputStyle', 'global'), [], 'Answer Only'), { kind: 'style', name: 'Answer Only', outside: [] });
   assert.deepEqual(usageTarget(asset('skill', 'plugin:p@m', 'plugin'), []), { kind: 'skill', name: 'p:n', outside: [] });
   assert.deepEqual(usageTarget(asset('skill', 'repo:/gone'), []), { kind: 'skill', name: 'n', inside: undefined, outside: [] });
 });
@@ -401,4 +408,150 @@ test('the plan: unchanged is skipped, a longer same file appends, a shorter or r
   assert.equal(planOf(prev, st({ size: 150, mtimeMs: 6, ino: 8 })), 'full');
   assert.equal(planOf(prev, st({ size: 150, mtimeMs: 6, birthtimeMs: 2000 })), 'full');
   assert.equal(planOf(prev, st({ size: 100, mtimeMs: 6 })), 'full');
+});
+
+const toolLine = (id: string, name: string, hms: string, input: unknown = {}) =>
+  line({ type: 'assistant', uuid: `r-${id}`, timestamp: at(hms), message: { content: [{ type: 'tool_use', id, name, input }] } });
+
+test('an MCP call is counted from its line without decoding it, and only a tool_use block counts', () => {
+  const text = [
+    toolLine('t1', 'mcp__chrome-devtools__click', '10:00:01', { uid: '1' }),
+    // Parallel calls in one record.
+    line({ type: 'assistant', uuid: 'p', timestamp: at('10:00:02'), message: { content: [{ type: 'tool_use', id: 't2', name: 'mcp__claude_ai_Docs__read', input: {} }, { type: 'tool_use', id: 't3', name: 'mcp__claude_ai_Docs__read', input: {} }] } }),
+    // The same name in a deferred tool list, a tool_reference and a quoted string is no call.
+    line({ type: 'user', uuid: 'u', timestamp: at('10:00:03'), message: { content: [{ type: 'tool_result', tool_use_id: 't1', content: [{ type: 'tool_reference', tool_name: 'mcp__x__y' }, { type: 'text', text: '{"name":"mcp__x__y"}' }] }] } }),
+    toolLine('t4', 'Read', '10:00:04', { file_path: 'mcp__x__y' }),
+  ].join('');
+  const s = fresh(false);
+  scanLines(Buffer.from(text), 0, s);
+  assert.deepEqual(
+    s.hits.map(h => [h.kind, h.name, h.key, h.at]),
+    [
+      ['mcp', 'mcp__chrome-devtools__click', 't1', ms('10:00:01')],
+      ['mcp', 'mcp__claude_ai_Docs__read', 't2', ms('10:00:02')],
+      ['mcp', 'mcp__claude_ai_Docs__read', 't3', ms('10:00:02')],
+    ]
+  );
+  assert.equal(s.parsed, 0);
+});
+
+test('the output style counts once per file and style, the memory files only by path, and a nested file keeps its globs', () => {
+  const base = { cwd: 'C:\\work', isSidechain: false };
+  const att = (a: unknown, hms: string) => line({ ...base, type: 'attachment', uuid: hms, timestamp: at(hms), attachment: a });
+  const style = (name: string, hms: string) => att({ type: 'output_style', style: name }, hms);
+  const text = [
+    style('Answer Only', '10:00:01'),
+    style('Answer Only', '10:00:02'),
+    att({ type: 'output_style_instructions', content: 'x' }, '10:00:03'),
+    style('Explanatory', '10:00:04'),
+    att({ type: 'instructions', files: [{ path: 'C:\\Users\\me\\.claude\\CLAUDE.md', type: 'User', content: 'say "path":"C:\\\\fake" here' }, { path: 'C:\\work\\.claude\\rules\\a.md', type: 'Project', content: 'rule' }] }, '10:00:05'),
+    att({ type: 'instructions', files: [{ path: 'C:\\work\\.claude\\rules\\a.md', type: 'Project', content: 'again' }] }, '10:00:06'),
+    att({ type: 'nested_memory', path: 'C:\\work\\.claude\\rules\\ts.md', content: { path: 'C:\\work\\.claude\\rules\\ts.md', type: 'Project', content: 'body', globs: ['src/**/*.ts', 'lib/[a]/*.ts'], rawContent: '---' }, displayPath: 'x' }, '10:00:07'),
+    att({ type: 'nested_memory', path: 'C:\\work\\sub\\CLAUDE.md', content: { path: 'C:\\work\\sub\\CLAUDE.md', type: 'Project', content: 'body' } }, '10:00:08'),
+  ].join('');
+  const s = fresh(false);
+  scanLines(Buffer.from(text), 0, s);
+  assert.deepEqual(
+    s.hits.map(h => [h.kind, h.name, h.at, h.info]),
+    [
+      ['style', 'Answer Only', ms('10:00:01'), undefined],
+      ['style', 'Explanatory', ms('10:00:04'), undefined],
+      ['memory', 'C:\\Users\\me\\.claude\\CLAUDE.md', ms('10:00:05'), undefined],
+      ['memory', 'C:\\work\\.claude\\rules\\a.md', ms('10:00:05'), undefined],
+      ['memory', 'C:\\work\\.claude\\rules\\ts.md', ms('10:00:07'), 'src/**/*.ts, lib/[a]/*.ts'],
+      ['memory', 'C:\\work\\sub\\CLAUDE.md', ms('10:00:08'), ''],
+    ]
+  );
+  assert.equal(s.parsed, 0);
+  // A later scan of the same file does not count them again.
+  const more: ScanState = { ...fresh(false), hits: [...s.hits] };
+  scanLines(Buffer.from(style('Answer Only', '11:00:00') + att({ type: 'instructions', files: [{ path: 'C:\\work\\.claude\\rules\\a.md', type: 'Project', content: '' }] }, '11:00:01')), 0, more);
+  assert.equal(more.hits.length, s.hits.length);
+});
+
+test('rows, days, elements, tools and totals read the new hit kinds', () => {
+  const tmp = path.join(os.tmpdir(), 'harness-more');
+  const repo = path.join(tmp, 'r');
+  const projects = path.join(tmp, '.claude', 'projects');
+  const mainA = path.join(projects, projectSlug(repo), 'aaaaaaaa-1111-2222-3333-444444444444.jsonl');
+  const mainB = path.join(projects, projectSlug(repo), 'bbbbbbbb-1111-2222-3333-444444444444.jsonl');
+  const now = new Date(2026, 9, 24, 15, 0, 0).getTime();
+  const day = (back: number, h = 9) => new Date(2026, 9, 24 - back, h).getTime();
+  const h = (kind: Hit['kind'], name: string, key: string, atMs: number, info?: string): Hit => ({ kind, name, key, at: atMs, ...(info !== undefined ? { info } : {}) });
+  const rule = path.join(repo, '.claude', 'rules', 'ts.md');
+  const data: IndexData = {
+    version: USAGE_VERSION,
+    files: {
+      [mainA]: entry({
+        cwd: repo,
+        title: 'a',
+        hits: [
+          h('mcp', 'mcp__srv__one', 'k1', day(0)),
+          h('mcp', 'mcp__srv__one', 'k2', day(0, 10)),
+          h('mcp', 'mcp__srv__two', 'k3', day(2)),
+          h('mcp', 'mcp__srv__one', 'k1', day(0)),
+          h('mcp', 'mcp__srv2__one', 'k4', day(1)),
+          h('agent', 'plug:worker', 'a1', day(1)),
+          h('skill', 'plug:look', 's1', day(3)),
+          h('command', 'plug:look', 'c1', day(8)),
+          h('command', 'plug:run', 'c2', day(0)),
+          h('memory', rule, rule, day(5), 'src/**/*.ts'),
+          h('style', 'Answer Only', 'Answer Only', day(4)),
+        ],
+      }),
+      [mainB]: entry({ cwd: repo, title: 'b', hits: [h('skill', 'plug:look', 's2', day(6)), h('memory', rule, rule, day(9), '')] }),
+    },
+  };
+  const repos = [{ id: 'repo:r', label: 'r', path: repo }];
+  const accounts = [{ label: 'Default', root: path.join(tmp, '.claude') }];
+  // A rule: the sessions that loaded it, with how.
+  const loaded = usageRows(data, { kind: 'memory', name: rule, outside: [] }, repos, accounts);
+  assert.deepEqual(
+    loaded.map(r => [r.title, r.count, r.info]),
+    [
+      ['a', 1, 'src/**/*.ts'],
+      ['b', 1, ''],
+    ]
+  );
+  assert.deepEqual(usageRows(data, { kind: 'style', name: 'Answer Only', outside: [] }, repos, accounts).map(r => r.title), ['a']);
+  // The server prefix ends in __, so srv does not take srv2; a replayed key counts once.
+  const server = usageMore(data, { kind: 'mcp', name: 'mcp__srv__', outside: [] }, now);
+  assert.equal(server.total, 3);
+  assert.deepEqual(server.tools, [
+    { name: 'one', count: 2, last: day(0, 10) },
+    { name: 'two', count: 1, last: day(2) },
+  ]);
+  // The strip: 7 local days, oldest first, today last.
+  assert.deepEqual(server.days.map(d => d.n), [0, 0, 0, 0, 1, 0, 2]);
+  assert.equal(server.days[6].at, new Date(2026, 9, 24).getTime());
+  // A plugin: its agent, and its skill and command together, per element.
+  const plug = usageMore(data, { kind: 'plugin', name: 'plug', outside: [] }, now);
+  assert.deepEqual(plug.elements?.map(e => [e.kind, e.name, e.count, e.sessions]), [
+    ['use', 'look', 3, 2],
+    ['use', 'run', 1, 1],
+    ['agent', 'worker', 1, 1],
+  ]);
+  assert.equal(plug.days[5].n, 1);
+  // Totals for a type page: every element once, a never-used one with 0.
+  const totals = usageTotals(data, [
+    { id: 'look', target: { kind: 'skill', name: 'plug:look', outside: [] } },
+    { id: 'none', target: { kind: 'agent', name: 'nobody', outside: [] } },
+    { id: 'worker', target: { kind: 'agent', name: 'plug:worker', outside: [] } },
+  ]);
+  assert.deepEqual(totals, { look: { count: 3, last: day(3) }, none: { count: 0, last: 0 }, worker: { count: 1, last: day(1) } });
+});
+
+test('every plugin agent of a type page gets a total, used or not, whatever its frontmatter holds', () => {
+  const plugin = (name: string, meta?: Asset['meta']): Asset => ({ id: `plugin:review-kit@demo|agent:${name}`, scope: 'plugin:review-kit@demo', kind: 'agent', name, description: '', file: `/p/${name}.md`, mtime: 0, source: 'plugin', meta } as Asset);
+  const views = [{ id: 'global', categories: [] }] as unknown as ScopeView[];
+  const withColor = plugin('diff-reader', { color: 'cyan' });
+  const bare = plugin('style-checker');
+  const targets = [withColor, bare].map(a => ({ id: a.id, target: usageTarget(a, views)! }));
+  assert.deepEqual(targets.map(t => t.target.name), ['review-kit:diff-reader', 'review-kit:style-checker']);
+  const data: IndexData = { version: USAGE_VERSION, files: { '/m.jsonl': { size: 1, mtime: 1, hits: [{ kind: 'agent', name: 'review-kit:style-checker', at: ms('10:00:00'), key: 'k' }] } } } as unknown as IndexData;
+  const totals = usageTotals(data, targets);
+  assert.deepEqual(Object.keys(totals).sort(), targets.map(t => t.id).sort());
+  assert.deepEqual(totals[withColor.id], { count: 0, last: 0 });
+  assert.deepEqual(totals[bare.id], { count: 1, last: ms('10:00:00') });
+  assert.deepEqual(usageTotals({ version: USAGE_VERSION, files: {} } as unknown as IndexData, targets)[bare.id], { count: 0, last: 0 });
 });

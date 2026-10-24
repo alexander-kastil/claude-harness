@@ -17,6 +17,7 @@ The main window shows your global harness and each repository in one place. The 
 | **Claude Harness** in the status bar (bottom bar) | Opens the main window |
 | Claude Harness icon in the activity bar | Opens the activity bar view. Click an item there to open it in the main window. |
 | **Claude Harness: Open Claude Harness** in the command palette | Opens the main window |
+| Ctrl+Alt+A | Opens the main window |
 
 ## Sidebar
 
@@ -30,19 +31,40 @@ The sidebar has a search box and five buttons in its header:
 | New (plus icon) | Creates an item. See [Editing](editing.md#create-rename-duplicate-and-delete). |
 | Refresh | Reloads the harness and the MCP server list |
 
-The search box filters every section by name and description.
+The sidebar is a tree you can use from the keyboard. Tab moves into it, then Up and Down move between rows, Home and End jump to the first and last row, Right opens a section or moves into it, Left closes it or moves to its parent, and Enter opens the row. Space folds or unfolds a section. The row you open is scrolled into view, and Overview (the home icon) opens the overview with an empty search box.
 
-Click a section header to fold or unfold it. A section's type page opens from its tile on the overview or on a repo page.
+The search box filters every section by name and description. The search boxes of the type pages and of the Sessions page are full width, with a clearer border.
+
+Click a global section header (Agents, Skills, MCP Servers and so on) to open the same type page as its tile on the overview, and to fold or unfold the section. A repo's section header only folds. A repo's type page opens from its tile on the repo page and lists what lives in that repo only; the **Scope** filter widens it. What a plugin ships is a scope of its own, **Plugins**, so **Scope: Global** never lists a plugin's items. Some section headers also have toggle buttons that group the items (by where they live, by source or by marketplace) and sort them (by name, by last change, or by status for MCP servers).
+
+An agent in the list shows a color swatch before its name when its frontmatter sets a `color`. An agent without that field shows none, and the colors that session views assign to it do not appear here.
+
+A section header stays on one line. A section with more than three ways to list its items shows one **View** button that opens a small menu of them, instead of a button for each. Right-click a repo row for **Open Repo**, **Open Claude Here**, **New...**, **Reveal in File Explorer** and **Remove Repo...**. Cards that hover over the page, such as the card of a repo row, go away when you press a key, scroll, click or move off the panel.
 
 Below the global sections, the **Repositories** group lists each repo. Click a repo to open its page. Its chevron expands its sections. When a repo is open, its sections start with a **Sessions** node, above **Memory**, with its count. Click the search icon to open the [Sessions page](sessions.md#sessions-page), and click the row to fold or unfold the sessions. Use the buttons on the group header to sort the repos by last used or A-Z, and to add or remove repos. See [Repositories](repositories.md).
 
-A repo page has four tabs: **Overview**, with one tile for each section and **Recently changed**, **Effective harness**, **Sessions** and **Models**. Models shows the last 7 days of tokens and cost by model, for each account; see [Last 7 days](sessions.md#last-7-days). The page header has a button to create an item in the repo. See [Repositories](repositories.md#repository-page) and [Effective harness](effective-harness.md). Provider features appear when a harness standard provider plugin is installed.
+A repo page has four tabs: **Overview**, with one tile for each section (in the same one-line style as the overview) and **Recently changed**, **Effective harness**, **Sessions** and **Models**. Models shows the last 7 days of tokens and cost for each account, for this repo, by model and by agent type; see [Last 7 days](sessions.md#last-7-days). The page header has a button to create an item in the repo. See [Repositories](repositories.md#repository-page) and [Effective harness](effective-harness.md). Provider features appear when a harness standard provider plugin is installed.
 
 ## Overview
 
-The overview shows the number of global assets and repositories. It has one tile for each global section with its count. Click a tile to open that section's type page: its items, with a search box and filters.
+The overview shows the number of global assets and repositories. It has one tile for each global section, on one line: the icon, the label and the count beside them. A count of zero is dimmed. Click a tile to open that section's type page: its items, with a search box and filters.
 
-The **Recently changed** list shows the 12 most recently changed memory, rules, agents, skills, commands, output styles and workflows across all scopes.
+Below the tiles, three tabs, and under them the search box. The tab you picked last is remembered. While you search, the results replace the list of the open tab; clear the search to bring the list back.
+
+- **Last sessions** (the default tab): the newest sessions across all repos, newest first: at least 10, and as many as fit the panel height, up to 100. Each row shows the title (the first prompt), the repository, the branch, the start, the duration, the number of agents and whether the session is live or headless. Click a row to open the session.
+- **Repositories** (the tab shows the repo count): one row per repo, across the full width, in columns: its memory, rules, agents, skills and MCP counts, the sessions of the last 7 days, the cost of the last 7 days and the time since its last session. Click a row to open the repo. Below about 620 px wide only the three 7-day columns remain. For the cost and the plan limits behind them, see [Last 7 days](sessions.md#last-7-days).
+- **Recently changed**: a one-line table of the most recently changed memory, rules, agents, skills, commands, output styles and workflows across all scopes, with the columns **Name**, **Type**, **Scope** and **Changed**. It shows at least 12 rows and as many as fit the panel height, up to 100. The **Type** column drops at narrow widths.
+
+The search box, **Search Harness & Sessions**, filters the harness items by name and description, and also matches sessions by prompt, agent, branch and date. The hits show in two groups in place of the tab's list: **Harness (n)**, then **Sessions (n)**, which holds the newest 25 matching sessions. Click a session to open it.
+
+![Overview with a search that matches harness items and sessions](images/overview-search.png)
+
+![Overview with the Last sessions tab](images/overview-sessions.png)
+
+![Overview with the Repositories tab](images/overview-repos.png)
+
+
+The type pages of agents, skills and commands have a **Used** column and two more filters. See [Used column on the type pages](sessions.md#used-column-on-the-type-pages).
 
 ## Activity bar view
 

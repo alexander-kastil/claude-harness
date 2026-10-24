@@ -3,7 +3,7 @@ description: Publish claude-harness to the Visual Studio Marketplace by fast-for
 disable-model-invocation: true
 ---
 
-# ext-deploy-marketplace
+# git-deploy-marketplace
 
 Releases what is on `origin/master` now. Running this command is the instruction to publish; it needs no further confirmation.
 

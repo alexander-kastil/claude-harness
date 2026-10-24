@@ -3,7 +3,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { test } from 'node:test';
-import { applyMcpState, parseMcpList, mcpToolPrefix, setMcpEnabled } from '../../src/harness';
+import { applyMcpState, isPluginCopy, parseMcpList, mcpToolPrefix, setMcpEnabled } from '../../src/harness';
 import { createAsset, duplicateAsset, expandRepoFolders, fromFields, globalScope, knownRepos, linkCopies, readMarkdown, renameAsset, repoScope, scan, serializeMarkdown, setFrontmatterList, setPluginEnabled, toFields } from '../../src/harness';
 
 function fixture() {
@@ -240,3 +240,14 @@ function writeTemp(text: string): string {
   fs.writeFileSync(file, text);
   return file;
 }
+
+test('an item a plugin ships is a plugin copy, an own item is not', () => {
+  assert.equal(isPluginCopy({ scope: 'plugin:team-tools@acme', source: 'plugin' }), true);
+  assert.equal(isPluginCopy({ scope: 'global' }), false);
+  assert.equal(isPluginCopy({ scope: '/repos/shop' }), false);
+});
+
+test('parseMcpList says a repeated error code once', () => {
+  const [server] = parseMcpList('docs: http://x/mcp - ✗ Failed to connect: ECONNREFUSED: ECONNREFUSED: Unable to connect');
+  assert.ok(!/ECONNREFUSED: ECONNREFUSED/.test(server.status), server.status);
+});

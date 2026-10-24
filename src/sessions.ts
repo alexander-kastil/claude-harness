@@ -1,8 +1,10 @@
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { TranscriptHook, transcriptHooks } from './events';
+import { TranscriptHook, hookFailures, transcriptHooks } from './events';
 import { projectSlug } from './fleet';
+import { EDIT_TOOLS, buildFindings } from './findings';
+import { sessionFlags } from './session-flags';
 
 export interface Usage {
   input: number;
@@ -83,6 +85,10 @@ export interface SessionSummary {
   entrypoint?: string;
   branch?: string;
   headless: boolean;
+  /** A hook of the session (or of one of its agents) ended in an error. */
+  hookFailed?: boolean;
+  /** A mod's hook denied a tool call in the session. */
+  modDenied?: boolean;
   live?: string;
   /** Label and config folder of the account the session ran under; set only when more than one account is configured. */
   account?: string;
@@ -140,10 +146,23 @@ export interface SessionDecision {
   messages: number;
 }
 
+export type FindingKind = 'failed' | 'stopped' | 'silent' | 'general' | 'resumed' | 'repeated' | 'hook' | 'edits';
+
 export interface SessionFinding {
   level: 'warn' | 'info';
+  /** One sentence naming what happened. */
   text: string;
+  /** The agent the finding is about, and where "Show on the map" jumps to. */
   agent?: string;
+  kind?: FindingKind;
+  /** The evidence behind the headline: what the transcript shows about the cause. */
+  note?: string;
+  /** Why it matters. */
+  why?: string;
+  /** What to do about it. */
+  fix?: string;
+  /** The runs the finding covers; the page adds up their time and tokens. */
+  runs?: string[];
 }
 
 export type StyleSignal = 'length' | 'format' | 'language' | 'repetition' | 'asking';
@@ -189,7 +208,6 @@ export interface SessionDetail {
 type Rec = Record<string, any>;
 
 const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/;
-const EDIT_TOOLS = new Set(['Edit', 'Write', 'MultiEdit', 'NotebookEdit']);
 const TEXT_CAP = 12000;
 const RUNNING_MINUTES = 15;
 
@@ -374,7 +392,7 @@ function summaryOf(file: string, live: Map<string, string>): SessionSummary | un
     };
     summaries.set(file, { mtime: stat.mtimeMs, size: stat.size, summary });
   }
-  return { ...summary, live: live.get(id), children: [] };
+  return { ...summary, live: live.get(id), children: [], ...sessionFlags(file) };
 }
 
 const sessionFiles = (folder: string) =>
@@ -506,6 +524,30 @@ export interface WeekTotal {
   tokens: number;
   /** cost / limit; absent without a limit. */
   share?: number;
+  /** The same window per project folder (the repo's `projectSlug`), costliest first. Absent from older hosts. */
+  repos?: WeekRepo[];
+  /** The same window per agent type, costliest first. Absent from older hosts. */
+  agents?: WeekAgent[];
+}
+
+/** What one project folder used in the window. */
+export interface WeekRepo {
+  /** Folder name under `projects/`, the repo's `projectSlug`. */
+  folder: string;
+  cost: number;
+  tokens: number;
+  messages: number;
+  models: WeekModel[];
+}
+
+/** What the agents of one type used in the window. The main thread is not an agent. */
+export interface WeekAgent {
+  type: string;
+  cost: number;
+  tokens: number;
+  messages: number;
+  /** Agent transcripts with a response in the window. */
+  launches: number;
 }
 
 /** One assistant response as it counts toward a week. */
@@ -514,25 +556,31 @@ export interface WeekEntry {
   at: number;
   model: string;
   usage: ApiUsage;
+  /** Project folder the transcript lives in. */
+  folder?: string;
+  /** Agent type, for a response from an agent transcript. */
+  agent?: string;
+  /** The agent transcript the response is in. */
+  run?: string;
 }
 
 /** The priced-or-not responses of a transcript: assistant records with a model and usage. A model like `<synthetic>` is no response. */
-export function weekEntries(records: Rec[]): WeekEntry[] {
+export function weekEntries(records: Rec[], where: { folder?: string; agent?: string; run?: string } = {}): WeekEntry[] {
   const out: WeekEntry[] = [];
   for (const o of records) {
     const m = o.message;
     const key = m?.id ?? o.uuid;
     const at = time(o);
     if (o.type !== 'assistant' || !m?.usage || typeof m.model !== 'string' || m.model.startsWith('<') || typeof key !== 'string' || Number.isNaN(at)) continue;
-    out.push({ key, at, model: m.model, usage: m.usage });
+    out.push({ key, at, model: m.model, usage: m.usage, ...where });
   }
   return out;
 }
 
-/** Sums entries inside [since, until] by model. `seen` holds the message ids already counted, so a message repeated in another file counts once. */
-export function addWeek(models: Map<string, WeekModel>, seen: Set<string>, entries: WeekEntry[], since: number, until: number): void {
+/** Sums entries inside [since, until] by model. `seen` holds the message ids already counted, so a message repeated in another file counts once. `keep` narrows the entries, such as to one folder. */
+export function addWeek(models: Map<string, WeekModel>, seen: Set<string>, entries: WeekEntry[], since: number, until: number, keep?: (e: WeekEntry) => boolean): void {
   for (const e of entries) {
-    if (e.at < since || e.at > until || seen.has(e.key)) continue;
+    if (e.at < since || e.at > until || seen.has(e.key) || (keep && !keep(e))) continue;
     seen.add(e.key);
     const row = models.get(e.model) ?? { model: e.model, messages: 0, input: 0, cacheCreate: 0, cacheRead: 0, output: 0, cost: 0 };
     row.messages += 1;
@@ -546,7 +594,7 @@ export function addWeek(models: Map<string, WeekModel>, seen: Set<string>, entri
 }
 
 /** Costliest model first. */
-export function weekTotal(account: Account, models: Map<string, WeekModel>, since: number, until: number): WeekTotal {
+export function weekTotal(account: Account, models: Map<string, WeekModel>, since: number, until: number, extra: { repos?: WeekRepo[]; agents?: WeekAgent[] } = {}): WeekTotal {
   const rows = [...models.values()].sort((a, b) => b.cost - a.cost || b.messages - a.messages || a.model.localeCompare(b.model));
   const cost = rows.reduce((n, r) => n + r.cost, 0);
   const limit = planLimit(account.plan);
@@ -565,10 +613,56 @@ export function weekTotal(account: Account, models: Map<string, WeekModel>, sinc
     cost,
     tokens: rows.reduce((n, r) => n + r.input + r.cacheCreate + r.cacheRead + r.output, 0),
     share: limit > 0 ? cost / limit : undefined,
+    ...extra,
   };
 }
 
+const modelTokens = (r: WeekModel) => r.input + r.cacheCreate + r.cacheRead + r.output;
+
+/** The window per project folder: `addWeek` run once per folder, costliest first. */
+export function weekRepos(entries: WeekEntry[], since: number, until: number): WeekRepo[] {
+  const folders = new Set(entries.flatMap(e => (e.folder ? [e.folder] : [])));
+  const out: WeekRepo[] = [];
+  for (const folder of folders) {
+    const models = new Map<string, WeekModel>();
+    addWeek(models, new Set(), entries, since, until, e => e.folder === folder);
+    const rows = [...models.values()].sort((a, b) => b.cost - a.cost || a.model.localeCompare(b.model));
+    if (!rows.length) continue;
+    out.push({ folder, cost: rows.reduce((n, r) => n + r.cost, 0), tokens: rows.reduce((n, r) => n + modelTokens(r), 0), messages: rows.reduce((n, r) => n + r.messages, 0), models: rows });
+  }
+  return out.sort((a, b) => b.cost - a.cost || a.folder.localeCompare(b.folder));
+}
+
+/** The window per agent type, from the responses of agent transcripts only. */
+export function weekAgents(entries: WeekEntry[], since: number, until: number): WeekAgent[] {
+  const byType = new Map<string, WeekAgent & { runs: Set<string> }>();
+  const seen = new Set<string>();
+  for (const e of entries) {
+    if (!e.agent || e.at < since || e.at > until || seen.has(e.key)) continue;
+    seen.add(e.key);
+    const row = byType.get(e.agent) ?? { type: e.agent, cost: 0, tokens: 0, messages: 0, launches: 0, runs: new Set<string>() };
+    row.cost += messageCost(e.model, e.usage);
+    row.tokens += (e.usage.input_tokens ?? 0) + (e.usage.cache_creation_input_tokens ?? 0) + (e.usage.cache_read_input_tokens ?? 0) + (e.usage.output_tokens ?? 0);
+    row.messages += 1;
+    row.runs.add(e.run ?? e.key);
+    row.launches = row.runs.size;
+    byType.set(e.agent, row);
+  }
+  return [...byType.values()].map(({ runs: _runs, ...r }) => r).sort((a, b) => b.cost - a.cost || a.type.localeCompare(b.type));
+}
+
 const weekFiles = new Map<string, { mtime: number; size: number; entries: WeekEntry[] }>();
+
+/** The type of an agent transcript, from its neighbouring `.meta.json`; `agent` when there is none. */
+function agentTypeOf(file: string): string {
+  try {
+    const m = JSON.parse(fs.readFileSync(file.replace(/\.jsonl$/, '.meta.json'), 'utf8'));
+    const type = m.customAgentType ?? (m.taskKind === 'in_process_teammate' ? (m.spawnedAgentType ?? 'claude') : m.agentType);
+    return type ? shortType(String(type)) : 'agent';
+  } catch {
+    return 'agent';
+  }
+}
 
 /** The transcripts of an account touched since `since`: every repo's sessions and their agents' files. */
 function transcriptFiles(root: string, since: number): string[] {
@@ -596,6 +690,8 @@ export async function accountWeek(account: Account, now = Date.now()): Promise<W
   const models = new Map<string, WeekModel>();
   const seen = new Set<string>();
   const since = lastReset(account.weekStart, now) ?? now - WEEK_MS;
+  const all: WeekEntry[] = [];
+  const projects = path.join(account.root, 'projects');
   for (const file of transcriptFiles(account.root, since)) {
     let stat: fs.Stats;
     try {
@@ -605,12 +701,15 @@ export async function accountWeek(account: Account, now = Date.now()): Promise<W
     }
     let cached = weekFiles.get(file);
     if (!cached || cached.mtime !== stat.mtimeMs || cached.size !== stat.size) {
-      cached = { mtime: stat.mtimeMs, size: stat.size, entries: weekEntries(await readRecords(file).catch(() => [])) };
+      const folder = path.relative(projects, file).split(/[\\/]/)[0];
+      const agent = path.basename(path.dirname(file)) === 'subagents' ? agentTypeOf(file) : undefined;
+      cached = { mtime: stat.mtimeMs, size: stat.size, entries: weekEntries(await readRecords(file).catch(() => []), { folder, agent, run: agent ? file : undefined }) };
       weekFiles.set(file, cached);
     }
     addWeek(models, seen, cached.entries, since, now);
+    all.push(...cached.entries);
   }
-  return weekTotal(account, models, since, now);
+  return weekTotal(account, models, since, now, { repos: weekRepos(all, since, now), agents: weekAgents(all, since, now) });
 }
 
 /** Finds a session of the repo, or a headless child of one, by id, in any account. */
@@ -961,21 +1060,7 @@ export async function readSession(summary: SessionSummary): Promise<SessionDetai
     if (target) e.agent = target.id;
   }
 
-  const findings: SessionFinding[] = [];
-  const label = (a: AgentRun) => `${shortType(a.type)}${a.description ? ` "${a.description}"` : ''}`;
-  for (const a of sorted) {
-    if (a.status === 'failed') findings.push({ level: 'warn', agent: a.id, text: `${label(a)} failed${a.error ? `: ${a.error.split('\n')[0].slice(0, 200)}` : ''}` });
-    else if (a.status === 'stopped') findings.push({ level: 'warn', agent: a.id, text: `${label(a)} was stopped` });
-    else if (a.status === 'unknown') findings.push({ level: 'warn', agent: a.id, text: `${label(a)} never reported back` });
-    if (a.type === 'general-purpose') findings.push({ level: 'info', agent: a.id, text: `${label(a)} ran as general-purpose` });
-    const firstReport = a.reports[0];
-    const resumed = firstReport === undefined ? 0 : events.filter(e => e.kind === 'message' && e.agent === a.id && e.at > firstReport).length;
-    if (resumed) findings.push({ level: 'info', agent: a.id, text: `${label(a)} got ${resumed} ${resumed === 1 ? 'message' : 'messages'} after it reported` });
-  }
-  const seen = new Map<string, number>();
-  for (const a of sorted) if (a.description) seen.set(`${a.type}|${a.description}`, (seen.get(`${a.type}|${a.description}`) ?? 0) + 1);
-  for (const [key, n] of seen) if (n > 1) findings.push({ level: 'info', text: `${shortType(key.split('|')[0])} "${key.split('|').slice(1).join('|')}" was launched ${n} times` });
-  if (sorted.length && thread.edits) findings.push({ level: 'info', text: `The main thread made ${thread.edits} file ${thread.edits === 1 ? 'edit' : 'edits'} itself` });
+  const findings = buildFindings({ agents: sorted, events, prompts, hookFailures: hookFailures(hooks), mainEdits: thread.edits });
 
   const roots = sorted.filter(a => !a.parent && typeof a.launchedAt === 'number');
   const decisions: SessionDecision[] = prompts.map((p, i) => {

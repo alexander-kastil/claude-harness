@@ -3,20 +3,26 @@
 // costs in context sit on top; below them one view at a time behind tabs: the document, references, files, connections, tools.
 import type { Asset, ScopeView } from '../harness';
 import type { Detail } from '../shared/messages';
-import { agentColorClass, command, kindLabel, labelOf, metaOf, openAt, persist, pluginOf, skillPluginOf, sourceName, state, viewOf, vscode } from './core';
-import { renderRuleInfo } from './detail';
-import { el, icon, plural } from './dom';
-import { hideHover } from './hover';
+import { isReference } from '../shared/slim';
+import { agentColorClass, command, editable, kindLabel, labelOf, mcpFailed, metaOf, openAt, persist, pluginOf, skillPluginOf, sourceName, state, std, tidyError, viewOf, vscode } from './core';
+import { cmd, cmdBox, renderRuleInfo } from './detail';
+import { claudeMark, el, fmtAgo, icon, plural } from './dom';
+import { hideHover, placeCard } from './hover';
 import { mcpStatusWord } from './kind-page';
 import { renderMain } from './main';
+import { eventsCard } from './map';
+import { modActivityOf } from './trace';
 import { renderMarkdown } from './markdown';
 import type { MdHeading } from './markdown';
 import { fmtTokens, mentionedBy, mentionsOf, originText, refChip, refRow, resolve, resolveSpan, splitDescription, tokens } from './refs';
 import type { Entry } from './refs';
 import { tabBar } from './repo-page';
 import type { Draft } from './state';
+import { askSlim, pathText, slimCard, slimOf, spreadCard, tileFlags } from './slim';
 import { groupHead } from './tables';
-import { askUsage, usageTab } from './usage-tab';
+import { askMore, moreOf } from './usage-more';
+import { askFired, askUsage, firedTab, hasFiredTab, hasUsageTab, pluginUsageTab, usageTab, usedRefList } from './usage-tab';
+import { weekAgentTile } from './week-tile';
 
 type Child = Node | string | null | undefined | false | Child[];
 
@@ -82,8 +88,8 @@ function tabbed(a: Asset, tabs: (Tab | null)[]): HTMLElement {
 export const card = (title: string, count: number | string | null, ...body: Child[]) =>
   el('section', { className: 'dv-card' }, el('div', { className: 'dv-card-head' }, el('span', { className: 'dv-card-title' }, title), count === null ? null : el('span', { className: 'dv-count' }, String(count))), (body as unknown[]).flat(Infinity));
 
-const tile = (n: string, label: string, glyph: string, note: string, tone?: string) =>
-  el('div', { className: 'tile static' }, el('span', { className: 'n' }, n), el('span', { className: 'l' }, icon(glyph), label), el('span', { className: `kpi-note${tone ? ` ${tone}` : ''}` }, note));
+const tile = (n: string, label: string, glyph: string, note: string, tone?: string, tip?: string) =>
+  el('div', { className: 'tile static', title: tip }, el('span', { className: `n${n.length > 10 ? ' long' : ''}` }, n), el('span', { className: 'l' }, icon(glyph), label), el('span', { className: `kpi-note${tone ? ` ${tone}` : ''}` }, note));
 
 const chip = (glyph: string | null, label: string, value?: string, title?: string, extra = '') =>
   el('span', { className: `dv-chip${extra ? ` ${extra}` : ''}`, title }, glyph ? icon(glyph) : null, value === undefined ? label : [el('span', { className: 'k' }, label), value]);
@@ -275,10 +281,6 @@ const FILE_ICONS: [RegExp, string][] = [
 const fileChip = (a: Asset, rel: string) =>
   el('button', { type: 'button', className: 'ref ref-file', title: `Open ${rel}`, onclick: () => command('openFile', { id: a.id, rel }) }, icon((FILE_ICONS.find(([re]) => re.test(rel)) || [null, 'file'])[1] as string), el('span', {}, rel));
 
-// Markdown beside SKILL.md that Claude reads when the instructions send it there; templates, assets, examples and
-// evals are plain files.
-const isReference = (f: string) => f !== 'SKILL.md' && /\.md$/i.test(f) && !/^(templates|assets|examples|evals?)\//i.test(f);
-
 // A skill's files under one collapsible header per top folder; a click opens the file.
 function filesCard(a: Asset, title: string, files: string[]): HTMLElement | null {
   if (!files.length) return null;
@@ -289,7 +291,7 @@ function filesCard(a: Asset, title: string, files: string[]): HTMLElement | null
   }
   const order = [...groups.keys()].sort((x, y) => (x ? 0 : 1) - (y ? 0 : 1) || x.localeCompare(y));
   const row = (f: string, top: string) =>
-    el('button', { type: 'button', className: 'dv-file', title: f, onclick: () => command('openFile', { id: a.id, rel: f }) }, icon((FILE_ICONS.find(([re]) => re.test(f)) || [null, 'file'])[1] as string), el('span', {}, top ? f.slice(top.length + 1) : f));
+    el('button', { type: 'button', className: 'dv-file', title: f, onclick: () => command('openFile', { id: a.id, rel: f }) }, icon((FILE_ICONS.find(([re]) => re.test(f)) || [null, 'file'])[1] as string), pathText(top ? f.slice(top.length + 1) : f));
   return card(
     title,
     files.length,
@@ -378,7 +380,7 @@ function docCard(a: Asset, body: string, doc: HTMLElement): HTMLElement {
       el('span', { className: 'dv-card-title' }, DOC_TITLE[a.kind] || 'Content'),
       el('span', { className: 'dv-count' }, `${plural(lines(body), 'line')} · ${plural(words(body), 'word')} · ${fmtTokens(tokens(body))} tokens`),
       el('span', { className: 'dv-spacer' }),
-      edit
+      editable() ? edit : null
     ),
     body.trim() ? doc : el('div', { className: 'dv-empty' }, 'Empty.')
   );
@@ -390,6 +392,15 @@ export function setMode(mode: 'view' | 'edit') {
   renderMain();
 }
 
+// The Files tile counts every file; its sub-line names the parts the References and Files tabs list: SKILL.md, the references, the scripts and the rest.
+function fileParts(files: string[]): string {
+  const refs = files.filter(isReference).length;
+  const plain = files.filter(f => f !== 'SKILL.md' && !isReference(f));
+  const scripts = plain.filter(f => /^scripts\//.test(f)).length;
+  const other = plain.length - scripts;
+  return ['SKILL.md', `${plural(refs, 'reference')}`, `${plural(scripts, 'script')}`, other ? `${other} other` : ''].filter(Boolean).join(' · ');
+}
+
 // What it costs in context: the description sits in every session's list; the body loads when it is used.
 function kpisFor(a: Asset, draft: Draft, description: string, mentions: Entry[], mentioned: Entry[], tools: string[]): HTMLElement {
   const body = draft.body;
@@ -397,14 +408,15 @@ function kpisFor(a: Asset, draft: Draft, description: string, mentions: Entry[],
   const connections = tile(String(mentions.length + mentioned.length), 'Connections', 'references', `refers to ${mentions.length} · referred to by ${mentioned.length}`);
   const toolTile = tile(tools.length ? String(tools.length) : 'All', 'Tools', 'tools', tools.length ? `${tools.filter(t => t.startsWith('mcp__')).length} from MCP servers` : 'no tools list: inherits all');
   const always = metaOf(a).paths ? false : true;
+  const flags = tileFlags(a, a.kind === 'skill' ? slimOf(a.id) : undefined);
   const set: Record<string, HTMLElement[]> = {
     skill: [
-      tile(desc.replace(' tokens', ''), 'Always loaded', 'layers', 'tokens: the description, in every session'),
-      tile(fmtTokens(tokens(body)), 'On use', 'play', 'tokens: SKILL.md when the skill runs'),
-      tile(String(Math.max(1, (a.files || []).length)), 'Files', 'files', `${(a.files || []).filter(isReference).length} references · ${(a.files || []).filter(f => /^scripts\//.test(f)).length} scripts`),
+      tile(desc.replace(' tokens', ''), 'Always loaded', 'layers', flags.desc?.note ?? 'tokens: the description, in every session', flags.desc?.tone, flags.desc?.tip),
+      tile(fmtTokens(tokens(body)), 'On use', 'play', flags.body?.note ?? 'tokens: SKILL.md when the skill runs', flags.body?.tone, flags.body?.tip),
+      tile(String(Math.max(1, (a.files || []).length)), 'Files', 'files', fileParts(a.files || [])),
       connections,
     ],
-    agent: [tile(desc.replace(' tokens', ''), 'Always loaded', 'layers', 'tokens: the description, in the agent list'), tile(fmtTokens(tokens(body)), 'System prompt', 'hubot', 'tokens, when the agent starts'), toolTile, connections],
+    agent: [tile(desc.replace(' tokens', ''), 'Always loaded', 'layers', 'tokens: the description, in the agent list'), tile(fmtTokens(tokens(body)), 'System prompt', 'hubot', 'tokens, when the agent starts'), toolTile, connections, weekAgentTile(a)],
     command: [tile(desc.replace(' tokens', ''), 'Always loaded', 'layers', 'tokens: the description'), tile(fmtTokens(tokens(body)), 'On use', 'play', `tokens, when you run /${a.name}`), tile(String(tools.length), 'Pre-approved', 'tools', 'tools that run without asking'), connections],
     rule: [
       tile(always ? 'Always' : 'On match', 'Loads', 'law', always ? 'in every session' : 'when Claude reads a matching file'),
@@ -414,7 +426,7 @@ function kpisFor(a: Asset, draft: Draft, description: string, mentions: Entry[],
     ],
     memory: [
       tile(fmtTokens(tokens(body)), 'Always loaded', 'layers', 'tokens, in every session here'),
-      tile(String(lines(body)), 'Lines', 'list-flat', `${words(body)} words`),
+      tile(String(lines(body)), 'Lines', 'list-flat', plural(words(body), 'word')),
       tile(String((body.match(/^@\S+/gm) || []).length), 'Imports', 'references', '@-lines that pull in more files'),
       connections,
     ],
@@ -455,8 +467,13 @@ function markdownView(d: Detail, draft: Draft): Child[] {
   const allowedCount = new Set([...tools.map(t => t.replace(/\(.*$/, '')), ...named]).size;
   const allowedToolsTab = { id: 'tools', label: 'Tools', glyph: 'tools', about: 'The tools it runs without asking, and the ones its instructions name.', count: allowedCount || undefined, body: () => allowedToolsCard(a, tools, named, draft) };
   // Every render asks where it was used, so the badge fills in from an existing index; open on the tab, it builds one.
-  const usedIn = a.kind === 'agent' || a.kind === 'skill' ? usageTab(a) : null;
+  const usedIn = hasUsageTab(a) ? usageTab(a) : null;
   if (usedIn) askUsage(a, state.detailTabs[a.kind] === 'usage');
+  // A skill's size and spread: asked once per loaded page, and the page repaints when the answer differs.
+  askSlim(a);
+  const slim = a.kind === 'skill' ? slimOf(a.id) : undefined;
+  const slimNote = slimCard(a, slim);
+  const flagged = slim ? slim.spread.orphan.length + slim.spread.nested.length + slim.spread.giant.length + (slim.spread.manyTiny ? 1 : 0) : 0;
   return [
     hero(a, v, draft, description),
     kpisFor(a, draft, description, mentions, mentioned, tools),
@@ -466,11 +483,18 @@ function markdownView(d: Detail, draft: Draft): Child[] {
         label: DOC_TITLE[a.kind] || 'Content',
         glyph: 'book',
         about: DOC_ABOUT[a.kind] || 'The file as Claude reads it.',
-        body: () => (outline ? el('div', { className: 'dv-grid' }, el('div', { className: 'dv-main' }, docCard(a, draft.body, doc)), el('aside', { className: 'dv-side' }, outline)) : docCard(a, draft.body, doc)),
+        body: () => (outline ? el('div', { className: 'dv-grid' }, el('div', { className: 'dv-main' }, slimNote, docCard(a, draft.body, doc)), el('aside', { className: 'dv-side' }, outline)) : [slimNote, docCard(a, draft.body, doc)]),
       },
       usedIn,
       a.kind === 'skill' && references.length
-        ? { id: 'references', label: 'References', glyph: 'library', about: 'The markdown files beside SKILL.md that Claude reads when the instructions send it there.', count: references.length, body: () => filesCard(a, 'References', references) }
+        ? {
+            id: 'references',
+            label: 'References',
+            glyph: 'library',
+            about: 'The markdown files beside SKILL.md that Claude reads when the instructions send it there, with their tokens and what is wrong with their place in the skill.',
+            count: flagged ? `${references.length} · ${flagged} flagged` : references.length,
+            body: () => (slim && slim.refs.length ? spreadCard(a, slim, rel => command('openFile', { id: a.id, rel })) : filesCard(a, 'References', references)),
+          }
         : null,
       a.kind === 'skill' && plain.length ? { id: 'files', label: 'Files', glyph: 'files', about: 'The scripts, templates and other files beside SKILL.md.', count: plain.length, body: () => filesCard(a, 'Files', plain) } : null,
       a.kind === 'agent' ? toolsTab : a.kind === 'command' ? allowedToolsTab : null,
@@ -521,13 +545,23 @@ function mcpView(d: Detail): Child[] {
   const v = viewOf(a.scope);
   const info = state.mcpInfo[a.id];
   const toolList = info && !info.error ? info.tools || [] : [];
+  // Calls per tool from the usage index, when one exists; tool names in transcripts have anything but letters, digits, _ and - replaced by _.
+  askMore(a, false);
+  const usage = moreOf(a.id)?.more;
+  const calls = usage ? usage.total : undefined;
+  const callsOf = (name: string) => (usage ? (usage.tools || []).find(x => x.name === name.replace(/[^A-Za-z0-9_-]/g, '_'))?.count ?? 0 : undefined);
+  const callsChip = (n: number | undefined) =>
+    n === undefined ? null : el('span', { className: `dv-tool-calls${n ? '' : ' none'}`, title: n ? `Called ${plural(n, 'time')} in recorded sessions` : 'Never called in a recorded session' }, n ? plural(n, 'call') : 'no calls');
   const enabled = el(
     'label',
     { className: 'dv-switch' },
     el('input', { type: 'checkbox', checked: a.enabled !== false, onchange: () => command('toggleMcp', { id: a.id }) }),
     el('span', {}, v && v.id !== 'global' ? `Enabled in ${v.label}` : 'Enabled in every folder')
   );
-  const problem = info && info.error;
+  const off = a.enabled === false;
+  const busy = state.mcpBusy[a.id] === 'busy';
+  const problem = info && info.error && !off;
+  const needsSignIn = !!(info && info.error && info.signIn) || /auth/i.test(a.status || '');
   const repo = v && v.id !== 'global' ? v.label : '';
   // MCP servers rarely describe themselves: say where it is registered and when Claude Code starts it.
   const where =
@@ -542,25 +576,36 @@ function mcpView(d: Detail): Child[] {
             : 'Registered in your ~/.claude.json; Claude Code starts it in every session.';
   const heroCard = hero(a, v, undefined, a.about || where, [
     el('div', { className: 'dv-chips' }, chip(null, 'Source', sourceName(a)), a.target ? chip('link', 'Address', a.target.length > 60 ? `${a.target.slice(0, 57)}...` : a.target, a.target) : null, pluginOf(a) ? chip('extensions', 'Plugin', pluginOf(a)) : null),
-    el('div', { className: 'dv-actions' }, enabled, !v && a.offIn ? el('span', { className: 'dv-note' }, `Off in ${a.offIn} of ${a.folders} folders.`) : null),
-    problem
+    el('div', { className: 'dv-actions' }, enabled, !v && a.offIn ? el('span', { className: 'dv-note' }, `Off in ${a.offIn} of ${plural(a.folders, 'folder')}.`) : null),
+    off
+      ? el('div', { className: 'dv-notice', role: 'status' }, icon('circle-slash'), el('span', { className: 'dv-notice-text' }, `Switched off ${v && v.id !== 'global' ? `in ${v.label}` : 'in every folder'}. Switch it on to connect, sign in or retry.`))
+      : problem
       ? el(
           'div',
-          { className: 'dv-notice' },
-          icon('warning'),
-          el('span', {}, info.error),
-          info.signIn ? el('button', { className: 'primary', onclick: () => vscode.postMessage({ type: 'mcpSignIn', id: a.id }) }, icon('sign-in'), 'Sign in') : null,
-          el('button', { className: 'secondary', onclick: () => vscode.postMessage({ type: 'mcpRetry', id: a.id }) }, icon('refresh'), 'Retry')
+          { className: 'dv-notice bad', role: 'alert' },
+          icon('error'),
+          el('span', { className: 'dv-notice-text' }, (state.mcpBusy[a.id] === 'done' ? 'Checked again: ' : '') + tidyError(info.error)),
+          cmdBox(
+            'Server',
+            '',
+            info.signIn ? cmd(claudeMark(), 'Sign in', 'Sign in\nA Claude in a terminal runs /mcp, where the server asks you to sign in.', () => vscode.postMessage({ type: 'mcpSignIn', id: a.id })) : null,
+            cmd(busy ? 'loading' : 'refresh', busy ? 'Retrying...' : 'Retry', 'Retry\nAsk the server for its tools again.', () => {
+              state.mcpBusy[a.id] = 'busy';
+              vscode.postMessage({ type: 'mcpRetry', id: a.id });
+              renderMain();
+            }, { disabled: busy })
+          )
         )
       : null,
   ]);
   const word = mcpStatusWord(a);
+  const unknown = !!(info && info.error) || off;
   const kpis = el(
     'div',
     { className: 'kpis' },
-    tile(word, 'Status', word === 'Connected' ? 'pass' : word === 'Off' ? 'circle-slash' : 'warning', a.status && a.status !== word ? a.status : 'from claude mcp list', word === 'Connected' || word === 'Off' ? '' : 'warn'),
-    tile(info ? (info.error ? '-' : String(toolList.length)) : '...', 'Tools', 'tools', info ? (info.error ? 'the server did not answer' : `${info.server || labelOf(a)}${info.version ? ` ${info.version}` : ''}`) : 'asking the server'),
-    tile(info && !info.error ? fmtTokens(toolList.reduce((n, t) => n + tokens(`${t.name} ${t.description}`), 0)) : '...', 'Tool list', 'layers', 'tokens of names and descriptions'),
+    tile(word === 'Sign-in' || (word === '-' && needsSignIn && !off) ? 'Needs sign-in' : word === '-' ? (info ? 'Unknown' : '...') : word, 'Status', word === 'Connected' ? 'pass' : word === 'Off' ? 'circle-slash' : mcpFailed(a) ? 'error' : 'warning', a.status && a.status !== word ? tidyError(a.status) : 'from claude mcp list', word === 'Connected' || word === 'Off' ? '' : mcpFailed(a) ? 'bad' : 'warn'),
+    tile(info ? (info.error ? 'Unknown' : String(toolList.length)) : '...', 'Tools', 'tools', info ? (info.error ? (off ? 'switched off' : needsSignIn ? 'until you sign in' : 'the server did not answer') : `${info.server || labelOf(a)}${info.version ? ` ${info.version}` : ''}`) : 'asking the server'),
+    tile(info && !info.error ? fmtTokens(toolList.reduce((n, t) => n + tokens(`${t.name} ${t.description}`), 0)) : unknown ? 'Unknown' : '...', 'Tool list', 'layers', unknown ? (off ? 'switched off' : needsSignIn ? 'until you sign in' : 'the server did not answer') : calls === undefined ? 'tokens of names and descriptions' : `tokens every session, ${plural(calls, 'call')}`),
     tile(v && v.id !== 'global' ? v.label : 'Global', 'Scope', v && v.id !== 'global' ? 'repo' : 'globe', sourceName(a))
   );
   const tools = () =>
@@ -570,8 +615,8 @@ function mcpView(d: Detail): Child[] {
       !info
         ? el('div', { className: 'dv-empty' }, 'Asking the server for its tools...')
         : info.error
-          ? el('div', { className: 'dv-empty' }, 'No tool list while the server does not answer.')
-          : el('div', { className: 'dv-tool-cards' }, toolList.map(t => el('div', { className: 'dv-tool-card' }, el('span', { className: 'dv-tool-name' }, t.name), t.description ? el('span', { className: 'dv-tool-desc', title: t.description }, t.description) : null)))
+          ? el('div', { className: 'dv-empty' }, off ? 'No tool list while the server is switched off.' : needsSignIn ? 'The tool list is unknown until you sign in.' : 'No tool list while the server does not answer.')
+          : el('div', { className: 'dv-tool-cards' }, toolList.map(t => el('div', { className: 'dv-tool-card' }, el('div', { className: 'dv-tool-head' }, el('span', { className: 'dv-tool-name' }, t.name), callsChip(callsOf(t.name))), t.description ? el('span', { className: 'dv-tool-desc', title: t.description }, t.description) : null)))
     );
   const instructions = info && info.instructions ? info.instructions : '';
   return [
@@ -585,6 +630,42 @@ function mcpView(d: Detail): Child[] {
   ];
 }
 
+// The events a plugin with an events manifest produced across the newest sessions, one row per event label. The tab is
+// named for the class of plugin, never for a plugin's own layer name, and exists only once the host reports a manifest.
+function modActivityTab(a: Asset): Tab | null {
+  if (!std(undefined)) return null;
+  const data = modActivityOf(a.id);
+  if (!data?.label) return null;
+  const TONE_ICON = { act: 'plug', warn: 'warning', quiet: 'circle-outline' };
+  const rows = data.groups.map(g => {
+    const row = el(
+      'div',
+      { className: 'row', tabindex: '0' },
+      icon(TONE_ICON[g.tone]),
+      el('span', { className: 'name' }, g.label),
+      el('span', { className: 'desc' }, `${plural(g.count, 'event')} · ${plural(g.sessions, 'session')} · last ${fmtAgo(Date.parse(g.last))}`)
+    );
+    const open = () => {
+      const r = row.getBoundingClientRect();
+      placeCard(`activity:${a.id}:${g.label}`, () => eventsCard(g.label, [{ label: data.label as string, events: g.events }]), { x: r.left + 24, y: r.bottom - 4 });
+    };
+    row.addEventListener('mouseenter', open);
+    row.addEventListener('focus', open);
+    row.addEventListener('mouseleave', hideHover);
+    row.addEventListener('blur', hideHover);
+    return row;
+  });
+  const total = data.groups.reduce((n, g) => n + g.count, 0);
+  return {
+    id: 'activity',
+    label: 'Mod activity',
+    glyph: 'plug',
+    about: 'What the plugin did across your newest sessions, grouped by what it did.',
+    count: total,
+    body: () => card('Mod activity', total, rows.length ? rows : el('div', { className: 'dv-empty' }, `No event in the newest ${plural(data.sessions, 'session')}.`)),
+  };
+}
+
 function pluginView(d: Detail): Child[] {
   const a = d.asset;
   const [short, market] = a.name.split('@');
@@ -594,11 +675,13 @@ function pluginView(d: Detail): Child[] {
   const agents = items('agent');
   const servers = (global?.categories.find(c => c.kind === 'mcp')?.items || []).filter(x => pluginOf(x) === short).map(x => ({ a: x, v: global }));
   const version = a.description.split(' · ')[1] || '';
+  // Every render asks how often its elements were used, so the counts fill in from an existing index; open on the tab, it builds one.
+  askMore(a, state.detailTabs[a.kind] === 'usage');
   const toggle = el(
     'label',
     { className: 'dv-switch' },
     el('input', { type: 'checkbox', checked: !!a.enabled, onchange: () => command('togglePlugin', { id: a.id }) }),
-    el('span', {}, a.enabled ? 'Enabled for your user' : 'Disabled')
+    el('span', {}, 'Enabled for your user')
   );
   const heroCard = el(
     'section',
@@ -611,15 +694,20 @@ function pluginView(d: Detail): Child[] {
     heroCard,
     el('div', { className: 'kpis' }, tile(String(skills.length), 'Skills', 'mortar-board', 'in every session'), tile(String(agents.length), 'Agents', 'hubot', 'Claude can delegate to'), tile(String(servers.length), 'MCP servers', 'server', 'started with Claude Code'), tile(version || '-', 'Version', 'tag', market || '')),
     tabbed(a, [
-      { id: 'skills', label: 'Skills', glyph: 'mortar-board', about: 'The skills the plugin adds to every session.', count: skills.length, body: () => card('Skills', skills.length, refList(skills, a.enabled ? 'No skills.' : 'Enable the plugin to list them.')) },
-      { id: 'agents', label: 'Agents', glyph: 'hubot', about: 'The agents the plugin adds, which Claude can delegate to.', count: agents.length, body: () => card('Agents', agents.length, refList(agents, a.enabled ? 'No agents.' : 'Enable the plugin to list them.')) },
+      { id: 'skills', label: 'Skills', glyph: 'mortar-board', about: 'The skills the plugin adds to every session, with how often each was used.', count: skills.length, live: true, body: () => card('Skills', skills.length, usedRefList(a, skills, a.enabled ? 'No skills.' : 'Enable the plugin to list them.', 'use', refRow)) },
+      { id: 'agents', label: 'Agents', glyph: 'hubot', about: 'The agents the plugin adds, which Claude can delegate to, with how often each was launched.', count: agents.length, live: true, body: () => card('Agents', agents.length, usedRefList(a, agents, a.enabled ? 'No agents.' : 'Enable the plugin to list them.', 'agent', refRow)) },
+      pluginUsageTab(a, skills, agents),
       { id: 'servers', label: 'MCP servers', glyph: 'server', about: 'The MCP servers the plugin starts with Claude Code.', count: servers.length, body: () => card('MCP servers', servers.length, refList(servers, 'No MCP servers.')) },
+      modActivityTab(a),
     ]),
   ];
 }
 
 function codeView(d: Detail, body: string): Child[] {
   const a = d.asset;
+  // Every render asks where the hook ran, so the badge fills in from an existing index; open on the tab, it builds one.
+  const fired = hasFiredTab(a) ? firedTab(a) : null;
+  if (fired) askFired(a, state.detailTabs[a.kind] === 'fired');
   const label = d.mode === 'settings' ? 'JSON' : d.mode === 'json' ? 'Config' : 'Script';
   return [
     el(
@@ -644,11 +732,12 @@ function codeView(d: Detail, body: string): Child[] {
               el('span', { className: 'dv-card-title' }, label),
               el('span', { className: 'dv-count' }, plural(lines(body), 'line')),
               el('span', { className: 'dv-spacer' }),
-              d.mode === 'json' ? null : el('button', { type: 'button', className: 'link', onclick: () => setMode('edit') }, icon('edit'), 'Edit')
+              d.mode === 'json' || !editable() ? null : el('button', { type: 'button', className: 'link', onclick: () => setMode('edit') }, icon('edit'), 'Edit')
             ),
             el('pre', { className: 'md-pre dv-code' }, el('code', {}, body))
           ),
       },
+      fired,
     ]),
   ];
 }

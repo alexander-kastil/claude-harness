@@ -93,6 +93,9 @@ export interface Asset {
   refs?: string[];
 }
 
+/** An item a plugin ships: the installed copy is overwritten on update, so it is read-only. */
+export const isPluginCopy = (a: Pick<Asset, 'scope' | 'source'>): boolean => a.source === 'plugin' || a.scope.startsWith('plugin:');
+
 /** Frontmatter facts the type pages filter on. */
 export interface AssetMeta {
   tools?: string[];
@@ -395,7 +398,7 @@ export function parseMcpList(output: string): CliServer[] {
     .split(/\r?\n/)
     .map(line => /^(.+?): (.*?) - \S (.+)$/u.exec(line.trim()))
     .filter((m): m is RegExpExecArray => !!m)
-    .map(m => ({ name: m[1], target: m[2].trim(), status: m[3].trim() }));
+    .map(m => ({ name: m[1], target: m[2].trim(), status: m[3].trim().replace(/\b([A-Z][A-Z0-9_]{2,}):\s+\1:\s*/g, '$1: ') }));
 }
 
 export const mcpToolPrefix = (server: string) => `mcp__${server.replace(/[^A-Za-z0-9_-]/g, '_')}__`;
@@ -691,7 +694,7 @@ export function scan(scope: HarnessScope): Category[] {
     items.get('settings')!.push(
       make('settings', name, {
         name,
-        description: `${Object.keys(readJson(file)).length} keys`,
+        description: `${Object.keys(readJson(file)).length} ${Object.keys(readJson(file)).length === 1 ? 'key' : 'keys'}`,
         file,
         mtime: mtimeOf(file),
       })

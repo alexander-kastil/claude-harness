@@ -2,7 +2,7 @@
   "name": "claude-harness",
   "displayName": "Claude Harness",
   "description": "Visualize and edit your Claude Code harness in VS Code: memory, rules, agents, skills, commands, output styles, workflows, hooks, MCP servers and plugins, globally and per repository.",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "publisher": "integrations-at",
   "license": "SEE LICENSE IN LICENSE",
   "icon": "media/icon.png",
@@ -267,7 +267,10 @@
         "command": "claudeHarness.openClaude",
         "title": "Open Claude Here",
         "category": "Claude Harness",
-        "icon": "$(terminal)"
+        "icon": {
+          "light": "media/claude-mark-light.svg",
+          "dark": "media/claude-mark-dark.svg"
+        }
       },
       {
         "command": "claudeHarness.installPlugin",
@@ -330,6 +333,12 @@
         "icon": "$(archive)"
       },
       {
+        "command": "claudeHarness.consolidate",
+        "title": "Consolidate into Global or plugin...",
+        "category": "Claude Harness",
+        "icon": "$(git-merge)"
+      },
+      {
         "command": "claudeHarness.renameMarketplace",
         "title": "Rename Marketplace...",
         "category": "Claude Harness",
@@ -367,7 +376,16 @@
         "command": "claudeHarness.alignClaudeMd",
         "title": "Align CLAUDE.md...",
         "category": "Claude Harness",
-        "icon": "$(wand)"
+        "icon": {
+          "light": "media/claude-mark-light.svg",
+          "dark": "media/claude-mark-dark.svg"
+        }
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "claudeHarness.open",
+        "key": "ctrl+alt+a"
       }
     ],
     "menus": {
@@ -520,6 +538,38 @@
           "group": "1_standard@3"
         }
       ],
+      "webview/context": [
+        {
+          "command": "claudeHarness.consolidate",
+          "when": "webviewId == 'claudeHarness.panel' && webviewSection == 'skill' && scope == 'repo'",
+          "group": "2_edit@1"
+        },
+        {
+          "command": "claudeHarness.showRepo",
+          "when": "webviewId == 'claudeHarness.panel' && webviewSection == 'repo'",
+          "group": "1_open@1"
+        },
+        {
+          "command": "claudeHarness.openClaude",
+          "when": "webviewId == 'claudeHarness.panel' && webviewSection == 'repo'",
+          "group": "1_open@2"
+        },
+        {
+          "command": "claudeHarness.create",
+          "when": "webviewId == 'claudeHarness.panel' && webviewSection == 'repo'",
+          "group": "2_edit@1"
+        },
+        {
+          "command": "claudeHarness.reveal",
+          "when": "webviewId == 'claudeHarness.panel' && webviewSection == 'repo'",
+          "group": "3_folder@1"
+        },
+        {
+          "command": "claudeHarness.removeRepo",
+          "when": "webviewId == 'claudeHarness.panel' && webviewSection == 'repo'",
+          "group": "4_remove@1"
+        }
+      ],
       "commandPalette": [
         {
           "command": "claudeHarness.configureTools",
@@ -559,6 +609,10 @@
         },
         {
           "command": "claudeHarness.retire",
+          "when": "false"
+        },
+        {
+          "command": "claudeHarness.consolidate",
           "when": "false"
         },
         {
@@ -612,6 +666,7 @@
     "watch": "tsc -watch -p ./",
     "watch:webview": "node scripts/webview.mjs --watch",
     "test": "npm run compile && node --test \"out/test/unit/**/*.test.js\"",
+    "test:ui": "npm run compile && node --test --test-concurrency=1 \"test/ui/*.test.mjs\"",
     "vscode:prepublish": "npm run compile",
     "package": "vsce package"
   },

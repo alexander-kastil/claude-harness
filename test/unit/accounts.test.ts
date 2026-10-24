@@ -165,6 +165,37 @@ test('accountWeek sums every repo and the agent files of an account, as a share 
   assert.equal((await accountWeek({ label: 'Plain', root }, NOW)).share, undefined);
 });
 
+test('accountWeek splits the week by project folder and by agent type', async () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-week-split-'));
+  const root = path.join(tmp, '.claude');
+  const write = (file: string, records: unknown[]) => {
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, records.map(r => JSON.stringify(r)).join('\n') + '\n');
+  };
+  const usage = { input_tokens: 1_000_000 };
+  const opus = messageCost('claude-opus-5-5', usage);
+  const sonnet = messageCost('claude-sonnet-5-5', usage);
+  write(path.join(root, 'projects', 'repo-one', 's1.jsonl'), [reply('a', 'claude-opus-5-5', NOW - 1000, usage)]);
+  write(path.join(root, 'projects', 'repo-two', 's2.jsonl'), [reply('b', 'claude-opus-5-5', NOW - 2000, usage)]);
+  write(path.join(root, 'projects', 'repo-two', 's2', 'subagents', 'agent-1.jsonl'), [reply('c', 'claude-sonnet-5-5', NOW - 3000, usage), reply('d', 'claude-sonnet-5-5', NOW - 3500, usage)]);
+  fs.writeFileSync(path.join(root, 'projects', 'repo-two', 's2', 'subagents', 'agent-1.meta.json'), JSON.stringify({ agentType: 'plugin:reviewer' }));
+  write(path.join(root, 'projects', 'repo-two', 's2', 'subagents', 'agent-2.jsonl'), [reply('e', 'claude-sonnet-5-5', NOW - 4000, usage)]);
+  fs.writeFileSync(path.join(root, 'projects', 'repo-two', 's2', 'subagents', 'agent-2.meta.json'), JSON.stringify({ agentType: 'reviewer' }));
+  const week = await accountWeek({ label: 'Work', root }, NOW);
+  assert.deepEqual(week.repos?.map(r => [r.folder, r.messages, r.tokens]), [['repo-two', 4, 4_000_000], ['repo-one', 1, 1_000_000]]);
+  assert.ok(Math.abs(week.repos![0].cost - (opus + 3 * sonnet)) < 1e-9);
+  assert.ok(Math.abs(week.repos!.reduce((n, r) => n + r.cost, 0) - week.cost) < 1e-9, 'the folders add up to the account');
+  assert.deepEqual(week.agents?.map(a => [a.type, a.launches, a.messages]), [['reviewer', 2, 3]]);
+  assert.ok(Math.abs(week.agents![0].cost - 3 * sonnet) < 1e-9, 'the main thread is not an agent');
+});
+
+test('addWeek with a folder filter counts that folder only', () => {
+  const models = new Map<string, WeekModel>();
+  const entries = [...weekEntries([reply('a', 'claude-opus-5-5', NOW - 1000)], { folder: 'x' }), ...weekEntries([reply('b', 'claude-opus-5-5', NOW - 1000)], { folder: 'y' })];
+  addWeek(models, new Set(), entries, NOW - WEEK_MS, NOW, e => e.folder === 'y');
+  assert.equal(models.get('claude-opus-5-5')!.messages, 1);
+});
+
 test('Team Premium is the measured 1010 and Standard a fifth of it, with Fable limits', () => {
   assert.equal(planLimit('team'), 1010);
   assert.equal(planLimit('team-standard'), 202);
@@ -222,4 +253,18 @@ test('accountWeek with a weekStart sums since the reset and reports the Fable sh
   assert.equal(rolling.since, NOW - WEEK_MS);
   assert.equal(rolling.models.find(m => m.model === 'claude-opus-5-5')?.messages, 2);
   assert.deepEqual((await accountWeek({ label: 'P', root, plan: 'max5' }, NOW)).families, []);
+});
+
+test('plural adds es to a word that ends in a hissing sound, so 11 launches', () => {
+  const source = fs.readFileSync(path.join(__dirname, '..', '..', '..', 'src', 'webview', 'dom.ts'), 'utf8');
+  const line = /export const plural = (.*);$/m.exec(source)?.[1] ?? '';
+  const plural = new Function(`return ${line}`)() as (n: number, word: string) => string;
+  assert.equal(plural(11, 'launch'), '11 launches');
+  assert.equal(plural(1, 'launch'), '1 launch');
+  assert.equal(plural(0, 'launch'), '0 launches');
+  assert.equal(plural(2, 'match'), '2 matches');
+  assert.equal(plural(3, 'tool'), '3 tools');
+  assert.equal(plural(2, 'hook run'), '2 hook runs');
+  assert.equal(plural(2, 'memory file'), '2 memory files');
+  assert.equal(plural(5, 'use'), '5 uses');
 });

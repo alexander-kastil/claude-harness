@@ -4,7 +4,7 @@ argument-hint: [branch]
 disable-model-invocation: true
 ---
 
-# ext-contribute-finish
+# git-contribute-finish
 
 Running this command is the instruction to delete the merged branch; it needs no further confirmation.
 
@@ -15,7 +15,7 @@ Running this command is the instruction to delete the merged branch; it needs no
 
 ## Steps
 
-1. Remotes: `origin` must be your fork and `upstream` must be `alexander-kastil/claude-harness`, both recognised by URL in `git remote -v`. If not, stop and point to `/ext-contribute-setup`.
+1. Remotes: `origin` must be your fork and `upstream` must be `alexander-kastil/claude-harness`, both recognised by URL in `git remote -v`. If not, stop and point to `/git-contribute-setup`.
 2. The branch is `$ARGUMENTS`, or the current branch when it is empty. It must be a `feature/` branch.
 3. `gh pr list --repo alexander-kastil/claude-harness --author "@me" --head <branch> --state merged --json number,url` must return a pull request. If not, stop: nothing is deleted.
 4. `git status --porcelain` must be empty. If not, stop and list the files.

@@ -3,8 +3,8 @@
 // document, so a reader can see which rules were applied.
 import type { CheckSummary } from '../constitution';
 import type { ScopeView } from '../harness';
-import { command, openAt, state } from './core';
-import { el, icon, plural } from './dom';
+import { command, openAt, state, std, vscode } from './core';
+import { claudeMark, el, icon, iconBtn, plural } from './dom';
 import { renderMarkdown } from './markdown';
 
 type Finding = NonNullable<CheckSummary['findings']>[number];
@@ -39,6 +39,19 @@ function findingRow(f: Finding): HTMLElement {
   );
 }
 
+// A finding with, beside it when the provider is there, Fix with Claude: a terminal at the repo asked to fix this one.
+function findingItem(view: ScopeView, f: Finding): HTMLElement {
+  const row = findingRow(f);
+  if (!std(undefined)) return row;
+  const text = f.text.replace(/^(FAIL|REVIEW|INFO) /, '');
+  return el(
+    'div',
+    { className: 'std-item' },
+    row,
+    iconBtn(claudeMark(), 'Fix with Claude\nA new Claude in a terminal at the repo, asked to fix this one finding.', () => vscode.postMessage({ type: 'fixFinding', scope: view.id, text, file: f.file, line: f.line }), false)
+  );
+}
+
 export function standardCard(view: ScopeView): HTMLElement | null {
   const s = state.standard;
   if (!s) return null;
@@ -65,7 +78,7 @@ export function standardCard(view: ScopeView): HTMLElement | null {
     'div',
     { className: 'std-actions' },
     el('button', { className: 'secondary', onclick: () => command('checkRepos', { scope: view.id }) }, icon('refresh'), st === 'unchecked' ? 'Check now' : 'Check again'),
-    s.align && touches(/CLAUDE\.md|sections|lines|em-dash|pointer|restated|boilerplate/) ? el('button', { className: 'secondary', onclick: () => command('alignClaudeMd', { scope: view.id }) }, icon('wand'), 'Align CLAUDE.md...') : null,
+    s.align && touches(/CLAUDE\.md|sections|lines|em-dash|pointer|restated|boilerplate/) ? el('button', { className: 'secondary', onclick: () => command('alignClaudeMd', { scope: view.id }) }, claudeMark(), 'Align CLAUDE.md...') : null,
     s.fix && touches(/settings|hook/) ? el('button', { className: 'secondary', onclick: () => command('fixSettings', { scope: view.id }) }, icon('wrench'), 'Fix settings and hooks...') : null,
     s.doc ? el('button', { className: 'link', onclick: () => openAt(s.doc, undefined) }, icon('go-to-file'), 'Open the standard') : null
   );
@@ -91,7 +104,7 @@ export function standardCard(view: ScopeView): HTMLElement | null {
     el('div', { className: 'dv-kicker' }, el('span', {}, 'Harness standard'), el('span', { className: 'dv-origin' }, s.name)),
     el('div', { className: 'std-status' }, el('span', { className: `std-pill ${tone}` }, icon(glyph), label), el('p', { className: 'dv-desc' }, sentence)),
     facts,
-    groups.map(([, title, gl, list]) => el('div', { className: 'std-group' }, el('div', { className: 'std-group-head' }, icon(gl), el('span', {}, title), el('span', { className: 'dv-count' }, String(list.length))), list.map(findingRow))),
+    groups.map(([, title, gl, list]) => el('div', { className: 'std-group' }, el('div', { className: 'std-group-head' }, icon(gl), el('span', {}, title), el('span', { className: 'dv-count' }, String(list.length))), list.map(f => findingItem(view, f)))),
     actions,
     doc
   );

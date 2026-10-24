@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1640" height="2394" viewBox="0 0 1640 2394" role="img" aria-labelledby="t d">
 <title id="t">From your fork to a pull request that merges cleanly</title>
-<desc id="d">How to contribute to alexander-kastil/claude-harness from the fork aeshilion/claude-harness. Three columns, left to right: the upstream repo on GitHub, the fork on GitHub (origin), and the local clone on your machine. Time runs top to bottom, and each of the steps 1 to 9 is a row, numbered on the left. The animation plays the steps in order and shows the commits moving between the columns. Step 6, merging upstream master into the feature branch right before the pull request, is the step that avoids conflicts. Step 8 loops back to it while the pull request is open. The column on the right names the Claude Code command on the row of its step: /ext-contribute-setup for step 2, /ext-contribute-start for 3 and 4, /ext-sideload for 5, /ext-contribute-sync for 6 and 8, /ext-contribute-pr for 7 and /ext-contribute-finish for 9. Below the steps, /ext-contribute-cleanup deletes a feature branch you no longer need.</desc>
+<desc id="d">How to contribute to alexander-kastil/claude-harness from the fork aeshilion/claude-harness. Three columns, left to right: the upstream repo on GitHub, the fork on GitHub (origin), and the local clone on your machine. Time runs top to bottom, and each of the steps 1 to 9 is a row, numbered on the left. The animation plays the steps in order and shows the commits moving between the columns. Step 6, merging upstream master into the feature branch right before the pull request, is the step that avoids conflicts. Step 8 loops back to it while the pull request is open. The column on the right names the Claude Code command on the row of its step: /git-contribute-setup for step 2, /git-contribute-start for 3 and 4, /git-sideload for 5, /git-contribute-sync for 6 and 8, /git-contribute-pr for 7 and /git-contribute-finish for 9. Below the steps, /git-contribute-cleanup deletes a feature branch you no longer need.</desc>
 <style>
   svg { font-family: 'Inter','Inter var',system-ui,-apple-system,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif; font-size: 26px; }
   .mono { font-family: ui-monospace,'Cascadia Mono','SF Mono',Menlo,Consolas,monospace; }
@@ -317,22 +317,22 @@
 <path d="M192,1884 C130,1884 130,1580 170.5,1580" pathLength="100" stroke-dasharray="100 100" fill="none" stroke="#B8912F" stroke-width="4" style="animation:k97 34s linear infinite"/>
 <polygon points="189,1580 167,1570 167,1590" fill="#B8912F" style="animation:k98 34s linear infinite"/>
 <text x="126" y="1740" class="labgold" text-anchor="end" style="animation:k99 34s linear infinite">repeat 6</text>
-<text x="1262" y="862" class="cmd mono">/ext-contribute-setup</text>
-<text x="1262" y="1107" class="cmd mono">/ext-contribute-start</text>
-<text x="1262" y="1400" class="cmd mono">/ext-sideload</text>
-<text x="1262" y="1588" class="cmd mono">/ext-contribute-sync</text>
-<text x="1262" y="1750" class="cmd mono">/ext-contribute-pr</text>
-<text x="1262" y="1892" class="cmd mono">/ext-contribute-sync</text>
-<text x="1262" y="2106" class="cmd mono">/ext-contribute-finish</text>
-<text x="1262" y="862" class="cmd mono ov" style="fill:#B8912F;animation:k89 34s linear infinite">/ext-contribute-setup</text>
-<text x="1262" y="1107" class="cmd mono ov" style="fill:#B8912F;animation:k90 34s linear infinite">/ext-contribute-start</text>
-<text x="1262" y="1107" class="cmd mono ov" style="fill:#B8912F;animation:k91 34s linear infinite">/ext-contribute-start</text>
-<text x="1262" y="1400" class="cmd mono ov" style="fill:#B8912F;animation:k92 34s linear infinite">/ext-sideload</text>
-<text x="1262" y="1588" class="cmd mono ov" style="fill:#B8912F;animation:k93 34s linear infinite">/ext-contribute-sync</text>
-<text x="1262" y="1750" class="cmd mono ov" style="fill:#B8912F;animation:k94 34s linear infinite">/ext-contribute-pr</text>
-<text x="1262" y="1892" class="cmd mono ov" style="fill:#B8912F;animation:k95 34s linear infinite">/ext-contribute-sync</text>
-<text x="1262" y="2106" class="cmd mono ov" style="fill:#B8912F;animation:k96 34s linear infinite">/ext-contribute-finish</text>
-<text x="1262" y="2260" class="cmd mono">/ext-contribute-cleanup</text>
+<text x="1262" y="862" class="cmd mono">/git-contribute-setup</text>
+<text x="1262" y="1107" class="cmd mono">/git-contribute-start</text>
+<text x="1262" y="1400" class="cmd mono">/git-sideload</text>
+<text x="1262" y="1588" class="cmd mono">/git-contribute-sync</text>
+<text x="1262" y="1750" class="cmd mono">/git-contribute-pr</text>
+<text x="1262" y="1892" class="cmd mono">/git-contribute-sync</text>
+<text x="1262" y="2106" class="cmd mono">/git-contribute-finish</text>
+<text x="1262" y="862" class="cmd mono ov" style="fill:#B8912F;animation:k89 34s linear infinite">/git-contribute-setup</text>
+<text x="1262" y="1107" class="cmd mono ov" style="fill:#B8912F;animation:k90 34s linear infinite">/git-contribute-start</text>
+<text x="1262" y="1107" class="cmd mono ov" style="fill:#B8912F;animation:k91 34s linear infinite">/git-contribute-start</text>
+<text x="1262" y="1400" class="cmd mono ov" style="fill:#B8912F;animation:k92 34s linear infinite">/git-sideload</text>
+<text x="1262" y="1588" class="cmd mono ov" style="fill:#B8912F;animation:k93 34s linear infinite">/git-contribute-sync</text>
+<text x="1262" y="1750" class="cmd mono ov" style="fill:#B8912F;animation:k94 34s linear infinite">/git-contribute-pr</text>
+<text x="1262" y="1892" class="cmd mono ov" style="fill:#B8912F;animation:k95 34s linear infinite">/git-contribute-sync</text>
+<text x="1262" y="2106" class="cmd mono ov" style="fill:#B8912F;animation:k96 34s linear infinite">/git-contribute-finish</text>
+<text x="1262" y="2260" class="cmd mono">/git-contribute-cleanup</text>
 <text x="1262" y="2296" class="where">deletes a feature branch</text>
 <text x="1262" y="2326" class="where">you no longer need</text>
 </svg>

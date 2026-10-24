@@ -1,11 +1,17 @@
 // @ts-nocheck
 // The element editor: frontmatter, body, files, MCP details.
-import { AGENT_COLORS, HEX_COLOR, MODELS, RENAMABLE, SOURCES, TOOL_FIELDS, agentColorClass, categoryOf, command, editable, isDirty, labelOf, metaOf, pluginOf, save, select, state, std, viewOf, vscode } from './core';
+import { AGENT_COLORS, HEX_COLOR, MODELS, RENAMABLE, SOURCES, TOOL_FIELDS, agentColorClass, categoryOf, command, editable, isDirty, labelOf, metaOf, pending, pluginOf, readOnly, save, select, state, std, viewOf, vscode } from './core';
+import { confirmAt, showConfirm } from './confirm';
 import { renderView, setMode } from './detail-view';
-import { el, icon, iconBtn } from './dom';
+import { claudeMark, el, glyphOf, icon, iconBtn, plural } from './dom';
 import { hideHover } from './hover';
 import { renderMain } from './main';
 import { goBack, historyLabel } from './refs';
+import { slimOf } from './slim';
+
+// The kinds Review with Claude and Try it apply to.
+const REVIEWABLE = ['skill', 'agent', 'command', 'rule', 'outputStyle'];
+const TRYABLE = ['agent', 'skill', 'command'];
 
 export function renderRuleInfo(a, withLabel = true) {
   const info = state.ruleInfo[a.id];
@@ -239,70 +245,129 @@ export let headNode;
 // The file path with the home folder shortened to ~, the full path in the hover card.
 const shortPath = file => String(file || '').replace(/^[a-z]:\\users\\[^\\]+|^\/(?:home|Users)\/[^/]+/i, '~');
 
-// View shows the element as a page, Edit shows the form; a dirty draft keeps both available.
-function modeSwitch() {
-  const button = (mode, glyph, label) =>
-    el(
-      'button',
-      { type: 'button', className: `mode-btn${state.detailMode === mode ? ' active' : ''}`, 'aria-pressed': state.detailMode === mode ? 'true' : 'false', onclick: () => setMode(mode) },
-      icon(glyph),
-      el('span', {}, label)
-    );
-  return el('div', { className: 'mode-switch', role: 'group', 'aria-label': 'Mode' }, button('view', 'eye', 'View'), button('edit', 'edit', 'Edit'));
+// The source chip after the name: the repo, the plugin it comes from, or Global. Same shape as the kind chip.
+function sourceChip(a) {
+  const repo = a.scope !== 'global' && viewOf(a.scope);
+  const plugin = a.scope.startsWith('plugin:') ? a.scope.slice('plugin:'.length).split('@')[0] : pluginOf(a);
+  const [glyph, label, tip] = repo ? ['repo', repo.label, repo.path] : plugin ? ['extensions', plugin, `Plugin ${plugin}`] : ['globe', 'Global', 'Global\nYour user folder, for every repository.'];
+  return el('span', { className: 'dh-source', title: tip }, icon(glyph), el('span', {}, label));
+}
+
+// The path under the title: shown whole, wrapping onto a further line when narrow; the unshortened path is the hover card.
+function pathLine(file) {
+  const short = shortPath(file);
+  const cut = Math.max(short.lastIndexOf('\\'), short.lastIndexOf('/'));
+  const name = cut >= 0 ? short.slice(cut + 1) : short;
+  // A break opportunity after every separator, so a long path wraps between folders before it breaks inside one.
+  const dir = (cut >= 0 ? short.slice(0, cut + 1) : '').split(/(?<=[\\/])/).flatMap((part, i) => (i ? [document.createElement('wbr'), part] : [part]));
+  return el('div', { className: 'path', title: file }, el('span', { className: 'dir' }, ...dir), el('span', { className: 'file' }, name));
+}
+
+// A command in the plan picker's markup (`.view-tab.dg-mode`, see `modeSwitch` in session-common): the glyph (a codicon name
+// or the Claude mark), the label, and the hover card from `title`. `on` marks the choice a toggle stands at.
+export const cmd = (glyph, label, tip, onclick, { on, disabled, cls } = {}) =>
+  el(
+    'button',
+    { type: 'button', className: `view-tab dg-mode${on ? ' active' : ''}${cls ? ` ${cls}` : ''}`, title: tip, 'aria-label': label, 'aria-pressed': on === undefined ? undefined : String(on), disabled, onclick },
+    glyphOf(glyph),
+    el('span', {}, label)
+  );
+
+// One box of commands, the plan picker's `.dg-modes`; a box without a command is not drawn.
+export const cmdBox = (label, cls, ...items) => {
+  const live = items.flat().filter(Boolean);
+  return live.length ? el('div', { className: `dg-modes${cls ? ` ${cls}` : ''}`, role: 'group', 'aria-label': label }, live) : null;
+};
+
+// The command bar under the title. Every command sits in the box of what it acts on: the page, the file, Claude, the item or
+// the unsaved draft. The same rule on every kind's page; a kind a command does not apply to simply has no such button.
+function commandBar(d, dirty) {
+  const a = d.asset;
+  const canRename = RENAMABLE.includes(a.kind) && !readOnly(a);
+  const back = state.history.length
+    ? cmd('arrow-left', 'Back', `Back to ${historyLabel()}`, goBack)
+    : state.page === 'kind' && state.kindPage
+      ? cmd('arrow-left', 'Back', `Back to ${categoryOf(state.kindPage.kind) ? categoryOf(state.kindPage.kind).label : 'the list'}`, () => select(undefined))
+      : !state.page && !state.repo && state.overviewFilter
+        ? cmd('arrow-left', 'Back', 'Back to the search results on the home page', () => select(undefined))
+        : null;
+  const claude = (label, tip, kind, message) => confirmAt(cmd(claudeMark(), label, tip, () => (hideHover(), vscode.postMessage({ type: message, id: a.id }))), kind);
+  return el(
+    'div',
+    { className: 'cmd-bar' },
+    cmdBox(
+      'Page',
+      '',
+      back,
+      editable() ? [cmd('eye', 'View', 'View\nThe element as a page.', () => (isDirty() ? (hideHover(), vscode.postMessage({ type: 'select', id: a.id, pending: pending(), view: true })) : setMode('view')), { on: state.detailMode === 'view' }), cmd('edit', 'Edit', 'Edit\nThe element as a form.', () => setMode('edit'), { on: state.detailMode === 'edit' })] : null
+    ),
+    cmdBox('File', '', cmd('go-to-file', 'Open in editor', 'Open in editor\nThe file in a VS Code editor tab.', () => command('openFile', { id: a.id })), cmd('folder-opened', 'Reveal', 'Reveal in File Explorer\nThe folder that holds the file.', () => command('reveal', { id: a.id }))),
+    cmdBox(
+      'Claude',
+      '',
+      REVIEWABLE.includes(a.kind) ? claude('Review with Claude', 'Review with Claude\nA new Claude in a terminal reads this file and says what to improve.', 'review', 'reviewAsset') : null,
+      a.kind === 'skill' && slimOf(a.id)?.findings
+        ? claude('Slim with Claude', "Slim with Claude\nA new Claude in a terminal gets the skill's files and what is flagged on this page, and says what to move and cut.", 'slim', 'slimAsset')
+        : null,
+      TRYABLE.includes(a.kind) ? confirmAt(cmd(claudeMark(), 'Try it', `Try it\nA new Claude in a terminal${a.kind === 'agent' ? ' started as this agent' : ` that runs /${a.name}`}.`, () => (hideHover(), vscode.postMessage({ type: 'tryAsset', id: a.id }))), 'try') : null
+    ),
+    cmdBox(
+      'Item',
+      '',
+      a.kind === 'mcp' && a.source !== 'claude.ai' && a.source !== 'plugin' ? cmd('copy', 'Copy command', 'Copy as claude mcp add command\nThe command that adds this server, on the clipboard.', () => command('copyMcpAdd', { id: a.id })) : null,
+      canRename ? cmd('whole-word', 'Rename', 'Rename\nA new name for the file and the element.', () => command('rename', { id: a.id })) : null,
+      canRename ? cmd('copy', 'Duplicate', 'Duplicate\nA copy next to this one.', () => command('duplicate', { id: a.id })) : null,
+      retirable(a) ? confirmAt(cmd('archive', 'Retire', 'Retire this copy\nBack it up, then delete it.', () => command('retire', { id: a.id })), 'panel', 'retire') : null,
+      a.kind === 'skill' && a.scope !== 'global' && !a.scope.startsWith('plugin:')
+        ? confirmAt(cmd('git-merge', 'Consolidate', 'Consolidate\nBring this repo copy up to Global or the plugin it comes from, then retire the repo copy.', () => (hideHover(), vscode.postMessage({ type: 'consolidateAsset', id: a.id }))), 'consolidate')
+        : null,
+      canRename || (a.kind === 'mcp' && a.file && a.jsonPath && !readOnly(a)) ? confirmAt(cmd('trash', 'Delete', 'Delete\nRemove this element.', () => command('delete', { id: a.id })), 'panel', 'delete') : null,
+      a.kind === 'plugin'
+        ? cmd(a.enabled ? 'circle-slash' : 'check', a.enabled ? 'Disable' : 'Enable', a.enabled ? 'Disable\nTurn the plugin off for your user: none of its skills, agents or servers load.' : 'Enable\nTurn the plugin on for your user: its skills, agents and servers load in every session.', () => command('togglePlugin', { id: a.id }))
+        : null,
+      a.kind === 'plugin' ? confirmAt(cmd('trash', 'Uninstall', 'Uninstall plugin\nRemove the plugin from Claude Code.', () => command('uninstallPlugin', { id: a.id })), 'panel', 'uninstall') : null
+    ),
+    editable() && (dirty || state.detailMode === 'edit')
+      ? cmdBox(
+          'Draft',
+          'cmd-draft',
+          confirmAt(cmd(
+            'discard',
+            'Revert',
+            'Revert\nDrop the changes and show the saved element again.',
+            () => (hideHover(), showConfirm({ kind: 'discard', name: a.name, onConfirm: () => ((state.draft = clone(state.detail)), renderMain()) })),
+            { disabled: !dirty }
+          ), 'discard'),
+          cmd('save', 'Save', 'Save\nCtrl+S', save, { disabled: !dirty, cls: 'cmd-save' })
+        )
+      : null
+  );
 }
 
 export function renderHead() {
   const d = state.detail;
   const cat = categoryOf(d.asset.kind);
   const dirty = isDirty();
-  const canRename = RENAMABLE.includes(d.asset.kind);
+  const kindLabel = cat ? cat.label.replace(/s$/, '') : d.asset.kind;
   return el(
     'header',
-    { className: 'main-head' },
-    el('span', { className: 'big' }, icon(d.asset.kind === 'mcp' && SOURCES[d.asset.source] ? SOURCES[d.asset.source].icon : cat ? cat.icon : 'file')),
+    { className: 'main-head detail-head' },
     el(
       'div',
       { className: 'title' },
-      el('h1', {}, labelOf(d.asset), el('span', { className: 'tag' }, cat ? cat.label.replace(/s$/, '') : d.asset.kind), d.asset.scope !== 'global' && viewOf(d.asset.scope) ? el('span', { className: 'tag scope', title: viewOf(d.asset.scope).path }, icon('repo'), viewOf(d.asset.scope).label) : null, dirty ? el('span', { className: 'dirty', title: 'Unsaved changes' }) : null),
-      el('div', { className: 'path', title: d.asset.file }, shortPath(d.asset.file))
+      // Line 1, never wrapping: the kind's icon and label as one chip (the icon alone says it to the expert, the label to everyone else),
+      // the name, then the source chip. Squeezed, only the name gets an ellipsis, its full text in the hover card.
+      el(
+        'div',
+        { className: 'dh-line' },
+        el('span', { className: 'dh-kind', title: `${kindLabel}\nThe kind of element this page shows.` }, icon(d.asset.kind === 'mcp' && SOURCES[d.asset.source] ? SOURCES[d.asset.source].icon : cat ? cat.icon : 'file'), el('span', {}, kindLabel)),
+        el('h1', { title: labelOf(d.asset) }, el('span', { className: 'dh-name' }, labelOf(d.asset)), dirty ? el('span', { className: 'dirty', title: 'Unsaved changes' }) : null),
+        sourceChip(d.asset)
+      ),
+      // Line 2: the path, its folder shortening while the file name stays.
+      d.asset.file ? pathLine(d.asset.file) : null
     ),
-    editable() ? modeSwitch() : null,
-    el(
-      'div',
-      { className: 'toolbar' },
-      state.history.length
-        ? iconBtn('arrow-left', `Back to ${historyLabel()}`, goBack)
-        : state.page === 'kind' && state.kindPage
-          ? iconBtn('arrow-left', `Back to ${categoryOf(state.kindPage.kind) ? categoryOf(state.kindPage.kind).label : 'the list'}`, () => select(undefined))
-          : null,
-      d.asset.kind === 'mcp' && d.asset.source !== 'claude.ai' && d.asset.source !== 'plugin' ? iconBtn('copy', 'Copy as claude mcp add command', () => command('copyMcpAdd', { id: d.asset.id })) : null,
-      canRename ? iconBtn('whole-word', 'Rename', () => command('rename', { id: d.asset.id })) : null,
-      canRename ? iconBtn('copy', 'Duplicate', () => command('duplicate', { id: d.asset.id })) : null,
-      iconBtn('go-to-file', 'Open in editor', () => command('openFile', { id: d.asset.id })),
-      iconBtn('folder-opened', 'Reveal in File Explorer', () => command('reveal', { id: d.asset.id })),
-      retirable(d.asset) ? iconBtn('archive', 'Retire this copy: back it up, then delete it', () => command('retire', { id: d.asset.id })) : null,
-      canRename || (d.asset.kind === 'mcp' && d.asset.file && d.asset.jsonPath) ? iconBtn('trash', 'Delete', () => command('delete', { id: d.asset.id })) : null,
-      d.asset.kind === 'plugin' ? iconBtn('trash', 'Uninstall plugin', () => command('uninstallPlugin', { id: d.asset.id })) : null
-    ),
-    editable() && (dirty || state.detailMode === 'edit')
-      ? el(
-          'div',
-          { className: 'toolbar' },
-          el(
-            'button',
-            {
-              className: 'secondary',
-              disabled: !dirty,
-              onclick: () => {
-                state.draft = clone(state.detail);
-                renderMain();
-              },
-            },
-            'Revert'
-          ),
-          el('button', { className: 'primary', disabled: !dirty, onclick: save, title: 'Ctrl+S' }, icon('save'), 'Save')
-        )
-      : null
+    commandBar(d, dirty)
   );
 }
 
@@ -390,20 +455,21 @@ export function renderMcp(d) {
       { className: 'switch' },
       el('input', { type: 'checkbox', id: 'mcp-enabled', checked: a.enabled !== false, onchange: () => command('toggleMcp', { id: a.id }) }),
       el('label', { for: 'mcp-enabled' }, repo ? `Enabled in ${repo.label}` : 'Enabled in every folder'),
-      !repo && a.offIn ? el('span', { className: 'desc' }, `Off in ${a.offIn} of ${a.folders} folders. Switch on to enable it everywhere.`) : null
+      !repo && a.offIn ? el('span', { className: 'desc' }, `Off in ${a.offIn} of ${plural(a.folders, 'folder')}. Switch on to enable it everywhere.`) : null
     ),
     el('div', { className: 'facts' }, facts.flatMap(([k, v]) => [el('span', { className: 'key' }, k), el('span', { className: 'value' }, v)]))
   );
   if (a.about) box.append(el('p', { className: 'about' }, a.about));
   if (!info) box.append(el('div', { className: 'empty flush' }, 'Asking the server for its tools...'));
+  else if (info.error && a.enabled === false) box.append(el('div', { className: 'empty flush' }, 'Switched off. Switch it on to connect, sign in or retry.'));
   else if (info.error)
     box.append(
       el('div', { className: 'empty flush' }, info.error),
-      el(
-        'div',
-        { className: 'toolbar' },
-        info.signIn ? el('button', { className: 'primary', onclick: () => vscode.postMessage({ type: 'mcpSignIn', id: a.id }) }, icon('sign-in'), 'Sign in') : null,
-        el('button', { className: 'secondary', onclick: () => vscode.postMessage({ type: 'mcpRetry', id: a.id }) }, icon('refresh'), 'Retry')
+      cmdBox(
+        'Server',
+        'cmd-inline',
+        info.signIn ? cmd(claudeMark(), 'Sign in', 'Sign in\nA Claude in a terminal runs /mcp, where the server asks you to sign in.', () => vscode.postMessage({ type: 'mcpSignIn', id: a.id })) : null,
+        cmd('refresh', 'Retry', 'Retry\nAsk the server for its tools again.', () => vscode.postMessage({ type: 'mcpRetry', id: a.id }))
       )
     );
   else {

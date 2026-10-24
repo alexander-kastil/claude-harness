@@ -30,6 +30,7 @@ export interface State {
   foldedGroups: Set<string>;
   repoSort: string;
   mcpInfo: Record<string, McpInfo | undefined>;
+  mcpBusy: Record<string, 'busy' | 'done' | undefined>;
   checks: Record<string, CheckSummary>;
   standard?: Standard;
   page?: string;
@@ -46,6 +47,8 @@ export interface State {
   sessionsPage?: any;
   /** The weekly summary of every account; null while it is read. */
   weekly?: any;
+  /** Redraws the overview's session and repository blocks in place; set while the overview is built. */
+  overviewRefresh?: () => void;
   kindPage?: any;
   sessionView: string;
   decisionMode: string;
@@ -58,7 +61,11 @@ export interface State {
   /** The plan picked on the Billing switch in this panel; until then a session starts on its account's plan. */
   billingPick?: string;
   styleModel: string;
+  /** The session page's Review group: 'findings' or 'style'; empty until picked. */
+  reviewTab: string;
   repoTab: string;
+  /** The list the overview shows under its search: sessions, repos or changed. */
+  overviewTab: string;
   /** Detail pages open in view mode; edit shows the form. A dirty draft renders in view mode as its preview. */
   detailMode: 'view' | 'edit';
   /** The tab each kind of element last showed in view mode, by kind. */
@@ -69,4 +76,5 @@ export interface State {
   repoHoverTimer?: ReturnType<typeof setTimeout>;
   repoHoverAt?: { x: number; y: number };
   timelineObserver?: ResizeObserver;
+  overviewObserver?: ResizeObserver;
 }

@@ -4,7 +4,7 @@ argument-hint: [--new]
 disable-model-invocation: true
 ---
 
-# ext-sideload
+# git-sideload
 
 Packages the working tree as it is, at the version in `package.json`, and installs the VSIX. Running this command is the instruction; it needs no further confirmation.
 

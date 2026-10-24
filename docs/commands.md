@@ -12,7 +12,7 @@ Every command is in the **Claude Harness** category. Commands marked *hidden* do
 
 | Command | What it does | Where |
 | --- | --- | --- |
-| Open Claude Harness | Opens the main window | Palette, tree title bar, status bar |
+| Open Claude Harness | Opens the main window | Palette, tree title bar, status bar, Ctrl+Alt+A |
 | Add Repo... | Adds a repo folder, or a parent folder that holds several repos | Palette, Repositories header |
 | Remove Repo... | Hides repos or added parent folders. Nothing is deleted on disk. | Palette, Repositories header |
 | Refresh | Reloads the harness and the `claude mcp list` servers | Palette, tree title bar |
@@ -27,17 +27,18 @@ Every command is in the **Claude Harness** category. Commands marked *hidden* do
 | Enable / Disable Plugin (*hidden*) | Turns a plugin on or off | Tree inline, plugin page |
 | Add MCP Server... | Asks for the scope, a name, and a command line or URL, then adds the server to `~/.claude.json` or the repo's `.mcp.json` | Palette, MCP Servers header, tree inline |
 | Copy as claude mcp add Command (*hidden*) | Copies a `claude mcp add` line for the server to the clipboard | Tree right-click, server page |
-| Open Claude Here | Opens a terminal in a repo, or in your home folder, running `claude` | Palette, tree title bar, repo rows |
+| Open Claude Here | Opens a terminal in a repo, or in your home folder, running `claude`. Every action that starts Claude shows the Claude icon. | Palette, tree title bar, repo rows |
 | Install Plugin... | Picks a plugin from your marketplaces and the scope, then runs `claude plugin install` in a terminal | Palette, Plugins header, tree inline |
 | Uninstall Plugin... | Confirms, then runs `claude plugin uninstall` in a terminal | Palette, tree right-click, plugin page |
 | Open Settings File... | Picks any `settings.json` or `settings.local.json` and opens it in the editable JSON view | Palette, tree inline on Settings |
 | Fleet Overview | Opens the table of every repo. See [Fleet overview](fleet-overview.md). | Palette, tree title bar, Repositories node |
 | Marketplace Health | Opens the marketplaces and their plugins. See [Marketplace health](marketplace-health.md). | Palette, Plugins header, Repositories node |
-| Retire Copy (*hidden*) | Backs up a repo copy of a skill or agent that matches a global or plugin copy, then deletes it. See [Duplicates](duplicates.md#retire-a-copy). | Archive button on an item page |
+| Retire Copy (*hidden*) | Backs up a repo copy of a skill or agent that matches a global or plugin copy, then deletes it. See [Duplicates](duplicates.md#retire-a-copy). | Retire button on an item page |
+| Consolidate... (*hidden*) | Moves a repo skill up to its plugin source or global and retires the repo copy. See [Duplicates](duplicates.md#consolidate). | Right-click on a repo skill row, skill page |
 | Retire Clean Copies... | Retires identical repo copies of skills and agents after you pick them. See [Duplicates](duplicates.md#retire-clean-copies). | Palette, Repositories node, Fleet overview |
 | Rename Marketplace... | Renames a directory marketplace in the settings files, then re-registers it in a terminal. See [Marketplace health](marketplace-health.md#rename-a-directory-marketplace). | Palette, Marketplace health page |
 | Open Repo (*hidden*) | Opens a repo's page | Right-click on a repo row |
-| Open Session | Opens a Claude Code session's page. See [Sessions](sessions.md). | Session rows in the tree |
+| Open Session (*hidden*) | Opens a Claude Code session's page. See [Sessions](sessions.md). | Session rows in the tree |
 | Remove Line (*hidden*) | Deletes a line that a CodeLens or quick fix flags. See [CLAUDE.md lenses](claude-md-lenses.md). | CodeLens, quick fix |
 | Repoint... (*hidden*) | Replaces a dead pointer with a name you pick. See [CLAUDE.md lenses](claude-md-lenses.md#dead-pointers). | CodeLens |
 | Check Harness | Runs the harness standard checks of the provider plugin. A repo row checks that repo. | Palette, repo rows |

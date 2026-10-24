@@ -1,10 +1,12 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { isPrompt, promptText, textOf } from './sessions';
+import { lineFlags } from './session-flags';
 
 // Reading the transcripts for the usage index: which lines can hold a use, what a use is, and where the files are.
 
-export type HitKind = 'agent' | 'skill' | 'command';
+/** `mcp` is a call of an MCP tool (name `mcp__<server>__<tool>`), `memory` a CLAUDE.md or rule file loaded into a session (name its path), `style` an output style that was active (name as in the style's frontmatter). */
+export type HitKind = 'agent' | 'skill' | 'command' | 'mcp' | 'memory' | 'style';
 
 /** One use in a transcript. `key` (the tool_use id, or the record uuid of a slash command) counts a use that a fork's transcript replays once. */
 export interface Hit {
@@ -13,6 +15,8 @@ export interface Hit {
   /** ms; 0 when the record has no timestamp. */
   at: number;
   key: string;
+  /** A memory file: absent when it was loaded at the start of the session, else the globs that matched ('' for a nested CLAUDE.md). */
+  info?: string;
 }
 
 // Only lines holding a tool name or a command tag are parsed for uses; the rest of a transcript is never decoded.
@@ -22,7 +26,18 @@ const TOOL_NAME = Buffer.from('"name":"');
 const COMMAND = Buffer.from('<command-name>');
 const USER = Buffer.from('"type":"user"');
 const CWD = Buffer.from('"cwd":"');
+// MCP calls, the output style and the memory files loaded are read straight from the bytes of their line, never parsed:
+// an MCP call is the highest-volume line there is, and an instructions line holds the contents of every file it lists.
+const TIMESTAMP = Buffer.from('"timestamp":"');
+const ATTACHMENT = Buffer.from('"attachment":{"type":"');
+const STYLE = 'output_style","style":"';
+const INSTRUCTIONS = 'instructions","files":[';
+const NESTED = 'nested_memory","path":"';
+const PATH = Buffer.from('"path":"');
+const GLOBS = Buffer.from('"globs":[');
 const NL = 0x0a;
+const QUOTE = 0x22;
+const BACKSLASH = 0x5c;
 const API_REQUEST = '{"type":"api-request';
 // summaryOf looks for the first prompt in the first 4 MB.
 const TITLE_BYTES = 4 * 1024 * 1024;
@@ -30,9 +45,35 @@ const TITLE_CAP = 500;
 
 type Rec = Record<string, any>;
 
+/**
+ * What one hook did in one transcript, counted, never one entry per run: a transcript holds thousands of `hook_success`
+ * records. A hook is told apart by the name Claude Code gave it (`Event:matcher` or `Event`) and the command it ran.
+ */
+export interface HookStat {
+  hook: string;
+  command?: string;
+  runs: number;
+  /** Runs that ended in a `hook_non_blocking_error` or `hook_blocking_error`. */
+  failed: number;
+  /** Summed duration, ms, of the `timed` runs that reported one. */
+  ms: number;
+  timed: number;
+  /** The exit code of the last failed run that had one. */
+  exit?: number;
+  /** ms of the last run; 0 when it has no timestamp. */
+  last: number;
+}
+
+const HOOK_RUNS = ['hook_success', 'hook_non_blocking_error', 'hook_blocking_error'];
+const DENIED = Buffer.from('"is_error":true');
+
 /** What a scan has found so far in one file; a later scan of the appended bytes goes on from it. */
 export interface ScanState {
   hits: Hit[];
+  /** Hook runs by hook and command. */
+  hooks?: HookStat[];
+  /** An agent transcript: tool calls a hook or mod denied. */
+  denied?: number;
   /** Byte offset after the last complete line scanned. */
   offset: number;
   /** Lines that passed the prefilter and were parsed for uses. */
@@ -41,9 +82,108 @@ export interface ScanState {
   main: boolean;
   cwd?: string;
   title?: string;
+  /** Output styles and memory files already found in this file (`kind\0name`): only the first record of each counts. Built on first use. */
+  seen?: Set<string>;
 }
 
-const parse = (buf: Buffer, start: number, end: number): Rec | undefined => {
+/** The string whose opening quote is just before byte `i`, decoded; undefined when it does not end before `end`. */
+const stringAt = (buf: Buffer, i: number, end: number): string | undefined => {
+  let escaped = false;
+  let j = i;
+  for (; j < end; j++) {
+    const c = buf[j];
+    if (c === BACKSLASH) {
+      escaped = true;
+      j++;
+    } else if (c === QUOTE) break;
+  }
+  if (j >= end) return undefined;
+  const raw = buf.toString('utf8', i, j);
+  if (!escaped) return raw;
+  try {
+    return JSON.parse(`"${raw}"`);
+  } catch {
+    return undefined;
+  }
+};
+
+/** The strings of the array whose `[` is just before byte `i`. */
+const stringsAt = (buf: Buffer, i: number, end: number): string[] => {
+  let inString = false;
+  let j = i;
+  for (; j < end; j++) {
+    const c = buf[j];
+    if (inString && c === BACKSLASH) j++;
+    else if (c === QUOTE) inString = !inString;
+    else if (!inString && c === 0x5d) break;
+  }
+  try {
+    const list = JSON.parse(`[${buf.toString('utf8', i, j)}]`);
+    return Array.isArray(list) ? list.filter(g => typeof g === 'string') : [];
+  } catch {
+    return [];
+  }
+};
+
+/** The record time of the line from `start` to `end`: its first timestamp key (searched forwards: a backwards search of a buffer is slow). */
+const stampIn = (buf: Buffer, start: number, end: number): number => {
+  const i = buf.indexOf(TIMESTAMP, start);
+  if (i < 0 || i >= end) return 0;
+  const t = Date.parse(buf.toString('latin1', i + TIMESTAMP.length, i + TIMESTAMP.length + 24));
+  return Number.isNaN(t) ? 0 : t;
+};
+
+/** The call of an MCP tool whose `"name":"` is at byte `i`: only a tool_use block counts, so a name quoted anywhere else does not. */
+function mcpCallAt(buf: Buffer, i: number, s: ScanState): void {
+  // The block is checked before the line is looked up: a name inside a tool list on a megabyte-long line is no call, and a search for that line's start would cost more than the call itself.
+  const id = /"type":"tool_use","id":"([^"]*)",$/.exec(buf.toString('latin1', Math.max(0, i - 100), i))?.[1];
+  if (id === undefined) return;
+  const start = buf.lastIndexOf(NL, i) + 1;
+  const end = buf.indexOf(NL, i);
+  const name = stringAt(buf, i + TOOL_NAME.length, end);
+  // The end of the id tells two calls apart as well as all of it, at less than half the size in the index.
+  if (name) s.hits.push({ kind: 'mcp', name, at: stampIn(buf, start, end), key: id.slice(-12) || `${i}` });
+}
+
+/** Adds a style or memory hit unless the file has it already. */
+function firstOf(buf: Buffer, i: number, s: ScanState, kind: 'style' | 'memory', name: string | undefined, info?: string): void {
+  if (!name) return;
+  s.seen ??= new Set(s.hits.filter(h => h.kind === 'style' || h.kind === 'memory').map(h => `${h.kind}\0${h.name}`));
+  const mark = `${kind}\0${name}`;
+  if (s.seen.has(mark)) return;
+  s.seen.add(mark);
+  const start = buf.lastIndexOf(NL, i) + 1;
+  // The name is the key too, so it is not stored twice: usesOf reads an empty key as the name.
+  const hit: Hit = { kind, name, at: stampIn(buf, start, buf.indexOf(NL, i)), key: '' };
+  if (info !== undefined) hit.info = info;
+  s.hits.push(hit);
+}
+
+/** Counts the hook run whose attachment record has `"attachment":{"type":"` at byte `i`. */
+function hookRunAt(buf: Buffer, i: number, s: ScanState): void {
+  const start = buf.lastIndexOf(NL, i) + 1;
+  const end = buf.indexOf(NL, i);
+  const o = parse(buf, start, end);
+  const a = o?.attachment;
+  if (!o || !a || !HOOK_RUNS.includes(a.type)) return;
+  const hook = String(a.hookName || a.hookEvent || 'hook');
+  const command = typeof a.command === 'string' ? a.command : typeof a.blockingError?.command === 'string' ? a.blockingError.command : undefined;
+  const list = (s.hooks ??= []);
+  let stat = list.find(h => h.hook === hook && h.command === command);
+  if (!stat) list.push((stat = { hook, ...(command ? { command } : {}), runs: 0, failed: 0, ms: 0, timed: 0, last: 0 }));
+  stat.runs++;
+  if (a.type !== 'hook_success') {
+    stat.failed++;
+    if (typeof a.exitCode === 'number') stat.exit = a.exitCode;
+  }
+  if (typeof a.durationMs === 'number') {
+    stat.ms += a.durationMs;
+    stat.timed++;
+  }
+  stat.last = Math.max(stat.last, timeOf(o));
+}
+
+const parse =(buf: Buffer, start: number, end: number): Rec | undefined => {
   // An api-request blob can be megabytes long and is no record of a use: it is rejected before it is decoded.
   if (end <= start || buf.toString('latin1', start, Math.min(end, start + API_REQUEST.length)) === API_REQUEST) return undefined;
   try {
@@ -116,7 +256,32 @@ export function scanLines(buf: Buffer, base: number, s: ScanState): void {
   for (let i = buf.indexOf(TOOL_NAME); i >= 0; i = buf.indexOf(TOOL_NAME, i + TOOL_NAME.length)) {
     const name = buf.toString('latin1', i + TOOL_NAME.length, i + TOOL_NAME.length + 6);
     if (name === 'Agent"' || name === 'Skill"' || name.startsWith('Task"')) add(i);
+    else if (name.startsWith('mcp__')) mcpCallAt(buf, i, s);
   }
+  // One pass over the attachment records for three kinds of them. The output style repeats on every turn: the first
+  // record per file and style is the use. Of the memory files only the paths are read, never what the files held.
+  for (let i = buf.indexOf(ATTACHMENT); i >= 0; i = buf.indexOf(ATTACHMENT, i + ATTACHMENT.length)) {
+    const j = i + ATTACHMENT.length;
+    const head = buf.toString('latin1', j, j + 24);
+    if (head.startsWith('hook_')) hookRunAt(buf, i, s);
+    else if (head.startsWith(STYLE)) firstOf(buf, i, s, 'style', stringAt(buf, j + STYLE.length, buf.indexOf(NL, i)));
+    else if (head.startsWith(INSTRUCTIONS)) {
+      const end = buf.indexOf(NL, i);
+      for (let p = buf.indexOf(PATH, j); p >= 0 && p < end; p = buf.indexOf(PATH, p + PATH.length)) firstOf(buf, i, s, 'memory', stringAt(buf, p + PATH.length, end));
+    } else if (head.startsWith(NESTED)) {
+      const end = buf.indexOf(NL, i);
+      const g = buf.indexOf(GLOBS, j);
+      firstOf(buf, i, s, 'memory', stringAt(buf, j + NESTED.length, end), g >= 0 && g < end ? stringsAt(buf, g + GLOBS.length, end).join(', ') : '');
+    }
+  }
+  // In an agent's own transcript, the tool calls that a hook or mod denied (the same test as the session list's Mod flag).
+  if (!s.main)
+    for (let i = buf.indexOf(DENIED), done = -1; i >= 0; i = buf.indexOf(DENIED, i + DENIED.length)) {
+      const start = buf.lastIndexOf(NL, i) + 1;
+      if (start === done) continue;
+      done = start;
+      if (lineFlags(buf.toString('latin1', start, buf.indexOf(NL, i))).modDenied) s.denied = (s.denied ?? 0) + 1;
+    }
   for (let i = buf.indexOf(COMMAND); i >= 0; i = buf.indexOf(COMMAND, i + COMMAND.length)) add(i);
   for (const [start, end] of [...lines].sort((a, b) => a[0] - b[0])) {
     s.parsed++;

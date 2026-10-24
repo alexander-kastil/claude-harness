@@ -17,6 +17,8 @@ The MCP Servers section lists the servers in the global harness and in each repo
 | [Server details](#server-details) | The facts and config shown for a server |
 | [Tools](#tools) | Tool names read from the server, the messages shown when a server does not answer, and sign-in |
 | [Delete a server](#delete-a-server) | Remove a server's entry from its config file |
+| [Add a server](#add-a-server) | The plus button and the command |
+| [Copy as a command](#copy-as-a-command) | The `claude mcp add` line for a server |
 | [Add a connector](#add-a-connector) | The button that opens claude.ai connectors |
 
 ## Where the servers come from
@@ -35,7 +37,7 @@ The status comes from `claude mcp list`. Claude Harness runs that command when i
 
 ## Group and sort the list
 
-The view control in the MCP Servers header groups the list or sorts it. Claude Harness remembers your choice. The list starts grouped by where each server lives.
+The four toggle buttons in the MCP Servers header group the list or sort it. Claude Harness remembers your choice. The list starts grouped by where each server lives.
 
 | Option | Order |
 | --- | --- |
@@ -57,7 +59,7 @@ Click a server to open its detail view. It shows:
 
 ## Tools
 
-The detail view asks the server for its tools and lists their names under **Tools**, with the count. The **Config** block stays below the list. The panel asks each server once per panel session. **Retry** asks again.
+The detail view asks the server for its tools and lists their names under **Tools**, with the count. The **Config** block stays below the list. The **Tool list** tile reads, for example, `1,240 tokens every session, 18 calls`: the tokens that the tool names and descriptions add to every session, and how often the server's tools were called in your recorded sessions. Each tool card has a calls chip, such as `4 calls`, or `no calls` when the tool was never called. The counts come from the usage index that the first open of a Used in tab builds; see [Used in](sessions.md#used-in). Until then the tile shows only the tokens. The panel asks each server once per panel session. **Retry** asks again.
 
 ![Stdio server page with the tool names and the Config block below](images/mcp-server-tools.png)
 
@@ -93,18 +95,18 @@ Every error message comes with a **Retry** button.
 
 ### Sign in
 
-When a server needs sign-in, the page shows **Sign in** and **Retry**.
+When a server answers that it needs sign-in, its Status tile reads **Needs sign-in** and a red box under the description names the problem, with **Sign in** and **Retry** beside it. Any other error shows the same box with **Retry** only. A server that is switched off shows a notice instead, and no sign-in: switch it on first.
 
 | Button | What it does |
 | --- | --- |
 | Sign in | For a claude.ai connector, opens the connectors page on claude.ai in your browser. For any other server, opens a VS Code terminal in the repo folder or your home folder and runs `claude "/mcp"`. Pick the server there and sign in. |
-| Retry | Asks the server for its tools again |
+| Retry | Asks the server for its tools again. The button reads **Retrying...** and stays disabled until the answer comes, and the box then starts with **Checked again:** so you can tell the check ran. |
 
 ![Server showing Needs sign-in. with the Sign in and Retry buttons](images/mcp-sign-in.png)
 
 ## Delete a server
 
-The header of the server page has a trash button for a server that has an entry in a config file: `.mcp.json` in a repo, or `~/.claude.json` for your own config and for a repo's entry there. Claude Harness asks you to confirm, then removes that entry from the file. Removing the entry can reformat the entries next to it in that file.
+The command bar of the server page has a **Delete** button for a server that has an entry in a config file: `.mcp.json` in a repo, or `~/.claude.json` for your own config and for a repo's entry there. Claude Harness asks you to confirm with a card under the button (a VS Code dialog when you start it from the sidebar tree), then removes that entry from the file. Removing the entry can reformat the entries next to it in that file.
 
 claude.ai connectors and plugin servers have no entry in a file, so they have no trash button. The same delete is in the sidebar tree's right-click menu.
 
@@ -114,7 +116,7 @@ Click the plus button on the **MCP Servers** header, or run **Claude Harness: Ad
 
 ## Copy as a command
 
-The copy button in the server page header, also in the tree's right-click menu, copies a `claude mcp add` line for the server to the clipboard. See [Commands](commands.md#copy-as-claude-mcp-add-command).
+The **Copy command** button in the server page command bar, also in the tree's right-click menu, copies a `claude mcp add` line for the server to the clipboard. See [Commands](commands.md#copy-as-claude-mcp-add-command).
 
 ## Add a connector
 

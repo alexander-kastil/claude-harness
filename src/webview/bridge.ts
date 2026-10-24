@@ -21,7 +21,9 @@ export interface Saved {
   mapMods?: boolean;
   billing?: string;
   styleModel?: string;
+  reviewTab?: string;
   repoTab?: string;
+  overviewTab?: string;
   detailMode?: 'view' | 'edit';
 }
 

@@ -12,8 +12,9 @@ export function drawConcurrency(host, d) {
   const LEFT = 36;
   const TOP = AXIS + 8;
   const PLOT = 170;
-  const bottom = TOP + PLOT;
-  const H = bottom + 26;
+  // The peak label gets its own row between the time axis labels and the plot.
+  const bottom = TOP + 22 + PLOT;
+  const H = bottom + 34;
   const { x, grid } = timeAxis(d, LEFT, W, 14);
   const runs = d.agents.filter(a => typeof a.start === 'number' && endOfAgent(a) > a.start);
   const cuts = [...new Set(runs.flatMap(a => [a.start, endOfAgent(a)]))].sort((p, q) => p - q);
@@ -54,10 +55,11 @@ export function drawConcurrency(host, d) {
   const peak = steps.find(s => s.n === max);
   if (peak) {
     const px = x(peak.a);
-    root.append(svg('line', { x1: px, x2: px, y1: yOf(max) - 4, y2: yOf(max) - 12, class: 'dg-edge' }), svg('text', { x: Math.min(px + 4, W - 120), y: yOf(max) - 14, class: 'dg-label strong' }, `Peak ${max} at ${fmtTime(peak.a)}`));
+    root.append(svg('line', { x1: px, x2: px, y1: yOf(max) - 4, y2: yOf(max) - 12, class: 'dg-edge' }), svg('text', { x: Math.min(px + 4, W - 120), y: yOf(max) - 6, class: 'dg-label dg-halo strong' }, `Peak ${max} at ${fmtTime(peak.a)}`));
   }
   for (const p of d.prompts) root.append(svg('line', { x1: x(p.at), x2: x(p.at), y1: bottom + 6, y2: bottom + 14, class: 'dg-tick' }, svg('title', {}, `${fmtTime(p.at)} ${clip(p.text, 200)}`)));
-  root.append(svg('text', { x: LEFT - 6, y: bottom + 14, class: 'tl-axis', 'text-anchor': 'end' }, 'prompts'));
+  // Under the ticks and from the left edge, so the label neither clips nor sits on a tick.
+  root.append(svg('text', { x: 4, y: bottom + 28, class: 'tl-axis' }, 'prompts'));
   host.replaceChildren(root);
 }
 
@@ -199,12 +201,53 @@ export function drawScatter(host, d) {
   // Circle area follows the agent's cost; the costliest is drawn first so smaller ones stay on top.
   const costOf = p => p.a.usage.cost || 0;
   const maxCost = Math.max(0, ...pts.map(costOf));
-  for (const p of [...pts].sort((p, q) => costOf(q) - costOf(p))) {
-    const r = 4 + (maxCost ? Math.sqrt(costOf(p) / maxCost) : 0) * 18;
+  // Labels stay off the median lines and off each other: each takes the first of right, left, above, below that is free.
+  const placed = [];
+  const sorted = [...pts].sort((p, q) => costOf(q) - costOf(p));
+  const radius = p => 4 + (maxCost ? Math.sqrt(costOf(p) / maxCost) : 0) * 18;
+  const discs = sorted.map(p => ({ x0: sx(p.rt) - radius(p), x1: sx(p.rt) + radius(p), y0: sy(p.tok) - radius(p), y1: sy(p.tok) + radius(p) }));
+  const hits = (r, q) => r.x0 < q.x1 && r.x1 > q.x0 && r.y0 < q.y1 && r.y1 > q.y0;
+  // What a label box costs at a spot: leaving the plot, crossing a median line, another label, a circle; the cheapest spot wins.
+  const cost = r =>
+    (r.x0 < L || r.x1 > W - R || r.y0 < T || r.y1 > H - B ? 1000 : 0) +
+    (r.x0 <= sx(mx) + 2 && r.x1 >= sx(mx) - 2 ? 100 : 0) +
+    (r.y0 <= sy(my) + 2 && r.y1 >= sy(my) - 2 ? 100 : 0) +
+    placed.filter(q => hits(r, q)).length * 30 +
+    discs.filter(q => hits(r, q)).length * 5;
+  const dots = sorted.map(p => {
+    const r = radius(p);
     const g = svg('g', { class: 'dg-agent' }, svg('circle', { cx: sx(p.rt), cy: sy(p.tok), r, class: `dg-dot ${colors.tone(p.a)}${selected === p.a.id ? ' sel' : ''}` }));
-    g.append(svg('text', { x: sx(p.rt) + r + 4, y: sy(p.tok) + 4, class: 'dg-label' }, laneName(p.a)));
     bindAgent(g, p.a, d, colors);
     root.append(g);
+    return { p, r, g };
+  });
+  // Labels go in a layer of their own above every circle.
+  const layer = svg('g', { class: 'dg-labels' });
+  root.append(layer);
+  for (const { p, r } of dots) {
+    const name = laneName(p.a);
+    const w = name.length * 7;
+    const cx = sx(p.rt);
+    const cy = sy(p.tok);
+    const options = [
+      { x: cx + r + 4, y: cy + 4, anchor: 'start' },
+      { x: cx - r - 4, y: cy + 4, anchor: 'end' },
+      { x: cx, y: cy - r - 5, anchor: 'middle' },
+      { x: cx, y: cy + r + 14, anchor: 'middle' },
+      { x: cx, y: cy - r - 19, anchor: 'middle' },
+      { x: cx, y: cy + r + 28, anchor: 'middle' },
+      ...[-r - 5, r + 14, -r - 19, r + 28].flatMap(dy => [{ x: cx + 2, y: cy + dy, anchor: 'start' }, { x: cx - 2, y: cy + dy, anchor: 'end' }]),
+      // Hugging the vertical median from either side, for a wide name beside a circle that sits near it.
+      ...[-r - 5, r + 14, -r - 19, r + 28].flatMap(dy => [{ x: sx(mx) + 5, y: cy + dy, anchor: 'start' }, { x: sx(mx) - 5, y: cy + dy, anchor: 'end' }]),
+      { x: cx + r * 0.7 + 4, y: cy - r * 0.7 - 5, anchor: 'start' },
+      { x: cx - r * 0.7 - 4, y: cy - r * 0.7 - 5, anchor: 'end' },
+      { x: cx + r * 0.7 + 4, y: cy + r * 0.7 + 14, anchor: 'start' },
+      { x: cx - r * 0.7 - 4, y: cy + r * 0.7 + 14, anchor: 'end' },
+    ];
+    const box = o => ({ x0: o.anchor === 'start' ? o.x : o.anchor === 'end' ? o.x - w : o.x - w / 2, x1: o.anchor === 'start' ? o.x + w : o.anchor === 'end' ? o.x : o.x + w / 2, y0: o.y - 13, y1: o.y + 4 });
+    const at = options.reduce((best, o) => (cost(box(o)) < cost(box(best)) ? o : best), options[0]);
+    placed.push(box(at));
+    layer.append(svg('text', { x: at.x, y: at.y, class: 'dg-label dg-halo', 'text-anchor': at.anchor }, name));
   }
   host.replaceChildren(root);
 }
