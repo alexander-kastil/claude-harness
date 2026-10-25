@@ -409,11 +409,18 @@ test('the concurrency and scatter diagrams keep their labels clear of lines, tic
       const boxes = [...svg.querySelectorAll('text')].map(box);
       const hit = (a, b) => a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
       const peak = boxes.find(b => /^Peak /.test(b.text));
-      return { peak: !!peak, clash: boxes.filter(b => b !== peak && peak && hit(peak, b)).map(b => b.text), clipped: boxes.filter(b => b.x < 0 || b.x + b.width > svg.viewBox.baseVal.width + 1).map(b => b.text), prompts: boxes.find(b => b.text === 'prompts')?.x };
+      const out = b => b.x < 0 || b.x + b.width > svg.viewBox.baseVal.width + 1;
+      const clipped = boxes.filter(out).map(b => b.text);
+      // The tick texts depend on the clock: set every one to the widest style and measure again.
+      const ticks = [...svg.querySelectorAll('text')].filter(t => /^\d+:\d\d [AP]M$/.test(t.textContent));
+      ticks.forEach(t => (t.textContent = '12:59 AM'));
+      const wide = ticks.map(box).filter(out).map(b => b.text);
+      return { peak: !!peak, clash: boxes.filter(b => b !== peak && peak && hit(peak, b)).map(b => b.text), clipped, wide, prompts: boxes.find(b => b.text === 'prompts')?.x };
     });
     assert.ok(c.peak, 'the peak label is drawn');
     assert.deepEqual(c.clash, [], `${mode} ${width}: the peak label sits on ${c.clash}`);
     assert.deepEqual(c.clipped, [], `${mode} ${width}: clipped labels ${c.clipped}`);
+    assert.deepEqual(c.wide, [], `${mode} ${width}: widest tick labels clipped ${c.wide}`);
     assert.ok(c.prompts >= 0, 'the prompts label starts inside the diagram');
     await s.mouse('.view-tabs .view-tab', 'Scatter');
     await s.waitFor(D => D.querySelector('.dg-labels text'));
