@@ -1,0 +1,93 @@
+import * as path from 'path';
+import { Asset, ScopeView, contentHash, isPluginCopy } from './harness';
+import type { HuntCatalogItem, HuntProposal } from './shared/hunt';
+
+// The Plugin Hunter's read of the harness: the skills and agents it can choose from, where their copies are, and the inventory Claude is shown.
+
+type Kind = 'skill' | 'agent';
+
+export const keyOf = (a: { kind: string; name: string }) => `${a.kind}:${a.name}`;
+export const samePath = (a: string, b: string) => path.resolve(a).toLowerCase() === path.resolve(b).toLowerCase();
+
+// A scope's own skills and agents: the ones an enabled plugin loads into Global are the plugin's, not copies to take.
+export const items = (view: ScopeView, kind: Kind): Asset[] => (view.categories.find(c => c.kind === kind)?.items ?? []).filter(a => view.id.startsWith('plugin:') || !isPluginCopy(a));
+export const pathOf = (a: Asset) => (a.kind === 'skill' ? a.dir ?? path.dirname(a.file) : a.file);
+const pluginName = (view: ScopeView) => view.id.slice('plugin:'.length).split('@')[0];
+
+/** The harness element at a path the page sent; nothing the scan does not list is ever copied or removed. */
+export function assetAt(views: ScopeView[], kind: Kind, file: string): { asset: Asset; view: ScopeView } | undefined {
+  for (const view of views) {
+    const asset = items(view, kind).find(a => samePath(pathOf(a), file));
+    if (asset) return { asset, view };
+  }
+  return undefined;
+}
+
+/** Every skill and agent of Global and of the repos, with where its copies are; plugin copies only mark `inPlugin`. */
+export function buildCatalog(views: ScopeView[], plugins: ScopeView[]): HuntCatalogItem[] {
+  const out: HuntCatalogItem[] = [];
+  for (const kind of ['skill', 'agent'] as const) {
+    const names = new Map<string, { view: ScopeView; asset: Asset }[]>();
+    for (const view of views)
+      for (const asset of items(view, kind)) {
+        const copies = names.get(asset.name);
+        if (copies) copies.push({ view, asset });
+        else names.set(asset.name, [{ view, asset }]);
+      }
+    const shipped = new Map<string, string>();
+    for (const p of plugins) for (const a of items(p, kind)) if (!shipped.has(a.name)) shipped.set(a.name, pluginName(p));
+    for (const [name, copies] of names) {
+      const global = copies.find(c => c.view.id === 'global');
+      const base = global ?? copies[0];
+      const others = copies.filter(c => c.view.id !== 'global' && c !== base);
+      // Only a name with several copies is compared; the hash reads every file of the folder.
+      const baseHash = others.length ? contentHash(base.asset) : '';
+      const repos = others.map(c => ({ repo: c.view.label, path: pathOf(c.asset), same: contentHash(c.asset) === baseHash, retire: false }));
+      // With no global copy the first repo copy is the plugin's version and is listed as the repo row.
+      if (!global) repos.unshift({ repo: base.view.label, path: pathOf(base.asset), same: true, retire: false });
+      out.push({
+        description: base.asset.description,
+        asset: { kind, name, include: false, why: '', global: global ? { path: pathOf(global.asset), retire: false } : undefined, repos, inPlugin: shipped.get(name) },
+      });
+    }
+  }
+  return out.sort((a, b) => a.asset.kind.localeCompare(b.asset.kind) || a.asset.name.localeCompare(b.asset.name));
+}
+
+const clip = (text: string, n: number) => (text.length > n ? `${text.slice(0, n - 3)}...` : text);
+
+/** The inventory in the order of the prompt: Global, then the open repos, then installed plugins. */
+export function inventoryText(views: ScopeView[], plugins: ScopeView[], open: string[]): string {
+  const rank = (v: ScopeView) => (v.id === 'global' ? 0 : open.some(o => o.toLowerCase() === v.path.toLowerCase()) ? 1 : 2);
+  const places = [...views.filter(v => rank(v) < 2).sort((a, b) => rank(a) - rank(b)), ...plugins.map(p => Object.assign({}, p, { label: `plugin ${pluginName(p)}` }))];
+  const lines: string[] = [];
+  for (const kind of ['skill', 'agent'] as const) {
+    const byName = new Map<string, { where: string[]; description: string }>();
+    for (const v of places)
+      for (const a of items(v, kind)) {
+        const e = byName.get(a.name) ?? { where: [], description: a.description };
+        e.where.push(v.id === 'global' ? 'global' : v.label);
+        byName.set(a.name, e);
+      }
+    for (const [name, e] of byName) lines.push(`- ${kind} ${name} [${e.where.join(', ')}]: ${clip(e.description.replace(/\s+/g, ' '), 160)}`);
+  }
+  return lines.join('\n');
+}
+
+/** Saved cards against the disk as it is now: paths, copies and plugins are re-read, the owner's ticks stay where the path is still there. */
+export function reconcile(proposals: HuntProposal[], catalog: HuntCatalogItem[]): HuntProposal[] {
+  const have = new Map(catalog.map(c => [keyOf(c.asset), c.asset]));
+  return proposals.map(p => ({
+    ...p,
+    assets: p.assets.map(a => {
+      const now = have.get(keyOf(a));
+      if (!now) return { ...a, include: false, global: undefined, repos: [], inPlugin: undefined };
+      return {
+        ...a,
+        inPlugin: now.inPlugin,
+        global: now.global ? { path: now.global.path, retire: a.global?.path === now.global.path && a.global.retire } : undefined,
+        repos: now.repos.map(r => ({ ...r, retire: !!a.repos.find(o => o.path === r.path)?.retire })),
+      };
+    }),
+  }));
+}

@@ -4,6 +4,7 @@ import * as os from 'os';
 import * as path from 'path';
 import { applyEdits, modify, parse as parseJsonc } from 'jsonc-parser';
 import { isSeq, parse as parseYaml, parseDocument, stringify as stringifyYaml, YAMLSeq } from 'yaml';
+import { SkillOrigin, originsOf } from './skill-lock';
 
 export type Kind =
   | 'memory'
@@ -89,8 +90,12 @@ export interface Asset {
   meta?: AssetMeta;
   /** Where a symlinked skill folder points. */
   link?: string;
+  /** A global skill installed from a distributor: its entry in the skills CLI's lock file. */
+  origin?: SkillOrigin;
   /** Names the body mentions as code spans or slash commands, and the agents and skills its frontmatter names. */
   refs?: string[];
+  /** Lines of the file body, for the sidebar byline of memory, rules, output styles and hook scripts. */
+  lines?: number;
 }
 
 /** An item a plugin ships: the installed copy is overwritten on update, so it is read-only. */
@@ -424,6 +429,7 @@ function readJson(file: string): Record<string, unknown> {
 }
 
 const oneLine = (value: unknown) => (typeof value === 'string' ? value.replace(/\s+/g, ' ').trim() : '');
+const lineCount = (text: string) => (text.trim() ? text.replace(/\s+$/, '').split('\n').length : 0);
 const mtimeOf = (file: string) => {
   try {
     return fs.statSync(file).mtimeMs;
@@ -498,7 +504,7 @@ function markdownAssets(scope: HarnessScope, dir: string, kind: Kind, recursive:
     const file = path.join(dir, rel);
     const name = nameOf(rel);
     const { data, body } = readMarkdown(file);
-    return { id: `${scope.id}|${kind}:${name}`, scope: scope.id, kind, name, description: oneLine(data.description), version: versionOf(data), file, mtime: mtimeOf(file), meta: metaOf(data), refs: refsOf(body, data) };
+    return { id: `${scope.id}|${kind}:${name}`, scope: scope.id, kind, name, description: oneLine(data.description), version: versionOf(data), file, mtime: mtimeOf(file), meta: metaOf(data), refs: refsOf(body, data), lines: lineCount(body) };
   });
 }
 
@@ -559,6 +565,7 @@ function workflowDescription(file: string): string {
 function skillAssets(scope: HarnessScope, skillsDir: string): Asset[] {
   if (!fs.existsSync(skillsDir)) return [];
   const out: Asset[] = [];
+  const origins = scope.id === 'global' ? originsOf(scope.root) : new Map<string, SkillOrigin>();
   for (const entry of fs.readdirSync(skillsDir, { withFileTypes: true })) {
     const dir = path.join(skillsDir, entry.name);
     const file = path.join(dir, 'SKILL.md');
@@ -578,6 +585,7 @@ function skillAssets(scope: HarnessScope, skillsDir: string): Asset[] {
       meta: metaOf(data),
       refs: refsOf(body, data),
       link: fs.lstatSync(dir).isSymbolicLink() ? fs.realpathSync(dir) : undefined,
+      origin: origins.get(entry.name),
     });
   }
   return out;
@@ -590,7 +598,10 @@ export function scan(scope: HarnessScope): Category[] {
 
   for (const rel of scope.memory) {
     const file = path.join(scope.base, rel);
-    if (fs.existsSync(file)) items.get('memory')!.push(make('memory', rel, { name: rel, description: '', file, mtime: mtimeOf(file), refs: refsOf(readMarkdown(file).body) }));
+    if (fs.existsSync(file)) {
+      const { body } = readMarkdown(file);
+      items.get('memory')!.push(make('memory', rel, { name: rel, description: '', file, mtime: mtimeOf(file), refs: refsOf(body), lines: lineCount(body) }));
+    }
   }
 
   items.set('rule', markdownAssets(scope, path.join(root, 'rules'), 'rule', true, stripMd));
@@ -614,7 +625,13 @@ export function scan(scope: HarnessScope): Category[] {
     listFiles(path.join(root, 'hooks'), () => true, true).map(rel => {
       const file = path.join(root, 'hooks', rel);
       const name = rel.split(path.sep).join('/');
-      return make('hookScript', name, { name, description: '', file, mtime: mtimeOf(file) });
+      let lines: number | undefined;
+      try {
+        if (fs.statSync(file).size < 256 * 1024) lines = lineCount(readText(file));
+      } catch {
+        // an unreadable script has no line count
+      }
+      return make('hookScript', name, { name, description: '', file, mtime: mtimeOf(file), lines });
     })
   );
 

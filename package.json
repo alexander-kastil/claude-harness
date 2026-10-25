@@ -2,7 +2,7 @@
   "name": "claude-harness",
   "displayName": "Claude Harness",
   "description": "Visualize and edit your Claude Code harness in VS Code: memory, rules, agents, skills, commands, output styles, workflows, hooks, MCP servers and plugins, globally and per repository.",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "publisher": "integrations-at",
   "license": "SEE LICENSE IN LICENSE",
   "icon": "media/icon.png",
@@ -95,13 +95,13 @@
             "API billing"
           ],
           "default": "",
-          "markdownDescription": "The plan of the Claude account in the global harness folder. The session cost then starts on that plan's weekly limit estimate. Empty means no plan.",
+          "markdownDescription": "The plan of the Claude account in the global harness folder. Session cost is then shown against that plan's weekly limit estimate. Empty means no plan.",
           "order": 4
         },
         "claudeHarness.weekStart": {
           "type": "string",
           "default": "",
-          "markdownDescription": "When the weekly limit of the main account resets, as weekday and UTC hour, for example `Mon 11:00`. The weekly summary then counts since the last reset. Empty means a rolling 7 days.",
+          "markdownDescription": "When the weekly limit of the main account resets, as weekday and UTC hour, for example `Mon 11:00`. The weekly summary counts from the last reset. Empty means a rolling 7 days.",
           "order": 5
         },
         "claudeHarness.accounts": {
@@ -334,9 +334,57 @@
       },
       {
         "command": "claudeHarness.consolidate",
-        "title": "Consolidate into Global or plugin...",
+        "title": "Consolidate into Global or Plugin...",
         "category": "Claude Harness",
         "icon": "$(git-merge)"
+      },
+      {
+        "command": "claudeHarness.syncFromGlobal",
+        "title": "Sync from Global...",
+        "category": "Claude Harness",
+        "icon": "$(sync)"
+      },
+      {
+        "command": "claudeHarness.syncPlugin",
+        "title": "Sync Plugin from Its Marketplace...",
+        "category": "Claude Harness",
+        "icon": "$(sync)"
+      },
+      {
+        "command": "claudeHarness.syncMcp",
+        "title": "Sync to Other Copies...",
+        "category": "Claude Harness",
+        "icon": "$(sync)"
+      },
+      {
+        "command": "claudeHarness.addSkillFromUrl",
+        "title": "Add Skill from skills.sh or GitHub...",
+        "category": "Claude Harness",
+        "icon": "$(cloud-download)"
+      },
+      {
+        "command": "claudeHarness.connectSkillSource",
+        "title": "Connect Skill to its Source...",
+        "category": "Claude Harness",
+        "icon": "$(plug)"
+      },
+      {
+        "command": "claudeHarness.linkSkillToRepo",
+        "title": "Link Global Skill into a Repo...",
+        "category": "Claude Harness",
+        "icon": "$(link)"
+      },
+      {
+        "command": "claudeHarness.checkSkillUpdates",
+        "title": "Check Skills for Updates",
+        "category": "Claude Harness",
+        "icon": "$(sync)"
+      },
+      {
+        "command": "claudeHarness.updateSkill",
+        "title": "Update Skills from their Source",
+        "category": "Claude Harness",
+        "icon": "$(cloud-download)"
       },
       {
         "command": "claudeHarness.renameMarketplace",
@@ -380,6 +428,72 @@
           "light": "media/claude-mark-light.svg",
           "dark": "media/claude-mark-dark.svg"
         }
+      },
+      {
+        "command": "claudeHarness.syncSkill",
+        "title": "Sync",
+        "category": "Claude Harness",
+        "icon": "$(sync)"
+      },
+      {
+        "command": "claudeHarness.share",
+        "title": "Share...",
+        "category": "Claude Harness",
+        "icon": "$(export)"
+      },
+      {
+        "command": "claudeHarness.importSkill",
+        "title": "Import Skill...",
+        "category": "Claude Harness",
+        "icon": "$(desktop-download)"
+      },
+      {
+        "command": "claudeHarness.importPlugin",
+        "title": "Import Plugin...",
+        "category": "Claude Harness",
+        "icon": "$(desktop-download)"
+      },
+      {
+        "command": "claudeHarness.importAgent",
+        "title": "Import Agent...",
+        "category": "Claude Harness",
+        "icon": "$(desktop-download)"
+      },
+      {
+        "command": "claudeHarness.importCommand",
+        "title": "Import Command...",
+        "category": "Claude Harness",
+        "icon": "$(desktop-download)"
+      },
+      {
+        "command": "claudeHarness.importOutputStyle",
+        "title": "Import Output Style...",
+        "category": "Claude Harness",
+        "icon": "$(desktop-download)"
+      },
+      {
+        "command": "claudeHarness.importRule",
+        "title": "Import Rule...",
+        "category": "Claude Harness",
+        "icon": "$(desktop-download)"
+      },
+      {
+        "command": "claudeHarness.importMemory",
+        "title": "Import CLAUDE.md...",
+        "category": "Claude Harness",
+        "icon": "$(desktop-download)"
+      },
+      {
+        "command": "claudeHarness.importMcp",
+        "title": "Import MCP Server...",
+        "category": "Claude Harness",
+        "icon": "$(desktop-download)"
+      },
+      {
+        "command": "claudeHarness.importHook",
+        "title": "Import Hook...",
+        "category": "Claude Harness",
+        "icon": "$(desktop-download)"
       }
     ],
     "keybindings": [
@@ -444,22 +558,22 @@
         },
         {
           "command": "claudeHarness.rename",
-          "when": "view == claudeHarness.tree && viewItem =~ /^asset[.](agent|skill|command|outputStyle|rule|workflow)$/",
+          "when": "view == claudeHarness.tree && viewItem =~ /^asset[.](agent|skill|command|outputStyle|rule|workflow)([.]linked)?$/",
           "group": "2_edit@1"
         },
         {
           "command": "claudeHarness.duplicate",
-          "when": "view == claudeHarness.tree && viewItem =~ /^asset[.](agent|skill|command|outputStyle|rule|workflow)$/",
+          "when": "view == claudeHarness.tree && viewItem =~ /^asset[.](agent|skill|command|outputStyle|rule|workflow)([.]linked)?$/",
           "group": "2_edit@2"
         },
         {
           "command": "claudeHarness.compare",
-          "when": "view == claudeHarness.tree && viewItem =~ /^asset[.](agent|skill|command|outputStyle|rule|workflow)$/",
+          "when": "view == claudeHarness.tree && viewItem =~ /^asset[.](agent|skill|command|outputStyle|rule|workflow)([.]linked)?$/",
           "group": "2_edit@3"
         },
         {
           "command": "claudeHarness.delete",
-          "when": "view == claudeHarness.tree && viewItem =~ /^asset[.](agent|skill|command|outputStyle|rule|workflow)$/",
+          "when": "view == claudeHarness.tree && viewItem =~ /^asset[.](agent|skill|command|outputStyle|rule|workflow)([.]linked)?$/",
           "group": "3_delete@1"
         },
         {
@@ -536,13 +650,48 @@
           "command": "claudeHarness.alignClaudeMd",
           "when": "view == claudeHarness.tree && viewItem == repo && claudeHarness.align",
           "group": "1_standard@3"
+        },
+        {
+          "command": "claudeHarness.syncSkill",
+          "when": "view == claudeHarness.tree && viewItem == asset.skill.linked",
+          "group": "2_edit@0"
+        },
+        {
+          "command": "claudeHarness.share",
+          "when": "view == claudeHarness.tree && viewItem =~ /^asset[.](agent|skill|command|outputStyle|rule|plugin|memory|hook)([.](plugin|linked))?$/ || view == claudeHarness.tree && viewItem == asset.mcp.stored",
+          "group": "4_share@1"
         }
       ],
       "webview/context": [
         {
+          "command": "claudeHarness.share",
+          "when": "webviewId == 'claudeHarness.panel' && shareable",
+          "group": "4_share@1"
+        },
+        {
           "command": "claudeHarness.consolidate",
           "when": "webviewId == 'claudeHarness.panel' && webviewSection == 'skill' && scope == 'repo'",
           "group": "2_edit@1"
+        },
+        {
+          "command": "claudeHarness.syncSkill",
+          "when": "webviewId == 'claudeHarness.panel' && syncSource",
+          "group": "2_edit@1"
+        },
+        {
+          "command": "claudeHarness.syncFromGlobal",
+          "when": "webviewId == 'claudeHarness.panel' && syncGlobal",
+          "group": "2_edit@2"
+        },
+        {
+          "command": "claudeHarness.syncMcp",
+          "when": "webviewId == 'claudeHarness.panel' && syncMcp",
+          "group": "2_edit@3"
+        },
+        {
+          "command": "claudeHarness.syncPlugin",
+          "when": "webviewId == 'claudeHarness.panel' && syncPlugin",
+          "group": "2_edit@4"
         },
         {
           "command": "claudeHarness.showRepo",
@@ -612,7 +761,27 @@
           "when": "false"
         },
         {
+          "command": "claudeHarness.share",
+          "when": "false"
+        },
+        {
+          "command": "claudeHarness.syncSkill",
+          "when": "false"
+        },
+        {
           "command": "claudeHarness.consolidate",
+          "when": "false"
+        },
+        {
+          "command": "claudeHarness.syncFromGlobal",
+          "when": "false"
+        },
+        {
+          "command": "claudeHarness.syncPlugin",
+          "when": "false"
+        },
+        {
+          "command": "claudeHarness.syncMcp",
           "when": "false"
         },
         {

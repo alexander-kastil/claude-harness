@@ -1,8 +1,9 @@
 // @ts-nocheck
 // The sidebar: global and repo categories, grouped lists, sessions, the repo hover card.
-import { LIST_VIEWS, SOURCES, agentColorClass, app, assetDesc, checkBadge, checkText, command, groupItems, isGrouped, labelOf, listMode, listModes, matches, mcpDesc, mcpFailed, metaOf, persist, select, showPage, showRepo, skillByline, sortList, state, std, total, twinText, vscode } from './core';
+import { LIST_VIEWS, SOURCES, agentColorClass, app, checkBadge, checkText, command, groupItems, isGrouped, labelOf, listMode, listModes, matches, metaOf, persist, select, showPage, showRepo, sortList, state, std, tidyError, total, vscode } from './core';
+import { askCounted, bylineNodes } from './byline';
 import { repoContext, skillContext } from './context';
-import { claudeMark, el, fmtDate, icon, iconBtn, logo } from './dom';
+import { aiGroup, el, fmtDate, icon, iconBtn, logo } from './dom';
 import { hideHover, hover, placeCard } from './hover';
 import { showKindPage } from './kind-page';
 import { render } from './main';
@@ -164,7 +165,6 @@ export function renderCategories(list, view, q, nested) {
         'div',
         {
           className: `section-head${nested ? ' nested' : ''}${current ? ' selected' : ''}`,
-          title: collapsed ? 'Expand' : 'Collapse',
           onclick: () => {
             collapsed ? state.expanded.add(key) : state.expanded.delete(key);
             persist();
@@ -204,13 +204,13 @@ export function renderCategories(list, view, q, nested) {
             })
           : null,
         cat.kind === 'mcp' || cat.kind === 'plugin'
-          ? iconBtn('add', cat.kind === 'mcp' ? 'Add MCP Server...' : 'Install Plugin...', e => {
+          ? iconBtn('add', cat.kind === 'mcp' ? 'Add MCP server...' : 'Install plugin...', e => {
               e.stopPropagation();
               command(cat.kind === 'mcp' ? 'addMcp' : 'installPlugin', { scope: view.id });
             })
           : null,
         cat.creatable
-          ? iconBtn('add', `New ${cat.label}`, e => {
+          ? iconBtn('add', `New ${cat.label.replace(/s$/, '').toLowerCase()}`, e => {
               e.stopPropagation();
               command('create', { kind: cat.kind, scope: view.id });
             })
@@ -219,25 +219,25 @@ export function renderCategories(list, view, q, nested) {
     );
     list.append(treeItem(head, `s|${key}`, base, !collapsed, fold));
     if (collapsed) continue;
+    askCounted(cat.kind);
     if (!items.length) list.append(el('div', { className: 'empty' }, 'None'));
     const row = a => {
       const selected = state.detail && state.detail.asset.id === a.id;
       const glyph = a.kind === 'plugin' ? (a.enabled ? 'pass-filled' : 'circle-large-outline') : a.kind === 'mcp' && SOURCES[a.source] ? SOURCES[a.source].icon : cat.icon;
       const off = (a.kind === 'plugin' || a.kind === 'mcp') && a.enabled === false;
-      const twin = twinText(a);
-      const desc = a.kind === 'mcp' ? [twin && `duplicate of ${twin}`, mcpDesc(a)].filter(Boolean).join(' · ') : a.kind === 'skill' ? skillByline(a) : assetDesc(a);
+      const desc = bylineNodes(a);
       return treeItem(
         el(
           'div',
           {
             className: `row${nested ? ' nested' : ''}${groups.length > 1 ? ' in-group' : ''}${selected ? ' selected' : ''}${off ? ' disabled' : ''}`,
-            title: ['skill', 'agent', 'command'].includes(a.kind) ? [labelOf(a), splitDescription(a.description || '').text].filter(Boolean).join('\n') : desc,
+            title: [labelOf(a), a.kind === 'mcp' ? tidyError(a.status) || a.target : splitDescription(a.description || '').text].filter(Boolean).join('\n'),
             onclick: () => select(a.id),
             ...skillContext(a),
           },
           icon(glyph),
-          el('span', { className: 'name' }, a.kind === 'agent' && agentColorClass(metaOf(a).color) ? el('span', { className: `swatch ${agentColorClass(metaOf(a).color)}` }) : null, groups.length > 1 && a.kind === 'plugin' ? rowName(a) : labelOf(a)),
-          desc ? el('span', { className: `desc${twin ? ' warn' : ''}${a.kind === 'mcp' && mcpFailed(a) ? ' bad' : ''}` }, desc) : null
+          el('span', { className: 'name' }, a.kind === 'agent' && agentColorClass(metaOf(a).color) ? el('span', { className: `swatch ${agentColorClass(metaOf(a).color)}` }) : null, a.kind === 'plugin' ? rowName(a) : labelOf(a)),
+          desc.length ? el('span', { className: 'desc' }, ...desc) : null
         ),
         `r|${a.id}`,
         base + 1 + (groups.length > 1 ? 1 : 0)
@@ -297,7 +297,7 @@ export function renderSessionsNode(list, view, q) {
     treeItem(
       el(
         'div',
-        { className: `section-head nested${current ? ' selected' : ''}`, title: collapsed ? 'Expand' : 'Collapse', onclick: toggle },
+        { className: `section-head nested${current ? ' selected' : ''}`, onclick: toggle },
         el('span', { className: 'twistie' }, icon(collapsed ? 'chevron-right' : 'chevron-down')),
         el('span', { className: 'label' }, 'Sessions'),
         iconBtn('desktop-download', 'Import a session transcript', e => {
@@ -420,8 +420,8 @@ export function renderSidebar() {
       el('span', { className: 'label' }, 'Repositories'),
       sortToggle('recent', 'history', 'Sort by last used'),
       sortToggle('name', 'case-sensitive', 'Sort A-Z'),
-      iconBtn('repo-create', 'Add Repo...', () => command('addRepo')),
-      iconBtn('trash', 'Remove Repo...', () => command('removeRepo')),
+      iconBtn('repo-create', 'Add repo...', () => command('addRepo')),
+      iconBtn('trash', 'Remove repo...', () => command('removeRepo')),
       el('span', { className: 'count' }, visibleRepos.length)
     )
   );
@@ -462,10 +462,13 @@ export function renderSidebar() {
         icon('repo'),
         el('span', { className: 'label' }, view.label),
         checkBadge(state.checks[view.id]) || el('span', { className: 'check-badge', 'aria-hidden': 'true' }),
-        iconBtn(claudeMark(), `Open Claude in ${view.label}`, e => {
-          e.stopPropagation();
-          command('openClaude', { scope: view.id });
-        }),
+        aiGroup(
+          'compact',
+          iconBtn('terminal', `Open Claude in ${view.label}`, e => {
+            e.stopPropagation();
+            command('openClaude', { scope: view.id });
+          })
+        ),
         iconBtn('add', `New in ${view.label}`, e => {
           e.stopPropagation();
           command('create', { scope: view.id });
@@ -598,6 +601,6 @@ export function repoCard(view) {
           el('div', { className: 'hc-text clamp-3' }, c.findings.slice(0, 3).map(f => f.text.replace(/^(FAIL|REVIEW|INFO) /, '')).join(' · '))
         )
       : null,
-    el('div', { className: 'hc-foot' }, el('span', {}, `${cats.reduce((n, cat) => n + cat.items.length, 0)} harness items`), el('span', {}, 'Click to open the repo page'))
+    el('div', { className: 'hc-foot' }, el('span', {}, `${cats.reduce((n, cat) => n + cat.items.length, 0)} harness items`))
   );
 }

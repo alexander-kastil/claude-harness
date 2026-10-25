@@ -25,5 +25,6 @@
 | 2026-10-23 | 0.32 | 18:06 | 18:40 | Version 0.2.44: every list grouped by where each item comes from, green mod markers and denials shown as stop signs |
 | 2026-10-23 | 1.17 | 18:23 | 19:50 | Versions 0.3.0 and 0.3.1: each agent and skill shows the sessions it was used in, sidebar sections fold on click, and agent colours get a picker with your own colours and colour codes |
 | 2026-10-23 | 0.08 | 18:39 | 19:55 | Version 0.3.1 published to the Marketplace, with up-to-date docs and screenshots, a complete changelog and a new repository description |
+| 2026-10-25 | 1.00 | 09:20 | 10:20 | Install, link, check and update skills from skills.sh and GitHub, with usability fixes and docs |
 
-**Total: 17.15h**
+**Total: 18.15h**

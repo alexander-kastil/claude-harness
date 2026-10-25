@@ -27,6 +27,24 @@ Claude Harness lists twelve kinds of harness items. Each kind is a section in th
 | Plugins | `enabledPlugins` in `settings.json` | Switch only | No |
 | Settings | `settings.json` and `settings.local.json` | Yes, as JSON | No |
 
+## Columns of the type pages
+
+Each kind has a page with a table. Every table has Name, Description and Changed, which counts the days since the file changed. The Scope column appears when the list mixes scopes. A column with nothing in it is dropped, and in a narrow panel the low-priority columns drop first. Numbers are right-aligned and text is left-aligned. Where a fact is a word, it is one of a short fixed set, and the details are in the hover card.
+
+| Kind | Columns after Description |
+| --- | --- |
+| Agents | Model, Tools, Origin, Used |
+| Skills | Sync, Files, Origin, Desc, Cost, Used |
+| Commands | Tools, Origin, Used |
+| Rules | Origin, Loads |
+| MCP servers | Source, Status |
+| Plugins | Marketplace, Version, Enabled |
+| Settings | Keys |
+
+**Origin** reads `global`, `repo`, `linked` (a skill linked into a repo), `marketplace` (shipped by a plugin) or `distributor` (a skill with a source). **Sync** reads `current`, `update`, `unchecked` or `gone`; see [Skill sources](skill-sources.md#the-origin-and-sync-columns). In **Used** and **Cost**, a red 0 means the usage has not been counted yet; **Count usage** builds it.
+
+The second line of a row in the sidebar and the tree shows at most three short facts for its kind, such as when it changed, how often it was used and its size. Each has a hover card that says what it is.
+
 ## Read-only and switch-only kinds
 
 Hooks show their JSON in the detail view. Click **Open in editor** to change them in the file. Hook Scripts open as code, like workflows, and you edit the text in the detail view. Hook scripts can be copies too; see [Duplicates](duplicates.md). Settings files are edited as JSON in the detail view; see [Settings](settings.md).

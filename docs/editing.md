@@ -8,7 +8,7 @@
 </tr>
 </table>
 
-Select an item in the sidebar to open its detail view. You can change its frontmatter fields and its instructions, then save the change to the file. Opening another item, or creating a new one, shows it in View mode. The header shows the kind chip, the name and the source chip (the repo, the plugin or Global) on one line, and the whole file path below it. A long path wraps after a folder separator and keeps the file name last. A command bar under the path has the buttons to open the file, ask Claude, rename, duplicate and delete it.
+Select an item in the sidebar to open its detail view. You can change its frontmatter fields and its instructions, then save the change to the file. Opening another item, or creating a new one, shows it in View mode. The header shows the kind chip, the name and the source chip (the repo, the plugin or Global) on one line, and the whole file path below it. A long path wraps after a folder separator and keeps the file name last. A skill with a source also shows a chip with its `owner/repo` on that line. A command bar under the path has the buttons to open the file, ask Claude, rename, duplicate and delete it. Under the bar, the description is followed by an info card of labelled facts (label and value) in two captioned groups, **Details** and the figures, such as what the element costs in context. Flags read as words, for example "Manual only", "Listed" or "Hidden", "Kept" or "Replaced". An MCP server has a single **Status** fact, which is boxed only on an error or a warning.
 
 ## Command bar
 
@@ -18,11 +18,12 @@ The commands of an item page sit in the bar under its path, as buttons with an i
 | --- | --- |
 | Page | **Back**, **View**, **Edit** |
 | File | **Open in editor**, **Reveal** |
-| Claude | **Review with Claude**, **Slim with Claude**, **Try it** |
-| Item | **Rename**, **Duplicate**, **Retire**, **Consolidate**, **Delete** (**Uninstall** on a plugin) |
+| AI | **Review with Claude** (a lightbulb with a sparkle), **Slim with Claude**, **Try it**. The group starts with the Claude mark, and each button has its own icon. |
+| Source | On a skill: **Check update**, **Update**, **Connect to source** and **Link into repo**. See [Skill sources](skill-sources.md). |
+| Item | **Copy command** (MCP server), **Rename**, **Duplicate**, **Retire**, **Sync from Global**, **Sync to other copies...** (MCP server), **Consolidate**, **Delete**, and **Enable** or **Disable** and **Uninstall** on a plugin |
 | Draft | **Revert**, **Save**. Shown in Edit mode and while there are unsaved changes. |
 
-Every button that starts Claude shows the Claude icon. When the page is narrower than 760 px, the buttons shrink to their icons and the hover card of each says what it does.
+Every action that starts Claude sits in the AI group, so the buttons look the same on every page. When the page is narrower than 760 px, the buttons shrink to their icons and the hover card of each says what it does.
 
 ![The command bar of a skill page](images/command-bar.png)
 
@@ -68,6 +69,8 @@ To create an item, click **New...** in the sidebar, or the plus icon on a sectio
 
 Rules, agents, skills, commands, output styles and workflows can be created. Names use lowercase letters, digits, dots, dashes and underscores. A name starts with a letter or a digit. Commands also accept colons, which become subfolders. A name that is already taken shows an error.
 
+To pass an element to someone else, **Share...** in its right-click menu saves it as a file, and the Import commands take such a file in. See [Share and Import](commands.md#share-and-import).
+
 | Action | Applies to | What it does |
 | --- | --- | --- |
 | Rename | Agents, skills, commands, output styles, rules and workflows | Moves the file or skill folder to the new name. It also updates the `name` field, except for output styles. |
@@ -87,6 +90,8 @@ Three buttons in the item's command bar open a new Claude in a terminal:
 | **Review with Claude** | Skills, agents, commands, rules, output styles | Claude reads the file and says what to improve. It changes nothing until you agree. A card says what happens first, and a switch on it remembers the answer. |
 | **Slim with Claude** | Skills, when something is flagged on the Size card or the References tab | Claude gets the skill's files and what is flagged, and says what to move and cut. See [Skill size](#skill-size). |
 | **Try it** | Agents, skills, commands | Starts Claude as the agent (`claude --agent <name>`), or runs the skill or command (`claude "/name"`). A card says what happens first. |
+
+A skill that came from skills.sh or GitHub has more buttons in its command bar: **Check update**, **Update**, **Connect to source** and **Link into repo**. See [Skill sources](skill-sources.md).
 
 The run counts against your plan. On every card that starts Claude, the **Don't ask again** switch starts off, so a question is skipped only after you turn the switch on.
 

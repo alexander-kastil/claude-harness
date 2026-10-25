@@ -45,6 +45,8 @@ Below the global sections, the **Repositories** group lists each repo. Click a r
 
 A repo page has four tabs: **Overview**, with one tile for each section (in the same one-line style as the overview) and **Recently changed**, **Effective harness**, **Sessions** and **Models**. Models shows the last 7 days of tokens and cost for each account, for this repo, by model and by agent type; see [Last 7 days](sessions.md#last-7-days). The page header has a button to create an item in the repo. See [Repositories](repositories.md#repository-page) and [Effective harness](effective-harness.md). Provider features appear when a harness standard provider plugin is installed.
 
+Right-clicking a row in the main window's tables and sidebar opens the same kind of menu: besides Open, Rename and Duplicate it can offer **Share...**, **Sync**, **Sync from Global...**, **Sync to Other Copies...** or **Sync Plugin from Its Marketplace...**, each only where it applies. Under each name, the sidebar row has a second line of at most three facts for its kind: when it changed, how often it was used and its size or state. Each fact has a hover card.
+
 ## Overview
 
 The overview shows the number of global assets and repositories. It has one tile for each global section, on one line: the icon, the label and the count beside them. A count of zero is dimmed. Click a tile to open that section's type page: its items, with a search box and filters.
@@ -55,7 +57,7 @@ Below the tiles, three tabs, and under them the search box. The tab you picked l
 - **Repositories** (the tab shows the repo count): one row per repo, across the full width, in columns: its memory, rules, agents, skills and MCP counts, the sessions of the last 7 days, the cost of the last 7 days and the time since its last session. Click a row to open the repo. Below about 620 px wide only the three 7-day columns remain. For the cost and the plan limits behind them, see [Last 7 days](sessions.md#last-7-days).
 - **Recently changed**: a one-line table of the most recently changed memory, rules, agents, skills, commands, output styles and workflows across all scopes, with the columns **Name**, **Type**, **Scope** and **Changed**. It shows at least 12 rows and as many as fit the panel height, up to 100. The **Type** column drops at narrow widths.
 
-The search box, **Search Harness & Sessions**, filters the harness items by name and description, and also matches sessions by prompt, agent, branch and date. The hits show in two groups in place of the tab's list: **Harness (n)**, then **Sessions (n)**, which holds the newest 25 matching sessions. Click a session to open it.
+The search box, **Search the harness and sessions**, filters the harness items by name and description, and also matches sessions by prompt, agent, branch and date. The hits show in two groups in place of the tab's list: **Harness (n)**, then **Sessions (n)**, which holds the newest 25 matching sessions. Click a session to open it.
 
 ![Overview with a search that matches harness items and sessions](images/overview-search.png)
 
@@ -73,7 +75,7 @@ The activity bar view shows the global harness as a tree. Expand a section to se
 | Action | Result |
 | --- | --- |
 | Click an item | Opens it in the main window |
-| Right-click an item | Opens the file, reveals it, and for editable items renames, duplicates or deletes it |
+| Right-click an item | Opens the file, reveals it, and for editable items renames, duplicates or deletes it. **Share...** saves most kinds as a file, and a skill with a source offers **Sync**. See [Share and Import](commands.md#share-and-import). |
 | Plugin row button | Enables or disables the plugin. See [Plugins](plugins.md). |
 | Title bar buttons | Open the main window, create an item, refresh, open the Fleet overview and open Claude Here |
 

@@ -8,5 +8,5 @@ export function weekAgentChip(a) {
   const totals = askWeekly();
   const w = totals ? agentWeek(totals, a.name) : undefined;
   const text = !totals ? 'reading...' : w ? `${plural(w.launches, 'launch')} · ${fmtUsd(w.cost)} at API list prices` : 'no launches in the window';
-  return el('span', { className: 'dv-chip', title: 'Launches of this agent type and their cost at Anthropic API list prices, over the last 7 days, all repos and accounts.' }, icon('history'), el('span', { className: 'k' }, 'Last 7 days'), text);
+  return el('div', { className: 'dv-fact', title: 'Last 7 days\nLaunches of this agent type and their cost at Anthropic API list prices, over the last 7 days, all repos and accounts.' }, el('span', { className: 'k' }, icon('history'), 'Last 7 days'), el('span', { className: 'v' }, text));
 }

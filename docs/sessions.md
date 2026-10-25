@@ -34,6 +34,8 @@ The **Sessions** node has an import button. It adds a Claude Code transcript (a 
 
 An open repo in the main window shows a **Sessions** node first, above **Memory**, with its count. Click the search icon to open the Sessions page. Click the row, or its chevron, to fold or unfold the 10 newest sessions inline, with **Show all**. The repo page's **Sessions** tab lists its sessions the same way, with the 10 newest and **Show all**. See [Main window](main-window.md#sidebar) and [Repositories](repositories.md#repository-page).
 
+The results, the repo page's Sessions tab and the Headless runs of a session are the same one-line table: Session, Branch, Started, Duration, Agents and State, with an Analyze button on each row of the search. A narrow panel drops the Branch column first. The head of the page shows the repo name, with its path in the hover.
+
 The Sessions page has one search box. Suggestions appear when you type or press the arrow keys, and they narrow as you type. A filter shows only when a session matches it:
 
 | Suggestion | Narrows to |
@@ -60,9 +62,9 @@ When `claudeHarness.accounts` lists more than one Claude config folder, the sess
 
 ### Last 7 days
 
-The **Models** tab of a repo page sums what each account used in the last 7 days, or since the last reset of its weekly limit when `weekStart` is set for it (see [Settings](settings.md#several-accounts)). Its heading then reads **Since** and the date. The totals cover all repos of the account and include the agents' transcripts. Each account has its own block: its tokens, then per model the tokens, the cost at Anthropic API list prices and the number of replies, costliest model first. A reply that appears in more than one transcript, as after a resumed session, counts once.
+The **Models** tab of a repo page sums what each account used in the last 7 days, or since the last reset of its weekly limit when `weekStart` is set for it (see [Settings](settings.md#several-accounts)). Its heading then reads **Since** and the date. The totals cover all repos of the account and include the agents' transcripts. Each account has its own block, headed by its tokens and cost. The block is made of one-line tables with the columns Tokens, Cost, Of limit (only on a plan) and Replies, or Launches for agent types. Costliest rows come first. A reply that appears in more than one transcript, as after a resumed session, counts once.
 
-The block opens with a **This repo** row, under its own heading: the tokens, cost and replies of the sessions in the repo whose page you are on, and their agents. Under it, the groups are labeled **By model · all repos, this account** and **By agent type · all repos, this account**, since they cover every repo of the account and not only this one. The agent type group lists each agent type with its tokens, cost and launches, costliest first. An agent type that has a color in its definition shows that color as a swatch. The main thread is not counted in this group.
+The first table has a single row for the repo whose page you are on, with the tokens, cost and replies of its sessions and their agents. The tables **By model** and **By agent type** follow. Their hover cards say that they cover every repo of the account and not only this one. The agent type table lists each agent type with its tokens, cost and launches. An agent type that has a color in its definition shows that color as a swatch. The main thread is not counted in this group.
 
 When the account has a plan, the block shows the cost as a share of that plan's weekly limit, and each model row reads for example `67.5% of limit`. Without a plan the rows show dollars. Team Premium and Team Standard also have a limit for the Fable model family (about $215 and $43), which gets a row of its own. The limits are estimates, because Anthropic publishes none. The tab reads the week again each time you open it.
 
@@ -71,18 +73,18 @@ The same week shows in two more places:
 - The **overview** shows the cost and the number of sessions of the last 7 days for each repo, in its repository rows. See [Overview](main-window.md#overview).
 - An **agent page** has a **Last 7 days** chip in its header, next to **Model** and **Color**, with the agent type's launches in the window and their cost at API list prices.
 
-![Models tab with the This repo row and the By agent type group](images/repo-models.png)
+![Models tab with the row of the repo and the By agent type table](images/repo-models.png)
 
 ## Session page
 
 The header shows the repo, the start and end, the duration, the branch and the model. Its export button saves the transcript as a JSONL file. Below it, the cost row shows the estimated cost at Anthropic API list prices. Two bars split the cost by **Who spent it** (the main thread and each agent type) and by **Spent on** (cache reads, cache writes, output and input).
 
-The **Billing** switch in the cost row shows the same cost as a share of one weekly limit of your plan: Pro, Max 5x, Max 20x, Team Standard, Team Premium, or API billing for dollars. Anthropic publishes no weekly limit, so each limit is an estimate, and the switch's tooltip gives its figure. Pro and Team Standard are one fifth of Max 5x and of Team Premium. The headline reads **Weekly limit used** on a plan and **Estimated cost** on API billing.
+The **Billing** switch in the cost row shows the same cost as a share of one weekly limit of your plan. Its options read Pro, Max 5x, Max 20x, Team (Team Standard), Team Premium and API, with the full name in the hover; API shows dollars. Anthropic publishes no weekly limit, so each limit is an estimate, and the switch's tooltip gives its figure. Pro and Team Standard are one fifth of Max 5x and of Team Premium. The headline reads **Weekly limit used** on a plan and **Estimated cost** on API billing.
 Four KPIs follow the cost row:
 
 | KPI | Shows |
 | --- | --- |
-| Agents | The number of agents that have a transcript, the same count as the sessions list. The note beside it counts the failed ones and those without a report. A launch that never started, such as one with an unknown agent type, is not counted: the note names it as "never started". |
+| Agents | The number of agents that have a transcript, the same count as the sessions list. The note beside it counts the failed ones and those without a report, or reads "all reported back"; the longer text is in the hover. A launch that never started, such as one with an unknown agent type, is not counted: the note names it as "never started". |
 | Peak parallel | The most agents that ran at the same time |
 | Delegated | The share of the cost that ran in agents |
 | Cache hits | The share of input tokens read from cache |
@@ -178,7 +180,7 @@ Without a manifest, the Mods toggle shows the hook traces of the transcript: wha
 
 ### Decisions
 
-The Decisions view shows what the main thread did after each of your prompts. Two buttons above the diagram switch its mode. Each button shows a short hover.
+The Decisions view shows what the main thread did after each of your prompts. Two buttons above the diagram switch its mode. The explanation of the marks is in the hover of the tab.
 
 | Mode | Shows |
 | --- | --- |

@@ -3,11 +3,13 @@
 import { AGENT_COLORS, HEX_COLOR, MODELS, RENAMABLE, SOURCES, TOOL_FIELDS, agentColorClass, categoryOf, command, editable, isDirty, labelOf, metaOf, pending, pluginOf, readOnly, save, select, state, std, viewOf, vscode } from './core';
 import { confirmAt, showConfirm } from './confirm';
 import { renderView, setMode } from './detail-view';
-import { claudeMark, el, glyphOf, icon, iconBtn, plural } from './dom';
+import { aiGroup, el, glyphOf, icon, iconBtn, plural } from './dom';
+import { distCommands, sourceTip } from './dist';
 import { hideHover } from './hover';
 import { renderMain } from './main';
 import { goBack, historyLabel } from './refs';
 import { slimOf } from './slim';
+import { syncableFromGlobal, syncableMcp } from './sync';
 
 // The kinds Review with Claude and Try it apply to.
 const REVIEWABLE = ['skill', 'agent', 'command', 'rule', 'outputStyle'];
@@ -253,6 +255,13 @@ function sourceChip(a) {
   return el('span', { className: 'dh-source', title: tip }, icon(glyph), el('span', {}, label));
 }
 
+// A skill connected to its source (owner/repo, recorded by Connect to source): a chip after the source chip, same shape, with the
+// check state in its hover card.
+function connectionChip(a) {
+  if (a.kind !== 'skill' || !a.origin) return null;
+  return el('span', { className: 'dh-source dh-conn', title: sourceTip(a) }, icon('plug'), el('span', {}, a.origin.source));
+}
+
 // The path under the title: shown whole, wrapping onto a further line when narrow; the unshortened path is the hover card.
 function pathLine(file) {
   const short = shortPath(file);
@@ -291,7 +300,7 @@ function commandBar(d, dirty) {
       : !state.page && !state.repo && state.overviewFilter
         ? cmd('arrow-left', 'Back', 'Back to the search results on the home page', () => select(undefined))
         : null;
-  const claude = (label, tip, kind, message) => confirmAt(cmd(claudeMark(), label, tip, () => (hideHover(), vscode.postMessage({ type: message, id: a.id }))), kind);
+  const claude = (glyph, label, tip, kind, message) => confirmAt(cmd(glyph, label, tip, () => (hideHover(), vscode.postMessage({ type: message, id: a.id }))), kind);
   return el(
     'div',
     { className: 'cmd-bar' },
@@ -302,15 +311,15 @@ function commandBar(d, dirty) {
       editable() ? [cmd('eye', 'View', 'View\nThe element as a page.', () => (isDirty() ? (hideHover(), vscode.postMessage({ type: 'select', id: a.id, pending: pending(), view: true })) : setMode('view')), { on: state.detailMode === 'view' }), cmd('edit', 'Edit', 'Edit\nThe element as a form.', () => setMode('edit'), { on: state.detailMode === 'edit' })] : null
     ),
     cmdBox('File', '', cmd('go-to-file', 'Open in editor', 'Open in editor\nThe file in a VS Code editor tab.', () => command('openFile', { id: a.id })), cmd('folder-opened', 'Reveal', 'Reveal in File Explorer\nThe folder that holds the file.', () => command('reveal', { id: a.id }))),
-    cmdBox(
-      'Claude',
+    aiGroup(
       '',
-      REVIEWABLE.includes(a.kind) ? claude('Review with Claude', 'Review with Claude\nA new Claude in a terminal reads this file and says what to improve.', 'review', 'reviewAsset') : null,
+      REVIEWABLE.includes(a.kind) ? claude('lightbulb-sparkle', 'Review with Claude', 'Review with Claude\nA new Claude in a terminal reads this file and says what to improve.', 'review', 'reviewAsset') : null,
       a.kind === 'skill' && slimOf(a.id)?.findings
-        ? claude('Slim with Claude', "Slim with Claude\nA new Claude in a terminal gets the skill's files and what is flagged on this page, and says what to move and cut.", 'slim', 'slimAsset')
+        ? claude('fold', 'Slim with Claude', "Slim with Claude\nA new Claude in a terminal gets the skill's files and what is flagged on this page, and says what to move and cut.", 'slim', 'slimAsset')
         : null,
-      TRYABLE.includes(a.kind) ? confirmAt(cmd(claudeMark(), 'Try it', `Try it\nA new Claude in a terminal${a.kind === 'agent' ? ' started as this agent' : ` that runs /${a.name}`}.`, () => (hideHover(), vscode.postMessage({ type: 'tryAsset', id: a.id }))), 'try') : null
+      TRYABLE.includes(a.kind) ? confirmAt(cmd('play', 'Try it', `Try it\nA new Claude in a terminal${a.kind === 'agent' ? ' started as this agent' : ` that runs /${a.name}`}.`, () => (hideHover(), vscode.postMessage({ type: 'tryAsset', id: a.id }))), 'try') : null
     ),
+    cmdBox('Source', '', ...(a.kind === 'skill' ? distCommands(a, cmd) : [])),
     cmdBox(
       'Item',
       '',
@@ -318,6 +327,8 @@ function commandBar(d, dirty) {
       canRename ? cmd('whole-word', 'Rename', 'Rename\nA new name for the file and the element.', () => command('rename', { id: a.id })) : null,
       canRename ? cmd('copy', 'Duplicate', 'Duplicate\nA copy next to this one.', () => command('duplicate', { id: a.id })) : null,
       retirable(a) ? confirmAt(cmd('archive', 'Retire', 'Retire this copy\nBack it up, then delete it.', () => command('retire', { id: a.id })), 'panel', 'retire') : null,
+      syncableFromGlobal(a) ? cmd('sync', 'Sync from Global', 'Sync from Global\nOverwrite this repo copy with the Global version. The copy is backed up first.', () => (hideHover(), command('syncFromGlobal', { id: a.id }))) : null,
+      syncableMcp(a) ? cmd('sync', 'Sync to other copies...', 'Sync to other copies\nPick the version of this server to keep and write that entry into the other files that configure it.', () => (hideHover(), command('syncMcp', { id: a.id }))) : null,
       a.kind === 'skill' && a.scope !== 'global' && !a.scope.startsWith('plugin:')
         ? confirmAt(cmd('git-merge', 'Consolidate', 'Consolidate\nBring this repo copy up to Global or the plugin it comes from, then retire the repo copy.', () => (hideHover(), vscode.postMessage({ type: 'consolidateAsset', id: a.id }))), 'consolidate')
         : null,
@@ -362,7 +373,8 @@ export function renderHead() {
         { className: 'dh-line' },
         el('span', { className: 'dh-kind', title: `${kindLabel}\nThe kind of element this page shows.` }, icon(d.asset.kind === 'mcp' && SOURCES[d.asset.source] ? SOURCES[d.asset.source].icon : cat ? cat.icon : 'file'), el('span', {}, kindLabel)),
         el('h1', { title: labelOf(d.asset) }, el('span', { className: 'dh-name' }, labelOf(d.asset)), dirty ? el('span', { className: 'dirty', title: 'Unsaved changes' }) : null),
-        sourceChip(d.asset)
+        sourceChip(d.asset),
+        connectionChip(d.asset)
       ),
       // Line 2: the path, its folder shortening while the file name stays.
       d.asset.file ? pathLine(d.asset.file) : null
@@ -465,11 +477,11 @@ export function renderMcp(d) {
   else if (info.error)
     box.append(
       el('div', { className: 'empty flush' }, info.error),
-      cmdBox(
-        'Server',
-        'cmd-inline',
-        info.signIn ? cmd(claudeMark(), 'Sign in', 'Sign in\nA Claude in a terminal runs /mcp, where the server asks you to sign in.', () => vscode.postMessage({ type: 'mcpSignIn', id: a.id })) : null,
-        cmd('refresh', 'Retry', 'Retry\nAsk the server for its tools again.', () => vscode.postMessage({ type: 'mcpRetry', id: a.id }))
+      el(
+        'div',
+        { className: 'cmd-inline cmd-row' },
+        aiGroup('', info.signIn ? cmd('sign-in', 'Sign in', 'Sign in\nA Claude in a terminal runs /mcp, where the server asks you to sign in.', () => vscode.postMessage({ type: 'mcpSignIn', id: a.id })) : null),
+        cmdBox('Server', '', cmd('refresh', 'Retry', 'Retry\nAsk the server for its tools again.', () => vscode.postMessage({ type: 'mcpRetry', id: a.id })))
       )
     );
   else {

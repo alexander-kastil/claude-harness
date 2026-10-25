@@ -20,7 +20,7 @@ Items with the same name are compared across all scopes. Each copy reads one of 
 | nearly identical | Only whitespace or version lines differ. |
 | differs | The content is different. |
 
-A copy shows in the sidebar and tree as **also in Global (identical)**, and a global item that has a copy in a repo reads **global, with a copy in weather-app (identical)**, or with the state of the copy, for example **also in docs-kit (differs)**. **Compare with Copy...** on the tree's right-click menu opens the two files in the diff editor.
+The hover card of an item in the activity bar tree ends with the copies, for example **also in Global (identical)** or **also in docs-kit (differs)**. In the main window, the page of a repo skill or agent offers **Retire** when an identical copy exists and **Sync from Global** when the Global copy differs, and the **Copies** tile of the repo page counts the copies. **Compare with Copy...** on the tree's right-click menu opens the two files in the diff editor.
 
 ## Retire a copy
 
@@ -31,7 +31,7 @@ A copy shows in the sidebar and tree as **also in Global (identical)**, and a gl
 
 A confirmation card under the button shows the identical copy, the backup path and the file that goes. Started from a tree menu, it is a VS Code dialog. When the repo has uncommitted harness files, a busy Claude session or stale worktree copies, the confirmation also names them under **Careful**. Nothing else changes.
 
-![Repo skill marked as also in Global (identical), with the Retire button in the command bar](images/retire-copy.png)
+![Repo skill with an identical Global copy, with the Retire button in the command bar](images/retire-copy.png)
 
 Retire is offered in every repo. A harness standard provider plugin can mark repos that keep their copies, and Retire is then hidden there.
 
@@ -50,6 +50,17 @@ A card (a VS Code dialog from a menu) reads **Consolidate X into Global**, or in
 The card has no **Don't ask again**, since it deletes the repo copy.
 
 ![Consolidate card for a repo skill that global holds unchanged](images/consolidate-card.png)
+
+## Sync
+
+Sync brings one copy in step with another. Each variant asks first, and backs up what it overwrites to `~/.claude/repo-sync-backups`.
+
+| Command | When it is offered | What it does |
+| --- | --- | --- |
+| **Sync from Global...** | A repo skill or agent whose Global copy differs. Not for a skill linked to Global, which already is the Global version. | Lists the files, then overwrites the repo copy with the Global version. It is the **Sync from Global** button in the command bar of the copy, and in the right-click menu of its row. |
+| **Sync** | A skill that has a source on skills.sh or GitHub. | Checks the source and goes on to the update card when it is newer. See [Skill sources](skill-sources.md#check-for-updates). |
+| **Sync Plugin from Its Marketplace...** | A plugin whose marketplace source is ahead of the installed copy. | Refreshes the marketplace and updates the plugin. See [Marketplace health](marketplace-health.md). |
+| **Sync to Other Copies...** | An MCP server configured differently in several files. | Asks which configuration to keep, then writes that entry into the other files. See [MCP servers](mcp-servers.md#share-and-sync). |
 
 ## Retire clean copies
 

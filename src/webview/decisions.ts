@@ -187,7 +187,7 @@ export function drawDecisions(host, d) {
   const width = Math.max(W, colX(cols - 1 + base) + nodeW + PAD);
   const H = PAD + 20 + leaf * SLOT;
   const root = svg('svg', { width, height: H, viewBox: `0 0 ${width} ${H}`, class: 'tl dg', role: 'img', 'aria-label': mode === 'timeline' ? 'Orchestrator decisions, prompt by prompt' : 'Orchestrator decision tree' });
-  const headers = mode === 'timeline' ? ['prompt and what the main thread did', 'agent or team', 'each agent in the team'] : ['', 'what the main thread did', 'agent or team', 'outcome', 'each agent'];
+  const headers = mode === 'timeline' ? ['Prompt and main thread', 'Agent or team', 'Agents in the team'] : ['', 'Main thread', 'Agent or team', 'Outcome', 'Agent'];
   root.append(...headers.slice(0, cols).map((t, i) => (t ? svg('text', { x: colX(i + base), y: PAD + 6, class: 'dg-meta' }, t) : null)).filter(Boolean));
   const onDelegated = n => n === tree || n.label === 'delegated' || n.items.every(x => x.action === 'delegated');
   if (mode === 'timeline') {

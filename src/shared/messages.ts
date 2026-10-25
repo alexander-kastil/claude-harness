@@ -13,6 +13,7 @@ export type { Progress } from '../usage';
 export type { UsageSession } from '../usage-rows';
 export type { UsageDay, UsageElement, UsageMore, UsageTool, UsageTotal } from '../usage-rows';
 import type { UsageMore, UsageTotal } from '../usage-rows';
+import type { HuntInfo, HuntProposal } from './hunt';
 
 /** The host's answer to `usageMore`. */
 export type UsageMoreReply = { more: UsageMore } | { built: false };
@@ -88,7 +89,40 @@ export type Confirm =
   | { kind: 'consolidate'; id: string; name: string; repo: string; cwd: string; targets: ConsolidateTarget[]; target: string; notes: string[]; careful?: string; /** `click`: point at the element the owner last pressed, for a right-click menu. */ key?: string }
   | { kind: 'try'; id: string; name: string; as: 'agent' | 'skill' | 'command'; cwd: string }
   | { kind: 'slim'; id: string; name: string; file: string; cwd: string; files: number; findings: number }
+  | { kind: 'hunt'; prompt: string; items: number }
+  | { kind: 'huntCreate'; id: string; key: string; name: string; market: string; location: string; problems: string[]; files: string[]; retired: string[]; kept: string[] }
+  | ShareChoice
   | PanelAsk;
+
+/** One of the two things Share offers for an item that comes from a plugin. */
+export interface ShareOption {
+  id: 'item' | 'plugin';
+  title: string;
+  /** What the package is: `skill folder, .zip`. */
+  sub: string;
+  /** What is in it, one line each. */
+  lines: string[];
+  /** The package size, in words. */
+  size: string;
+  /** A codicon name. */
+  glyph: string;
+}
+
+/**
+ * Share's question for an item that comes from a plugin: only the item, or the whole plugin. The answer comes back as an
+ * `answer` message with the same token and the picked option id in `picked`. `key: 'click'` points at the element last pressed.
+ */
+export interface ShareChoice {
+  kind: 'shareChoice';
+  token: string;
+  key?: string;
+  /** The item, and what kind it is in words. */
+  name: string;
+  what: string;
+  /** The plugin it comes from. */
+  plugin: string;
+  options: ShareOption[];
+}
 
 /** How a repo skill stands against the copy it would be consolidated into. `contained`: the target holds every file of the repo copy, and more. */
 export type ConsolidateState = 'identical' | 'near' | 'contained' | 'differs' | 'new';
@@ -130,6 +164,24 @@ export interface PanelAsk {
   /** A codicon name for the card's badge. */
   glyph?: string;
   danger?: boolean;
+  /** A text field above the buttons; the typed text comes back in the answer. `error` is shown under it when an earlier answer was refused. */
+  input?: { label: string; placeholder?: string; value?: string; error?: string };
+  /** A list to pick from; the ids picked come back in the answer. A disabled row says in `note` why it cannot be picked. */
+  choices?: { id: string; label: string; note?: string; disabled?: boolean }[];
+  /** Several choices can be picked; the primary button waits for at least one. */
+  multi?: boolean;
+  /** Every fact is listed, in a scrolling list, instead of the first ten. */
+  scroll?: boolean;
+}
+
+/** A line the skill distributor commands leave on the Skills page and on a skill's page, in place of a notification. */
+export interface DistNote {
+  tone: 'ok' | 'bad' | 'info' | 'busy';
+  text: string;
+  /** The element id to scroll to and highlight on the Skills page. */
+  focus?: string;
+  /** A button on the line: runs a harness command, for a skill when `id` is given. */
+  action?: { label: string; command: string; id?: string };
 }
 
 /** The owner's answer on a confirm card: go ahead, and whether to skip the card from now on. */
@@ -167,7 +219,7 @@ export type ToHost =
   | { type: 'configureTools'; id: string; key: string; value: string }
   | { type: 'mcpSignIn'; id: string }
   | { type: 'mcpRetry'; id: string }
-  | { type: 'command'; command: string; id?: string; kind?: string; scope?: string; rel?: string; market?: string }
+  | { type: 'command'; command: string; id?: string; kind?: string; scope?: string; rel?: string; market?: string; /** `name@market` of the plugin a sync acts on. */ plugin?: string }
   | { type: 'fleet' }
   | { type: 'effective'; scope: string }
   | { type: 'ruleInfo'; id: string }
@@ -193,7 +245,7 @@ export type ToHost =
   /** One finding of the repo's standard card, handed to a terminal Claude. */
   | { type: 'fixFinding'; scope: string; text: string; file?: string; line?: number }
   /** The owner's answer to a `panel` card: its token, and which button. */
-  | { type: 'answer'; token: string; choice: 'ok' | 'alt' | 'cancel' }
+  | { type: 'answer'; token: string; choice: 'ok' | 'alt' | 'cancel'; /** From a card with an input. */ text?: string; /** From a card with choices. */ picked?: string[] }
   | { type: 'importSession'; scope: string }
   | { type: 'openAt'; file: string; line?: number }
   /** Where an agent or skill was used; `build` builds the transcript index when none exists yet. */
@@ -205,7 +257,22 @@ export type ToHost =
   /** The 7-day strip and the per-element or per-tool counts of an element; `build` as for `usage`. */
   | { type: 'usageMore'; id: string; build: boolean }
   /** The uses of every agent, skill or command, for a type page's Used column; never builds the index. */
-  | { type: 'usageTotals'; kind: string; /** Builds the index when there is none: only the type page's Count usage button sets it. */ build?: boolean };
+  | { type: 'usageTotals'; kind: string; /** Builds the index when there is none: only the type page's Count usage button sets it. */ build?: boolean }
+  /** The Plugin Hunter page: marketplaces, the catalog of skills and agents, and the saved cards. */
+  | { type: 'huntInfo' }
+  /** One turn of the conversation; asks first like draftStyle. The reply and the card arrive in `hunt`. */
+  | ({ type: 'huntRun'; prompt: string } & Answer)
+  /** The cards as the page has them, and the marketplace picked last. */
+  /** Starts the conversation over; the cards stay. */
+  | { type: 'huntClear' }
+  | { type: 'huntSave'; proposals: HuntProposal[]; market?: string }
+  /** Creates the saved card's plugin in a marketplace; always asks, listing every file written and every copy retired. */
+  | ({ type: 'huntCreate'; id: string; market: string } & Answer)
+  /** Consolidate's merge for a repo copy that differs from the global one. */
+  | { type: 'huntMerge'; path: string; kind: 'skill' | 'agent' };
+
+// Share and Import start from commands (`share`, `importSkill`, ...) posted as `command`; the right-click menu and the
+// palette run the same commands, and their questions come back as `confirm` cards answered with `answer`.
 
 /** Host to webview. Payloads the host passes through from a reader stay `unknown` here. */
 export type ToWebview =
@@ -234,4 +301,22 @@ export type ToWebview =
   /** For `usageTotals`: the totals by element id, or `built: false` while there is no index. */
   | { type: 'usageTotals'; kind: string; totals?: Record<string, UsageTotal>; built?: false }
   /** For `slim`: the report, or none when the id is not a skill with a folder. */
-  | { type: 'slim'; id: string; report?: SlimReport };
+  | { type: 'slim'; id: string; report?: SlimReport }
+  | { type: 'hunt'; info: HuntInfo }
+  /** For `huntRun`: running while Claude works, done once the card is in `hunt`. */
+  | { type: 'huntRun'; state: 'running' | 'done' | 'error'; error?: string; /** The card the turn created or changed. */ card?: string }
+  | { type: 'huntCreate'; id: string; state: 'running' | 'done' | 'error'; text?: string }
+  /** For the skill distributor commands: what the last check found per skill id (merged into the page's), and whether a check is running. */
+  | { type: 'distChecks'; checks: Record<string, DistCheck>; running?: boolean }
+  /** What the last distributor command did, or none to clear the line. */
+  | { type: 'distNote'; note?: DistNote };
+
+/** What the distributor said about a skill when it was last asked. `current`: the skill's folder is unchanged; `newer`: it changed; `gone`: the repo no longer has it. */
+export interface DistCheck {
+  state: 'current' | 'newer' | 'gone' | 'error';
+  /** The version in the distributor's SKILL.md, when it has one and it is newer. */
+  version?: string;
+  error?: string;
+  /** When the check ran. */
+  at: number;
+}

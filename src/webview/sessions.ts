@@ -2,7 +2,7 @@
 // The sessions search page and session lists.
 import { analyzeRowButton } from './confirm';
 import { select, showRepo, state, viewOf, vscode } from './core';
-import { clip, el, fmtDate, fmtDur, highlight, icon, iconBtn, pageHead, plural } from './dom';
+import { clip, countHead, el, fmtDate, fmtDur, highlight, icon, iconBtn, plural } from './dom';
 import { render, renderMain } from './main';
 import { gridTable } from './tables';
 
@@ -28,6 +28,29 @@ export const sessionTip = (s, scope) => {
 
 export const sessionIcon =s =>
   s.live ? el('span', { className: 'codicon codicon-circle-filled live' }) : icon(s.headless ? 'terminal' : s.agents ? 'type-hierarchy-sub' : 'comment-discussion');
+
+// The head of the sessions search: the repo's name, its path in the hover.
+const sessionsHead = (view, ...tools) => {
+  const head = countHead('history', 'Sessions', view ? view.label : '', ...tools);
+  if (view) head.querySelector('.path').setAttribute('title', view.path);
+  return head;
+};
+
+// Sessions as one-line rows, the same columns on the repo's Sessions tab and in the search; the search adds a button to analyze one.
+export const sessionTable = (list, scope, label, { q = '', analyze = false } = {}) =>
+  gridTable(
+    [
+      { head: 'Session', track: 'minmax(180px, 3fr)', cls: 'at-name', cell: s => [sessionIcon(s), el('span', { className: 'at-label' }, q ? highlight(s.title, q) : s.title)], title: s => sessionTip(s, scope) },
+      { head: 'Branch', track: 'minmax(0, 1fr)', muted: true, wide: true, cell: s => s.branch || '' },
+      { head: 'Started', track: '120px', num: true, cell: s => (s.start ? fmtDate(s.start) : '') },
+      { head: 'Duration', track: '76px', num: true, cell: s => (s.start ? fmtDur(s.end - s.start) : '') },
+      { head: 'Agents', track: '60px', num: true, cell: s => String(s.agents || 0), title: s => (s.types || []).join(', ') },
+      { head: 'State', track: '84px', muted: true, cell: s => s.live || (s.headless ? 'headless' : s.children && s.children.length ? `${s.children.length} headless` : '') },
+      ...(analyze ? [{ head: '', track: '58px', cell: s => analyzeRowButton(scope, s.id) }] : []),
+    ],
+    list.map(s => Object.assign({ open: () => showSession(scope, s.id) }, s)),
+    label
+  );
 
 export const showSessionsPage = scope => {
   state.page = 'sessions';
@@ -119,17 +142,8 @@ export function renderSessionsPage() {
       ...[
         el('div', { className: 'group-label' }, q() || p.facets.length ? `${hits.length} of ${list.length} sessions` : plural(list.length, "session")),
         hits.length
-          ? hits.map(s =>
-              el(
-                'div',
-                { className: 'row', title: sessionTip(s, p.scope), onclick: () => showSession(p.scope, s.id) },
-                sessionIcon(s),
-                el('span', { className: 'name' }, highlight(s.title, q())),
-                el('span', { className: 'desc' }, [sessionDesc(s), (s.types || []).join(', ')].filter(Boolean).join(' · ')),
-                analyzeRowButton(p.scope, s.id)
-              )
-            )
-          : el('div', { className: 'empty flush' }, 'No session matches. Press Esc to clear the search.'),
+          ? sessionTable(hits, p.scope, 'Sessions', { q: q(), analyze: true })
+          : el('div', { className: 'empty flush' }, 'No session matches. Esc clears the search.'),
       ].flat()
     );
   };
@@ -251,7 +265,7 @@ export function renderSessionsPage() {
   return el(
     'section',
     { className: 'main' },
-    pageHead('history', 'Sessions', view ? `${view.label} · ${view.path}` : '', back, reload),
+    sessionsHead(view, back, reload),
     el('div', { className: 'main-body' }, el('div', { className: 'session-search' }, el('div', { className: 'combo' }, icon('search'), input, suggest), chips), results)
   );
 }
@@ -281,18 +295,7 @@ export function renderSessionList(view) {
       ? el('div', { className: 'empty flush' }, 'Reading the sessions...')
       : !list.length
         ? el('div', { className: 'empty flush' }, 'No Claude Code session ran in this repo yet.')
-        : gridTable(
-            [
-              { head: 'Session', track: 'minmax(180px, 3fr)', cls: 'at-name', cell: s => [sessionIcon(s), el('span', { className: 'at-label' }, s.title)], title: s => s.title },
-              { head: 'Branch', track: 'minmax(0, 1fr)', muted: true, wide: true, cell: s => s.branch || '' },
-              { head: 'Started', track: '120px', num: true, cell: s => (s.start ? fmtDate(s.start) : '-') },
-              { head: 'Duration', track: '76px', num: true, cell: s => (s.start ? fmtDur(s.end - s.start) : '-') },
-              { head: 'Agents', track: '60px', num: true, cell: s => String(s.agents || 0) },
-              { head: 'State', track: '84px', num: true, cell: s => s.live || (s.headless ? 'headless' : s.children && s.children.length ? `${s.children.length} headless` : '') },
-            ],
-            shown.map(s => Object.assign({ open: () => showSession(view.id, s.id) }, s)),
-            'Sessions'
-          ),
+        : sessionTable(shown, view.id, 'Sessions'),
     list && list.length > shown.length
       ? el(
           'div',

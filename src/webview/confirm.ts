@@ -3,7 +3,7 @@
 // happen, offers a switch that remembers the answer for good, confirms on its primary button and cancels with Esc, the
 // Cancel button or a click outside. The host asks for it (`confirm`) and gets the held-back message again, `confirmed`.
 import { state, vscode } from './core';
-import { claudeMark, el, icon } from './dom';
+import { aiGroup, claudeMark, el, icon } from './dom';
 import { hideHover } from './hover';
 
 const MODEL_NAMES = { sonnet: 'Sonnet', opus: 'Opus', haiku: 'Haiku' };
@@ -70,6 +70,53 @@ const CARDS = {
     ],
     action: 'Open in terminal',
     send: remember => vscode.postMessage({ type: 'tryAsset', id: ask.id, confirmed: true, remember }),
+  }),
+  hunt: ask => ({
+    mark: claudeMark(18),
+    title: 'Hunt a plugin with Claude',
+    sub: 'with Claude Sonnet, in a conversation',
+    facts: [
+      ['account', 'Runs claude -p on your own Claude login. This message and every later one of this conversation count against your plan.'],
+      ['list-unordered', `Sends your message, the conversation so far and the inventory of ${ask.items} ${ask.items === 1 ? 'skill or agent' : 'skills and agents'}, yours and those of your installed plugins, with name, description and where each lives. No file contents.`],
+      ['eye', 'Claude answers in the conversation and can add or change the plugin card. Nothing is created until you press Create, or ask Claude to create it and confirm.'],
+    ],
+    action: 'Hunt',
+    send: remember => vscode.postMessage({ type: 'huntRun', prompt: ask.prompt, confirmed: true, remember }),
+  }),
+  // Starting the conversation over, no host involved. No Don't ask again switch.
+  huntClear: ask => ({
+    mark: icon('clear-all'),
+    title: 'Start the conversation over?',
+    sub: 'Plugin Hunter',
+    facts: [
+      ['comment-discussion', 'The messages above are cleared, and Claude no longer sees them.'],
+      ['package', 'The plugin cards below stay as they are.'],
+    ],
+    action: 'Start over',
+    plain: true,
+    send: () => ask.onConfirm(),
+  }),
+  // Creating the plugin: every file written and every copy retired, listed before anything happens. No Don't ask again switch.
+  huntCreate: ask => ({
+    mark: icon('package'),
+    title: `Create ${ask.name}`,
+    sub: `in ${ask.market}`,
+    facts: [
+      ['folder', el('span', {}, 'Writes the plugin into ', el('code', {}, ask.location), ':')],
+      ...ask.files.map(f => ['file', el('code', {}, f)]),
+      ['extensions', el('span', {}, 'Installs ', el('code', {}, `${ask.name}@${ask.market}`), ' for you in every folder, then retires the copies below.')],
+      ...ask.retired.map(r => ['archive', `Retires ${r}. A backup is kept.`]),
+      ...(ask.retired.length ? [] : [['check', 'No copy is retired.']]),
+      ...ask.kept.map(k => ['info', k]),
+      ['git-commit', 'Nothing is committed in the marketplace.'],
+    ],
+    action: 'Create',
+    plain: true,
+    send: () => vscode.postMessage({ type: 'huntCreate', id: ask.id, market: ask.market, confirmed: true }),
+    mount: ({ card, relayout }) => {
+      card.querySelector('.cf-facts').classList.add('cf-scroll');
+      relayout();
+    },
   }),
   // The page's own question, no host involved: dropping the edits of the open element. No Don't ask again switch.
   discard: ask => ({
@@ -160,28 +207,141 @@ const CARDS = {
       },
     };
   },
+  // Share's question for an item that comes from a plugin: two tiles, only the item or the whole plugin, each with what it
+  // holds and its size. A radio group: arrows move, Enter shares, Esc cancels. No Don't ask again switch.
+  shareChoice: ask => {
+    let cur = ask.options[0];
+    const word = o => (o.id === 'plugin' ? 'Share the plugin' : `Share ${ask.what}`);
+    return {
+      mark: icon('export'),
+      title: `Share ${ask.name}`,
+      sub: `${ask.what} from the ${ask.plugin.split('@')[0]} plugin`,
+      facts: [],
+      action: word(cur),
+      plain: true,
+      send: () => vscode.postMessage({ type: 'answer', token: ask.token, choice: 'ok', picked: [cur.id] }),
+      mount: ({ card, go, relayout }) => {
+        card.classList.add('cf-share');
+        const tiles = ask.options.map(o =>
+          el(
+            'button',
+            { type: 'button', className: 'cf-tile', role: 'radio', 'aria-checked': String(o === cur), tabIndex: o === cur ? 0 : -1 },
+            el('span', { className: 'cf-tile-mark' }, icon(o.glyph)),
+            el(
+              'span',
+              { className: 'cf-tile-body' },
+              el('span', { className: 'cf-tile-title' }, o.title),
+              el('span', { className: 'cf-tile-sub' }, o.sub),
+              el('ul', { className: 'cf-tile-lines' }, o.lines.map(l => el('li', {}, l)))
+            ),
+            el('span', { className: 'cf-tile-size' }, o.size),
+            el('span', { className: 'cf-tile-radio' }, icon('check'))
+          )
+        );
+        const choose = (i, focus) => {
+          cur = ask.options[i];
+          tiles.forEach((t, n) => {
+            t.setAttribute('aria-checked', String(n === i));
+            t.tabIndex = n === i ? 0 : -1;
+          });
+          go.textContent = word(cur);
+          if (focus) tiles[i].focus();
+        };
+        tiles.forEach((t, i) => {
+          t.addEventListener('click', () => choose(i, false));
+          t.addEventListener('keydown', e => {
+            const step = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 }[e.key];
+            if (step) {
+              e.preventDefault();
+              choose((i + step + tiles.length) % tiles.length, true);
+            } else if (e.key === 'Enter') {
+              e.preventDefault();
+              go.click();
+            }
+          });
+        });
+        card.querySelector('.cf-facts').before(el('div', { className: 'cf-tiles', role: 'radiogroup', 'aria-label': `What to share of ${ask.name}` }, tiles));
+        relayout();
+      },
+    };
+  },
   // A question the host waits on: its buttons answer with the token. No Don't ask again switch.
-  panel: ask => ({
-    mark: icon(ask.glyph || 'question'),
-    title: ask.title,
-    sub: ask.sub,
-    facts: ask.facts.slice(0, 8).map(f => ['circle-small-filled', f]).concat(ask.facts.length > 8 ? [['ellipsis', `and ${ask.facts.length - 8} more lines`]] : []),
-    action: ask.action,
-    alt: ask.alt,
-    danger: ask.danger,
-    plain: true,
-    send: () => vscode.postMessage({ type: 'answer', token: ask.token, choice: 'ok' }),
-    sendAlt: () => vscode.postMessage({ type: 'answer', token: ask.token, choice: 'alt' }),
-  }),
+  // With `input` it carries a text field, with `choices` a list to pick from; the primary button waits until there is text or a pick.
+  panel: ask => {
+    const picked = new Set();
+    let field;
+    const typed = () => (field ? field.value.trim() : '');
+    const ready = () => (!ask.input || !!typed()) && (!ask.choices || picked.size > 0);
+    return {
+      mark: icon(ask.glyph || 'question'),
+      title: ask.title,
+      sub: ask.sub,
+      facts: (ask.scroll ? ask.facts : ask.facts.slice(0, 10)).map(f => ['circle-small-filled', f]).concat(!ask.scroll && ask.facts.length > 10 ? [['ellipsis', `and ${ask.facts.length - 10} more lines`]] : []),
+      action: ask.action,
+      alt: ask.alt,
+      danger: ask.danger,
+      plain: true,
+      mount: ({ card, go, relayout }) => {
+        if (ask.scroll) card.querySelector('.cf-facts').classList.add('cf-scroll');
+        if (!ask.input && !ask.choices) return relayout();
+        const sync = () => (go.disabled = !ready());
+        const wrap = el('div', { className: 'cf-field' });
+        if (ask.input) {
+          field = el('input', { type: 'text', className: 'cf-input', placeholder: ask.input.placeholder || '', value: ask.input.value || '', 'aria-label': ask.input.label, spellcheck: false });
+          field.addEventListener('input', sync);
+          field.addEventListener('keydown', e => {
+            if (e.key === 'Enter' && ready()) {
+              e.preventDefault();
+              go.click();
+            }
+          });
+          wrap.append(el('label', { className: 'cf-label' }, ask.input.label), field, ask.input.error ? el('div', { className: 'cf-error', role: 'alert' }, icon('error'), el('span', {}, ask.input.error)) : null);
+        }
+        if (ask.choices) {
+          const rows = ask.choices.map(c => {
+            const row = el(
+              'button',
+              { type: 'button', className: 'cf-choice', disabled: !!c.disabled, 'aria-pressed': 'false', onclick: () => {
+                if (!ask.multi) {
+                  picked.clear();
+                  rows.forEach(r => r.setAttribute('aria-pressed', 'false'));
+                }
+                if (picked.has(c.id)) picked.delete(c.id);
+                else picked.add(c.id);
+                row.setAttribute('aria-pressed', picked.has(c.id) ? 'true' : 'false');
+                sync();
+              } },
+              el('span', { className: 'cf-tick' }, icon('check')),
+              el('span', { className: 'cf-choice-label' }, c.label),
+              c.note ? el('span', { className: 'cf-choice-note' }, c.note) : null
+            );
+            return row;
+          });
+          wrap.append(el('div', { className: 'cf-choices', role: ask.multi ? 'group' : 'radiogroup', 'aria-label': ask.title }, rows));
+        }
+        card.querySelector('.cf-foot').before(wrap);
+        sync();
+        relayout();
+        if (field) field.focus();
+      },
+      send: () => vscode.postMessage({ type: 'answer', token: ask.token, choice: 'ok', text: typed() || undefined, picked: ask.choices ? [...picked] : undefined }),
+      sendAlt: () => vscode.postMessage({ type: 'answer', token: ask.token, choice: 'alt' }),
+    };
+  },
 };
 
 let current;
 
 // The element the owner last pressed or typed in, outside a card: where a question about that action points.
 let lastTarget;
+let lastRowText;
 const noteTarget = e => {
   const t = e.target;
-  if (t && t.closest && !t.closest('.cf')) lastTarget = t.closest('button, [role=button], a, .row') || t;
+  if (t && t.closest && !t.closest('.cf')) {
+    lastTarget = t.closest('button, [role=button], a, .row, .at-row') || t;
+    // A page that is drawn again replaces the element: the row with the same text stands in for it.
+    lastRowText = lastTarget.matches('.row, .at-row') ? lastTarget.textContent : undefined;
+  }
 };
 document.addEventListener('mousedown', noteTarget, true);
 document.addEventListener('keydown', noteTarget, true);
@@ -189,7 +349,10 @@ document.addEventListener('keydown', noteTarget, true);
 // The element a question points at: marked data-confirm="<kind>", and when several are, data-confirm-key picks by the
 // ask's key or by its session. A question about one row of a list points at that row's button.
 function findAnchor(ask) {
-  if ((ask.kind === 'panel' || ask.kind === 'consolidate') && ask.key === 'click') return lastTarget && lastTarget.isConnected ? lastTarget : null;
+  if ((ask.kind === 'panel' || ask.kind === 'consolidate' || ask.kind === 'shareChoice') && ask.key === 'click') {
+    if (lastTarget && lastTarget.isConnected) return lastTarget;
+    return (lastRowText && [...document.querySelectorAll('.at-row, .row')].find(r => r.textContent === lastRowText)) || null;
+  }
   const all = [...document.querySelectorAll(`[data-confirm="${ask.kind}"]`)];
   const key = ask.key || (ask.scope && ask.id ? `${ask.scope}/${ask.id}` : undefined);
   const keyed = all.find(n => n.dataset.confirmKey === key);
@@ -253,10 +416,12 @@ export function showConfirm(ask) {
             c.sendAlt();
           },
         },
-        c.altClaude ? claudeMark() : null,
+        c.altClaude ? icon('git-merge') : null,
         c.alt
       )
     : null;
+  // An alternative that starts a Claude sits in the AI group; `alt` stays the button, so focus and mounts still reach it.
+  const altNode = alt && c.altClaude ? aiGroup('', alt) : alt;
   const card = el(
     'div',
     { className: 'cf', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'cf-title', 'aria-describedby': 'cf-facts' },
@@ -266,7 +431,7 @@ export function showConfirm(ask) {
       'div',
       { className: 'cf-foot' },
       c.plain ? el('div', { className: 'cf-remember' }) : el('div', { className: 'cf-remember' }, track, el('span', { id: 'cf-remember', onclick: flip }, "Don't ask again")),
-      el('div', { className: 'cf-actions' }, cancel, alt, go)
+      el('div', { className: 'cf-actions' }, cancel, altNode, go)
     )
   );
   document.body.append(card);
@@ -286,9 +451,12 @@ export function showConfirm(ask) {
     const below = r.bottom + 8;
     const above = r.top - 8 - h;
     card.style.left = `${left}px`;
-    card.style.top = `${below + h <= innerHeight - 8 || above < 8 ? below : above}px`;
+    const fitsBelow = below + h <= innerHeight - 8;
+    const fitsAbove = above >= 8;
+    const top = Math.max(8, Math.min(fitsBelow || !fitsAbove ? below : above, innerHeight - h - 8));
+    card.style.top = `${top}px`;
     card.style.setProperty('--cf-arrow', `${Math.max(14, Math.min(r.left + r.width / 2 - left, w - 14))}px`);
-    card.classList.toggle('up', !(below + h <= innerHeight - 8 || above < 8));
+    card.classList.toggle('up', !fitsBelow && fitsAbove);
   };
   place();
   // A card that changes with a choice on it redraws its facts and buttons, then asks for a new place.
@@ -313,7 +481,7 @@ export function showConfirm(ask) {
     } else if (e.key === 'Tab') {
       // Focus stays in the card while it is open.
       // A button the card hid is no stop.
-      const stops = [c.plain ? null : track, cancel, alt, go].filter(n => n && !n.hidden);
+      const stops = [c.plain ? null : track, ...card.querySelectorAll('.cf-input, .cf-choice:not(:disabled), .cf-tile[aria-checked="true"]'), cancel, alt, go].filter(n => n && !n.hidden && !n.disabled);
       const i = stops.indexOf(document.activeElement);
       e.preventDefault();
       stops[(i + (e.shiftKey ? stops.length - 1 : 1)) % stops.length].focus();
@@ -337,7 +505,8 @@ export function showConfirm(ask) {
     },
   };
   frame = requestAnimationFrame(follow);
-  (c.danger ? cancel : go).focus();
+  const first = card.querySelector('.cf-input');
+  (first || (c.danger || go.disabled ? cancel : go)).focus();
 }
 
 // Marks a button as where a card of this kind points; `key` tells it from the others of its kind (one row among many).
@@ -349,22 +518,25 @@ export const confirmAt = (node, kind, key) => {
 
 // Analyze from one row of a list: a button that asks for the card under itself, without opening the row.
 export const analyzeRowButton = (scope, id) =>
-  confirmAt(
-    el(
-      'button',
-      {
-        className: 'icon-btn row-act',
-        title: 'Analyze\nA new Claude in a terminal with a copy of this session, to ask about it. The session stays untouched.',
-        'aria-label': 'Analyze this session',
-        onclick: e => {
-          e.stopPropagation();
-          hideHover();
-          vscode.postMessage({ type: 'analyzeSession', scope, id });
+  aiGroup(
+    'compact row-ai',
+    confirmAt(
+      el(
+        'button',
+        {
+          className: 'icon-btn row-act',
+          title: 'Analyze\nA new Claude in a terminal with a copy of this session, to ask about it. The session stays untouched.',
+          'aria-label': 'Analyze this session',
+          onclick: e => {
+            e.stopPropagation();
+            hideHover();
+            vscode.postMessage({ type: 'analyzeSession', scope, id });
+          },
+          onkeydown: e => e.stopPropagation(),
         },
-        onkeydown: e => e.stopPropagation(),
-      },
-      claudeMark()
-    ),
-    'analyze',
-    `${scope}/${id}`
+        icon('comment-discussion')
+      ),
+      'analyze',
+      `${scope}/${id}`
+    )
   );

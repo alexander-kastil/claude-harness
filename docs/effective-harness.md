@@ -16,12 +16,12 @@ The **Effective harness** tab on a repo page lists what a Claude Code session in
 
 | Part | What it lists |
 | --- | --- |
-| Memory | `~/.claude/CLAUDE.md`, the repo's `CLAUDE.md`, `CLAUDE.local.md` and `.claude/CLAUDE.md`. Lines that import a file with `@path` load that file too, up to five levels deep. Imports inside code are not followed. A missing file shows "not found". |
-| Rules | The rules in `~/.claude/rules` and in the repo's `.claude/rules`. A rule with no paths shows `always` in its Loads column. A rule with `paths:` lists its globs in that column, and its Files column counts the files they match. A `+` after the count means the count is capped. |
+| Memory | `~/.claude/CLAUDE.md`, the repo's `CLAUDE.md`, `CLAUDE.local.md` and `.claude/CLAUDE.md`. The columns are Name (the path is in its hover), Loaded as (`memory` or `import`) and, when the repo has a session, Last session. Lines that import a file with `@path` load that file too, up to five levels deep. Imports inside code are not followed. A missing file shows "not found". |
+| Rules | The rules in `~/.claude/rules` and in the repo's `.claude/rules`. A rule with no paths shows `always` in its Loads column. A rule with `paths:` lists its globs in that column, and its Files column counts the files they match. A `+` after the count means the count is capped. Origin reads `global` or `repo`. |
 
 ## What the last session loaded
 
-When the repo has a session, the Memory and Rules tables get a **Last session** column. It reads `loaded` when the newest session in the repo loaded the file, and `not loaded` with a warning icon when the file is declared here but that session did not load it. A rule with paths shows a dash, since it loads only when Claude reads a matching file. A **Loaded by the last session** section at the end lists every memory and rule file that session loaded. Click a path to open it. When the session recorded no list, the section says so.
+When the repo has a session, the Memory and Rules tables get a **Last session** column. It reads `loaded` when the newest session in the repo loaded the file, and `not loaded` with a warning icon when the file is declared here but that session did not load it. A rule with paths is left empty, since it loads only when Claude reads a matching file. A **Loaded by the last session** section at the end lists every memory and rule file that session loaded. Click a path to open it. When the session recorded no list, the section says so.
 
 ## Plugins and hooks
 

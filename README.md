@@ -110,6 +110,12 @@ Merges duplicate skills across scopes and plugins into one source. A copy identi
 
 ![The Consolidate card for a repo skill that differs from Global](docs/images/feature-consolidate.png)
 
+### Plugin Hunter
+
+Talk to Claude about the skills and agents you already have, and it proposes a plugin. Create writes the plugin into a marketplace folder of yours, installs it and retires the copies you tick, with a backup. The Enabled column of the Plugins page is a switch that enables or disables a plugin.
+
+![Plugin Hunter with a conversation and the card of a proposed plugin](docs/images/plugin-hunter.png)
+
 ### Claude actions through your own CLI
 
 Review, Slim, Try it, Analyze, Continue and Merge with Claude start your `claude` CLI in a VS Code terminal with the prompt and the measured context filled in; Analyze works on a copy of the session. Each opens a confirm card first. The runs count against your Claude plan, and Claude Harness adds no charge.
@@ -138,6 +144,8 @@ Install Claude Harness: it opens on the `~/.claude` you already have.
 | [CLAUDE.md lenses](docs/claude-md-lenses.md) | Flags dead pointers in CLAUDE.md and rules files, with quick fixes |
 | [Effective harness](docs/effective-harness.md) | Lists the memory, rules, plugins and hooks that a session in a repo loads |
 | [Duplicates](docs/duplicates.md) | Finds copies of an item across scopes and plugins, compares them, and retires repo copies |
+| [Share and Import](docs/commands.md#share-and-import) | Packs an agent, skill, command, rule, plugin, MCP server or hook into a file in your Downloads folder, and imports one that someone shared, with a backup of what it replaces |
+| [Sync](docs/duplicates.md#sync) | Brings a repo copy in step with Global, a plugin with its marketplace, a skill with its source, and an MCP server with its other copies |
 | [Bulk-edit guard](docs/bulk-edits.md) | Leaves out repos with uncommitted harness files, busy sessions or stale worktree copies before a bulk change |
 | [Fleet overview](docs/fleet-overview.md) | One table of every repo, with its lines, plugins and copies |
 | [Rules editor](docs/rules-editor.md) | Shows which files a rule's paths match |
@@ -145,7 +153,8 @@ Install Claude Harness: it opens on the `~/.claude` you already have.
 | [Configure Tools](docs/configure-tools.md) | Picks the tools an agent, skill or command may use |
 | [MCP servers](docs/mcp-servers.md) | Lists MCP servers with their source and status, sorts them, shows their tools, and adds, copies or deletes them |
 | [MCP switches](docs/mcp-toggles.md) | Turns an MCP server on or off for one repo or in every folder |
-| [Plugins](docs/plugins.md) | Enables, disables, installs and uninstalls plugins, and marks mods |
+| [Plugins](docs/plugins.md) | Enables, disables, installs and uninstalls plugins, marks mods, and builds a new plugin from your skills and agents with Plugin Hunter |
+| [Skill sources](docs/skill-sources.md) | Adds skills from skills.sh or GitHub, checks them for a newer version, updates them in place, and links a global skill into a repo |
 | [Settings](docs/settings.md) | Sets the global harness folder and the repo lists the extension keeps, and edits the settings files |
 | [Commands](docs/commands.md) | Every Claude Harness command, what it does and where to find it |
 

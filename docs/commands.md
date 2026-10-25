@@ -27,14 +27,25 @@ Every command is in the **Claude Harness** category. Commands marked *hidden* do
 | Enable / Disable Plugin (*hidden*) | Turns a plugin on or off | Tree inline, plugin page |
 | Add MCP Server... | Asks for the scope, a name, and a command line or URL, then adds the server to `~/.claude.json` or the repo's `.mcp.json` | Palette, MCP Servers header, tree inline |
 | Copy as claude mcp add Command (*hidden*) | Copies a `claude mcp add` line for the server to the clipboard | Tree right-click, server page |
-| Open Claude Here | Opens a terminal in a repo, or in your home folder, running `claude`. Every action that starts Claude shows the Claude icon. | Palette, tree title bar, repo rows |
+| Open Claude Here | Opens a terminal in a repo, or in your home folder, running `claude`. Every action that starts Claude sits in an AI group, led by the Claude mark. | Palette, tree title bar, repo rows |
 | Install Plugin... | Picks a plugin from your marketplaces and the scope, then runs `claude plugin install` in a terminal | Palette, Plugins header, tree inline |
 | Uninstall Plugin... | Confirms, then runs `claude plugin uninstall` in a terminal | Palette, tree right-click, plugin page |
 | Open Settings File... | Picks any `settings.json` or `settings.local.json` and opens it in the editable JSON view | Palette, tree inline on Settings |
 | Fleet Overview | Opens the table of every repo. See [Fleet overview](fleet-overview.md). | Palette, tree title bar, Repositories node |
 | Marketplace Health | Opens the marketplaces and their plugins. See [Marketplace health](marketplace-health.md). | Palette, Plugins header, Repositories node |
 | Retire Copy (*hidden*) | Backs up a repo copy of a skill or agent that matches a global or plugin copy, then deletes it. See [Duplicates](duplicates.md#retire-a-copy). | Retire button on an item page |
-| Consolidate... (*hidden*) | Moves a repo skill up to its plugin source or global and retires the repo copy. See [Duplicates](duplicates.md#consolidate). | Right-click on a repo skill row, skill page |
+| Consolidate into Global or Plugin... (*hidden*) | Moves a repo skill up to its plugin source or global and retires the repo copy. See [Duplicates](duplicates.md#consolidate). | Right-click on a repo skill row, skill page |
+| Add Skill from skills.sh or GitHub... | Asks for a skills.sh or GitHub address, then installs the skill into `~/.claude/skills` after a card. See [Skill sources](skill-sources.md#add-a-skill-from-skillssh-or-github). | Palette, Skills header |
+| Connect Skill to its Source... (*hidden* with a skill) | Connects a skill you copied by hand to its address, so it can be checked and updated. See [Skill sources](skill-sources.md#connect-a-skill-you-already-have). | Palette, skill page |
+| Check Skills for Updates | Asks GitHub whether the skills that have a source changed. A skill's page checks that skill. See [Skill sources](skill-sources.md#check-for-updates). | Palette, Skills header, skill page |
+| Update Skills from their Source | Replaces the files of the skills a check found newer, after a card, with a backup. See [Skill sources](skill-sources.md#update). | Palette, Skills header, skill page |
+| Link Global Skill into a Repo... | Gives the repos you pick a soft link to a global skill. See [Skill sources](skill-sources.md#link-a-global-skill-into-a-repo). | Palette, skill page |
+| Sync (*hidden*) | Checks a skill that has a source for a newer version and goes on to the update card. See [Skill sources](skill-sources.md#check-for-updates). | Right-click on a skill row with a source, sidebar tree |
+| Sync from Global... (*hidden*) | Overwrites a repo skill or agent with the Global version when the two differ, after a backup. See [Duplicates](duplicates.md#sync). | Right-click on the repo copy, item page |
+| Sync Plugin from Its Marketplace... (*hidden*) | Refreshes the marketplace and updates a plugin whose source is ahead. See [Marketplace health](marketplace-health.md). | Right-click on a plugin, Marketplace health |
+| Sync to Other Copies... (*hidden*) | Writes the chosen configuration of an MCP server into the other files that configure it. See [MCP servers](mcp-servers.md#share-and-sync). | Right-click on the server, server page |
+| Share... (*hidden*) | Saves an element as a file in your Downloads folder. See [Share and Import](#share-and-import). | Right-click on a row, sidebar tree |
+| Import Skill..., Import Plugin..., Import Agent..., Import Command..., Import Output Style..., Import Rule..., Import CLAUDE.md..., Import MCP Server..., Import Hook... | Takes a shared file back in. See [Share and Import](#share-and-import). | Palette, import button in the header of the type page |
 | Retire Clean Copies... | Retires identical repo copies of skills and agents after you pick them. See [Duplicates](duplicates.md#retire-clean-copies). | Palette, Repositories node, Fleet overview |
 | Rename Marketplace... | Renames a directory marketplace in the settings files, then re-registers it in a terminal. See [Marketplace health](marketplace-health.md#rename-a-directory-marketplace). | Palette, Marketplace health page |
 | Open Repo (*hidden*) | Opens a repo's page | Right-click on a repo row |
@@ -68,6 +79,21 @@ Opens a new terminal in the chosen repo and starts `claude`. **Home folder** sta
 ## Install and uninstall plugins
 
 **Install Plugin...** lists the plugins of every marketplace you have added, with installed ones marked. Pick a repo to install it for that repo (`--scope project`), or **You, in every folder** to install it for yourself (`--scope user`). The install runs in a terminal so you can answer its questions. **Uninstall Plugin...** asks first, then runs the uninstall for the scope the plugin is listed in. See [Plugins](plugins.md).
+
+## Share and Import
+
+**Share...** packs an element in its native format and saves it to your Downloads folder: a `.zip` for a skill or plugin, an `.md` file for an agent, command, output style, rule or CLAUDE.md, and a `.json` file for an MCP server or hook (a `.zip` when the hook has a script). A name that is taken becomes `name (2)`. A notification offers **Show in folder**.
+
+- An item that ships with a plugin asks first: only that item, or the whole plugin.
+- If the package holds values that look like secrets, such as keys or tokens, a card lists them first. They are saved as they are, and only after you choose **Save with the values**.
+
+**Import Skill...** and the eight other Import commands open a file picker for a shared file. Then:
+
+1. Pick the scope: Global or a repo.
+2. A card lists every file that will be written. If an element of that name exists, the card says so. **Replace** backs it up to `~/.claude/repo-sync-backups` first, and **Use a new name** keeps both.
+3. An MCP server or a hook is merged into the settings file of the scope instead of replacing a file.
+
+**Import Plugin...** writes the plugin into a directory marketplace of yours, in a category folder if the marketplace uses them, and installs it for you in every folder. If you have no directory marketplace, it says so. The import button is also in the header of each type page, and a question is a card in the panel when the panel started the command.
 
 ## Open Settings File
 

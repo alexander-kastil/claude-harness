@@ -4,7 +4,7 @@
 import type { CheckSummary } from '../constitution';
 import type { ScopeView } from '../harness';
 import { command, openAt, state, std, vscode } from './core';
-import { claudeMark, el, icon, iconBtn, plural } from './dom';
+import { aiGroup, el, icon, iconBtn, plural } from './dom';
 import { renderMarkdown } from './markdown';
 
 type Finding = NonNullable<CheckSummary['findings']>[number];
@@ -48,7 +48,7 @@ function findingItem(view: ScopeView, f: Finding): HTMLElement {
     'div',
     { className: 'std-item' },
     row,
-    iconBtn(claudeMark(), 'Fix with Claude\nA new Claude in a terminal at the repo, asked to fix this one finding.', () => vscode.postMessage({ type: 'fixFinding', scope: view.id, text, file: f.file, line: f.line }), false)
+    aiGroup('compact', iconBtn('lightbulb', 'Fix with Claude\nA new Claude in a terminal at the repo, asked to fix this one finding.', () => vscode.postMessage({ type: 'fixFinding', scope: view.id, text, file: f.file, line: f.line }), false))
   );
 }
 
@@ -63,12 +63,11 @@ export function standardCard(view: ScopeView): HTMLElement | null {
   const findings = (c && c.findings) || [];
   const fail = c?.fail || 0;
   const review = c?.review || 0;
+  // A finished check says its result in the pill and the group heads below; only the other states need a sentence.
   const sentence =
-    st === 'pass'
-      ? `${s.name} found nothing to fix and nothing to review in this repo's harness.`
-      : st === 'fail' || st === 'review'
-        ? `${s.name} found ${[fail ? `${plural(fail, 'thing')} to fix` : '', review ? `${plural(review, 'line')} to review` : ''].filter(Boolean).join(' and ')}. Each finding opens the file at the spot.`
-        : st === 'running'
+    st === 'pass' || st === 'fail' || st === 'review'
+      ? ''
+      : st === 'running'
           ? `${s.name} is checking the repo.`
           : st === 'unchecked'
             ? `${s.name} has not checked this repo yet.`
@@ -78,14 +77,14 @@ export function standardCard(view: ScopeView): HTMLElement | null {
     'div',
     { className: 'std-actions' },
     el('button', { className: 'secondary', onclick: () => command('checkRepos', { scope: view.id }) }, icon('refresh'), st === 'unchecked' ? 'Check now' : 'Check again'),
-    s.align && touches(/CLAUDE\.md|sections|lines|em-dash|pointer|restated|boilerplate/) ? el('button', { className: 'secondary', onclick: () => command('alignClaudeMd', { scope: view.id }) }, claudeMark(), 'Align CLAUDE.md...') : null,
+    s.align && touches(/CLAUDE\.md|sections|lines|em-dash|pointer|restated|boilerplate/) ? aiGroup('', el('button', { className: 'secondary', onclick: () => command('alignClaudeMd', { scope: view.id }) }, icon('markdown'), 'Align CLAUDE.md...')) : null,
     s.fix && touches(/settings|hook/) ? el('button', { className: 'secondary', onclick: () => command('fixSettings', { scope: view.id }) }, icon('wrench'), 'Fix settings and hooks...') : null,
     s.doc ? el('button', { className: 'link', onclick: () => openAt(s.doc, undefined) }, icon('go-to-file'), 'Open the standard') : null
   );
   const facts = el(
     'div',
     { className: 'dv-chips' },
-    c?.kind ? el('span', { className: 'dv-chip', title: `The standard applies different rules to each kind of repo; ${s.name} filed this one as a ${c.kind} repo. The document below says what each kind needs.` }, icon('repo'), el('span', { className: 'k' }, 'Kind'), `${c.kind} repo`) : null,
+    c?.kind ? el('span', { className: 'dv-chip', title: `The standard applies different rules to each kind of repo; ${s.name} filed this one as a ${c.kind} repo. The document below says what each kind needs.` }, icon('repo'), el('span', { className: 'k' }, 'Kind'), c.kind) : null,
     typeof c?.lines === 'number' ? el('span', { className: 'dv-chip' }, icon('markdown'), el('span', { className: 'k' }, 'CLAUDE.md'), plural(c.lines, 'line')) : null,
     typeof c?.emDashes === 'number' ? el('span', { className: `dv-chip${c.emDashes ? ' warn' : ''}` }, el('span', { className: 'k' }, 'Em dashes'), String(c.emDashes)) : null
   );
@@ -102,7 +101,7 @@ export function standardCard(view: ScopeView): HTMLElement | null {
     'section',
     { className: 'dv-hero std-card' },
     el('div', { className: 'dv-kicker' }, el('span', {}, 'Harness standard'), el('span', { className: 'dv-origin' }, s.name)),
-    el('div', { className: 'std-status' }, el('span', { className: `std-pill ${tone}` }, icon(glyph), label), el('p', { className: 'dv-desc' }, sentence)),
+    el('div', { className: 'std-status' }, el('span', { className: `std-pill ${tone}` }, icon(glyph), label), sentence ? el('p', { className: 'dv-desc' }, sentence) : null),
     facts,
     groups.map(([, title, gl, list]) => el('div', { className: 'std-group' }, el('div', { className: 'std-group-head' }, icon(gl), el('span', {}, title), el('span', { className: 'dv-count' }, String(list.length))), list.map(f => findingItem(view, f)))),
     actions,
