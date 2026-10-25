@@ -283,7 +283,7 @@ export function renderOverview() {
       'header',
       { className: 'main-head' },
       el('span', { className: 'big' }, logo('logo-lg')),
-      el('div', { className: 'title' }, el('h1', {}, 'Claude Harness'), el('div', { className: 'path meta' }, `${global ? total(global) : 0} global assets · ${plural(repos.length, 'repository').replace('repositorys', 'repositories')}`))
+      el('div', { className: 'title' }, el('h1', {}, 'Claude Harness'), el('div', { className: 'path meta' }, `${global ? total(global) : 0} global assets · ${plural(repos.length, 'repository')}`))
     ),
     (body = el(
       'div',

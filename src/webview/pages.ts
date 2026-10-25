@@ -50,7 +50,7 @@ export function renderFleet() {
     countHead(
       'dashboard',
       'Fleet overview',
-      rows ? (rows.length === 1 ? '1 repository' : `${rows.length} repositories`) : 'Reading...',
+      rows ? plural(rows.length, 'repository') : 'Reading...',
       std() ? iconBtn('checklist', 'Check every repo against the harness standard', () => command('checkRepos')) : null,
       std('fix') ? iconBtn('wrench', 'Fix settings and hooks...', () => command('fixSettings')) : null,
       confirmAt(iconBtn('archive', 'Retire clean copies...', () => command('retireCopies')), 'panel', 'retireCopies'),

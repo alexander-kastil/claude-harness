@@ -136,8 +136,10 @@ export function kindSuggestions(kind, entries, q, facets) {
   const pool = filterEntries(kind, entries, '', facets);
   const gq = groupQuery(q, groups);
   if (gq) return facetValues(gq.g, pool).filter(f => !has(f) && String(valueName(gq.g, f.value)).toLowerCase().includes(gq.rest));
+  // Preset counts follow the text search, like the chips under the search box.
+  const counted = filterEntries(kind, entries, q, facets);
   const presets = presetsFor(kind)
-    .map(([value, label, test]) => ({ kind: 'preset', value, label, n: pool.filter(e => test(e.a)).length }))
+    .map(([value, label, test]) => ({ kind: 'preset', value, label, n: counted.filter(e => test(e.a)).length }))
     .filter(f => f.n > 0 && !has(f) && (!q || f.label.toLowerCase().includes(q)));
   const openers = groups.map(g => ({ kind: 'group', g, label: `${g[1]}:`, n: facetValues(g, pool).length })).filter(f => f.n > 0 && (!q || f.g[1].toLowerCase().startsWith(q)));
   if (!q) return [...presets, ...openers];
@@ -311,7 +313,9 @@ export function renderKindPage() {
         : null;
     });
     const openers = groupsIn(entries).map(g => el('button', { className: 'filter-add', 'aria-label': `Filter by ${g[1].toLowerCase()}`, onclick: () => openGroup(g) }, icon('add'), g[1]));
-    filters.replaceChildren(...[chips, presets, openers.length ? el('span', { className: 'filter-sep', 'aria-hidden': 'true' }) : null, openers].flat().filter(Boolean));
+    // Two or more filters on at once (a preset beside the Scope chip) say so, so a short list is not a surprise.
+    const on = el('span', { className: 'filter-on', title: `${p.facets.length} filters apply together: ${p.facets.map(f => f.label).join(', ')}` }, `${p.facets.length} filters on`);
+    filters.replaceChildren(...[p.facets.length > 1 ? on : null, chips, presets, openers.length ? el('span', { className: 'filter-sep', 'aria-hidden': 'true' }) : null, openers].flat().filter(Boolean));
   };
   const drawSuggest = () => {
     items = kindSuggestions(p.kind, entries, q(), p.facets);

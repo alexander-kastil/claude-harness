@@ -1014,9 +1014,15 @@ table.grid .cell {
   fill: transparent;
 }
 
+.tl-modtick-halo {
+  stroke: var(--vscode-editor-background);
+  stroke-width: 6;
+}
+
 .tl-modtick-line {
   stroke: var(--vscode-charts-green);
-  stroke-width: 2;
+  stroke-width: 3;
+  stroke-linecap: round;
 }
 
 .tl-modtick.ev-warn .tl-modtick-line {
@@ -1025,12 +1031,64 @@ table.grid .cell {
 
 .tl-modtick.ev-quiet .tl-modtick-line {
   stroke: var(--vscode-descriptionForeground);
-  stroke-width: 1;
+  stroke-width: 2;
 }
 
 .tl-modtick:hover .tl-modtick-line,
 .tl-modtick:focus-visible .tl-modtick-line {
-  stroke-width: 3;
+  stroke-width: 4;
+}
+
+/* The Models tab's bars: a row's share of the account's cost, and a model's token mix. */
+.wk-share {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.wk-bar {
+  display: flex;
+  flex: 1 1 auto;
+  height: 8px;
+  min-width: 40px;
+  margin: 0;
+  overflow: hidden;
+  border-radius: 4px;
+  background: var(--vscode-panel-border);
+}
+
+.wk-fill {
+  height: 100%;
+  background: var(--vscode-charts-blue);
+}
+
+.wk-pct {
+  min-width: 32px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/* The mix bar reuses the hover card's segment colours; the hover card's own bar is a thin strip pulled up under a figure. */
+.wk-bar.wk-mix {
+  height: 8px;
+  margin-top: 0;
+}
+
+/* The Mods switch states itself: a hollow circle when off, a filled green check when on, and a green fill behind the label. */
+.dg-toggle > [data-toggle='mods'] .mod-state {
+  margin-left: 2px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.dg-toggle > [data-toggle='mods'].active {
+  background: var(--vscode-charts-green);
+  color: var(--vscode-editor-background);
+  font-weight: 600;
+}
+
+.dg-toggle > [data-toggle='mods'].active .mod-state {
+  color: inherit;
 }
 
 .tl .tl-stop-bg {
@@ -2160,6 +2218,10 @@ mark {
   transform: rotate(45deg);
 }
 
+.cf.beside::before {
+  display: none;
+}
+
 .cf.up::before {
   top: auto;
   bottom: -6px;
@@ -2922,6 +2984,12 @@ mark {
   width: 1px;
   margin: 3px 4px;
   background: var(--vscode-panel-border);
+}
+
+.filter-on {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  margin-right: 2px;
 }
 
 .preset:focus-visible,

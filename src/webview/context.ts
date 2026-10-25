@@ -7,7 +7,8 @@ const SHARE_KINDS =['skill', 'plugin', 'agent', 'command', 'outputStyle', 'rule'
 export const skillContext = a => {
   const repoSkill = a.kind === 'skill' && a.scope !== 'global' && !a.scope.startsWith('plugin:');
   const shareable = SHARE_KINDS.includes(a.kind) && (a.kind !== 'mcp' || (!!a.file && !!a.jsonPath));
-  if (!repoSkill && !shareable) return {};
+  // A row with no menu entry still suppresses the browser's Cut/Copy/Paste menu.
+  if (!repoSkill && !shareable) return { 'data-vscode-context': JSON.stringify({ webviewSection: 'asset', preventDefaultContextMenuItems: true }) };
   return { 'data-vscode-context': JSON.stringify({ webviewSection: repoSkill ? 'skill' : 'asset', ...(repoSkill ? { scope: 'repo' } : {}), ...(shareable ? { shareable: true } : {}), ...(syncableFromGlobal(a) ? { syncGlobal: true } : {}), ...(syncableMcp(a) ? { syncMcp: true } : {}), ...(a.kind === 'plugin' ? { syncPlugin: true } : {}), ...(a.kind === 'skill' && a.origin ? { syncSource: true } : {}), assetId: a.id, preventDefaultContextMenuItems: true }) };
 };
 

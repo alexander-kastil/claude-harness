@@ -267,4 +267,7 @@ test('plural adds es to a word that ends in a hissing sound, so 11 launches', ()
   assert.equal(plural(2, 'hook run'), '2 hook runs');
   assert.equal(plural(2, 'memory file'), '2 memory files');
   assert.equal(plural(5, 'use'), '5 uses');
+  assert.equal(plural(2, 'repository'), '2 repositories');
+  assert.equal(plural(1, 'repository'), '1 repository');
+  assert.equal(plural(2, 'day'), '2 days');
 });

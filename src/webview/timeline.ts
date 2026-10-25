@@ -44,7 +44,8 @@ function modsSwitch(host, d) {
           onblur: hideHover,
         },
         icon('plug'),
-        el('span', {}, 'Mods')
+        el('span', {}, 'Mods'),
+        el('span', { className: `codicon codicon-${on ? 'pass-filled' : 'circle-large-outline'} mod-state`, 'aria-hidden': 'true' })
       )
     )
   );
@@ -64,7 +65,8 @@ function modTicks(events, x, y1, y2, name, label, key) {
     const g = svg(
       'g',
       { class: `tl-modtick ev-${tone}`, tabindex: '0', role: 'img', 'aria-label': `${label}: ${chipText(c.events)}` },
-      svg('rect', { x: c.x - 3, y: y1 - 1, width: 6, height: y2 - y1 + 2, class: 'tl-modtick-hit' }),
+      svg('rect', { x: c.x - 4, y: y1 - 1, width: 8, height: y2 - y1 + 2, class: 'tl-modtick-hit' }),
+      svg('line', { x1: c.x, x2: c.x, y1, y2, class: 'tl-modtick-halo' }),
       svg('line', { x1: c.x, x2: c.x, y1, y2, class: 'tl-modtick-line' })
     );
     const open = () => {

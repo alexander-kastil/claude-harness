@@ -113,4 +113,4 @@ export const svg = (tag, attrs, ...children) => {
 
 export const clip = (text, chars) => (text.length > chars ? `${text.slice(0, Math.max(1, chars - 3))}...` : text);
 
-export const plural = (n, word) => `${n} ${word}${n === 1 ? '' : /(s|x|z|ch|sh)$/.test(word) ? 'es' : 's'}`;
+export const plural = (n, word) => `${n} ${n === 1 ? word : /[^aeiou]y$/.test(word) ? `${word.slice(0, -1)}ies` : `${word}${/(s|x|z|ch|sh)$/.test(word) ? 'es' : 's'}`}`;

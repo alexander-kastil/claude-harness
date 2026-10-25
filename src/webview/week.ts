@@ -1,6 +1,7 @@
 // @ts-nocheck
 // The last 7 days seen per repo and per agent type, from the `weekly` message (one entry per account).
 import { state, vscode } from './core';
+import { fmtDate } from './dom';
 
 /** Asks the host for the weekly totals once; `state.weekly` is null while it reads. */
 export function askWeekly() {
@@ -18,6 +19,12 @@ export const slugOf = view => String(view.path || '').replace(/[^A-Za-z0-9]/g, '
 export function repoWeek(totals, view) {
   const slug = slugOf(view);
   return (totals || []).map(t => ({ t, r: (t.repos || []).find(r => r.folder.toLowerCase() === slug) })).filter(x => x.r);
+}
+
+/** The window the totals count, as the host chose it per account: "Last 7 days", or "Since <reset>" when a plan's weekly reset starts it. */
+export function weekSpan(totals) {
+  const spans = [...new Set((totals || []).map(t => (t.fromReset ? `Since ${fmtDate(t.since)}` : 'Last 7 days')))];
+  return spans.length ? spans.join(' / ') : 'Last 7 days';
 }
 
 /** What the agents of one type launched in the window, summed over the accounts; undefined without a launch. */
