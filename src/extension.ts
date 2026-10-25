@@ -7,6 +7,10 @@ import { Constitution } from './constitution';
 import { consolidateApply, consolidatePlan, mergePrompt, routesOf } from './consolidate';
 import type { ConsolidateRoute, ConsolidateTarget } from './shared/messages';
 import { FileEdit, fleetRow, guardInfo, guardReasons, lastSessionAt, marketplaceHealth, renameCatalog, renameCommands, renameInSettings } from './fleet';
+import { huntHost } from './hunt-host';
+import { keyChanges, mcpApply, mcpConfig, mcpVersions, syncApply, syncFiles, syncSource, updatePluginFromMarket } from './sync';
+import { registerDistributor } from './dist-host';
+import { registerShare } from './share-host';
 import { EventSource, eventLayers, findEventSources, transcriptLayers } from './events';
 import { registerLenses } from './lenses';
 import { NO_PROVIDER, Provider, ScaffoldForm, applyFix, findProvider, parseScaffoldOutput, previewFix, runScript, scaffoldArgs } from './standard';
@@ -515,6 +519,15 @@ export function activate(context: vscode.ExtensionContext): void {
       const data = await usageData(build, progress);
       return data ? { more: usageMore(data, target) } : { built: false };
     },
+    hunt: huntHost({
+      state: context.globalState,
+      root: () => global.root,
+      views: () => views,
+      plugins: () => plugins,
+      keep: () => provider?.keepCopies,
+      refresh,
+      consolidate: (id, answer, ask) => host.consolidateAsset!(id, answer, ask),
+    }),
     usageTotals: async (kind, build) => {
       if (kind !== 'agent' && kind !== 'skill' && kind !== 'command') return undefined;
       const data = await usageData(!!build);
@@ -631,6 +644,109 @@ export function activate(context: vscode.ExtensionContext): void {
 
   const cwdOf = (scope: HarnessScope) => (scope.id === global.id ? os.homedir() : scope.base);
 
+  /** The id a sync command starts from: a string, the webview's argument, the row's right-click context or a tree node. */
+  const syncAsset = (arg: unknown): Asset | undefined => {
+    const row = arg && typeof arg === 'object' && 'assetId' in arg ? String((arg as { assetId: unknown }).assetId) : undefined;
+    return row ? find(row) : assetOf(arg);
+  };
+
+  /** A sync question: a card in the panel pointing at what was pressed, the modal dialog from the palette or a tree menu. */
+  const askSync = async (arg: unknown, card: { title: string; sub: string; facts: string[]; action: string }): Promise<boolean> => {
+    const inPanel = panelArg(arg) || (arg && typeof arg === 'object' && 'assetId' in arg) ? HarnessPanel.ask({ key: 'click', glyph: 'sync', ...card }) : undefined;
+    return inPanel ? (await inPanel) === 'ok' : (await vscode.window.showWarningMessage(card.title, { modal: true, detail: card.facts.join('\n') }, card.action)) === card.action;
+  };
+
+  const fileList = (label: string, files: string[]) => (files.length ? [`${label}: ${files.slice(0, 8).join(', ')}${files.length > 8 ? ` and ${files.length - 8} more` : ''}`] : []);
+
+  /** A repo skill or agent that differs from its Global copy is overwritten with the Global version, the repo copy backed up first. */
+  const syncFromGlobal = async (arg: unknown) => {
+    const asset = syncAsset(arg);
+    if (!asset) return;
+    const scope = scopeOf(asset);
+    const { source, block } = syncSource(asset, scope.id === global.id ? undefined : scope.base);
+    const from = source && find(source.id);
+    if (block || !from) return void vscode.window.showInformationMessage(`${asset.name} cannot be synced from Global. ${block ?? 'The Global copy is not in the list.'}`);
+    const files = syncFiles(asset, from);
+    const stamp = backupStamp();
+    const dest = path.join(backupRoot(), stamp, path.basename(scope.base), path.relative(scope.base, asset.dir ?? asset.file));
+    const reasons = guardReasons(await guardInfo(scope.base));
+    const facts = [
+      `Overwrites the ${asset.kind} in ${scope.label} with the Global version.`,
+      ...fileList('Replaced', files.replaced),
+      ...fileList('Added', files.added),
+      ...fileList('Deleted', files.deleted),
+      `Backup: ${dest}`,
+      ...(reasons.length ? [`Careful: ${reasons.join(', ')}.`] : []),
+    ];
+    if (!(await askSync(arg, { title: `Sync ${asset.name} in ${scope.label} from Global?`, sub: 'Backed up first, then overwritten', facts, action: 'Sync' }))) return;
+    if (run(() => syncApply(asset, from, scope.base, backupRoot(), stamp))) {
+      constitution.ensure([scope.base], true);
+      void vscode.window.showInformationMessage(`Synced ${asset.name} in ${scope.label} from Global. Backup: ${dest}`);
+    }
+  };
+
+  /** A plugin whose marketplace source is ahead of the installed copy is refreshed and updated with the Claude Code CLI. */
+  const syncPluginCommand = async (arg: unknown) => {
+    const panel = arg && typeof arg === 'object' ? (arg as { plugin?: string }) : undefined;
+    const key = panel?.plugin ?? (typeof arg === 'string' ? arg : syncAsset(arg)?.name);
+    const market = marketplaceHealth(global.root).find(m => m.plugins.some(p => p.key === key));
+    const plugin = market?.plugins.find(p => p.key === key);
+    if (!key || !market || !plugin) return void vscode.window.showInformationMessage(`${key ?? 'That plugin'} is not in a registered marketplace.`);
+    if (!plugin.ahead) return void vscode.window.showInformationMessage(`${plugin.name} is current: its marketplace source is not ahead of the installed ${plugin.installed ?? 'copy'}.`);
+    const facts = [`Installed: ${plugin.installed}`, `Source in ${market.name}: ${plugin.source}`, `Runs claude plugin marketplace update ${market.name}, then claude plugin update ${key}.`, 'Claude Code sessions that are open pick it up after a restart.'];
+    if (!(await askSync(arg, { title: `Sync ${plugin.name} from ${market.name}?`, sub: `${plugin.installed} to ${plugin.source}`, facts, action: 'Sync plugin' }))) return;
+    try {
+      await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: `Syncing ${plugin.name} from ${market.name}` }, () => updatePluginFromMarket(key, market.name, plugin.source, global.root));
+      refresh();
+      HarnessPanel.post({ type: 'marketplaces', list: marketplaceHealth(global.root) });
+      void vscode.window.showInformationMessage(`${plugin.name} is now ${plugin.source}. Restart Claude Code sessions to use it.`);
+    } catch (e) {
+      void vscode.window.showErrorMessage((e as Error).message);
+    }
+  };
+
+  /** One MCP server name configured differently in several files: the owner picks the version, and that entry is written into the other files. */
+  const syncMcp = async (arg: unknown) => {
+    const asset = syncAsset(arg);
+    if (!asset || asset.kind !== 'mcp') return;
+    const labelOf = (a: Asset) => `${scopeOf(a).label}${a.source === 'local' ? ' (local config)' : ''}`;
+    const seen = new Set<string>();
+    const peers = assets().filter(a => {
+      const key = `${a.file}|${a.jsonPath?.join('/')}`;
+      if (a.kind !== 'mcp' || a.name !== asset.name || !a.file || !a.jsonPath || seen.has(key)) return false;
+      return seen.add(key), true;
+    });
+    const versions = mcpVersions(peers);
+    if (versions.length < 2) return void vscode.window.showInformationMessage(`${asset.name} is configured the same in ${peers.length === 1 ? 'its one file' : `all ${peers.length} files`}. Nothing to sync.`);
+    const summary = (c: Record<string, unknown>) => (typeof c.url === 'string' ? c.url : [c.command, ...(Array.isArray(c.args) ? c.args : [])].filter(Boolean).join(' '));
+    const choices = versions.map((v, i) => ({ id: String(i), label: v.assets.map(labelOf).join(', '), note: summary(v.config) }));
+    let kept: number | undefined;
+    const pick = panelArg(arg) || (arg && typeof arg === 'object' && 'assetId' in arg)
+      ? HarnessPanel.askFull({ key: 'click', glyph: 'sync', title: `Keep which version of ${asset.name}?`, sub: `${versions.length} different configurations in ${peers.length} files`, facts: [], action: 'Continue', choices })
+      : undefined;
+    if (pick) {
+      const answer = await pick;
+      kept = answer.choice === 'ok' && answer.picked?.length ? Number(answer.picked[0]) : undefined;
+    } else {
+      const chosen = await vscode.window.showQuickPick(choices.map(c => ({ label: c.label, description: c.note, id: Number(c.id) })), { title: `Keep which version of ${asset.name}?` });
+      kept = chosen?.id;
+    }
+    if (kept === undefined) return;
+    const keep = versions[kept];
+    const writes = versions
+      .filter((_, i) => i !== kept)
+      .flatMap(v => v.assets.map(a => ({ asset: a, label: labelOf(a), keys: keyChanges(keep.config, mcpConfig(a) ?? {}) })));
+    const stamp = backupStamp();
+    const facts = [
+      `Writes the ${keep.assets.map(labelOf).join(', ')} entry of ${asset.name} into ${writes.length} ${writes.length === 1 ? 'file' : 'files'}.`,
+      ...writes.flatMap(w => [`${w.label}: ${w.asset.file}`, `Changes: ${w.keys.join(', ') || 'no keys'}`]),
+      'Every other entry and the file formatting stay.',
+      `Backup: ${path.join(backupRoot(), stamp, 'mcp')}`,
+    ];
+    if (!(await askSync(arg, { title: `Sync ${asset.name} to the other copies?`, sub: 'Backed up first, then one entry replaced per file', facts, action: 'Sync' }))) return;
+    if (run(() => mcpApply(keep.config, writes, backupRoot(), stamp))) void vscode.window.showInformationMessage(`Synced ${asset.name} into ${writes.length} ${writes.length === 1 ? 'file' : 'files'}. Backup: ${path.join(backupRoot(), stamp, 'mcp')}`);
+  };
+
   /** Where a repo skill can be consolidated to, and why it cannot be. */
   const planConsolidate = (asset: Asset) => {
     const scope = scopeOf(asset);
@@ -728,6 +844,15 @@ export function activate(context: vscode.ExtensionContext): void {
   };
 
   context.subscriptions.push(
+    ...registerShare({ root: () => global.root, scopes: () => scopes, assetOf, refresh, backupRoot }),
+    ...registerDistributor({
+      root: () => global.root,
+      skills: () => (views.find(v => v.id === global.id)?.categories.find(c => c.kind === 'skill')?.items ?? []).filter(a => a.source !== 'plugin'),
+      repos: () => repoViews().map(v => ({ label: v.label, path: v.path })),
+      find: assetOf,
+      refresh,
+      backupRoot,
+    }),
     status,
     lensesChanged,
     vscode.languages.registerCodeLensProvider(
@@ -1217,6 +1342,10 @@ export function activate(context: vscode.ExtensionContext): void {
       constitution.ensure(dirs, true);
       void vscode.window.showInformationMessage(`Retired ${chosen.length} ${chosen.length === 1 ? 'copy' : 'copies'}. Backup: ${path.join(backupRoot(), stamp)}`);
     }),
+
+    vscode.commands.registerCommand('claudeHarness.syncFromGlobal', syncFromGlobal),
+    vscode.commands.registerCommand('claudeHarness.syncPlugin', syncPluginCommand),
+    vscode.commands.registerCommand('claudeHarness.syncMcp', syncMcp),
 
     // From the tree: the target is picked when there is more than one, and the native dialog asks, like the other destructive tree commands.
     vscode.commands.registerCommand('claudeHarness.consolidate', async (arg?: unknown) => {

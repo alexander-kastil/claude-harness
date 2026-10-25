@@ -2,6 +2,7 @@
 // output styles; the elements that mention one; the reference chip with its hover card; and go-to with a
 // way back.
 import type { Asset, ScopeView } from '../harness';
+import { linkedRepos } from './dist';
 import { command, kindLabel, labelOf, linkName, metaOf, pending, skillPluginOf, state, viewOf, vscode } from './core';
 import { el, icon } from './dom';
 import { hideHover, placeCard } from './hover';
@@ -115,7 +116,7 @@ export const fmtTokens = (n: number) => (n < 1000 ? `~${n}` : `~${(n / 1000).toF
 /** Where an element comes from, in a few words. */
 export function originText(a: Asset, v?: ScopeView): string {
   const plugin = skillPluginOf(a);
-  return [v && v.id !== 'global' ? v.label : 'Global', plugin ? `${plugin.replace(/-plugin$/, '')} plugin` : a.link ? `linked from ${linkName(a.link)}` : '', a.version ? `v${a.version}` : '']
+  return [v && v.id !== 'global' ? v.label : 'Global', plugin ? `${plugin.replace(/-plugin$/, '')} plugin` : a.origin ? `from ${a.origin.source}` : a.link ? `linked from ${linkName(a.link)}` : '', a.version ? `v${a.version}` : '', linkedRepos(a).length ? `linked into ${linkedRepos(a).join(', ')}` : '']
     .filter(Boolean)
     .join(' · ');
 }

@@ -67,7 +67,7 @@ function usageCard(a: Asset, info: UsageState | undefined): HTMLElement {
               { className: `dv-empty${never ? ' warn' : ''}` },
               never ? el('span', { className: 'dv-chip warn' }, icon('warning'), 'Never matched') : null,
               never
-                ? ' No session loaded this rule, so Claude never read a file that matches its paths.'
+                ? ' No session read a file that matches its paths.'
                 : noneYet
                   ? `No session has run in ${repo!.label} yet, so nothing could load this rule.`
                   : scoped && repo
@@ -79,7 +79,7 @@ function usageCard(a: Asset, info: UsageState | undefined): HTMLElement {
     sessions && sessions.length
       ? gridTable(
           [
-            { head: loads(a) ? 'Last loaded' : 'Last used', track: '120px', muted: true, cell: (s: UsageSession) => (s.last ? fmtDate(s.last) : '-') },
+            { head: loads(a) ? 'Last loaded' : 'Last used', track: '120px', muted: true, cell: (s: UsageSession) => (s.last ? fmtDate(s.last) : '') },
             { head: 'Repo', track: 'minmax(88px, 1.2fr)', muted: true, cell: (s: UsageSession) => s.repo, title: (s: UsageSession) => s.repo },
             { head: 'Session', track: 'minmax(100px, 3fr)', cls: 'at-name', cell: (s: UsageSession) => [icon('comment-discussion'), el('span', { className: 'at-label' }, s.title)], title: (s: UsageSession) => s.title },
             loads(a)
@@ -88,7 +88,7 @@ function usageCard(a: Asset, info: UsageState | undefined): HTMLElement {
             ...(a.kind === 'agent'
               ? [{ head: 'Hooks', track: 'minmax(96px, 1fr)', muted: true, wide: true, cell: (s: UsageSession) => agentHooksText(s), title: (s: UsageSession) => agentHooksTip(s) }]
               : []),
-            { head: '', track: '32px', cell: (s: UsageSession) => (s.scope ? analyzeRowButton(s.scope, s.id) : null) },
+            { head: '', track: '58px', cell: (s: UsageSession) => (s.scope ? analyzeRowButton(s.scope, s.id) : null) },
           ],
           sessions.map(s => Object.assign({ open: s.scope ? () => showSession(s.scope, s.id) : undefined }, s)),
           'Sessions'
@@ -100,7 +100,7 @@ function usageCard(a: Asset, info: UsageState | undefined): HTMLElement {
 /** What hooks and mods did inside the agent's own transcript in a session: tool calls denied, hook failures. */
 const agentHooksText = (s: UsageSession) => {
   const h = s.hooks;
-  if (!h || (!h.denied && !h.failed)) return '-';
+  if (!h || (!h.denied && !h.failed)) return '';
   return [h.denied ? `${h.denied} denied` : '', h.failed ? `${h.failed} failed` : ''].filter(Boolean).join(' · ');
 };
 
@@ -111,8 +111,8 @@ const agentHooksTip = (s: UsageSession) => {
 };
 
 const FIRED_ABOUT: Record<string, string> = {
-  hook: 'The sessions where the hook ran, newest first, with the runs, the failures and the average time. Runs are matched by event and matcher (and by command first, when the transcript records one), so two hooks with the same event, matcher and command cannot be told apart.',
-  hookScript: 'The sessions where a hook that runs this script file ran, newest first. The hooks counted are those whose command runs the script. Runs are matched by event and matcher (and by command first, when the transcript records one), so two hooks with the same event, matcher and command cannot be told apart.',
+  hook: 'The sessions where the hook ran, newest first, with the runs, the failures and the average time. Runs are matched by event and matcher, and by command when the transcript records one, so two hooks with the same event, matcher and command cannot be told apart.',
+  hookScript: 'The sessions where a hook that runs this script ran, newest first. Runs are matched by event and matcher, and by command when the transcript records one, so two hooks with the same event, matcher and command cannot be told apart.',
 };
 
 export const hasFiredTab = (a: Asset) => a.kind in FIRED_ABOUT;
@@ -139,7 +139,7 @@ function firedCard(a: Asset, info: UsageState | undefined): HTMLElement {
     sessions && sessions.length
       ? gridTable(
           [
-            { head: 'Last run', track: '120px', muted: true, cell: (s: UsageSession) => (s.last ? fmtDate(s.last) : '-') },
+            { head: 'Last run', track: '120px', muted: true, cell: (s: UsageSession) => (s.last ? fmtDate(s.last) : '') },
             { head: 'Repo', track: 'minmax(88px, 1.2fr)', muted: true, cell: (s: UsageSession) => s.repo, title: (s: UsageSession) => s.repo },
             { head: 'Session', track: 'minmax(100px, 3fr)', cls: 'at-name', cell: (s: UsageSession) => [icon('comment-discussion'), el('span', { className: 'at-label' }, s.title)], title: (s: UsageSession) => s.title },
             { head: 'Runs', track: '64px', num: true, cell: (s: UsageSession) => String(s.fired?.runs ?? s.count) },
@@ -148,11 +148,11 @@ function firedCard(a: Asset, info: UsageState | undefined): HTMLElement {
               track: '96px',
               num: true,
               tone: (s: UsageSession) => (s.fired?.failed ? 'bad' : ''),
-              cell: (s: UsageSession) => (s.fired?.failed ? `${s.fired.failed}${s.fired.exit !== undefined ? ` (exit ${s.fired.exit})` : ''}` : '-'),
+              cell: (s: UsageSession) => (s.fired?.failed ? `${s.fired.failed}${s.fired.exit !== undefined ? ` (exit ${s.fired.exit})` : ''}` : ''),
               title: (s: UsageSession) => (s.fired?.failed ? `${plural(s.fired.failed, 'failed run')}${s.fired.exit !== undefined ? `\nLast exit code ${s.fired.exit}` : ''}` : ''),
             },
-            { head: 'Avg time', track: '84px', num: true, wide: true, cell: (s: UsageSession) => (s.fired?.avgMs ? secs(s.fired.avgMs) : '-') },
-            { head: '', track: '32px', cell: (s: UsageSession) => (s.scope ? analyzeRowButton(s.scope, s.id) : null) },
+            { head: 'Avg time', track: '84px', num: true, wide: true, cell: (s: UsageSession) => (s.fired?.avgMs ? secs(s.fired.avgMs) : '') },
+            { head: '', track: '58px', cell: (s: UsageSession) => (s.scope ? analyzeRowButton(s.scope, s.id) : null) },
           ],
           sessions.map(s => Object.assign({ open: s.scope ? () => showSession(s.scope, s.id) : undefined }, s)),
           'Sessions'
@@ -233,7 +233,7 @@ export function pluginUsageTab(plugin: Asset, skills: { a: Asset }[], agents: { 
             [
               { head: 'Element', track: 'minmax(160px, 3fr)', cls: 'at-name', cell: (r: Row) => [icon(r.kind === 'agent' ? 'hubot' : r.kind === 'skill' ? 'mortar-board' : 'terminal'), el('span', { className: 'at-label' }, r.name)], title: (r: Row) => r.name },
               { head: 'Kind', track: '90px', muted: true, cell: (r: Row) => (r.kind === 'agent' ? 'Agent' : r.kind === 'skill' ? 'Skill' : 'Command') },
-              { head: 'Last used', track: '120px', muted: true, cell: (r: Row) => (r.last ? fmtDate(r.last) : '-') },
+              { head: 'Last used', track: '120px', muted: true, cell: (r: Row) => (r.last ? fmtDate(r.last) : '') },
               { head: 'Sessions', track: '84px', num: true, cell: (r: Row) => String(r.sessions) },
               { head: 'Uses', track: '84px', num: true, cell: (r: Row) => (r.kind === 'agent' ? launches(r.count) : plural(r.count, 'use')) },
             ],

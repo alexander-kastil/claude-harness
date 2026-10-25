@@ -4,22 +4,25 @@
 <tr>
 <td align="left"><a href="mcp-toggles.md">← Back to MCP switches</a></td>
 <td align="center"></td>
-<td align="right"><a href="settings.md">→ Next: Settings</a></td>
+<td align="right"><a href="skill-sources.md">→ Next: Skill sources</a></td>
 </tr>
 </table>
 
 The Plugins section lists the plugins in the global harness and in each repo. You can enable or disable a plugin without opening a settings file.
 
+![The Plugins page with an Enabled switch on each row and the Plugin Hunter button](images/plugins-page.png)
+
 ## What is listed
 
 - The global Plugins section lists the plugins in `enabledPlugins` in `~/.claude/settings.json`, and the plugins installed for your user in `plugins/installed_plugins.json`.
 - A repo lists the plugins in `enabledPlugins` in its own `.claude/settings.json`.
-- Each row shows whether the plugin is enabled or disabled, and its version when it is known.
+- The table has the columns Marketplace, Version and Enabled, with Changed and Scope where they apply. The Enabled column is a switch.
 
 ## Turn a plugin on or off
 
 | Where | How |
 | --- | --- |
+| Plugins page | Use the switch in the **Enabled** column of the plugin's row. It enables or disables the plugin in the scope of that row, and clicking it does not open the plugin. |
 | Detail view | Tick or clear the checkbox under the description, **Enabled for your user** for a global plugin. The change is written at once. |
 | Activity bar view | Click the circle button on the plugin's row. Its tooltip is **Enable / Disable Plugin**. |
 
@@ -37,7 +40,22 @@ In the activity bar, the right-click menu of a plugin agent shows **Open File** 
 
 Click the plus button on the **Plugins** header, or run **Claude Harness: Install Plugin...**, to install a plugin from your marketplaces. The **Uninstall** button on a plugin page, the tree's right-click menu and **Claude Harness: Uninstall Plugin...** uninstall it. From the plugin page a card under the button asks first; from the tree or the palette a VS Code dialog does. Both run the `claude plugin` command in a terminal. See [Commands](commands.md#install-and-uninstall-plugins).
 
-To see which installed plugins are behind their marketplace source, open [Marketplace health](marketplace-health.md). A plugin whose source is ahead of the installed copy is flagged there. The same page renames a directory marketplace and re-registers its plugins.
+To see which installed plugins are behind their marketplace source, open [Marketplace health](marketplace-health.md). A plugin whose source is ahead of the installed copy is flagged there with `update` in the Sync column and a **Sync plugin** button, which refreshes the marketplace and updates the plugin. The right-click menu of a plugin has **Sync Plugin from Its Marketplace...** for the same. The same page renames a directory marketplace and re-registers its plugins.
+
+## Plugin Hunter
+
+The **Plugin Hunter** button in the header of the Plugins page opens a page that builds a new plugin from the skills and agents you already have. Claude proposes the plugin; nothing is written until you press **Create** and agree.
+
+![The Plugin Hunter page with a conversation and the card of a proposed plugin](images/plugin-hunter.png)
+
+- **Marketplace.** The picker in the header chooses where the plugin is created. Only a directory marketplace is selectable, that is a folder on your disk with a `.claude-plugin/marketplace.json`. GitHub, git and URL marketplaces are listed but disabled, because Claude Code overwrites its copies of them when it updates them. Your pick is remembered.
+- **Conversation.** Talk to Claude in the box and press **Hunt**, for example: search all angular related harness elements. Then: create the plugin. Or: take angular-pwa-swa out. Claude answers in the conversation and adds or changes the plugin card. The first message of a conversation asks first, because it sends your message, the conversation so far and the name, description and location of every skill and agent, but no file contents. **Start over** clears the conversation and keeps the cards.
+- **Cards.** Each proposal is a card with the plugin name, a description, a category folder (needed only when the marketplace keeps its plugins in category folders) and its skills and agents. Edit the fields directly. Clear the box in front of an element to leave it out, or press the close button to take it off the card.
+- **Copies.** An element that exists in more than one place lists each copy under it. Each copy has a **Retire** tick, and its hover says whether it is the global or the repo copy: a ticked copy is backed up and removed after the plugin is installed. A repo copy that differs from the global one is marked **differs** and has a **Merge** button, which opens [Consolidate](duplicates.md#consolidate) for it.
+- **New plugin.** Starts an empty card without asking Claude. **Add skill or agent** opens a picker with a search over your skills and agents, skills first.
+- **Create.** Press **Create** on a card, and a card under the button lists every file that is written, the install, and every copy that is retired. After you agree, the extension writes the plugin and its entry in the marketplace, installs it for you in every folder, and retires the ticked copies. Each retired copy is backed up to `~/.claude/repo-sync-backups` first. Nothing is committed in the marketplace. The card is then marked **Created**.
+
+![The card that lists every file Create writes and every copy it retires](images/plugin-hunter-create.png)
 
 ## Used in
 
@@ -59,6 +77,6 @@ A mod gets ` · mod` after its description, for example `enabled · 0.2.0 · mod
 <tr>
 <td align="left"><a href="mcp-toggles.md">← Back to MCP switches</a></td>
 <td align="center"><a href="#plugins">↑ Back to top</a></td>
-<td align="right"><a href="settings.md">→ Next: Settings</a></td>
+<td align="right"><a href="skill-sources.md">→ Next: Skill sources</a></td>
 </tr>
 </table>

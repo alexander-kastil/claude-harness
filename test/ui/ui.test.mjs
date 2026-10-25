@@ -89,13 +89,10 @@ test('before the index exists the Used and Cost columns and the detail page agre
   const detail = await text();
   assert.doesNotMatch(detail, /in 0 sessions|never ran/, 'the detail page claims nothing without an index');
   await tile('Skills');
-  const row = await s.waitFor(D => [...D.querySelectorAll('.main [role=row]')].map(r => r.textContent).find(t => t.startsWith('release-playbook') && /not counted yet/.test(t)));
-  assert.equal((row.match(/not counted yet/g) || []).length, 2, 'Used and Cost both say so');
-  assert.doesNotMatch(row, /no index/);
+  const zeros = await s.waitFor(D => [...D.querySelectorAll('.main [role=row]')].filter(r => r.textContent.startsWith('release-playbook')).flatMap(r => [...r.querySelectorAll('.at-fact.bad')].filter(c => c.textContent === '0')).length);
+  assert.equal(zeros, 2, 'Used and Cost both show a red 0');
   await s.mouse('.main-head button', 'Count usage');
-  await s.waitFor(D => !/Count usage|Counting/.test(D.querySelector('.main-head').innerText) && ![...D.querySelectorAll('.main [role=row]')].some(r => /not counted yet/.test(r.textContent)));
-  const after = await text();
-  assert.doesNotMatch(after, /not counted yet/);
+  await s.waitFor(D => !/Count usage|Counting/.test(D.querySelector('.main-head').innerText) && ![...D.querySelectorAll('.main [role=row] .at-fact.bad')].some(c => c.textContent === '0'));
 });
 
 test('Ctrl+Alt+A brings the panel back after it was closed, and does not open a second one', T, async () => {
@@ -176,7 +173,7 @@ test('combined search finds harness assets and sessions, and says so when nothin
 test('a type page lists every skill of the scope, with a heading per origin and the counts of the tile', T, async () => {
   await tile('Skills');
   await notBlank('skills page');
-  assert.match(await text('.main-head .path'), /^32 in Global · 4 from plugins · \d+ across \d+ scopes/);
+  assert.match(await text('.main-head .path'), /^32 in Global · 4 from plugins · \d+ in \d+ scopes/);
   const rows = await labels('.main [role=row]');
   for (const n of ['release-playbook', 'api-design', 'webhook-debug']) assert.ok(rows.some(r => r.startsWith(n)), `${n} listed`);
   assert.ok((await labels('.main button')).some(b => b.startsWith('Scope')), 'the plugins are a value of the Scope filter');
@@ -185,7 +182,7 @@ test('a type page lists every skill of the scope, with a heading per origin and 
 test('detail page of a skill: the command bar, the header tiles and the size flag', T, async () => {
   await openRow('Skills', 'release-playbook');
   await notBlank('skill page');
-  assert.deepEqual(await labels('.main .view-tab').then(l => l.slice(0, 10)), ['Back', 'View', 'Edit', 'Open in editor', 'Reveal', 'Review with Claude', 'Slim with Claude', 'Try it', 'Rename', 'Duplicate']);
+  assert.deepEqual(await labels('.main .view-tab').then(l => l.slice(0, 12)), ['Back', 'View', 'Edit', 'Open in editor', 'Reveal', 'Review with Claude', 'Slim with Claude', 'Try it', 'Connect to source', 'Link into repo', 'Rename', 'Duplicate']);
   await s.mouse('.view-tab', 'Instructions');
   const body = await text();
   assert.match(body, /SKILL\.md is long/);
@@ -374,7 +371,15 @@ const cardSwitches = async (selector, text) => {
 test('the sessions list and the session page count the same agents; a launch that never started is named, not counted', T, async () => {
   await home();
   await go('.overview-tabs .view-tab', 'Last sessions', D => D.querySelector('.overview-tabs .view-tab.active')?.textContent.includes('Last sessions'));
-  const listed = await s.ev(D => { const r = [...D.querySelectorAll('.main [role=row]')].find(x => x.innerText.includes('Add the checkout endpoint')); return r.innerText.match(/\b(\d+)\s*$/)?.[1]; });
+  // A narrow table drops its Agents column, so the list is read on a wide panel.
+  await s.resize(1700, 900);
+  await sleep(500);
+  const listed = await s.ev(D => {
+    const heads = [...D.querySelectorAll('.main .at-head [role=columnheader]')].filter(c => c.getClientRects().length).map(c => c.textContent.trim());
+    const r = [...D.querySelectorAll('.main [role=row]')].find(x => x.innerText.includes('Add the checkout endpoint'));
+    return [...r.children].filter(c => c.getClientRects().length)[heads.indexOf('Agents')]?.textContent.trim();
+  });
+  await s.resize();
   await go('.main [role=row]', 'Add the checkout endpoint', D => D.querySelector('.finding'));
   const tile = await s.ev(D => D.querySelector('.kpis .tile').innerText.replace(/\s+/g, ' '));
   assert.ok(tile.startsWith(`${listed} Agents`), `list says ${listed}, page says: ${tile}`);
@@ -385,14 +390,14 @@ test('Analyze, Continue session and Draft output style cards open with Don\'t as
   await openSession();
   await s.mouse('.view-tabs .view-tab', 'Delegation map');
   await s.waitFor(D => D.querySelector('.dg-toggle'));
-  assert.deepEqual(await cardSwitches('.dg-toggle .view-tab', 'Analyze'), ['false'], 'Analyze starts off');
-  assert.deepEqual(await cardSwitches('.dg-toggle .view-tab', 'Continue session'), ['false'], 'Continue session starts off');
+  assert.deepEqual(await cardSwitches('.ai-group .view-tab', 'Analyze'), ['false'], 'Analyze starts off');
+  assert.deepEqual(await cardSwitches('.ai-group .view-tab', 'Continue session'), ['false'], 'Continue session starts off');
   await s.mouse('[aria-label=Review] .view-tab', 'Output style');
   assert.deepEqual(await cardSwitches('.review-box button[data-confirm=draftStyle]', 'Draft'), ['false'], 'Draft output style starts off');
   await s.mouse('[aria-label=Review] .view-tab', 'Findings');
-  await go('.sidebar [aria-label="Search sessions"]', '', D => D.querySelector('.main .row button[aria-label="Analyze this session"]'));
+  await go('.sidebar [aria-label="Search sessions"]', '', D => D.querySelector('.main [role=row] button[aria-label="Analyze this session"]'));
   await notBlank('sessions list');
-  assert.deepEqual(await cardSwitches('.main .row button[aria-label="Analyze this session"]', ''), ['false'], 'the row\'s Analyze card starts off');
+  assert.deepEqual(await cardSwitches('.main [role=row] button[aria-label="Analyze this session"]', ''), ['false'], 'the row\'s Analyze card starts off');
   assert.ok(await s.ev(D => !D.querySelector('.finding')), 'the row button did not open the session');
 });
 
@@ -457,8 +462,8 @@ test('Show on map works for every finding that names an agent', T, async () => {
 
 test('a session row\'s hover card tells what the session is and where it ran, never the transcript path', T, async () => {
   await openSession();
-  await go('.sidebar [aria-label="Search sessions"]', '', D => D.querySelector('.main .row button[aria-label="Analyze this session"]'));
-  const tips = await s.ev(D => [...D.querySelectorAll('.main .row')].map(r => r.getAttribute('title') || r.dataset.tip || ''));
+  await go('.sidebar [aria-label="Search sessions"]', '', D => D.querySelector('.main [role=row] button[aria-label="Analyze this session"]'));
+  const tips = await s.ev(D => [...D.querySelectorAll('.main [role=row]:not(.at-head) .at-name')].map(r => r.getAttribute('title') || r.dataset.tip || ''));
   assert.ok(tips.length > 2, 'the list has rows');
   for (const tip of tips) assert.doesNotMatch(tip, /\.jsonl|[\\/]\.claude[\\/]/, `no transcript path: ${tip}`);
   assert.ok(tips.every(t => /^(Session|Headless session|Running now: .+)\n.+\n.+/.test(t)), `each card has a heading, the first prompt and the facts: ${tips[0]}`);
@@ -663,10 +668,10 @@ test('a disabled plugin can be enabled from its command bar, and its checkbox na
   assert.ok(bar.includes('Enable'), `the command bar has Enable: ${bar}`);
   assert.ok(!bar.includes('Disable'));
   const box = await s.ev(D => { const l = D.querySelector('.dv-switch'); return { text: l.textContent.trim(), checked: l.querySelector('input').checked }; });
-  assert.deepEqual(box, { text: 'Enabled for your user', checked: false });
+  assert.deepEqual(box, { text: 'For your user', checked: false });
   await openRow('Plugins', 'team-tools');
   assert.ok((await labels('.main .cmd-bar .view-tab')).includes('Disable'));
-  assert.deepEqual(await s.ev(D => { const l = D.querySelector('.dv-switch'); return { text: l.textContent.trim(), checked: l.querySelector('input').checked }; }), { text: 'Enabled for your user', checked: true });
+  assert.deepEqual(await s.ev(D => { const l = D.querySelector('.dv-switch'); return { text: l.textContent.trim(), checked: l.querySelector('input').checked }; }), { text: 'For your user', checked: true });
 });
 
 test('a failed MCP server is an error: red box with the icon inline, no profile path, red status', T, async () => {
@@ -676,7 +681,7 @@ test('a failed MCP server is an error: red box with the icon inline, no profile 
     const box = D.querySelector('.dv-notice');
     const icon = box.querySelector('.codicon');
     const text = box.querySelector('.dv-notice-text');
-    return { cls: box.className, iconLeft: Math.round(icon.getBoundingClientRect().left - box.getBoundingClientRect().left), iconW: Math.round(icon.getBoundingClientRect().width), gap: Math.round(text.getBoundingClientRect().left - icon.getBoundingClientRect().right), text: text.textContent, wraps: getComputedStyle(text).overflowWrap, tile: D.querySelector('.kpi-note.bad')?.textContent || '' };
+    return { cls: box.className, iconLeft: Math.round(icon.getBoundingClientRect().left - box.getBoundingClientRect().left), iconW: Math.round(icon.getBoundingClientRect().width), gap: Math.round(text.getBoundingClientRect().left - icon.getBoundingClientRect().right), text: text.textContent, wraps: getComputedStyle(text).overflowWrap, tile: box.getAttribute('title') || '' };
   });
   assert.match(n.cls, /\bbad\b/);
   assert.ok(n.iconLeft < 20 && n.iconW < 30 && n.gap < 20, `the icon sits inline: ${JSON.stringify(n)}`);
@@ -882,8 +887,8 @@ test('a type page opened from a repo is filtered to that repo only', T, async ()
 test('Scope: Global hides the plugin group, and the header counts equal the groups', T, async () => {
   await tile('Skills');
   const path = await text('.main-head .path');
-  const m = /^(\d+) in Global · (\d+) from plugins · (\d+) across (\d+) scopes?/.exec(path);
-  assert.ok(m, `header reads "N in Global · M from plugins · K across S scopes": ${path}`);
+  const m = /^(\d+) in Global · (\d+) from plugins · (\d+) in (\d+) scopes?/.exec(path);
+  assert.ok(m, `header reads "N in Global · M from plugins · K in S scopes": ${path}`);
   assert.equal((await labels('.main .origin-label')).filter(h => /plugins/i.test(h)).length, 0, 'no plugin group under Scope: Global');
   assert.equal((await labels('.main [role=row]')).length - (await labels('.main .asset-table')).length, Number(m[1]), 'the rows are the Global ones the header counts');
   await s.mouse('.main button', 'Scope: Global');
@@ -906,7 +911,8 @@ test('the Repositories table keeps its last column inside the panel at every wid
         return { clipped, heads };
       });
       assert.deepEqual(r.clipped, [], `width ${width || 'default'}: nothing is cut off (${r.heads})`);
-      assert.ok(r.heads.includes('Last session') && r.heads.includes('Cost 7d'), `width ${width || 'default'}: Cost and Last session stay (${r.heads})`);
+      // Cost is a low-priority column: it drops when the panel is too narrow for it, Last session stays.
+      assert.ok(r.heads.includes('Last session') && (width && width < 1200 ? true : r.heads.includes('Cost 7d')), `width ${width || 'default'}: Last session stays, Cost at wide widths (${r.heads})`);
     }
   } finally {
     await s.resize();
@@ -1018,14 +1024,15 @@ test('the Fleet overview shows 0 or a dash in every cell, never a blank one', T,
   await home();
   await s.mouse('.sidebar-head [aria-label="Fleet overview"]');
   const cells = await s.waitFor(D => {
-    const rows = [...D.querySelectorAll('table.grid tbody tr')];
-    return rows.length > 1 && rows.map(r => [...r.querySelectorAll('td')].map(td => td.textContent.trim()));
+    const rows = [...D.querySelectorAll('.main [role=row]:not(.at-head)')].filter(r => r.getClientRects().length);
+    return rows.length > 1 && rows.map(r => [...r.children].filter(c => c.getClientRects().length).map(c => c.textContent.trim()));
   });
   for (const row of cells) for (const c of row) assert.notEqual(c, '', `a blank cell in ${JSON.stringify(row)}`);
-  const heads = await labels('table.grid th');
+  const heads = await labels('.main .at-head [role=columnheader]');
   const at = heads.indexOf('Hook copies');
   assert.ok(at > 0, `the Hook copies column exists: ${heads}`);
   for (const row of cells) assert.match(row[at], /^(\d+|-)$/);
+  assert.deepEqual(heads.slice(0, 2), ['Repo', 'Lines'], `the first columns of the table: ${heads}`);
 });
 
 test('a switched-off MCP server says so and offers neither Sign in nor Retry', T, async () => {
@@ -1061,7 +1068,7 @@ test('a server that needs a sign-in reads "Needs sign-in" and "Unknown", and Ret
     assert.match(body, /Needs sign-in/);
     assert.match(body, /Unknown/);
     assert.match(body, /until you sign in/);
-    assert.doesNotMatch(await s.ev(D => [...D.querySelectorAll('.kpis .tile .n')].map(n => n.textContent).join('|')), /^-|\|-\||\.\.\./);
+    assert.doesNotMatch(await s.ev(D => [...D.querySelectorAll('.dv-stats .tile .n')].map(n => n.textContent).join('|')), /^-|\|-\||\.\.\./);
     await s.mouse('.dv-notice button', 'Retry');
     await s.waitFor(D => /Checked again/.test(D.querySelector('.dv-notice-text')?.textContent || ''));
   } finally {
@@ -1082,9 +1089,12 @@ test('the Models tab names the scope of each group', T, async () => {
   await s.waitFor(D => D.querySelector('.main-head h1')?.textContent === 'shop-api');
   await s.mouse('.main .view-tab', 'Models');
   const body = await s.waitFor(D => { const t = D.querySelector('.main-body').innerText; return /BY MODEL/i.test(t) && t; });
-  assert.match(body, /THIS REPO/i);
-  assert.match(body, /BY MODEL.*ALL REPOS, THIS ACCOUNT/i);
-  assert.match(body, /BY AGENT TYPE.*ALL REPOS, THIS ACCOUNT/i);
+  assert.match(body, /\bREPO\b[\s\S]*shop-api/i, 'a Repo table with this repo');
+  assert.match(body, /BY AGENT TYPE/i);
+  // The scope of each group is in its hover card.
+  const tips = await s.ev(D => [...D.querySelectorAll('.main-body .group-label')].map(g => `${g.textContent.trim()}|${g.getAttribute('title') || ''}`));
+  assert.ok(tips.some(t => /^By model\|Every repo on this account/.test(t)), `By model names its scope: ${tips}`);
+  assert.ok(tips.some(t => /^By agent type\|.*every repo on this account/.test(t)), `By agent type names its scope: ${tips}`);
 });
 
 // The last test: it opens a file in the editor, which puts the panel behind the editor tab.

@@ -1357,6 +1357,69 @@
       "catalogue": {
         "action": "none"
       }
+    },
+    {
+      "date": "2026-10-25",
+      "from": "09:20",
+      "to": "10:20",
+      "sessionId": "de897526-badf-42fa-a436-34aa3a50a7b0",
+      "branch": "master",
+      "commits": [],
+      "surfaces": [
+        "claude-harness"
+      ],
+      "files": [
+        "src/distributor.ts",
+        "src/dist-host.ts",
+        "src/skill-lock.ts",
+        "src/webview/dist.ts",
+        "src/webview/confirm.ts",
+        "docs/skill-sources.md"
+      ],
+      "mechanism": {
+        "takes": "the address of a published agent skill (a skills directory page, a GitHub URL or owner/repo/skill) and the skills already installed for the AI coding assistant",
+        "does": "resolves the address to the skill's folder in its source repository, installs it as a real folder after a card shows its description, files and a third-party warning, records where it came from, compares the folder's git tree hash with one request per repository to find newer versions, updates in place with a backup and a named list of overwritten files, and links the installed skill into chosen repositories as a directory junction",
+        "returns": "installed, tracked and up-to-date skills, with update states in the skills list and every repository link pointing at the one global copy"
+      },
+      "portsAsIs": [
+        "address resolution from a directory page to a repository folder",
+        "change detection by git tree hash with one request per repository",
+        "update in place with backup and named overwrites",
+        "repository links as directory junctions to one global copy"
+      ],
+      "perCustomer": [
+        "where the assistant keeps its skills",
+        "which skill directories and hosts count as sources"
+      ],
+      "evidence": [
+        "isolated VS Code run with a throwaway home against live GitHub: add, connect, check, update and link into repo",
+        "usability hunt: 16 bugs found, 15 fixed in full and 1 in part, re-verified in dark and light, wide and narrow",
+        "docs/skill-sources.md with five screenshots from scratch data",
+        "CHANGELOG.md [Unreleased] entry"
+      ],
+      "toolchain": {
+        "skills": [
+          "vscode-extension",
+          "report-plugin:report",
+          "claude-orchestration",
+          "learn-loop-plugin:claude-learn",
+          "learn-loop-harvest-plugin:claude-learn-harvest",
+          "learn-loop-worktime-plugin:claude-learn-worktime",
+          "track-time"
+        ],
+        "mcpServers": [],
+        "agents": [
+          "vscode-ext-specialist",
+          "subagent-delegation-plugin:fact-gatherer",
+          "general-purpose",
+          "fork"
+        ]
+      },
+      "industry": "software tooling for developers",
+      "status": "Built and running in-house",
+      "catalogue": {
+        "action": "none"
+      }
     }
   ]
 }

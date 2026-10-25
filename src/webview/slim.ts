@@ -194,7 +194,7 @@ export function costText(a: Asset): string {
   if (known === undefined) return '...';
   if (!known) return NOT_COUNTED;
   const c = descCostOf(a);
-  return c === undefined ? '-' : `~${fmtNum(c)}`;
+  return c === undefined ? '' : `~${fmtNum(c)}`;
 }
 
 export function costTip(a: Asset): string {

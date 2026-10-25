@@ -1,7 +1,8 @@
 // @ts-nocheck
 // The overview page.
 import { repoContext } from './context';
-import { assetDesc, kindLabel, labelOf, matches, mcpDesc, persist, select, showRepo, state, total, vscode } from './core';
+import { bylineNodes } from './byline';
+import { kindLabel, labelOf, matches, persist, select, showRepo, state, total, vscode } from './core';
 import { el, fmtAgo, fmtDate, fmtDur, highlight, icon, logo, plural, pressable } from './dom';
 import { hideHover } from './hover';
 import { showKindPage } from './kind-page';
@@ -56,12 +57,13 @@ function lastSessionsBlock(repos) {
       ? gridTable(
           [
             { head: 'Session', track: 'minmax(180px, 3fr)', cls: 'at-name', cell: s => [sessionIcon(s), el('span', { className: 'at-label' }, s.title)], title: s => s.title },
-            { head: 'Repository', track: 'minmax(0, 1fr)', muted: true, cell: s => s.repo },
-            { head: 'Branch', track: 'minmax(0, 1fr)', muted: true, wide: true, cell: s => s.branch || '' },
-            { head: 'Started', track: '120px', num: true, cell: s => (s.start ? fmtDate(s.start) : '-') },
-            { head: 'Duration', track: '76px', num: true, wide: true, cell: s => (s.start ? fmtDur(s.end - s.start) : '-') },
+            { head: 'Repository', track: 'minmax(84px, 1fr)', muted: true, cell: s => s.repo, title: s => s.repo },
+            { head: 'Branch', track: 'minmax(72px, 1fr)', muted: true, wide: true, cell: s => s.branch || '', title: s => s.branch || '' },
+            { head: 'Started', track: '120px', num: true, cell: s => (s.start ? fmtDate(s.start) : '') },
+            { head: 'Duration', track: '76px', num: true, wide: true, cell: s => (s.start ? fmtDur(s.end - s.start) : '') },
             { head: 'Agents', track: '60px', num: true, wide: true, cell: s => String(s.agents || 0) },
-            { head: 'State', track: '84px', num: true, wide: true, cell: sessionState },
+            // The State column exists only while some session shows a state.
+            ...(shown.some(s => sessionState(s)) ? [{ head: 'State', track: '84px', muted: true, wide: true, cell: sessionState }] : []),
           ],
           shown,
           'Last sessions'
@@ -101,11 +103,11 @@ function reposBlock(repos) {
     el('div', { className: 'group-label' }, 'Repositories'),
     gridTable(
       [
-        { head: 'Repository', track: 'minmax(60px, 1fr)', cls: 'at-name', cell: r => [icon('repo'), el('span', { className: 'at-label' }, r.v.label)], title: r => r.v.path },
+        { head: 'Repository', track: 'minmax(76px, 1fr)', cls: 'at-name', cell: r => [icon('repo'), el('span', { className: 'at-label' }, r.v.label)], title: r => r.v.path },
         ...COUNTS.map(([head, kind, noun]) => ({ head, track: '52px', num: true, wide: true, cell: r => String(countOf(r.v, kind)), title: r => `${countOf(r.v, kind)} ${noun}` })),
-        { head: 'Sessions 7d', track: '84px', num: true, low: true, cell: r => (r.i.recent === undefined ? '-' : String(r.i.recent)), title: () => 'Sessions started in the last 7 days' },
-        { head: 'Cost 7d', track: '70px', num: true, cell: r => (r.i.cost === undefined ? '-' : fmtUsd(r.i.cost)), title: () => 'Cost at API list prices over the last 7 days, all accounts' },
-        { head: 'Last session', track: '90px', num: true, cell: r => (r.i.last ? fmtAgo(r.i.last) : r.i.loaded ? 'none' : '-') },
+        { head: 'Sessions 7d', track: '84px', num: true, low: true, cell: r => (r.i.recent === undefined ? '' : String(r.i.recent)), title: () => 'Sessions started in the last 7 days' },
+        { head: 'Cost 7d', track: '70px', num: true, low: true, cell: r => (r.i.cost === undefined ? '' : fmtUsd(r.i.cost)), title: () => 'Cost at API list prices over the last 7 days, all accounts' },
+        { head: 'Last session', track: 'minmax(84px, 90px)', num: true, cell: r => (r.i.last ? fmtAgo(r.i.last) : r.i.loaded ? 'none' : '') },
       ],
       rows,
       'Repositories'
@@ -187,7 +189,7 @@ export function renderOverview() {
                     { className: 'row', title: a.description, onclick: () => select(a.id) },
                     icon(a.icon),
                     el('span', { className: 'name' }, labelOf(a)),
-                    el('span', { className: 'desc' }, [a.scopeLabel, a.kind === 'mcp' ? mcpDesc(a) : assetDesc(a)].filter(Boolean).join(' · '))
+                    el('span', { className: 'desc' }, ...bylineNodes(a, a.scopeLabel))
                   )
                 )
               : el('div', { className: 'empty flush' }, 'No matches'),
@@ -263,8 +265,8 @@ export function renderOverview() {
     { className: 'overview-search' },
     el('input', {
       type: 'search',
-      placeholder: 'Search Harness & Sessions',
-      'aria-label': 'Search Harness & Sessions',
+      placeholder: 'Search the harness and sessions',
+      'aria-label': 'Search the harness and sessions',
       value: state.overviewFilter,
       oninput: e => {
         state.overviewFilter = e.target.value;
@@ -281,7 +283,7 @@ export function renderOverview() {
       'header',
       { className: 'main-head' },
       el('span', { className: 'big' }, logo('logo-lg')),
-      el('div', { className: 'title' }, el('h1', {}, 'Claude Harness'), el('div', { className: 'path' }, `${global ? total(global) : 0} global assets · ${plural(repos.length, 'repository').replace('repositorys', 'repositories')}`))
+      el('div', { className: 'title' }, el('h1', {}, 'Claude Harness'), el('div', { className: 'path meta' }, `${global ? total(global) : 0} global assets · ${plural(repos.length, 'repository').replace('repositorys', 'repositories')}`))
     ),
     (body = el(
       'div',

@@ -6,10 +6,10 @@ import type { ConsolidateRoute, ConsolidateState, ConsolidateTarget } from './sh
 // Consolidating a repo skill: the repo copy goes up to the place the skill comes from (the plugin that ships it, else
 // global), and the repo copy is retired. The whole skill folder counts, not only SKILL.md.
 
-const SKIP = new Set(['node_modules', '.git', '__pycache__', '.venv']);
+export const SKIP = new Set(['node_modules', '.git', '__pycache__', '.venv']);
 
 /** The files under a folder, relative with `/`, sorted. */
-function filesIn(dir: string, base = dir): string[] {
+export function filesIn(dir: string, base = dir): string[] {
   if (!fs.existsSync(dir)) return [];
   const out: string[] = [];
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {

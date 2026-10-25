@@ -2,8 +2,10 @@
 // Fleet overview, marketplace health and the scaffold form.
 import { checkBadge, checkText, command, persist, showRepo, state, std, vscode } from './core';
 import { confirmAt } from './confirm';
-import { el, icon, iconBtn, pageHead, plural } from './dom';
+import { countHead, el, icon, iconBtn, pageHead, plural } from './dom';
 import { renderMain } from './main';
+import { syncPlugin } from './sync';
+import { gridTable } from './tables';
 
 export const liveCheck = r => state.checks[r.id] || { state: r.checkState };
 
@@ -13,58 +15,39 @@ export function renderFleet() {
   if (!rows) body.append(el('div', { className: 'empty flush' }, 'Reading the repos...'));
   else {
     const s = std();
+    // What the old footnote explained now sits in each header's hover card.
+    const from = s ? `Checked by ${s.name}` : '';
     const cols = [
-      ['Repo', '', r => el('span', { className: 'cell' }, icon('repo'), r.label)],
-      s && ['Layout', '', r => r.layout || '-', r => (r.layout && r.layout !== 'router' ? 'warn' : '')],
-      s && ['Standard', '', r => el('span', { className: 'cell' }, checkBadge(liveCheck(r)), checkText(liveCheck(r)))],
-      ['Lines', 'num', r => String(r.lines || 0), r => (s && r.lines > 120 ? 'warn' : '')],
-      s && ['Em dashes', 'num', r => (r.emDashes === undefined ? '-' : String(r.emDashes)), r => (r.emDashes ? 'warn' : '')],
-      s && ['Review', 'num', r => (r.check ? String(r.check.review) : '-'), r => (r.check && r.check.review ? 'warn' : '')],
-      ['Plugins', 'num', r => String(r.plugins.length)],
-      ['Hook copies', 'num', r => String(r.hookCopies || 0)],
-      ['Copies', 'num', r => String(r.copies || 0)],
+      { head: 'Repo', track: 'minmax(140px, 2fr)', cls: 'at-name', cell: r => [icon('repo'), el('span', { className: 'at-label' }, r.label)], title: r => r.path },
+      s && { head: 'Layout', track: 'minmax(70px, 1fr)', muted: true, wide: true, tip: `Layout\n${from}`, cell: r => r.layout || '', tone: r => (r.layout && r.layout !== 'router' ? 'warn' : '') },
+      s && { head: 'Standard', track: 'minmax(110px, 1.5fr)', tip: `Standard\n${from}`, cell: r => [checkBadge(liveCheck(r)), el('span', { className: 'at-label' }, checkText(liveCheck(r)))], cls: 'at-name' },
+      { head: 'Lines', track: '56px', num: true, tip: 'Lines\nLines in the root CLAUDE.md', cell: r => String(r.lines || 0), tone: r => (s && r.lines > 120 ? 'warn' : '') },
+      s && { head: 'Em dashes', track: '80px', num: true, wide: true, tip: `Em dashes\n${from}`, cell: r => (r.emDashes === undefined ? '' : String(r.emDashes)), tone: r => (r.emDashes ? 'warn' : '') },
+      s && { head: 'Review', track: '64px', num: true, wide: true, tip: `Review\n${from}`, cell: r => (r.check ? String(r.check.review) : ''), tone: r => (r.check && r.check.review ? 'warn' : '') },
+      { head: 'Plugins', track: '64px', num: true, cell: r => String(r.plugins.length), title: r => r.plugins.join('\n') },
+      { head: 'Hook copies', track: '90px', num: true, wide: true, tip: 'Hook copies\nHook scripts that also exist in another scope or a plugin', cell: r => String(r.hookCopies || 0) },
+      { head: 'Copies', track: '64px', num: true, tip: 'Copies\nSkills and agents that also exist in another scope or a plugin', cell: r => String(r.copies || 0) },
     ].filter(Boolean);
-    const heads = cols.map(c => c[0]);
     body.append(
-      el(
-        'div',
-        { className: 'table-wrap' },
-        el(
-          'table',
-          { className: 'grid' },
-          el('thead', {}, el('tr', {}, cols.map(c => el('th', { className: c[1] }, c[0])))),
-          el(
-            'tbody',
-            {},
-            rows.map(r =>
-              el(
-                'tr',
-                {
-                  className: 'clickable',
-                  title: r.path,
-                  onclick: () => {
-                    state.openRepos.add(r.id);
-                    persist();
-                    showRepo(r.id);
-                  },
-                },
-                cols.map(c => el('td', { className: [c[1], c[3] ? c[3](r) : ''].filter(Boolean).join(' '), title: c[0] === 'Plugins' ? r.plugins.join('\n') : undefined }, c[2](r)))
-              )
-            )
-          )
-        )
-      ),
-      el(
-        'div',
-        { className: 'empty flush' },
-        `Lines count the root CLAUDE.md.${s ? ` Layout, Standard, Em dashes and Review come from ${s.name}.` : ''} Copies count skills and agents that also exist in another scope or a plugin.`
+      gridTable(
+        cols,
+        rows.map(r =>
+          Object.assign({}, r, {
+            open: () => {
+              state.openRepos.add(r.id);
+              persist();
+              showRepo(r.id);
+            },
+          })
+        ),
+        'Fleet overview'
       )
     );
   }
   return el(
     'section',
     { className: 'main' },
-    pageHead(
+    countHead(
       'dashboard',
       'Fleet overview',
       rows ? (rows.length === 1 ? '1 repository' : `${rows.length} repositories`) : 'Reading...',
@@ -78,6 +61,16 @@ export function renderFleet() {
 }
 
 export const SOURCE_ICONS = { github: 'github', git: 'source-control', directory: 'folder', file: 'file', url: 'globe' };
+
+// One token per kind of source, the short name beside it; the full source and the folder on disk are in the hover card.
+const SOURCE_TOKENS = { github: 'github', git: 'git', directory: 'local', file: 'file', url: 'url' };
+const sourceToken = m => SOURCE_TOKENS[m.kind] ?? m.kind;
+const sourceName = m => {
+  if (m.kind === 'directory' || m.kind === 'file') return String(m.source).replace(/[\\/]+$/, '').split(/[\\/]/).pop() || m.source;
+  if (m.kind === 'url' || m.kind === 'git') return String(m.source).replace(/^[a-z+]+:\/\//, '').replace(/\.git$/, '');
+  return m.source;
+};
+const sourceTip = m => [`Source · ${sourceToken(m)}`, m.source, m.location && m.location !== m.source ? `Installed at ${m.location}` : ''].filter(Boolean).join('\n');
 
 export function renderMarkets() {
   const list = state.markets;
@@ -97,43 +90,36 @@ export function renderMarkets() {
         el(
           'div',
           { className: 'recent' },
-          el('div', { className: 'market-head' }, icon('package'), el('span', { className: 'label' }, m.name), ahead ? el('span', { className: 'tag warn' }, `${ahead} ahead`) : null, el('span', { className: 'spacer' }),
+          el('div', { className: 'market-head' }, icon('package'), el('span', { className: 'label' }, m.name), el('span', { className: 'market-source', title: sourceTip(m) }, icon(SOURCE_ICONS[m.kind] ?? 'question'), `${sourceToken(m)} · ${sourceName(m)}`), ahead ? el('span', { className: 'tag warn' }, `${ahead} ahead`) : null, el('span', { className: 'spacer' }),
             m.kind === 'directory' ? el('button', { className: 'secondary', onclick: () => command('renameMarketplace', { market: m.name }) }, icon('edit'), 'Rename...') : null),
-          el('div', { className: 'facts' }, [
-            [el('span', { className: 'key' }, 'Source', el('span', { className: `codicon codicon-${SOURCE_ICONS[m.kind] ?? 'question'}`, title: m.kind, 'aria-label': m.kind })), el('span', { className: 'value' }, m.source)],
-            [el('span', { className: 'key' }, 'Location'), el('span', { className: 'value' }, m.location)],
-          ].flat()),
           m.plugins.length
-            ? el(
-                'div',
-                { className: 'table-wrap' },
-                el(
-                  'table',
-                  { className: 'grid' },
-                  el('thead', {}, el('tr', {}, ['Plugin', 'Installed', 'Source', 'State'].map(h => el('th', {}, h)))),
-                  el(
-                    'tbody',
-                    {},
-                    m.plugins.map(p =>
-                      el(
-                        'tr',
-                        {},
-                        el('td', {}, p.name),
-                        el('td', {}, p.installed || 'not installed'),
-                        el('td', {}, p.source || ''),
-                        el('td', { className: p.ahead ? 'warn' : '' }, [p.ahead ? 'source ahead of the installed copy' : p.installed ? 'current' : '', p.enabled ? 'enabled' : ''].filter(Boolean).join(' · '))
-                      )
-                    )
-                  )
-                )
+            ? gridTable(
+                [
+                  { head: 'Plugin', track: 'minmax(120px, 2fr)', cls: 'at-name', cell: p => [icon('extensions'), el('span', { className: 'at-label' }, p.name)] },
+                  { head: 'Installed', track: 'minmax(64px, 1fr)', muted: true, cell: p => p.installed || '' },
+                  ...(m.plugins.some(p => p.source) ? [{ head: 'Latest', track: 'minmax(64px, 1fr)', muted: true, tip: 'Latest\nThe version the marketplace offers', cell: p => p.source || '' }] : []),
+                  {
+                    head: 'Sync',
+                    track: 'minmax(84px, 1fr)',
+                    muted: true,
+                    tone: p => (p.ahead ? 'warn' : ''),
+                    cell: p => (p.ahead ? 'update' : p.installed ? 'current' : 'uninstalled'),
+                    title: p => `Sync · ${p.ahead ? 'Update available' : p.installed ? 'Up to date' : 'Not installed'}\n${p.ahead ? 'The source is ahead of the installed copy.' : p.installed ? 'The installed copy matches the source.' : 'The plugin is not installed.'}${p.enabled ? '\nEnabled' : ''}`,
+                  },
+                  ...(m.plugins.some(p => p.ahead)
+                    ? [{ head: '', track: '120px', cell: p => (p.ahead ? el('button', { className: 'secondary', title: `Sync plugin\nRefresh ${m.name} and update ${p.name} from it.`, onclick: () => syncPlugin(p.key) }, icon('sync'), 'Sync plugin') : '') }]
+                    : []),
+                ],
+                m.plugins,
+                `Plugins of ${m.name}`
               )
-            : el('div', { className: 'empty flush' }, 'No plugins installed from it')
+            : el('div', { className: 'empty flush' }, 'None installed')
         )
       );
       }
     }
   }
-  return el('section', { className: 'main' }, pageHead('package', 'Marketplace health', list ? plural(list.length, 'marketplace') : 'Reading...', iconBtn('refresh', 'Reload', () => vscode.postMessage({ type: 'marketplaces' }))), body);
+  return el('section', { className: 'main' }, countHead('package', 'Marketplace health', list ? plural(list.length, 'marketplace') : 'Reading...', iconBtn('refresh', 'Reload', () => vscode.postMessage({ type: 'marketplaces' }))), body);
 }
 
 export const initForm = () => ({ summary: state.init.form.summary, areas: state.init.form.areas, rules: state.init.form.rules.split(/\r?\n/) });

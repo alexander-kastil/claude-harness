@@ -2,6 +2,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import type { CheckSummary } from './constitution';
 import { Asset, Category, ScopeView, copiesText } from './harness';
+import { factsOf } from './shared/byline';
 import type { SessionSummary } from './sessions';
 
 export type Node =
@@ -112,7 +113,7 @@ export class HarnessTree implements vscode.TreeDataProvider<Node> {
       item.id = 'repos';
       item.description = String(this.repos.length);
       item.iconPath = new vscode.ThemeIcon('repo');
-      item.tooltip = this.standard() ? 'Expanding this checks every repo against the harness standard.' : 'The repos in the Claude harness.';
+      if (this.standard()) item.tooltip = 'Expanding checks every repo against the harness standard.';
       item.contextValue = 'repos';
       return item;
     }
@@ -154,13 +155,15 @@ export class HarnessTree implements vscode.TreeDataProvider<Node> {
       const { asset } = node;
       const item = new vscode.TreeItem(asset.name, asset.kind === 'skill' && (asset.files?.length ?? 0) > 1 ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.None);
       item.id = asset.id;
-      item.description = [asset.version && `v${asset.version}`, copiesText(asset), asset.description].filter(Boolean).join(' · ');
-      item.tooltip = new vscode.MarkdownString(`**${asset.name}**\n\n${asset.description}\n\n\`${asset.file}\`${asset.copies?.length ? `\n\n${copiesText(asset)}` : ''}`);
+      const facts = factsOf(asset);
+      item.description = facts.map(f => f.text).join(' · ');
+      const factLines = facts.map(f => `- **${f.tip.split('\n')[0]}**: ${f.tip.split('\n').slice(1).join(' ')}`).join('\n');
+      item.tooltip = new vscode.MarkdownString(`**${asset.name}**\n\n${asset.description}${factLines ? `\n\n${factLines}` : ''}\n\n\`${asset.file}\`${asset.copies?.length ? `\n\n${copiesText(asset)}` : ''}`);
       item.iconPath =
         asset.kind === 'plugin'
           ? new vscode.ThemeIcon(asset.enabled ? 'pass-filled' : 'circle-large-outline', asset.enabled ? new vscode.ThemeColor('testing.iconPassed') : undefined)
           : new vscode.ThemeIcon(this.categories.find(c => c.kind === asset.kind)?.icon ?? 'file');
-      item.contextValue = asset.kind === 'mcp' && asset.file && asset.jsonPath ? 'asset.mcp.stored' : asset.source === 'plugin' && asset.kind !== 'mcp' ? `asset.${asset.kind}.plugin` : `asset.${asset.kind}`;
+      item.contextValue = asset.kind === 'mcp' && asset.file && asset.jsonPath ? 'asset.mcp.stored' : asset.source === 'plugin' && asset.kind !== 'mcp' ? `asset.${asset.kind}.plugin` : asset.kind === 'skill' && asset.origin ? 'asset.skill.linked' : `asset.${asset.kind}`;
       item.command = { command: 'claudeHarness.open', title: 'Open', arguments: [asset.id] };
       return item;
     }

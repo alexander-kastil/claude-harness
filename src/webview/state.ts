@@ -3,7 +3,7 @@
 import type { CheckSummary } from '../constitution';
 import type { Field, ScopeView } from '../harness';
 import type { McpInfo } from '../probe';
-import type { Detail, Progress, Standard, UsageSession } from '../shared/messages';
+import type { Detail, DistCheck, DistNote, Progress, Standard, UsageSession } from '../shared/messages';
 
 export interface Draft {
   fields: Field[];
@@ -39,6 +39,13 @@ export interface State {
   ruleInfo: Record<string, any>;
   /** The Used in tab of agents and skills, by element id. */
   usage: Record<string, UsageState | undefined>;
+  /** What the distributor said about each skill (by element id) when it was last asked, and whether a check is running. */
+  dist: Record<string, DistCheck | undefined>;
+  distRunning: boolean;
+  /** What the last distributor command did, shown on the Skills page and a skill's page until dismissed. */
+  distNote?: DistNote;
+  /** The skill row to scroll to and highlight once, after the next repaint. */
+  distScroll?: string;
   markets?: any;
   init?: any;
   sessions: Record<string, any[] | null | undefined>;

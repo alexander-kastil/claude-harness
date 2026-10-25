@@ -437,7 +437,7 @@ pre.json {
 
 @media (max-width: 640px) {
   #app {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     grid-template-rows: 40% 60%;
   }
 }
@@ -752,6 +752,14 @@ table.grid .cell {
 
 .market-head .spacer {
   flex: 1;
+}
+
+.market-head .market-source {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
 }
 
 .notice {
@@ -1910,6 +1918,16 @@ table.grid .cell {
   gap: 12px;
 }
 
+/* A figure tile is a fact, not a hero: the figure at 22px, tighter than a navigation tile. */
+.kpis .tile {
+  gap: 4px;
+  padding: 12px 14px;
+}
+
+.kpis .tile .n {
+  font-size: 22px;
+}
+
 @media (max-width: 900px) {
   .kpis {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2304,6 +2322,40 @@ mark {
 .claude-mark {
   flex: none;
   fill: #d97757;
+}
+
+/* The AI group: a box like the plan picker's (.dg-modes), the Claude mark at its left as a marker, then one button per action. */
+.ai-group {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 6px;
+  background: var(--vscode-editor-background);
+}
+
+.ai-group .ai-mark {
+  display: inline-flex;
+  align-items: center;
+  align-self: stretch;
+  padding: 0 6px 0 4px;
+  margin-right: 2px;
+  border-right: 1px solid var(--vscode-panel-border);
+  cursor: default;
+}
+
+.ai-group.compact {
+  padding: 1px;
+}
+
+.ai-group.compact .ai-mark {
+  padding: 0 4px 0 3px;
+}
+
+.cmd-bar .ai-group {
+  flex-wrap: wrap;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -3070,8 +3122,13 @@ mark {
   color: var(--vscode-descriptionForeground);
 }
 
-.row .desc.warn {
+.row .desc .fact.warn {
+  color: var(--warn-text);
   opacity: 1;
+}
+
+.row.selected .desc .fact.warn {
+  color: inherit;
 }
 
 .kind-results,
@@ -3216,6 +3273,10 @@ mark {
   color: var(--vscode-foreground);
 }
 
+.dh-source.dh-conn {
+  background: color-mix(in srgb, var(--vscode-charts-blue) 20%, transparent);
+}
+
 .dh-source > :last-child {
   min-width: 0;
   overflow: hidden;
@@ -3282,6 +3343,16 @@ mark {
 
 .cmd-inline {
   margin-top: 8px;
+}
+
+.cmd-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.cmd-row .dg-modes {
+  margin: 0;
 }
 
 .cmd-draft {
@@ -4258,12 +4329,12 @@ button.std-finding:hover {
 }
 
 /* Analyze from one row of a list, and Fix with Claude beside a finding. */
-.row:has(> .row-act) {
+.row:has(> .row-ai) {
   position: relative;
-  padding-right: 40px;
+  padding-right: 66px;
 }
 
-.row > .row-act {
+.row > .row-ai {
   position: absolute;
   right: 8px;
   top: 50%;
@@ -4271,17 +4342,17 @@ button.std-finding:hover {
   opacity: 0;
 }
 
-.row:hover > .row-act,
-.row > .row-act:focus-visible {
+.row:hover > .row-ai,
+.row > .row-ai:focus-within {
   opacity: 1;
 }
 
-.at-row .row-act {
+.at-row .row-ai {
   opacity: 0.55;
 }
 
-.at-row:hover .row-act,
-.at-row .row-act:focus-visible {
+.at-row:hover .row-ai,
+.at-row .row-ai:focus-within {
   opacity: 1;
 }
 
@@ -4773,6 +4844,35 @@ input[type='search'] {
   margin-top: 14px;
 }
 
+/* The three lists switch with one compact control at the left, not three bars across the page. */
+.overview-tabs .view-tabs {
+  display: inline-flex;
+  flex-wrap: wrap;
+  max-width: 100%;
+  margin: 0;
+}
+
+.overview-tabs .view-tab {
+  flex: none;
+  padding: 3px 14px;
+}
+
+/* The tiles fill every row, so a last tile never sits alone at a wide width. */
+.overview.compact {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.overview.compact .tile {
+  flex: 1 1 160px;
+}
+
+/* A page's count line reads in the interface font, like the rest of the head. */
+.main-head .title .path.meta {
+  font-family: inherit;
+  font-size: 12px;
+}
+
 .overview-list > .recent > .group-label,
 .overview-list.recent > .group-label {
   display: none;
@@ -4802,7 +4902,7 @@ body.vscode-high-contrast-light {
 }
 
 .kpi-note.bad,
-.row .desc.bad,
+.row .desc .fact.bad,
 .at-row .bad,
 .at-fact.bad,
 .at-cell.bad {
@@ -4874,7 +4974,7 @@ body.vscode-high-contrast-light {
 }
 
 .row.selected .desc,
-.row.selected .desc.bad {
+.row.selected .desc .fact.bad {
   color: inherit;
   opacity: 0.85;
 }
@@ -5083,4 +5183,884 @@ body.vscode-high-contrast-light {
 
 .asset-table.at-compact2 .at-low {
   display: none;
+}
+
+/* Plugin Hunter */
+.main-head .toolbar:has(.hunt-picker) {
+  flex-shrink: 0;
+  align-items: center;
+}
+
+.hunt-picker {
+  position: relative;
+}
+
+.hunt-picker > button {
+  max-width: 240px;
+}
+
+.hunt-picker-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hunt-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 20;
+  width: max-content;
+  min-width: 240px;
+  max-width: min(360px, 90vw);
+  padding: 4px;
+  border: 1px solid var(--vscode-editorHoverWidget-border, var(--vscode-panel-border));
+  border-radius: 6px;
+  background: var(--vscode-editorHoverWidget-background, var(--vscode-editorWidget-background));
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+}
+
+.hunt-market {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 5px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.hunt-market .codicon {
+  margin-top: 2px;
+}
+
+.hunt-market:hover,
+.hunt-market:focus-visible {
+  background: var(--vscode-list-hoverBackground);
+}
+
+.hunt-market:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: -1px;
+}
+
+.hunt-market.on {
+  background: var(--vscode-list-activeSelectionBackground);
+  color: var(--vscode-list-activeSelectionForeground);
+}
+
+.hunt-market.off {
+  cursor: default;
+}
+
+.hunt-market.off .hunt-market-name,
+.hunt-market.off .codicon {
+  opacity: 0.55;
+}
+
+.hunt-market-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.hunt-market-note {
+  font-size: 11px;
+  opacity: 0.75;
+}
+
+.hunt-ask {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.hunt-ask-text {
+  width: 100%;
+  min-height: 80px;
+  resize: vertical;
+  box-sizing: border-box;
+}
+
+.hunt-ask-text[readonly] {
+  opacity: 0.6;
+}
+
+.hunt-ask-actions,
+.hunt-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.hunt-ask-actions .spacer,
+.hunt-foot .spacer {
+  flex: 1;
+}
+
+.hunt-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--vscode-testing-iconPassed);
+}
+
+.hunt-notice-actions {
+  margin-top: 8px;
+}
+
+.hunt-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex-shrink: 0;
+  min-width: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 6px;
+  background: var(--vscode-editorWidget-background);
+}
+
+.hunt-card.done {
+  border-color: var(--vscode-testing-iconPassed);
+}
+
+.hunt-card-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hunt-card.done .hunt-card-head > .codicon {
+  color: var(--vscode-testing-iconPassed);
+}
+
+.hunt-title {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+}
+
+.hunt-when {
+  font-size: 11px;
+  opacity: 0.75;
+}
+
+.hunt-prompt {
+  font-size: 12px;
+  opacity: 0.7;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.hunt-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.hunt-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.hunt-field textarea,
+.hunt-field input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.hunt-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.75;
+}
+
+.hunt-assets {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--vscode-panel-border);
+}
+
+/* A row wraps instead of overflowing: the name and its reason take what is left, the copy, tick and remove button drop below at a narrow width. */
+.hunt-asset {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--vscode-panel-border);
+}
+
+.hunt-asset.off {
+  opacity: 0.5;
+}
+
+.hunt-asset.sub {
+  padding-left: 12px;
+}
+
+.hunt-asset.done > .codicon {
+  color: var(--vscode-testing-iconPassed);
+}
+
+.hunt-gap {
+  width: 13px;
+  flex: none;
+}
+
+.hunt-main {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+
+.hunt-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.hunt-name .codicon {
+  flex: none;
+}
+
+.hunt-name-text {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.hunt-in {
+  flex: none;
+  background: transparent;
+  color: var(--vscode-foreground);
+  border: 1px solid var(--vscode-panel-border);
+}
+
+.hunt-why {
+  margin-top: 2px;
+  font-size: 12px;
+  opacity: 0.8;
+  overflow-wrap: anywhere;
+}
+
+.hunt-side {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px 12px;
+  margin-left: auto;
+}
+
+.hunt-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.hunt-none {
+  opacity: 0.7;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.hunt-retire {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.hunt-adder {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.hunt-adder input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.hunt-pick-list {
+  display: flex;
+  flex-direction: column;
+  max-height: 260px;
+  overflow-y: auto;
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 4px;
+}
+
+.hunt-pick {
+  display: grid;
+  grid-template-columns: 16px minmax(120px, 1fr) 90px minmax(0, 3fr);
+  gap: 8px;
+  align-items: center;
+  padding: 4px 8px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.hunt-pick:hover {
+  background: var(--vscode-list-hoverBackground);
+}
+
+.hunt-pick-name {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.hunt-pick-where {
+  font-size: 11px;
+  opacity: 0.75;
+}
+
+.hunt-pick-desc {
+  font-size: 12px;
+  opacity: 0.75;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.hunt-count {
+  font-size: 12px;
+  opacity: 0.75;
+}
+
+.hunt-hint {
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.notice.done {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  border-left-color: var(--vscode-testing-iconPassed);
+}
+
+.hunt-card button.primary:disabled,
+.hunt-ask button.primary:disabled {
+  opacity: 0.65;
+}
+
+.cf-facts.cf-scroll {
+  max-height: min(320px, calc(100vh - 260px));
+  overflow-y: auto;
+}
+
+.hunt-chat {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.hunt-chat-head {
+  display: flex;
+  align-items: center;
+}
+
+.hunt-chat-head .spacer {
+  flex: 1;
+}
+
+.hunt-earlier {
+  align-self: flex-start;
+}
+
+.hunt-chat-log {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.hunt-msg {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-width: 85%;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: var(--vscode-editorWidget-background);
+}
+
+.hunt-msg.owner {
+  align-self: flex-end;
+  background: var(--vscode-button-secondaryBackground);
+  color: var(--vscode-button-secondaryForeground);
+}
+
+.hunt-msg.wait {
+  opacity: 0.65;
+}
+
+.hunt-msg-who {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  opacity: 0.75;
+}
+
+.hunt-msg-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* A confirm card that asks for text or a pick. */
+.cf-facts:empty {
+  display: none;
+}
+
+.cf-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.cf-label {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.cf-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 4px 8px;
+  border: 1px solid var(--vscode-input-border, transparent);
+  border-radius: 2px;
+  background: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  font: inherit;
+}
+
+.cf-input:focus {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: -1px;
+}
+
+.cf-error {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  font-size: 12px;
+  color: var(--err-text);
+}
+
+.cf-choices {
+  display: flex;
+  flex-direction: column;
+  max-height: 240px;
+  overflow-y: auto;
+  border: 1px solid var(--vscode-editorHoverWidget-border, var(--vscode-panel-border));
+  border-radius: 3px;
+}
+
+.cf-choice {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  padding: 4px 8px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cf-choice:hover:not(:disabled) {
+  background: var(--vscode-list-hoverBackground);
+}
+
+.cf-choice:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: -1px;
+}
+
+.cf-choice:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.cf-tick {
+  visibility: hidden;
+}
+
+.cf-choice[aria-pressed='true'] {
+  background: var(--vscode-list-activeSelectionBackground);
+  color: var(--vscode-list-activeSelectionForeground);
+}
+
+.cf-choice[aria-pressed='true'] .cf-tick {
+  visibility: visible;
+}
+
+.cf-choice-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cf-choice-note {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+}
+
+/* The line distributor commands leave on the Skills page and on a skill's page. */
+.dist-note {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0 0 12px;
+  padding: 8px 10px;
+  border: 1px solid var(--vscode-panel-border);
+  border-left: 3px solid var(--vscode-focusBorder);
+  border-radius: 3px;
+  background: var(--vscode-editorWidget-background);
+}
+
+.dist-note.ok {
+  border-left-color: var(--vscode-testing-iconPassed, #73c991);
+}
+
+.dist-note.bad {
+  border-left-color: var(--vscode-errorForeground);
+}
+
+.dist-note > .codicon {
+  flex: none;
+  margin-top: 2px;
+}
+
+.dist-note-text {
+  flex: 1 1 220px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.dist-note.update {
+  border-left-color: var(--warn-text);
+}
+
+/* A row the last install or update touched. */
+.at-row.flash {
+  animation: dist-flash 2.4s ease-out;
+}
+
+@keyframes dist-flash {
+  from {
+    background: color-mix(in srgb, var(--vscode-focusBorder) 30%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .at-row.flash {
+    animation: none;
+    background: color-mix(in srgb, var(--vscode-focusBorder) 15%, transparent);
+  }
+}
+
+/* Page header buttons wrap instead of running out of the panel. */
+.main-head {
+  flex-wrap: wrap;
+}
+
+.main-head > .title {
+  flex: 1 1 180px;
+}
+
+.main-head > .toolbar {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  min-width: 0;
+  margin-left: auto;
+}
+
+/* Share's question for an item that comes from a plugin: two tiles, only the item or the whole plugin. */
+.cf.cf-share {
+  width: min(460px, calc(100vw - 32px));
+}
+
+.cf-tiles {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--vscode-editorHoverWidget-border, var(--vscode-panel-border));
+}
+
+.cf-tile {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) auto 18px;
+  gap: 12px;
+  align-items: start;
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--vscode-editorHoverWidget-border, var(--vscode-panel-border));
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 120ms ease, background-color 120ms ease;
+}
+
+.cf-tile:hover {
+  background: var(--vscode-list-hoverBackground);
+}
+
+.cf-tile[aria-checked='true'] {
+  border-color: var(--vscode-focusBorder);
+  background: color-mix(in srgb, var(--vscode-focusBorder) 10%, transparent);
+}
+
+.cf-tile:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: 2px;
+}
+
+.cf-tile-mark {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--vscode-button-background) 16%, transparent);
+  color: var(--vscode-button-background);
+}
+
+.cf-tile-mark .codicon {
+  font-size: 18px;
+}
+
+.cf-tile-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.cf-tile-title {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.cf-tile-sub {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.cf-tile-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 11px;
+}
+
+.cf-tile-lines li {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cf-tile-size {
+  padding: 1px 8px;
+  border-radius: 10px;
+  background: var(--vscode-badge-background);
+  color: var(--vscode-badge-foreground);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.cf-tile-radio {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+  border: 1px solid color-mix(in srgb, var(--vscode-foreground) 45%, transparent);
+  border-radius: 50%;
+  color: transparent;
+}
+
+.cf-tile-radio .codicon {
+  font-size: 12px;
+}
+
+.cf-tile[aria-checked='true'] .cf-tile-radio {
+  border-color: var(--vscode-button-background);
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cf-tile {
+    transition: none;
+  }
+}
+
+/* Detail pages: the info card is a labelled layout. The description comes first, then groups of facts in two columns, each
+   fact a label in a fixed column with its value beside it. The status is a fact of its own with its actions at the right end. */
+.dv-hero:not(.std-card) {
+  gap: 8px;
+  padding: 10px 14px;
+}
+
+.dv-cols {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 32px;
+}
+
+.dv-group {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.dv-cols > .dv-group:only-child {
+  grid-column: 1 / -1;
+}
+
+.dv-group-cap {
+  margin-bottom: 2px;
+  padding-bottom: 3px;
+  border-bottom: 1px solid var(--vscode-panel-border);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--vscode-descriptionForeground);
+}
+
+.dv-fact {
+  display: grid;
+  grid-template-columns: 116px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  min-height: 22px;
+  font-size: 13px;
+}
+
+.dv-fact > .k {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.dv-fact > .k .codicon {
+  flex: none;
+  font-size: 13px;
+}
+
+.dv-fact > .v {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+
+.dv-fact > .v > .n {
+  flex: none;
+  font-weight: 600;
+}
+
+.dv-fact > .v > .n.unk {
+  font-weight: 400;
+  color: var(--vscode-descriptionForeground);
+}
+
+.dv-fact > .v > .ell,
+.dv-fact > .v > .kpi-note {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dv-fact > .v > .kpi-note.warn,
+.dv-fact > .v > .kpi-note.bad {
+  white-space: normal;
+}
+
+.dv-fact > .v > .dv-note {
+  white-space: nowrap;
+}
+
+.dv-fact.wide > .v {
+  display: block;
+}
+
+.dv-hero .dv-notice {
+  align-items: center;
+  gap: 8px;
+  padding: 3px 6px 3px 10px;
+}
+
+.dv-hero .dv-notice > .codicon {
+  margin-top: 0;
+}
+
+.dv-hero .dv-notice > .dv-notice-text {
+  flex: 1 1 160px;
+}
+
+.dv-hero .dv-notice .cmd-row {
+  margin-left: auto;
+  gap: 6px;
+}
+
+.dv-hero .dv-notice .view-tab {
+  min-height: 22px;
+  padding: 1px 8px;
+}
+
+/* A healthy status is a plain line, not a box. */
+.dv-hero .dv-notice.ok {
+  padding-left: 0;
+  border-color: transparent;
+  background: none;
+}
+
+.dv-hero .dv-notice.ok > .codicon {
+  color: var(--vscode-testing-iconPassed);
+}
+
+@container (max-width: 640px) {
+  .dv-cols {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .dv-fact {
+    grid-template-columns: 104px minmax(0, 1fr);
+  }
 }

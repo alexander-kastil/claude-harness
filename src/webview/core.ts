@@ -27,6 +27,8 @@ export const state: State = {
   effective: {},
   ruleInfo: {},
   usage: {},
+  dist: {},
+  distRunning: false,
   markets: undefined,
   init: undefined,
   sessions: {},
@@ -66,24 +68,8 @@ export const labelOf = a =>
 
 export const pluginOf = a => (a.source === 'plugin' ? a.name.split(':')[1] : '');
 
-// A server's error or status text as one reader line: a repeated code prefix reads once ("ECONNREFUSED: ECONNREFUSED: x"), and the
-// user's profile folder is shortened to ~ (an npm log prints the whole path).
-export const tidyError = text =>
-  String(text || '')
-    .replace(/\b([A-Z][A-Z0-9_]{2,}):\s+\1:\s*/g, '$1: ')
-    .replace(/[a-z]:[\\/]users[\\/][^\\/\s"')]+/gi, '~')
-    .replace(/(^|[\s"'(])\/(?:home|Users)\/[^/\s"')]+/g, '$1~');
-
-// An enabled server that did not connect: an error, where a server that only needs a sign-in is a warning.
-export const mcpFailed = a => a.enabled !== false && /fail|refused|econn|timed? ?out|exited|error/i.test(a.status || '');
-
-export const mcpDesc = a => [pluginOf(a) && pluginLabel(pluginOf(a)), a.enabled === false ? 'off' : a.offIn ? `off in ${plural(a.offIn, 'folder')}` : '', tidyError(a.status) || a.target].filter(Boolean).join(' · ');
-
-// A global item with a copy in a repo reads as the global one; a repo's own item keeps "also in".
-export const copiesText = a =>
-  a.copies && a.copies.length ? `${state.views[0] && a.scope === state.views[0].id ? 'global, with a copy in' : 'also in'} ${a.copies.map(c => `${c.label} (${c.same ? 'identical' : 'differs'})`).join(', ')}` : '';
-
-export const assetDesc = a => [a.version && `v${a.version}`, copiesText(a), a.description].filter(Boolean).join(' · ');
+// A server's status text as one reader line, and whether an enabled server failed to connect: shared with the native tree.
+export { mcpFailed, tidyError } from '../shared/byline';
 
 export const statusRank = a => (a.enabled === false ? 9 : /^connected/i.test(a.status || '') ? 0 : /auth/i.test(a.status || '') ? 1 : /not configured/i.test(a.status || '') ? 3 : 2);
 
@@ -128,18 +114,6 @@ export const linkName = file => {
 };
 
 export const pluginLabel = name => `${name.replace(/-plugin$/, '')} plugin`;
-
-// The second line of a skill row: facts only, never the trigger-phrase description (that is in the hover card).
-export const skillByline = a =>
-  [
-    skillPluginOf(a) && pluginLabel(skillPluginOf(a)),
-    a.link && `linked from ${linkName(a.link)}`,
-    a.version && `v${a.version}`,
-    (a.files || []).length > 1 && `${a.files.length} files`,
-    copiesText(a),
-  ]
-    .filter(Boolean)
-    .join(' · ');
 
 export const byName = (a, b) => a.name.localeCompare(b.name);
 

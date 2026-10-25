@@ -1,13 +1,15 @@
 // @ts-nocheck
 // Type pages: every element of one kind, with search, presets and facets.
 import { LIST_VIEWS, SOURCES, categoryOf, command, mcpFailed, tidyError, groupItems, labelOf, linkName, metaOf, pluginLabel, pluginOf, select, showRepo, singular, skillPluginOf, sourceName, state, twinText, twinsOf, viewOf } from './core';
-import { el, highlight, icon, iconBtn, pageHead, plural } from './dom';
+import { countHead, el, highlight, icon, iconBtn, plural } from './dom';
 import { hideHover } from './hover';
+import { distButtons, distNotice, hasUpdate, isTracked, originText, originTip, sourceTone, syncText, syncTip } from './dist';
+import { huntButton } from './hunt';
 import { render } from './main';
-import { assetTable, glyphOf, groupHead } from './tables';
+import { assetTable, descOf, glyphOf, groupHead, pluginSwitch } from './tables';
 import { fmtTokens } from './refs';
 import { byDescriptionCost, costText, costTip, descTokens, hasHeavyDescription, hasLongDescription } from './slim';
-import { askTotals, isNeverUsed, isStale, totalsKnown, usedText, usedTip } from './usage-more';
+import { askTotals, countTone, isNeverUsed, isStale, totalsKnown, usedText, usedTip } from './usage-more';
 
 export const COPYABLE_KINDS = ['rule', 'agent', 'skill', 'command', 'outputStyle', 'workflow', 'hookScript'];
 
@@ -28,6 +30,8 @@ export const KIND_PRESETS = {
     ['files', 'With extra files', a => (a.files || []).length > 1],
     ['plugin', 'From plugins', a => a.source === 'plugin'],
     ['linked', 'Linked', a => !!a.link],
+    ['tracked', 'From a distributor', isTracked],
+    ['update', 'Update available', hasUpdate],
     ...USED_PRESETS,
     ['longdesc', 'Long description', hasLongDescription],
     ['heavydesc', 'More than an index entry', hasHeavyDescription],
@@ -146,9 +150,9 @@ export function kindSuggestions(kind, entries, q, facets) {
 }
 
 export const toolsText = a => (metaOf(a).tools ? plural(metaOf(a).tools.length, 'tool') : 'all tools');
-// The MCP Source cell names the place inside the origin group: the config file, or the plugin.
-export const mcpSourceCell = a =>
-  a.source === 'plugin' ? pluginOf(a) : a.source === 'claude.ai' ? 'claude.ai' : a.source === 'project' ? '.mcp.json' : a.source === 'local' ? 'local' : '~/.claude.json';
+// The MCP Source cell is the same token vocabulary as every Origin; the config file or plugin is in the hover card.
+export const mcpSourceCell = a => (a.source === 'plugin' ? 'marketplace' : a.source === 'claude.ai' ? 'claude.ai' : a.source === 'project' || a.source === 'local' ? 'repo' : 'global');
+export const mcpSourceTip = a => `Origin · ${mcpSourceCell(a)}\n${sourceName(a)}`;
 // One word per status; the full text from `claude mcp list` is in the cell's hover card.
 export const mcpStatusWord = a => {
   const s = a.status || '';
@@ -157,7 +161,7 @@ export const mcpStatusWord = a => {
   if (/fail/i.test(s)) return 'Failed';
   if (/auth/i.test(s)) return 'Sign-in';
   if (/not configured/i.test(s)) return 'Unconfigured';
-  return s ? s.split(/\s/)[0] : '-';
+  return s ? s.split(/\s/)[0] : '';
 };
 
 // Facts per kind as table columns: [header, width in px, value, optional hover text].
@@ -165,28 +169,34 @@ export const KIND_FACTS = {
   agent: [
     ['Model', 76, a => metaOf(a).model || 'inherit'],
     ['Tools', 80, toolsText],
-    ['Used', 128, usedText, usedTip],
+    ['Origin', 92, originText, originTip],
+    ['Used', 128, usedText, usedTip, countTone],
   ],
   skill: [
-    ['Tools', 64, toolsText],
-    ['Files', 40, a => String(Math.max(1, (a.files || []).length))],
-    ['Origin', 150, a => (a.source === 'plugin' ? pluginLabel(skillPluginOf(a)) : a.link ? `linked from ${linkName(a.link)}` : '-')],
-    ['Desc', 44, a => fmtTokens(descTokens(a)), a => `Description\n${fmtTokens(descTokens(a))} tokens, in the skill list of every session.${hasLongDescription(a) ? ' Long: Anthropic asks for what the skill does and when to use it, in at most 1024 characters.' : ''}`],
-    ['Cost', 124, costText, costTip],
-    ['Used', 128, usedText, usedTip],
+    ['Sync', 80, syncText, syncTip, sourceTone],
+    ['Files', 40, a => String(Math.max(1, (a.files || []).length)), undefined, undefined, undefined, true],
+    ['Origin', 92, originText, originTip, undefined, undefined, true],
+    ['Desc', 44, a => fmtTokens(descTokens(a)), a => `Description\n${fmtTokens(descTokens(a))} tokens, in the skill list of every session.${hasLongDescription(a) ? ' Long: Anthropic asks for what the skill does and when to use it, in at most 1024 characters.' : ''}`, undefined, undefined, true],
+    ['Cost', 60, costText, costTip, countTone],
+    ['Used', [90, 112], usedText, usedTip, countTone],
   ],
   command: [
     ['Tools', 80, toolsText],
-    ['Used', 128, usedText, usedTip],
+    ['Origin', 92, originText, originTip],
+    ['Used', 128, usedText, usedTip, countTone],
   ],
-  rule: [['Loads', 170, a => (metaOf(a).paths ? metaOf(a).paths.join(', ') : 'always')]],
+  rule: [
+    ['Origin', 92, originText, originTip],
+    ['Loads', 170, a => (metaOf(a).paths ? metaOf(a).paths.join(', ') : 'always'), a => (metaOf(a).paths ? `Loads when Claude works on\n${metaOf(a).paths.join('\n')}` : 'Loads in every session')],
+  ],
   mcp: [
-    ['Source', 130, mcpSourceCell, a => sourceName(a)],
+    ['Source', 92, mcpSourceCell, mcpSourceTip],
     ['Status', 104, mcpStatusWord, a => (a.enabled === false ? 'Switched off' : tidyError(a.status)), a => (mcpFailed(a) ? 'bad' : '')],
   ],
   plugin: [
-    ['Version', 84, a => a.description.split(' · ')[1] || '-'],
-    ['State', 72, a => (a.enabled ? 'enabled' : 'disabled')],
+    ['Marketplace', 140, a => (a.name.includes('@') ? a.name.split('@').pop() : '')],
+    ['Version', 84, a => a.description.split(' · ')[1] || ''],
+    ['Enabled', 64, a => (a.enabled ? 'enabled' : 'disabled'), undefined, undefined, pluginSwitch],
   ],
   settings: [['Keys', 52, a => a.description.replace(/ keys$/, '')]],
 };
@@ -248,9 +258,10 @@ export function renderKindPage() {
   };
   const drawResults = () => {
     const hits = filterEntries(p.kind, entries, textQ(), p.facets);
-    // A column that is a dash on every listed row (Origin of own skills) gives its width to the Description.
-    const shown = facts.filter(f => f[0] !== 'Origin' || hits.some(e => f[2](e.a, e.v) !== '-'));
-    const cols = p.kind === 'mcp' && hits.some(e => twinsOf(e.a).length) ? [...shown, ['Duplicate of', 170, a => twinText(a) || '-']] : shown;
+    // A column that is blank in every row of this list is left out.
+    const shown = facts.filter(f => hits.some(e => String(f[2](e.a, e.v)) !== ''));
+    const withDesc = hits.some(e => descOf(e.a));
+    const cols = p.kind === 'mcp' && hits.some(e => twinsOf(e.a).length) ? [...shown, ['Duplicate of', 92, a => twinsOf(a).map(mcpSourceCell).join(', '), a => `Duplicate of\n${twinText(a)}`]] : shown;
     // The ranking preset lists the dearest description first in one table, across the groups.
     const ranked = p.kind === 'skill' && has({ kind: 'preset', value: 'ranked' });
     if (ranked) hits.sort((x, y) => byDescriptionCost(x.a, y.a));
@@ -262,9 +273,9 @@ export function renderKindPage() {
         ? groups.map(([[id, label, glyph], list]) => {
             const foldKey = `page|${p.kind}|${id}`;
             const folded = state.foldedGroups.has(foldKey);
-            return el('div', { className: 'origin-section' }, groupHead('origin-label', foldKey, folded, glyph, label, list.length, drawResults), folded ? null : assetTable(list, cols, textQ(), label, scoped));
+            return el('div', { className: 'origin-section' }, groupHead('origin-label', foldKey, folded, glyph, label, list.length, drawResults), folded ? null : assetTable(list, cols, textQ(), label, scoped, withDesc));
           })
-        : [assetTable(hits, cols, textQ(), cat.label, scoped)];
+        : [assetTable(hits, cols, textQ(), cat.label, scoped, withDesc)];
     results.replaceChildren(
       ...[
         el('div', { className: 'group-label' }, hits.length === entries.length ? `${entries.length} ${lower}` : `${hits.length} of ${entries.length} ${lower}`),
@@ -419,12 +430,15 @@ export function renderKindPage() {
   const scopes = new Set(own.map(e => e.v.id)).size + (fromPlugins ? 1 : 0);
   const back = origin && origin.id !== 'global' ? iconBtn('arrow-left', `Back to ${origin.label}`, () => showRepo(origin.id)) : iconBtn('arrow-left', 'Back to the overview', () => showRepo(undefined));
   const create = cat.creatable
-    ? iconBtn('add', `New ${singular(cat)}${origin ? ` in ${origin.label}` : ''}`, () => command('create', { kind: p.kind, scope: p.origin }))
+    ? iconBtn('add', `New ${singular(cat).toLowerCase()}${origin ? ` in ${origin.label}` : ''}`, () => command('create', { kind: p.kind, scope: p.origin }))
     : p.kind === 'mcp'
-      ? iconBtn('add', 'Add MCP Server...', () => command('addMcp', { scope: p.origin }))
+      ? iconBtn('add', 'Add MCP server...', () => command('addMcp', { scope: p.origin }))
       : p.kind === 'plugin'
-        ? iconBtn('add', 'Install Plugin...', () => command('installPlugin', { scope: p.origin }))
+        ? iconBtn('add', 'Install plugin...', () => command('installPlugin', { scope: p.origin }))
         : null;
+  // A kind with a share format can take one back in: a file someone shared with Share.
+  const importCmd = { skill: 'importSkill', plugin: 'importPlugin', agent: 'importAgent', command: 'importCommand', outputStyle: 'importOutputStyle', rule: 'importRule', memory: 'importMemory', mcp: 'importMcp', hook: 'importHook' }[p.kind];
+  const importBtn = importCmd ? iconBtn('desktop-download', `Import ${p.kind === 'memory' ? 'CLAUDE.md' : singular(cat).toLowerCase()}...`, () => command(importCmd, { scope: p.origin })) : null;
   // Until the usage index exists the Used column says "not counted yet"; this button builds it, on the owner's click.
   p.shownKnown = totalsKnown(p.kind);
   const countBtn =
@@ -448,14 +462,17 @@ export function renderKindPage() {
   return el(
     'section',
     { className: 'main' },
-    pageHead(
+    countHead(
       cat.icon,
       cat.label,
-      [origin ? `${inOrigin} in ${origin.label}` : '', fromPlugins ? `${fromPlugins} from plugins` : '', `${entries.length} across ${plural(scopes, 'scope')}`].filter(Boolean).join(' · '),
+      [origin ? `${inOrigin} in ${origin.label}` : '', fromPlugins ? `${fromPlugins} from plugins` : '', `${entries.length} in ${plural(scopes, 'scope')}`].filter(Boolean).join(' · '),
       back,
       create,
-      countBtn
+      importBtn,
+      countBtn,
+      p.kind === 'plugin' ? huntButton() : null,
+      ...(p.kind === 'skill' ? distButtons(entries.map(e => e.a)) : [])
     ),
-    el('div', { className: 'main-body', onscroll: hideHover }, el('div', { className: 'kind-search' }, el('div', { className: 'combo' }, icon('search'), input, suggest), filters), results)
+    el('div', { className: 'main-body', onscroll: hideHover }, p.kind === 'skill' ? distNotice() : null, el('div', { className: 'kind-search' }, el('div', { className: 'combo' }, icon('search'), input, suggest), filters), results)
   );
 }

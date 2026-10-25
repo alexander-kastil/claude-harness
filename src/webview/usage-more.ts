@@ -58,8 +58,11 @@ export const isStale = (a: Asset): boolean => {
 
 export const isNeverUsed = (a: Asset): boolean => totalOf(a)?.count === 0;
 
-/** What the Used and Cost cells say before the usage index exists. */
-export const NOT_COUNTED = 'not counted yet';
+/** What the Used and Cost cells say before the usage index exists: a red zero, the hover says why. */
+export const NOT_COUNTED = '0';
+
+/** The red tone of a Used or Cost cell with no figure. */
+export const countTone = (a: Asset): string => (totalsKnown(a.kind) === false ? 'bad' : '');
 
 /** The hover card of a cell that is not counted yet. */
 export const NOT_COUNTED_TIP = 'Not counted yet\nUsage is counted the first time a Used in tab opens, or when you press Count usage on this page. It reads your Claude Code transcripts once.';
@@ -70,7 +73,7 @@ export function usedText(a: Asset): string {
   if (known === undefined) return '...';
   if (!known) return NOT_COUNTED;
   const t = totalOf(a);
-  if (!t) return '-';
+  if (!t) return '';
   if (!t.count) return 'never';
   return t.last ? `${t.count} · ${fmtAgo(t.last)}` : String(t.count);
 }

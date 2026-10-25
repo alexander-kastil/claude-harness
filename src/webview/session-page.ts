@@ -4,19 +4,19 @@ import { drawConcurrency, drawFlow, drawScatter } from './charts';
 import { app, openAt, persist, showRepo, state, total, viewOf, vscode } from './core';
 import { drawDecisions } from './decisions';
 import { renderFindings } from './findings';
-import { claudeMark, clip, el, fmtDate, fmtDur, fmtTime, icon, iconBtn, pageHead, shortModel, shortType } from './dom';
+import { aiGroup, clip, countHead, el, fmtDate, fmtDur, fmtTime, icon, iconBtn, plural, shortModel, shortType } from './dom';
 import { hideHover, placeCard, tabTip } from './hover';
 import { renderMain } from './main';
 import { drawMap } from './map';
 import { renderMarkdown } from './markdown';
 import { colorsOf, modeSwitch, peakParallel } from './session-common';
-import { sessionDesc, sessionTip, showSession } from './sessions';
+import { sessionTable } from './sessions';
 import { drawTimeline, renderAgent } from './timeline';
 
 export const SESSION_VIEWS = [
   ['timeline', 'Timeline', 'graph-line', 'When each agent ran, next to your prompts.'],
   ['map', 'Delegation map', 'list-tree', 'Who started which agent, and which agents worked as a team.'],
-  ['decisions', 'Decisions', 'type-hierarchy', 'What happened after each prompt: handed to agents, done directly, or just answered.'],
+  ['decisions', 'Decisions', 'type-hierarchy', 'What happened after each prompt: handed to agents, done directly, or just answered. A prompt counts until the next one starts. Click a row with a triangle to drill down or collapse it.'],
   ['concurrency', 'Concurrency', 'pulse', 'How many agents were busy at the same time.'],
   ['flow', 'Token flow', 'git-merge', 'Where the tokens went: the main thread or the agents, and whether their work came back.'],
   ['scatter', 'Scatter', 'graph-scatter', 'Every agent by time and tokens, so the slow or costly ones stand out.'],
@@ -35,7 +35,7 @@ export function viewLegend(d) {
   const parts = {
     timeline: [...types, el('span', { className: 'legend-break' }), fact('● prompt'), fact('○ result'), fact('▼ message'), el('span', { className: 'legend-item' }, el('span', { className: 'stop-glyph', 'aria-hidden': 'true' }, '×'), 'stopped')],
     map: [main, ...types],
-    decisions: [fact('one prompt = the time until the next prompt'), fact('line width: prompts'), fact('gold: delegated'), fact('▸ click to drill down, ▾ to collapse')],
+    decisions: [fact('line width: prompts'), fact('gold: delegated')],
     concurrency: [...types, fact('height: agents running'), fact('one bar per agent run'), fact('ticks: prompts')],
     flow: [main, ...types, fact('width: tokens in, cache and out')],
     scatter: [...types, fact('size: cost'), fact('dashed: medians'), fact('log scales')],
@@ -124,23 +124,29 @@ export const COST_KINDS = [
 
 // Weekly limits at API list prices; Anthropic publishes none. Max 5x: botfarm.run (03/2026), Max 20x: wokey.ai (10/2026),
 // Team Premium: measured on one seat (10/2026). Pro and Team Standard are a fifth of Max 5x and Team Premium.
-// Same ids and figures as PLANS in src/sessions.ts (unit test). Keep `api` last.
+// Same ids and figures as PLANS in src/sessions.ts (unit test). Keep `api` last. A fifth entry is a shorter switch label; the hover keeps the full name.
 export const BILLING = [
   ['pro', 'Pro', 'account', 105],
   ['max5', 'Max 5x', 'dashboard', 523],
   ['max20', 'Max 20x', 'rocket', 1643],
-  ['team-standard', 'Team Standard', 'organization', 202],
+  ['team-standard', 'Team Standard', 'organization', 202, 'Team'],
   ['team', 'Team Premium', 'organization', 1010],
-  ['api', 'API billing', 'credit-card', 0],
+  ['api', 'API billing', 'credit-card', 0, 'API'],
 ];
 
-export const billingAbout = (label, grant) => (grant ? `Share of one ${label} weekly limit (about $${grant.toLocaleString()}, estimated).` : 'This session at Anthropic API list prices.');
+export const billingAbout = (label, grant) => (grant ? `Share of one ${label} weekly limit (about $${grant.toLocaleString()}, estimated).` : 'This session at Anthropic API list prices, paid per token, with no weekly limit.');
+
+// A share of the total; a thin slice reads "<1%", never "0%" beside a nonzero amount.
+const share = (cost, total) => {
+  const p = (cost / total) * 100;
+  return p > 0 && p < 1 ? '<1%' : `${Math.round(p)}%`;
+};
 
 export function costBar(parts, total, label, fmt) {
   const bar = el('div', { className: 'cost-bar', role: 'img', 'aria-label': `${label}: ${parts.map(p => `${p.label} ${fmt(p.cost)}`).join(', ')}` });
   for (const p of parts) {
     if (p.cost <= 0) continue;
-    const seg = el('span', { className: `swatch cost-seg ${p.tone}`, title: `${p.label}: ${fmt(p.cost)} (${Math.round((p.cost / total) * 100)}%)` });
+    const seg = el('span', { className: `swatch cost-seg ${p.tone}`, title: `${p.label}: ${fmt(p.cost)} (${share(p.cost, total)})` });
     seg.style.width = `${(p.cost / total) * 100}%`;
     bar.append(seg);
   }
@@ -154,7 +160,7 @@ export const costLegend = (parts, total, fmt) =>
     parts
       .filter(p => p.cost > 0)
       .map(p =>
-        el('span', { className: 'cost-item' }, el('span', { className: `swatch ${p.tone}` }), el('span', { className: 'cost-name' }, p.label), el('b', {}, fmt(p.cost)), el('span', { className: 'cost-pct' }, `${Math.round((p.cost / total) * 100)}%`))
+        el('span', { className: 'cost-item' }, el('span', { className: `swatch ${p.tone}` }), el('span', { className: 'cost-name' }, p.label), el('b', {}, fmt(p.cost)), el('span', { className: 'cost-pct' }, share(p.cost, total)))
       )
   );
 
@@ -176,7 +182,7 @@ export function renderCost(d, colors) {
   const fmt = grant ? v => fmtShare(v, grant) : fmtUsd;
   const plans = modeSwitch(
     app,
-    BILLING.map(([id, label, glyph, g]) => [id, label, glyph, billingAbout(label, g)]),
+    BILLING.map(([id, label, glyph, g, short]) => [id, short || label, glyph, billingAbout(label, g), label]),
     billingId,
     'Billing',
     id => {
@@ -218,24 +224,27 @@ export function renderStyle(d) {
   const scan = d.style;
   if (!scan) return null;
   const r = scan.replies;
-  const count = (n, one, many) => `${n} ${n === 1 ? one : many}`;
   const draft = s.styleDraft || { state: 'idle' };
   const running = draft.state === 'running';
   const facts = [
-    `Active: ${scan.active.length ? scan.active.join(', ') : 'default'}`,
-    count(scan.prompts, 'prompt', 'prompts'),
-    count(scan.corrections.length, 'correction', 'corrections'),
-    count(scan.interrupts, 'interrupt', 'interrupts'),
-    `${count(r.count, 'reply', 'replies')}: median ${r.medianWords} words, longest ${r.longest}`,
-    `${r.headings} with headings, ${r.tables} with tables, ${r.lists} with lists`,
+    ['Active style', scan.active.length ? scan.active.join(', ') : 'default'],
+    ['Prompts', scan.prompts],
+    ['Corrections', scan.corrections.length],
+    ['Interrupts', scan.interrupts],
+    ['Replies', r.count],
+    ['Median reply', plural(r.medianWords, 'word')],
+    ['Longest reply', plural(r.longest, 'word')],
+    ['With headings', r.headings],
+    ['With tables', r.tables],
+    ['With lists', r.lists],
   ];
   return el(
     'div',
     { className: 'style-body' },
-    el('div', { className: 'legend' }, facts.map(t => el('span', { className: 'legend-item muted' }, t))),
+    el('div', { className: 'dv-chips' }, facts.map(([k, v]) => el('span', { className: 'dv-chip' }, el('span', { className: 'k' }, k), String(v)))),
     scan.corrections.length
       ? scan.corrections.map(c => el('div', { className: 'row style-row' }, el('span', { className: 'style-kind' }, STYLE_KINDS[c.kind] || c.kind), el('span', { className: 'name wrap' }, c.text)))
-      : el('div', { className: 'empty flush' }, 'No corrections about length, format, language or repetition in this session.'),
+      : el('div', { className: 'empty flush' }, 'No corrections to length, format, language or repetition.'),
     el(
       'div',
       { className: 'style-draft' },
@@ -255,11 +264,14 @@ export function renderStyle(d) {
           STYLE_MODELS.map(([id, label]) => el('option', { value: id, selected: state.styleModel === id }, label))
         )
       ),
-      el(
-        'button',
-        { className: 'primary', disabled: running, 'data-confirm': 'draftStyle', onclick: () => vscode.postMessage({ type: 'draftStyle', scope: s.scope, id: s.id, model: state.styleModel }) },
-        running ? el('span', { className: 'codicon codicon-loading codicon-modifier-spin' }) : claudeMark(),
-        running ? 'Drafting...' : 'Draft output style'
+      aiGroup(
+        '',
+        el(
+          'button',
+          { className: 'primary', disabled: running, 'data-confirm': 'draftStyle', onclick: () => vscode.postMessage({ type: 'draftStyle', scope: s.scope, id: s.id, model: state.styleModel }) },
+          running ? el('span', { className: 'codicon codicon-loading codicon-modifier-spin' }) : icon('symbol-color'),
+          running ? 'Drafting...' : 'Draft output style'
+        )
       ),
       // A host that sends no text keeps the link to the file.
       draft.state === 'done' && draft.text === undefined ? el('button', { className: 'link', onclick: () => openAt(draft.file) }, `Drafted ${draft.file.split(/[\\/]/).pop()}`) : null
@@ -288,12 +300,12 @@ export function styleRegion(draft, scan) {
     return el(
       'section',
       { className: 'style-region running', role: 'status', 'aria-live': 'polite', 'aria-busy': 'true' },
-      el('div', { className: 'style-region-head' }, el('span', { className: 'cf-badge' }, el('span', { className: 'codicon codicon-loading codicon-modifier-spin' })), el('div', { className: 'style-region-titles' }, el('div', { className: 'style-region-name' }, 'Drafting your output style'), el('div', { className: 'style-region-desc' }, `${model} reads the scan of this session (${scan.corrections.length === 1 ? '1 correction' : `${scan.corrections.length} corrections`}) and writes the style. This takes a minute or two.`))),
+      el('div', { className: 'style-region-head' }, el('span', { className: 'cf-badge' }, el('span', { className: 'codicon codicon-loading codicon-modifier-spin' })), el('div', { className: 'style-region-titles' }, el('div', { className: 'style-region-name' }, 'Drafting the output style'), el('div', { className: 'style-region-desc' }, `${model} is writing the style from this session's ${scan.corrections.length === 1 ? '1 correction' : `${scan.corrections.length} corrections`}.`))),
       el('div', { className: 'style-skeleton', 'aria-hidden': 'true' }, el('span'), el('span'), el('span'), el('span'))
     );
   }
   if (draft.state === 'error')
-    return el('section', { className: 'style-region failed', role: 'alert' }, el('div', { className: 'style-region-head' }, el('span', { className: 'cf-badge bad' }, icon('error')), el('div', { className: 'style-region-titles' }, el('div', { className: 'style-region-name' }, 'The draft did not work'), el('div', { className: 'style-region-desc style-error' }, draft.error))));
+    return el('section', { className: 'style-region failed', role: 'alert' }, el('div', { className: 'style-region-head' }, el('span', { className: 'cf-badge bad' }, icon('error')), el('div', { className: 'style-region-titles' }, el('div', { className: 'style-region-name' }, 'Draft failed'), el('div', { className: 'style-region-desc style-error' }, draft.error))));
   if (draft.state !== 'done' || draft.text === undefined) return null;
   const { meta, body } = splitStyle(draft.text);
   const get = key => (meta.find(m => m[0] === key) || [])[1];
@@ -396,7 +408,7 @@ export function renderSession() {
   if (state.timelineObserver) state.timelineObserver.disconnect();
   hideHover();
   if (!d || d.error)
-    return el('section', { className: 'main' }, pageHead('type-hierarchy-sub', 'Session', view ? view.label : '', back, reload), el('div', { className: 'main-body' }, el('div', { className: 'empty flush' }, d ? d.error : 'Reading the transcript...')));
+    return el('section', { className: 'main' }, countHead('type-hierarchy-sub', 'Session', view ? view.label : '', back, reload), el('div', { className: 'main-body' }, el('div', { className: 'empty flush' }, d ? d.error : 'Reading the transcript...')));
   const sub = [d.repo, d.account, d.start ? `${fmtDate(d.start)} to ${fmtTime(d.end)}` : '', d.start ? fmtDur(d.end - d.start) : '', d.branch, shortModel(d.model), d.live].filter(Boolean).join(' · ');
   const colors = colorsOf(d);
   const usages = [d.usage, ...d.agents.map(a => a.usage)];
@@ -414,9 +426,9 @@ export function renderSession() {
   const agentNote = [failed ? `${failed} failed` : '', never ? `${never} never started` : '', silent ? `${silent} without a report` : ''].filter(Boolean).join(', ') || (started.length ? 'all reported back' : 'none started');
   const kpis = [
     [String(started.length), 'Agents', 'type-hierarchy-sub', agentNote, failed || never ? 'bad' : silent ? 'warn' : ''],
-    [String(peakParallel(d.agents)), 'Peak parallel', 'layers', 'agents running at the same time'],
-    [totalCost ? pct(agentCost / totalCost) : '0%', 'Delegated', 'arrow-swap', 'of the cost ran in agents'],
-    [inputAll ? pct(sum('cacheRead') / inputAll) : '0%', 'Cache hits', 'database', 'of input tokens read from cache'],
+    [String(peakParallel(d.agents)), 'Peak parallel', 'layers', 'agents at once', '', 'Peak parallel\nThe most agents running at the same time.'],
+    [totalCost ? pct(agentCost / totalCost) : '0%', 'Delegated', 'arrow-swap', 'of cost in agents', '', 'Delegated\nThe share of the session cost that ran in agents instead of the main thread.'],
+    [inputAll ? pct(sum('cacheRead') / inputAll) : '0%', 'Cache hits', 'database', 'of input tokens', '', 'Cache hits\nThe share of input tokens read from the cache.'],
   ];
   const timeline = el('div', { className: 'timeline', onmouseleave: hideHover });
   const legend = el('div', { className: 'legend below' }, viewLegend(d));
@@ -426,7 +438,7 @@ export function renderSession() {
   observer.observe(timeline);
   state.timelineObserver = observer;
   const exportBtn = iconBtn('export', 'Export the transcript as JSONL', () => vscode.postMessage({ type: 'exportSession', scope: s.scope, id: s.id }));
-  const head = pageHead('type-hierarchy-sub', clip(d.title, 140), sub, back, exportBtn, reload);
+  const head = countHead('type-hierarchy-sub', clip(d.title, 140), sub, back, exportBtn, reload);
   head.classList.add('session-head');
   head.querySelector('h1').setAttribute('title', d.title);
   return el(
@@ -440,8 +452,8 @@ export function renderSession() {
       el(
         'div',
         { className: 'kpis' },
-        kpis.map(([n, l, i, note, tone]) =>
-          el('div', { className: 'tile static' }, el('span', { className: 'n' }, n), el('span', { className: 'l' }, icon(i), l), el('span', { className: `kpi-note${tone ? ` ${tone}` : ''}` }, note))
+        kpis.map(([n, l, i, note, tone, about]) =>
+          el('div', { className: 'tile static', title: about || undefined }, el('span', { className: 'n' }, n), el('span', { className: 'l' }, icon(i), l), el('span', { className: `kpi-note${tone ? ` ${tone}` : ''}` }, note))
         )
       ),
       el(
@@ -458,9 +470,7 @@ export function renderSession() {
             'div',
             { className: 'recent' },
             el('div', { className: 'group-label' }, `Headless runs (${d.children.length})`),
-            d.children.map(c =>
-              el('div', { className: 'row', title: sessionTip(c, s.scope), onclick: () => showSession(s.scope, c.id) }, icon('terminal'), el('span', { className: 'name' }, c.title), el('span', { className: 'desc' }, sessionDesc(c)))
-            )
+            sessionTable(d.children.map(c => ({ ...c, headless: true })), s.scope, 'Headless runs')
           )
         : null
     )

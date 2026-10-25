@@ -31,7 +31,6 @@ export function findingCost(f, d) {
   if (ms > 0) chips.push(['clock', fmtDur(ms), `Time\n${runs.length > 1 ? 'The runs added up, from the first record to the last.' : 'From the first record of the run to the last.'}`]);
   if (tokens > 0) chips.push(['symbol-numeric', `${fmtNum(tokens)} tokens${f.kind === 'edits' ? ' on the main thread' : ''}`, 'Tokens\nInput, cache and output, counted as on the map.']);
   if (tokens > 0 && sessionTokens > 0) chips.push(['pie-chart', `${tokens / sessionTokens < 0.01 ? '<1' : Math.round((tokens / sessionTokens) * 100)}% of the session`, 'Share\nOf all tokens in the session, main thread and agents.']);
-  if (runs.length && !chips.some(c => c[0] === 'clock' || c[0] === 'symbol-numeric')) chips.push(['circle-slash', 'nothing recorded', 'Nothing recorded\nThe run left no tokens or run time in the transcript.']);
   return chips;
 }
 
@@ -99,7 +98,7 @@ function finding(f, d) {
       advice.length ? el('dl', { className: 'finding-advice' }, advice.flatMap(([k, v]) => [el('dt', {}, k), el('dd', {}, v)])) : null
     ),
     run
-      ? el('button', { className: 'secondary finding-jump', title: `Show on the delegation map\nSelects ${shortType(run.type)} there and scrolls to it.`, 'aria-label': `Show ${shortType(run.type)}${run.description ? ` "${run.description}"` : ''} on the delegation map`, onclick: () => jumpToMap(f.agent) }, icon('list-tree'), 'Show on map')
+      ? el('button', { className: 'secondary finding-jump', title: `Show on the delegation map\nSelects ${shortType(run.type)} there and scrolls to it.${chips.some(c => c[0] === 'clock' || c[0] === 'symbol-numeric') ? '' : '\nThe run left no tokens or run time in the transcript.'}`, 'aria-label': `Show ${shortType(run.type)}${run.description ? ` "${run.description}"` : ''} on the delegation map`, onclick: () => jumpToMap(f.agent) }, icon('list-tree'), 'Show on map')
       : null
   );
 }

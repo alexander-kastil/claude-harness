@@ -235,10 +235,10 @@ export function modeSwitch(host, modes, current, label, pick) {
   return el(
     'div',
     { className: 'dg-modes', role: 'group', 'aria-label': label },
-    modes.map(([id, text, glyph, about]) => {
+    modes.map(([id, text, glyph, about, head]) => {
       const tip = target => {
         const r = target.getBoundingClientRect();
-        placeCard(`mode:${id}`, () => tabTip(text, glyph, about), { x: r.left - 14, y: r.bottom - 6 });
+        placeCard(`mode:${id}`, () => tabTip(head || text, glyph, about), { x: r.left - 14, y: r.bottom - 6 });
       };
       return el(
         'button',

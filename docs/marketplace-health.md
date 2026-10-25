@@ -19,9 +19,11 @@ The marketplaces are in two groups: **Local, on disk** for your own directory ma
 | Column | Meaning |
 | --- | --- |
 | Plugin | The plugin name |
-| Installed | The installed version, or "not installed" |
-| Source | The version in the marketplace |
-| State | "source ahead of the installed copy" in yellow, or "current". Also "enabled" when it is on. |
+| Installed | The installed version, empty when the plugin is not installed |
+| Latest | The version the marketplace offers. The column shows only when a plugin lists one. |
+| Sync | `update` in yellow when the source is ahead of the installed copy, `current`, or `uninstalled`. The hover card says which, and adds "Enabled" when the plugin is on. |
+
+A row with `update` has a **Sync plugin** button. It refreshes the marketplace and updates that plugin from it, after a card that names both versions. The same command is **Claude Harness: Sync Plugin from Its Marketplace...** in the plugin's right-click menu.
 
 Open the page from the package icon in the sidebar header, the package icon on the **Plugins** row of the activity bar, the **Repositories** node menu, or **Claude Harness: Marketplace Health** in the command palette.
 

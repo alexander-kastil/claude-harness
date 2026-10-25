@@ -2,7 +2,7 @@
 
 <table width="100%" border="1" cellpadding="10" cellspacing="0">
 <tr>
-<td align="left"><a href="plugins.md">← Back to Plugins</a></td>
+<td align="left"><a href="skill-sources.md">← Back to Skill sources</a></td>
 <td align="center"></td>
 <td align="right"><a href="commands.md">→ Next: Commands</a></td>
 </tr>
@@ -56,7 +56,7 @@ Save checks the JSON first. Invalid JSON shows an error with the parser message,
 
 <table width="100%" border="1" cellpadding="10" cellspacing="0">
 <tr>
-<td align="left"><a href="plugins.md">← Back to Plugins</a></td>
+<td align="left"><a href="skill-sources.md">← Back to Skill sources</a></td>
 <td align="center"><a href="#settings">↑ Back to top</a></td>
 <td align="right"><a href="commands.md">→ Next: Commands</a></td>
 </tr>

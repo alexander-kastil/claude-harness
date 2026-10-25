@@ -7,10 +7,29 @@ import type { CheckSummary } from './constitution';
 import type { ScaffoldForm } from './standard';
 import type { SessionSummary } from './sessions';
 import type { SlimReport } from './shared/slim';
-import type { Answer, Confirm, ConsolidateRoute,Detail, ModActivity, Page, PanelAsk, Pending, Progress, RepoTrace, Standard, StyleDraft, ToHost, ToWebview, UsageMoreReply, UsageReply, UsageTotal } from './shared/messages';
+import type { HuntInfo, HuntProposal } from './shared/hunt';
+import type { Answer, Confirm, ConsolidateRoute,Detail, ModActivity, Page, PanelAsk, Pending, Progress, RepoTrace, ShareChoice, ShareOption, Standard, StyleDraft, ToHost, ToWebview, UsageMoreReply, UsageReply, UsageTotal } from './shared/messages';
 import { pickTools, splitTools } from './tools';
 
 export type { Detail, Page } from './shared/messages';
+
+/** What a `panel` card answered: the button, and the text and the picked ids when the card had an input or choices. */
+export interface PanelAnswer {
+  choice: 'ok' | 'alt' | 'cancel';
+  text?: string;
+  picked?: string[];
+}
+
+/** The Plugin Hunter page's side of the host. Results come back through `post`; a question goes through `ask`. */
+export interface HuntHost {
+  info(): HuntInfo;
+  save(proposals: HuntProposal[], market?: string): void;
+  /** Starts the conversation over; the cards stay. */
+  clear(): void;
+  run(prompt: string, answer: Answer, ask: (c: Confirm) => void, post: (m: ToWebview) => void): Promise<void>;
+  create(id: string, market: string, answer: Answer, ask: (c: Confirm) => void, post: (m: ToWebview) => void): Promise<void>;
+  merge(kind: 'skill' | 'agent', file: string, ask: (c: Confirm) => void): Promise<void>;
+}
 
 const colorBelowTools = (fields: Field[]): Field[] => {
   const color = fields.find(f => f.key === 'color');
@@ -70,6 +89,8 @@ export interface PanelHost {
   usageMore?(id: string, build: boolean, progress: (p: Progress) => void): Promise<UsageMoreReply | undefined>;
   /** The uses of every agent, skill or command; reads an index that exists, never builds one. */
   usageTotals?(kind: string, build?: boolean): Promise<Record<string, UsageTotal> | undefined>;
+  /** The Plugin Hunter. */
+  hunt?: HuntHost;
 }
 
 export class HarnessPanel {
@@ -108,19 +129,43 @@ export class HarnessPanel {
     HarnessPanel.current?.post(message);
   }
 
-  private asks = new Map<string, (choice: 'ok' | 'alt' | 'cancel') => void>();
+  private asks = new Map<string, (answer: PanelAnswer) => void>();
+
+  /** Whether the panel is open: the distributor commands report in it, or in a notification when it is not. */
+  static isOpen(): boolean {
+    return !!HarnessPanel.current;
+  }
 
   /** Asks in the open panel and waits for the owner's button; nothing when no panel is open, so the caller uses its own dialog. */
   static ask(ask: Omit<PanelAsk, 'kind' | 'token'>): Promise<'ok' | 'alt' | 'cancel'> | undefined {
+    return HarnessPanel.askFull(ask)?.then(a => a.choice);
+  }
+
+  /** Like `ask`, with what the card's input and choices held when the owner pressed the button. */
+  static askFull(ask: Omit<PanelAsk, 'kind' | 'token'>): Promise<PanelAnswer> | undefined {
     const panel = HarnessPanel.current;
     if (!panel) return undefined;
     const token = crypto.randomBytes(8).toString('hex');
     return new Promise(resolve => {
-      panel.asks.set(token, choice => {
+      panel.asks.set(token, answer => {
         panel.asks.delete(token);
-        resolve(choice);
+        resolve(answer);
       });
       panel.post({ type: 'confirm', ask: { kind: 'panel', token, ...ask } });
+    });
+  }
+
+  /** Share's question for an item from a plugin: the picked option, or nothing when cancelled or no panel is open. */
+  static askShare(ask: Omit<ShareChoice, 'kind' | 'token'>): Promise<ShareOption['id'] | undefined> | undefined {
+    const panel = HarnessPanel.current;
+    if (!panel) return undefined;
+    const token = crypto.randomBytes(8).toString('hex');
+    return new Promise(resolve => {
+      panel.asks.set(token, answer => {
+        panel.asks.delete(token);
+        resolve(answer.choice === 'ok' ? (answer.picked?.[0] as ShareOption['id'] | undefined) : undefined);
+      });
+      panel.post({ type: 'confirm', ask: { kind: 'shareChoice', token, ...ask } });
     });
   }
 
@@ -132,7 +177,11 @@ export class HarnessPanel {
   ) {
     this.selected = initial;
     panel.webview.html = this.html();
-    panel.onDidDispose(() => (HarnessPanel.current = undefined));
+    panel.onDidDispose(() => {
+      HarnessPanel.current = undefined;
+      // A question still open is cancelled, so the command that waits on it cleans up.
+      [...this.asks.values()].forEach(answer => answer({ choice: 'cancel' }));
+    });
     panel.onDidChangeViewState(e => e.webviewPanel.visible && host.refresh());
     panel.webview.onDidReceiveMessage((m: ToHost) => this.receive(m));
   }
@@ -380,7 +429,7 @@ export class HarnessPanel {
         await this.host.fixFinding?.(m.scope, { text: m.text, file: m.file, line: m.line });
         return;
       case 'answer':
-        this.asks.get(m.token)?.(m.choice);
+        this.asks.get(m.token)?.({ choice: m.choice, text: m.text, picked: m.picked });
         return;
       case 'importSession': {
         const id = await this.host.importSession?.(m.scope);
@@ -439,6 +488,25 @@ export class HarnessPanel {
         this.post(totals ? { type: 'usageTotals', kind: m.kind, totals } : { type: 'usageTotals', kind: m.kind, built: false });
         return;
       }
+      case 'huntInfo':
+        if (this.host.hunt) this.post({ type: 'hunt', info: this.host.hunt.info() });
+        return;
+      case 'huntSave':
+        this.host.hunt?.save(m.proposals, m.market);
+        return;
+      case 'huntClear':
+        this.host.hunt?.clear();
+        if (this.host.hunt) this.post({ type: 'hunt', info: this.host.hunt.info() });
+        return;
+      case 'huntRun':
+        await this.host.hunt?.run(m.prompt, { confirmed: m.confirmed, remember: m.remember }, ask => this.post({ type: 'confirm', ask }), msg => this.post(msg));
+        return;
+      case 'huntCreate':
+        await this.host.hunt?.create(m.id, m.market, { confirmed: m.confirmed }, ask => this.post({ type: 'confirm', ask }), msg => this.post(msg));
+        return;
+      case 'huntMerge':
+        await this.host.hunt?.merge(m.kind, m.path, ask => this.post({ type: 'confirm', ask: ask.kind === 'consolidate' ? { ...ask, key: 'click' } : ask }));
+        return;
       case 'openAt': {
         const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(m.file));
         const line = Math.max(0, (m.line ?? 1) - 1);
@@ -452,8 +520,8 @@ export class HarnessPanel {
           return;
         }
         // These ask in the panel; the same commands from the left nav or a tree menu keep their dialog.
-        if (['delete', 'uninstallPlugin', 'retire', 'retireCopies'].includes(m.command)) {
-          await vscode.commands.executeCommand(`claudeHarness.${m.command}`, { fromPanel: true, id: m.id });
+        if (['delete', 'uninstallPlugin', 'retire', 'retireCopies', 'addSkillFromUrl', 'connectSkillSource', 'updateSkill', 'linkSkillToRepo', 'share', 'syncFromGlobal', 'syncPlugin', 'syncMcp'].includes(m.command) || /^import[A-Z]/.test(m.command)) {
+          await vscode.commands.executeCommand(`claudeHarness.${m.command}`, { fromPanel: true, id: m.id, scope: m.scope, plugin: m.plugin });
           return;
         }
         await vscode.commands.executeCommand(`claudeHarness.${m.command}`, m.id ?? m.market ?? (m.kind || m.scope ? { kind: m.kind, scope: m.scope } : undefined));

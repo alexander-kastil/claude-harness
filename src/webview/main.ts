@@ -7,6 +7,7 @@ import { refreshUsage } from './detail-view';
 import { refreshCard } from './hover';
 import { renderKindPage } from './kind-page';
 import { renderOverview } from './overview';
+import { onHuntMessage, renderHunt } from './hunt';
 import { renderFleet, renderInit, renderMarkets } from './pages';
 import { renderRepo } from './repo-page';
 import { renderSession } from './session-page';
@@ -28,6 +29,8 @@ export function renderMain() {
         ? renderSessionsPage()
       : state.page === 'kind' && state.kindPage
         ? renderKindPage()
+      : state.page === 'hunt'
+        ? renderHunt()
       : state.page === 'marketplaces'
         ? renderMarkets()
         : state.page === 'init' && state.init
@@ -146,6 +149,8 @@ onMessage(m => {
       state.session.styleDraft = m;
       if (state.page === 'session' && !state.detail) keepMainScroll(renderMain);
     }
+  } else if (m.type === 'hunt' || m.type === 'huntRun' || m.type === 'huntCreate') {
+    onHuntMessage(m);
   } else if (m.type === 'confirm') {
     showConfirm(m.ask);
   } else if (m.type === 'effective') {
@@ -191,9 +196,29 @@ onMessage(m => {
     }
   } else if (m.type === 'usageTotals') {
     if (storeTotals(m)) {
+      // The sidebar byline shows the uses of an agent, skill or command once the totals are known.
+      const current = app.querySelector('.sidebar');
+      if (current) keepScroll(() => current.replaceWith(renderSidebar()));
       if (state.page === 'kind' && !state.detail && state.kindPage && state.kindPage.kind === m.kind) state.kindPage.refresh?.();
       // A skill's flags are weighed by its uses and sessions.
       else if (state.detail && state.detail.asset.kind === 'skill' && m.kind === 'skill' && state.detailMode !== 'edit') keepMainScroll(renderMain);
+    }
+  } else if (m.type === 'distChecks') {
+    state.dist = { ...state.dist, ...m.checks };
+    state.distRunning = !!m.running;
+    const onSkillPage = state.page === 'kind' && !state.detail && state.kindPage?.kind === 'skill';
+    if (onSkillPage || (state.detail && state.detail.asset.kind === 'skill' && state.detailMode !== 'edit')) keepMainScroll(renderMain);
+  } else if (m.type === 'distNote') {
+    state.distNote = m.note;
+    state.distScroll = m.note?.focus;
+    const onSkillPage = state.page === 'kind' && !state.detail && state.kindPage?.kind === 'skill';
+    if (onSkillPage || (state.detail && state.detail.asset.kind === 'skill' && state.detailMode !== 'edit')) {
+      keepMainScroll(renderMain);
+      if (state.distScroll)
+        requestAnimationFrame(() => {
+          app.querySelector('.at-row.flash')?.scrollIntoView({ block: 'nearest' });
+          state.distScroll = undefined;
+        });
     }
   } else if (m.type === 'slim') {
     if (storeSlim(m) && state.detail && state.detail.asset.id === m.id && state.detailMode !== 'edit') keepMainScroll(renderMain);

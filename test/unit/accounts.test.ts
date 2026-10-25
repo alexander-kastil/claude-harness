@@ -9,7 +9,7 @@ import { PLANS, WEEK_MS, accountWeek, lastReset, parseWeekStart, addWeek, findAc
 test('PLANS matches the BILLING table of the panel, ids, labels and figures', () => {
   const source = fs.readFileSync(path.join(__dirname, '..', '..', '..', 'src', 'webview', 'session-page.ts'), 'utf8');
   const table = /export const BILLING = \[([\s\S]*?)\n\];/.exec(source)?.[1] ?? '';
-  const rows = [...table.matchAll(/\['([^']+)', '([^']+)', '[^']+', (\d+)\]/g)].map(m => ({ id: m[1], label: m[2], limit: Number(m[3]) }));
+  const rows = [...table.matchAll(/\['([^']+)', '([^']+)', '[^']+', (\d+)(?:, '[^']+')?\]/g)].map(m => ({ id: m[1], label: m[2], limit: Number(m[3]) }));
   assert.deepEqual(rows, PLANS.map(({ id, label, limit }) => ({ id, label, limit })));
   assert.equal(PLANS[PLANS.length - 1].id, 'api', 'api stays last: the panel falls back to the last row');
 });

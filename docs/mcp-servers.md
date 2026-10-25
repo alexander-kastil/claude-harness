@@ -50,6 +50,8 @@ In a grouped list, the servers of each group follow their source: your config, L
 
 ## Server details
 
+The MCP Servers page is a table with the columns Name, Description, Source (`global`, `repo`, `marketplace` or `claude.ai`, with the config file or plugin in the hover card), Status (`Connected`, `Failed`, `Sign-in`, `Unconfigured` or `Off`, with the full text in the hover card) and Changed in days. A server that is also registered elsewhere gets a Duplicate of column.
+
 Click a server to open its detail view. It shows:
 
 - Its source, its plugin when it comes from one, its name in Claude, its address and its status.
@@ -95,7 +97,7 @@ Every error message comes with a **Retry** button.
 
 ### Sign in
 
-When a server answers that it needs sign-in, its Status tile reads **Needs sign-in** and a red box under the description names the problem, with **Sign in** and **Retry** beside it. Any other error shows the same box with **Retry** only. A server that is switched off shows a notice instead, and no sign-in: switch it on first.
+The Status of a server is one fact in the info card of its page: an icon, a word such as `Connected` or `Failed`, and the server's own message, with the full text from `claude mcp list` in the hover card. When a server answers that it needs sign-in, the line reads **Needs sign-in**, with **Sign in** and **Retry** at its right end. Any other error shows the same line in red with **Retry** only. A server that is switched off shows a notice instead, and no sign-in: switch it on first.
 
 | Button | What it does |
 | --- | --- |
@@ -117,6 +119,12 @@ Click the plus button on the **MCP Servers** header, or run **Claude Harness: Ad
 ## Copy as a command
 
 The **Copy command** button in the server page command bar, also in the tree's right-click menu, copies a `claude mcp add` line for the server to the clipboard. See [Commands](commands.md#copy-as-claude-mcp-add-command).
+
+## Share and sync
+
+**Share...** in the right-click menu of a server that has an entry in a file saves it as a `.json` file in your Downloads folder, and **Import MCP Server...** merges such a file into the settings of the scope you pick. See [Share and Import](commands.md#share-and-import).
+
+When the same server name is configured differently in several files, **Sync to Other Copies...** in its right-click menu and on its page asks which configuration to keep, then replaces the entry in each other file after a backup. When all copies are the same it says there is nothing to sync.
 
 ## Add a connector
 

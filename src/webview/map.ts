@@ -3,7 +3,7 @@
 import { bindEvents, chipText, modsOf, promptLine, toneOf, toneOfAll } from '../shared/event-layers';
 import { persist, state, vscode } from './core';
 import { DECISION_LABELS, decisionCard, promptCard } from './decisions';
-import { claudeMark, clip, el, fmtDur, fmtNum, fmtTime, icon, plural, shortModel, shortType, svg } from './dom';
+import { aiGroup, clip, el, fmtDur, fmtNum, fmtTime, icon, plural, shortModel, shortType, svg } from './dom';
 import { hideHover, placeCard, tabTip } from './hover';
 import { colorsOf, endOfAgent, modeSwitch, widthOf } from './session-common';
 import { bindAgent, bindMainHover, laneName, tokensOf } from './timeline';
@@ -173,32 +173,29 @@ export function drawMap(host, d) {
 // Full timeline buttons right of the Sum / Full timeline switch: Prompts, which shows each prompt as its own box; Mods,
 // which switches the events of every mod on or off together; and Analyze, which opens a new Claude on a copy of the session.
 function mapToggles(host, d) {
-  const button = (key, text, glyph, about, attrs, onclick, mark = icon(glyph)) => {
+  const bare = (key, text, glyph, about, attrs, onclick) => {
     const tip = target => {
       const r = target.getBoundingClientRect();
       placeCard(`toggle:${key}`, () => tabTip(text, glyph, about), { x: r.left - 14, y: r.bottom - 6 });
     };
     return el(
-      'div',
-      { className: 'dg-modes dg-toggle' },
-      el(
-        'button',
-        {
-          className: 'view-tab dg-mode',
-          'aria-description': about,
-          'data-toggle': key,
-          onclick,
-          onmouseenter: e => tip(e.currentTarget),
-          onmouseleave: hideHover,
-          onfocus: e => tip(e.currentTarget),
-          onblur: hideHover,
-          ...attrs,
-        },
-        mark,
-        el('span', {}, text)
-      )
+      'button',
+      {
+        className: 'view-tab dg-mode',
+        'aria-description': about,
+        'data-toggle': key,
+        onclick,
+        onmouseenter: e => tip(e.currentTarget),
+        onmouseleave: hideHover,
+        onfocus: e => tip(e.currentTarget),
+        onblur: hideHover,
+        ...attrs,
+      },
+      icon(glyph),
+      el('span', {}, text)
     );
   };
+  const button = (key, text, glyph, about, attrs, onclick) => el('div', { className: 'dg-modes dg-toggle' }, bare(key, text, glyph, about, attrs, onclick));
   const toggle = (key, text, glyph, about, on, flip) =>
     button(key, text, glyph, about, { className: `view-tab dg-mode${on ? ' active' : ''}`, 'aria-pressed': on ? 'true' : 'false' }, () => {
       hideHover();
@@ -213,31 +210,30 @@ function mapToggles(host, d) {
     toggle('prompts', 'Prompts', 'comment', 'Each prompt as its own box on the main thread, above the step it started.', state.mapPrompts, () => (state.mapPrompts = !state.mapPrompts)),
     hasModEvents(d) ? toggle('mods', 'Mods', 'plug', 'What each mod did, on the steps and agents it concerns.', state.mapMods, () => (state.mapMods = !state.mapMods)) : null,
     s
-      ? button(
-          'analyze',
-          'Analyze',
-          'comment-discussion',
-          'A new Claude in a terminal with a copy of this session, to ask about it in a chat. The session itself stays untouched.',
-          { 'data-confirm': 'analyze' },
-          () => {
-            hideHover();
-            vscode.postMessage({ type: 'analyzeSession', scope: s.scope, id: s.id });
-          },
-          claudeMark()
-        )
-      : null,
-    s
-      ? button(
-          'continue',
-          'Continue session',
-          'debug-continue',
-          'Resumes this very session in Claude, in a terminal, so what you say is added to it. Analyze works on a copy instead.',
-          { 'data-confirm': 'continue' },
-          () => {
-            hideHover();
-            vscode.postMessage({ type: 'continueSession', scope: s.scope, id: s.id });
-          },
-          claudeMark()
+      ? aiGroup(
+          '',
+          bare(
+            'analyze',
+            'Analyze',
+            'comment-discussion',
+            'A new Claude in a terminal with a copy of this session, to ask about it in a chat. The session itself stays untouched.',
+            { 'data-confirm': 'analyze' },
+            () => {
+              hideHover();
+              vscode.postMessage({ type: 'analyzeSession', scope: s.scope, id: s.id });
+            }
+          ),
+          bare(
+            'continue',
+            'Continue session',
+            'debug-continue',
+            'Resumes this very session in Claude, in a terminal, so what you say is added to it. Analyze works on a copy instead.',
+            { 'data-confirm': 'continue' },
+            () => {
+              hideHover();
+              vscode.postMessage({ type: 'continueSession', scope: s.scope, id: s.id });
+            }
+          )
         )
       : null,
   ].filter(Boolean);

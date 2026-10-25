@@ -6,7 +6,8 @@ import type { Detail } from '../shared/messages';
 import { isReference } from '../shared/slim';
 import { agentColorClass, command, editable, kindLabel, labelOf, mcpFailed, metaOf, openAt, persist, pluginOf, skillPluginOf, sourceName, state, std, tidyError, viewOf, vscode } from './core';
 import { cmd, cmdBox, renderRuleInfo } from './detail';
-import { claudeMark, el, fmtAgo, icon, plural } from './dom';
+import { distNotice, updateBanner } from './dist';
+import { aiGroup, el, fmtAgo, icon, plural } from './dom';
 import { hideHover, placeCard } from './hover';
 import { mcpStatusWord } from './kind-page';
 import { renderMain } from './main';
@@ -88,11 +89,22 @@ function tabbed(a: Asset, tabs: (Tab | null)[]): HTMLElement {
 export const card = (title: string, count: number | string | null, ...body: Child[]) =>
   el('section', { className: 'dv-card' }, el('div', { className: 'dv-card-head' }, el('span', { className: 'dv-card-title' }, title), count === null ? null : el('span', { className: 'dv-count' }, String(count))), (body as unknown[]).flat(Infinity));
 
-const tile = (n: string, label: string, glyph: string, note: string, tone?: string, tip?: string) =>
-  el('div', { className: 'tile static', title: tip }, el('span', { className: `n${n.length > 10 ? ' long' : ''}` }, n), el('span', { className: 'l' }, icon(glyph), label), el('span', { className: `kpi-note${tone ? ` ${tone}` : ''}` }, note));
+// A labelled fact: the label in a fixed column, its value beside it. The info card is made of these, grouped by what they describe.
+const fact = (label: string, value: Child, glyph?: string | null, tip?: string, cls = '') =>
+  el('div', { className: `dv-fact${cls ? ` ${cls}` : ''}`, title: tip }, el('span', { className: 'k' }, glyph ? icon(glyph) : null, label), el('span', { className: 'v' }, value));
 
-const chip = (glyph: string | null, label: string, value?: string, title?: string, extra = '') =>
-  el('span', { className: `dv-chip${extra ? ` ${extra}` : ''}`, title }, glyph ? icon(glyph) : null, value === undefined ? label : [el('span', { className: 'k' }, label), value]);
+const group = (caption: string, rows: (HTMLElement | null)[]) => {
+  const live = rows.filter((r): r is HTMLElement => !!r);
+  return live.length ? el('div', { className: 'dv-group' }, el('div', { className: 'dv-group-cap' }, caption), live) : null;
+};
+
+// A figure with its note: the figure in the text color, the note muted. A note is cut to the row's width; the hover card
+// carries the label, the whole note and the tip.
+const UNKNOWN = new Set(['Unknown', '...', '-']);
+const tile = (n: string, label: string, glyph: string, note: string, tone?: string, tip?: string) =>
+  fact(label, [el('span', { className: `n${UNKNOWN.has(n) ? ' unk' : ''}` }, n), el('span', { className: `kpi-note${tone ? ` ${tone}` : ''}` }, note)], glyph, [label, note, tip].filter(Boolean).join('\n'));
+
+const stats = (caption: string, cells: (HTMLElement | null)[]) => group(caption, cells);
 
 const fieldOf = (draft: Draft, key: string) => draft.fields.find(f => f.key === key)?.value;
 const listField = (v: unknown) => (Array.isArray(v) ? v.map(String) : typeof v === 'string' ? v.split(/[,\n]/) : []).map(s => s.trim()).filter(Boolean);
@@ -132,56 +144,45 @@ function phraseGroup(label: string, phrases: string[]): HTMLElement {
 
 const DONE_KEYS = new Set(['name', 'description', 'tools', 'allowed-tools', 'disallowedTools', 'skills', 'version', 'metadata']);
 
-// Frontmatter as chips, each in words a reader understands at a glance.
-function factChips(a: Asset, draft: Draft, more: HTMLElement[] = []): HTMLElement | null {
-  const chips: HTMLElement[] = [];
+// Frontmatter as labelled facts, each in words a reader understands at a glance.
+function factRows(a: Asset, draft: Draft): HTMLElement[] {
+  const rows: HTMLElement[] = [];
   for (const f of draft.fields) {
     if (DONE_KEYS.has(f.key)) continue;
     const v = f.value;
     const text = String(v);
-    if (f.key === 'model') chips.push(chip('chip', 'Model', text));
-    else if (f.key === 'color') chips.push(el('span', { className: 'dv-chip' }, el('span', { className: `swatch dv-dot ${agentColorClass(text)}` }), el('span', { className: 'k' }, 'Color'), text));
-    else if (f.key === 'disable-model-invocation') chips.push(v === true ? chip('lock', 'Manual only', undefined, 'Claude never starts it on its own; only you can, by name.') : chip('unlock', 'Model can invoke'));
-    else if (f.key === 'user-invocable') chips.push(v === false ? chip('eye-closed', 'Hidden from the / menu') : chip('eye', 'In the / menu'));
-    else if (f.key === 'keep-coding-instructions') chips.push(chip('code', v === true ? 'Keeps coding instructions' : 'Replaces coding instructions'));
+    if (f.key === 'model') rows.push(fact('Model', text, 'chip'));
+    else if (f.key === 'color') rows.push(fact('Color', [el('span', { className: `swatch dv-dot ${agentColorClass(text)}` }), text]));
+    else if (f.key === 'disable-model-invocation') rows.push(fact('Invocation', v === true ? 'Manual only' : 'Model can invoke', v === true ? 'lock' : 'unlock', v === true ? 'Invocation\nClaude never starts it on its own; only you can, by name.' : undefined));
+    else if (f.key === 'user-invocable') rows.push(fact('Slash menu', v === false ? 'Hidden' : 'Listed', v === false ? 'eye-closed' : 'eye'));
+    else if (f.key === 'keep-coding-instructions') rows.push(fact('Coding instructions', v === true ? 'Kept' : 'Replaced', 'code'));
     else if (f.key === 'agent') {
       const e = resolve(text, a);
-      chips.push(el('span', { className: 'dv-chip' }, icon('hubot'), el('span', { className: 'k' }, 'Runs in'), e ? refChip(e) : text));
-    } else if (f.key === 'paths') chips.push(chip('filter', 'Paths', String(listField(v).length || 1), listField(v).join('\n')));
-    else if (f.key === 'argument-hint') chips.push(chip('symbol-parameter', 'Arguments', text));
-    else if (f.key === 'license') chips.push(chip('law', 'License', text));
-    else chips.push(chip(null, f.key, text.length > 40 ? `${text.slice(0, 37)}...` : text, text.length > 40 ? text : undefined));
+      rows.push(fact('Runs in', e ? refChip(e) : text, 'hubot'));
+    } else if (f.key === 'paths') {
+      if (a.kind !== 'rule') rows.push(fact('Paths', String(listField(v).length || 1), 'filter', `Paths\n${listField(v).join('\n')}`));
+    } else if (f.key === 'argument-hint') rows.push(fact('Arguments', text, 'symbol-parameter'));
+    else if (f.key === 'license') rows.push(fact('License', text, 'law'));
+    else rows.push(fact(f.key, el('span', { className: 'ell' }, text), null, text.length > 40 ? `${f.key}\n${text}` : undefined));
   }
   const version = fieldOf(draft, 'version');
-  if (version) chips.unshift(chip('tag', 'Version', String(version)));
-  chips.push(...more);
-  return chips.length ? el('div', { className: 'dv-chips' }, chips) : null;
+  if (version) rows.unshift(fact('Version', String(version), 'tag'));
+  return rows;
 }
 
-function hero(a: Asset, v: ScopeView | undefined, draft: Draft | undefined, description: string, extra: Child[] = [], chips: HTMLElement[] = []): HTMLElement {
+// `rows` are the facts of the element, `measures` its group of figures; the notices (`extra`) sit between the description and the groups.
+function hero(a: Asset, v: ScopeView | undefined, draft: Draft | undefined, description: string, extra: Child[] = [], rows: HTMLElement[] = [], measures: HTMLElement | null = null): HTMLElement | null {
   const { text, groups } = splitDescription(description);
   const missing = !text && ['skill', 'agent', 'command'].includes(a.kind);
-  const repo = v && v.id !== 'global' ? v.label : '';
-  // Memory and rules have no description: say when Claude reads them instead.
-  const when =
-    a.kind === 'memory'
-      ? repo
-        ? `Loaded into every session in ${repo}, before the first prompt.`
-        : 'Loaded into every Claude Code session on this machine, before the first prompt.'
-      : a.kind === 'rule'
-        ? metaOf(a).paths
-          ? 'Loaded when Claude reads a file that matches its paths.'
-          : `Loaded into every session${repo ? ` in ${repo}` : ''}, like memory.`
-        : '';
-  return el(
-    'section',
-    { className: 'dv-hero' },
-    el('div', { className: 'dv-kicker' }, el('span', {}, kindLabel(a.kind)), el('span', { className: 'dv-origin' }, originText(a, v))),
-    text ? descBlock(text) : when ? el('p', { className: 'dv-desc' }, when) : el('p', { className: `dv-desc muted${missing ? ' warn' : ''}` }, missing ? 'No description, so Claude cannot tell when to use it.' : 'No description.'),
-    groups.map(([label, phrases]) => phraseGroup(label, phrases)),
-    draft ? factChips(a, draft, chips) : null,
-    extra
-  );
+  // Where it lives is the header's badge; what the badge cannot say (a plugin, a source, a version, linked repos) is the Origin fact.
+  const rest = originText(a, v).split(' · ').slice(1).join(' · ');
+  const details = group('Details', [rest ? fact('Origin', rest, 'source-control') : null, ...(draft ? factRows(a, draft) : []), ...rows]);
+  // Memory and rules say when they load in their Loads and Always loaded rows, and the other kinds have no description to miss.
+  const noDesc = !['skill', 'agent', 'command', 'outputStyle'].includes(a.kind);
+  const body = [text ? descBlock(text) : noDesc ? null : el('p', { className: `dv-desc muted${missing ? ' warn' : ''}` }, missing ? 'No description, so Claude cannot tell when to use it.' : 'No description.'), groups.map(([label, phrases]) => phraseGroup(label, phrases)), extra];
+  const cols = details || measures ? el('div', { className: 'dv-cols' }, details, measures) : null;
+  if (!cols && !body.flat(Infinity).some(Boolean)) return null;
+  return el('section', { className: 'dv-hero' }, (body as unknown[]).flat(Infinity), cols);
 }
 
 // A reference list: rows that hover-preview and open the element.
@@ -403,7 +404,7 @@ function fileParts(files: string[]): string {
 }
 
 // What it costs in context: the description sits in every session's list; the body loads when it is used.
-function kpisFor(a: Asset, draft: Draft, description: string, mentions: Entry[], mentioned: Entry[], tools: string[]): HTMLElement {
+function kpisFor(a: Asset, draft: Draft, description: string, mentions: Entry[], mentioned: Entry[], tools: string[]): HTMLElement | null {
   const body = draft.body;
   const desc = `${fmtTokens(tokens(description))} tokens`;
   const connections = tile(String(mentions.length + mentioned.length), 'Connections', 'references', `refers to ${mentions.length} · referred to by ${mentioned.length}`);
@@ -422,7 +423,7 @@ function kpisFor(a: Asset, draft: Draft, description: string, mentions: Entry[],
     rule: [
       tile(always ? 'Always' : 'On match', 'Loads', 'law', always ? 'in every session' : 'when Claude reads a matching file'),
       tile(fmtTokens(tokens(body)), 'Size', 'symbol-ruler', 'tokens'),
-      tile(String((metaOf(a).paths || []).length), 'Paths', 'filter', 'globs in the frontmatter'),
+      tile(String((metaOf(a).paths || []).length), 'Paths', 'filter', 'globs in the frontmatter', undefined, (metaOf(a).paths || []).join('\n')),
       connections,
     ],
     memory: [
@@ -437,7 +438,7 @@ function kpisFor(a: Asset, draft: Draft, description: string, mentions: Entry[],
       connections,
     ],
   };
-  return el('div', { className: 'kpis' }, set[a.kind] || [connections]);
+  return stats('Context cost', set[a.kind] || [connections]);
 }
 
 function markdownView(d: Detail, draft: Draft): Child[] {
@@ -476,8 +477,7 @@ function markdownView(d: Detail, draft: Draft): Child[] {
   const slimNote = slimCard(a, slim);
   const flagged = slim ? slim.spread.orphan.length + slim.spread.nested.length + slim.spread.giant.length + (slim.spread.manyTiny ? 1 : 0) : 0;
   return [
-    hero(a, v, draft, description, [], a.kind === 'agent' ? [weekAgentChip(a)] : []),
-    kpisFor(a, draft, description, mentions, mentioned, tools),
+    hero(a, v, draft, description, a.kind === 'skill' ? [distNotice(a), updateBanner(a)] : [], a.kind === 'agent' ? [weekAgentChip(a)] : [], kpisFor(a, draft, description, mentions, mentioned, tools)),
     tabbed(a, [
       {
         id: 'doc',
@@ -557,7 +557,7 @@ function mcpView(d: Detail): Child[] {
     'label',
     { className: 'dv-switch' },
     el('input', { type: 'checkbox', checked: a.enabled !== false, onchange: () => command('toggleMcp', { id: a.id }) }),
-    el('span', {}, v && v.id !== 'global' ? `Enabled in ${v.label}` : 'Enabled in every folder')
+    el('span', {}, v && v.id !== 'global' ? `In ${v.label}` : 'In every folder')
   );
   const off = a.enabled === false;
   const busy = state.mcpBusy[a.id] === 'busy';
@@ -575,21 +575,32 @@ function mcpView(d: Detail): Child[] {
           : a.source === 'local'
             ? `Registered for ${repo || 'one repo'} only, in your ~/.claude.json.`
             : 'Registered in your ~/.claude.json; Claude Code starts it in every session.';
-  const heroCard = hero(a, v, undefined, a.about || where, [
-    el('div', { className: 'dv-chips' }, chip(null, 'Source', sourceName(a)), a.target ? chip('link', 'Address', a.target.length > 60 ? `${a.target.slice(0, 57)}...` : a.target, a.target) : null, pluginOf(a) ? chip('extensions', 'Plugin', pluginOf(a)) : null),
-    el('div', { className: 'dv-actions' }, enabled, !v && a.offIn ? el('span', { className: 'dv-note' }, `Off in ${a.offIn} of ${plural(a.folders, 'folder')}.`) : null),
-    off
-      ? el('div', { className: 'dv-notice', role: 'status' }, icon('circle-slash'), el('span', { className: 'dv-notice-text' }, `Switched off ${v && v.id !== 'global' ? `in ${v.label}` : 'in every folder'}. Switch it on to connect, sign in or retry.`))
-      : problem
+  // The status is one line: icon, word, the server's own message, and Sign in and Retry at its right end. The text from
+  // `claude mcp list` is the line's hover card.
+  const word = mcpStatusWord(a);
+  const wordText = word === 'Sign-in' || (word === '-' && needsSignIn && !off) ? 'Needs sign-in' : word === '-' ? (info ? 'Unknown' : '...') : word || (info ? 'Unknown' : '...');
+  const listed = a.status && a.status !== word ? tidyError(a.status) : '';
+  const tone = off ? 'warn' : problem || mcpFailed(a) ? 'bad' : word === 'Connected' ? 'ok' : 'warn';
+  const message = off
+    ? `Switched off ${v && v.id !== 'global' ? `in ${v.label}` : 'in every folder'}. Switch it on to connect, sign in or retry.`
+    : problem
+      ? (state.mcpBusy[a.id] === 'done' ? 'Checked again: ' : '') + tidyError(info.error)
+      : '';
+  const sameAsWord = message.replace(/\.$/, '').toLowerCase() === wordText.toLowerCase();
+  const statusText = off || (problem && sameAsWord) ? message : problem ? `${wordText} · ${message}` : listed ? `${wordText} · ${listed}` : wordText;
+  const statusLine = el(
+    'div',
+    { className: `dv-notice line ${tone}`, role: tone === 'bad' ? 'alert' : 'status', title: problem && listed ? `${wordText}\n${listed}` : undefined },
+    icon(off ? 'circle-slash' : tone === 'ok' ? 'pass' : tone === 'bad' ? 'error' : 'warning'),
+    el('span', { className: 'dv-notice-text' }, statusText),
+    problem
       ? el(
           'div',
-          { className: 'dv-notice bad', role: 'alert' },
-          icon('error'),
-          el('span', { className: 'dv-notice-text' }, (state.mcpBusy[a.id] === 'done' ? 'Checked again: ' : '') + tidyError(info.error)),
+          { className: 'cmd-row' },
+          aiGroup('', info.signIn ? cmd('sign-in', 'Sign in', 'Sign in\nA Claude in a terminal runs /mcp, where the server asks you to sign in.', () => vscode.postMessage({ type: 'mcpSignIn', id: a.id })) : null),
           cmdBox(
             'Server',
             '',
-            info.signIn ? cmd(claudeMark(), 'Sign in', 'Sign in\nA Claude in a terminal runs /mcp, where the server asks you to sign in.', () => vscode.postMessage({ type: 'mcpSignIn', id: a.id })) : null,
             cmd(busy ? 'loading' : 'refresh', busy ? 'Retrying...' : 'Retry', 'Retry\nAsk the server for its tools again.', () => {
               state.mcpBusy[a.id] = 'busy';
               vscode.postMessage({ type: 'mcpRetry', id: a.id });
@@ -597,18 +608,25 @@ function mcpView(d: Detail): Child[] {
             }, { disabled: busy })
           )
         )
-      : null,
-  ]);
-  const word = mcpStatusWord(a);
-  const unknown = !!(info && info.error) || off;
-  const kpis = el(
-    'div',
-    { className: 'kpis' },
-    tile(word === 'Sign-in' || (word === '-' && needsSignIn && !off) ? 'Needs sign-in' : word === '-' ? (info ? 'Unknown' : '...') : word, 'Status', word === 'Connected' ? 'pass' : word === 'Off' ? 'circle-slash' : mcpFailed(a) ? 'error' : 'warning', a.status && a.status !== word ? tidyError(a.status) : 'from claude mcp list', word === 'Connected' || word === 'Off' ? '' : mcpFailed(a) ? 'bad' : 'warn'),
-    tile(info ? (info.error ? 'Unknown' : String(toolList.length)) : '...', 'Tools', 'tools', info ? (info.error ? (off ? 'switched off' : needsSignIn ? 'until you sign in' : 'the server did not answer') : `${info.server || labelOf(a)}${info.version ? ` ${info.version}` : ''}`) : 'asking the server'),
-    tile(info && !info.error ? fmtTokens(toolList.reduce((n, t) => n + tokens(`${t.name} ${t.description}`), 0)) : unknown ? 'Unknown' : '...', 'Tool list', 'layers', unknown ? (off ? 'switched off' : needsSignIn ? 'until you sign in' : 'the server did not answer') : calls === undefined ? 'tokens of names and descriptions' : `tokens every session, ${plural(calls, 'call')}`),
-    tile(v && v.id !== 'global' ? v.label : 'Global', 'Scope', v && v.id !== 'global' ? 'repo' : 'globe', sourceName(a))
+      : null
   );
+  const unknown = !!(info && info.error) || off;
+  const why = off ? 'switched off' : needsSignIn ? 'until you sign in' : 'the server did not answer';
+  // Tools and Tool list both say Unknown for the same reason: one cell then, with both in its hover card.
+  const cells = unknown
+    ? [tile('Unknown', 'Tools and tool list', 'tools', why, undefined, `The server's tools, and what its tool list costs in tokens each session, are unknown ${why}.`)]
+    : [
+        tile(info ? String(toolList.length) : '...', 'Tools', 'tools', info ? `${info.server || labelOf(a)}${info.version ? ` ${info.version}` : ''}` : 'asking the server'),
+        tile(info ? fmtTokens(toolList.reduce((n, t) => n + tokens(`${t.name} ${t.description}`), 0)) : '...', 'Tool list', 'layers', !info ? 'asking the server' : calls === undefined ? 'tokens of names and descriptions' : `tokens every session, ${plural(calls, 'call')}`),
+      ];
+  // The Scope tile said what the header's origin and the Source chip already say, so it is gone.
+  const heroCard = hero(a, v, undefined, a.about || where, [fact('Status', statusLine, null, undefined, 'wide')], [
+    fact('Source', sourceName(a), 'source-control'),
+    a.target ? fact('Address', el('span', { className: 'ell' }, a.target), 'link', `Address
+${a.target}`) : null,
+    pluginOf(a) ? fact('Plugin', pluginOf(a), 'extensions') : null,
+    fact('Enabled', [enabled, !v && a.offIn ? el('span', { className: 'dv-note' }, `Off in ${a.offIn} of ${plural(a.folders, 'folder')}.`) : null], 'check'),
+  ].filter((c): c is HTMLElement => !!c), stats('Tools offered', cells));
   const tools = () =>
     card(
       'Tools',
@@ -622,7 +640,6 @@ function mcpView(d: Detail): Child[] {
   const instructions = info && info.instructions ? info.instructions : '';
   return [
     heroCard,
-    kpis,
     tabbed(a, [
       { id: 'tools', label: 'Tools', glyph: 'tools', about: 'Every tool the server offers, with the description Claude reads.', count: info && !info.error ? toolList.length : undefined, body: tools },
       instructions ? { id: 'instructions', label: 'Server instructions', glyph: 'book', about: 'What the server tells Claude about using its tools.', body: () => card('Server instructions', null, renderMarkdown(instructions).node) } : null,
@@ -682,18 +699,20 @@ function pluginView(d: Detail): Child[] {
     'label',
     { className: 'dv-switch' },
     el('input', { type: 'checkbox', checked: !!a.enabled, onchange: () => command('togglePlugin', { id: a.id }) }),
-    el('span', {}, 'Enabled for your user')
+    el('span', {}, 'For your user')
   );
-  const heroCard = el(
-    'section',
-    { className: 'dv-hero' },
-    el('div', { className: 'dv-kicker' }, el('span', {}, 'Plugin'), el('span', { className: 'dv-origin' }, [market ? `from ${market}` : '', version ? `v${version}` : ''].filter(Boolean).join(' · '))),
-    el('p', { className: 'dv-desc' }, a.enabled ? `Adds ${[plural(skills.length, 'skill'), plural(agents.length, 'agent'), plural(servers.length, 'MCP server')].join(', ')} to every session.` : 'Disabled: none of its skills, agents or servers load. Enable it to see them here.'),
-    el('div', { className: 'dv-actions' }, toggle)
+  // The counts are the Contains rows; the sentence they once repeated stays only for a disabled plugin, where it says why they are empty.
+  const heroCard = hero(
+    a,
+    state.views[0],
+    undefined,
+    '',
+    [a.enabled ? null : el('p', { className: 'dv-desc' }, 'Disabled: none of its skills, agents or servers load. Enable it to see them here.')],
+    [market ? fact('Marketplace', market, 'extensions') : null, version ? fact('Version', `v${version}`, 'tag') : null, fact('Enabled', toggle, 'check')].filter((c): c is HTMLElement => !!c),
+    stats('Contains', [tile(String(skills.length), 'Skills', 'mortar-board', 'in every session'), tile(String(agents.length), 'Agents', 'hubot', 'Claude can delegate to'), tile(String(servers.length), 'MCP servers', 'server', 'started with Claude Code')])
   );
   return [
     heroCard,
-    el('div', { className: 'kpis' }, tile(String(skills.length), 'Skills', 'mortar-board', 'in every session'), tile(String(agents.length), 'Agents', 'hubot', 'Claude can delegate to'), tile(String(servers.length), 'MCP servers', 'server', 'started with Claude Code'), tile(version || '-', 'Version', 'tag', market || '')),
     tabbed(a, [
       { id: 'skills', label: 'Skills', glyph: 'mortar-board', about: 'The skills the plugin adds to every session, with how often each was used.', count: skills.length, live: true, body: () => card('Skills', skills.length, usedRefList(a, skills, a.enabled ? 'No skills.' : 'Enable the plugin to list them.', 'use', refRow)) },
       { id: 'agents', label: 'Agents', glyph: 'hubot', about: 'The agents the plugin adds, which Claude can delegate to, with how often each was launched.', count: agents.length, live: true, body: () => card('Agents', agents.length, usedRefList(a, agents, a.enabled ? 'No agents.' : 'Enable the plugin to list them.', 'agent', refRow)) },
@@ -711,12 +730,8 @@ function codeView(d: Detail, body: string): Child[] {
   if (fired) askFired(a, state.detailTabs[a.kind] === 'fired');
   const label = d.mode === 'settings' ? 'JSON' : d.mode === 'json' ? 'Config' : 'Script';
   return [
-    el(
-      'section',
-      { className: 'dv-hero' },
-      el('div', { className: 'dv-kicker' }, el('span', {}, kindLabel(a.kind)), el('span', { className: 'dv-origin' }, originText(a, viewOf(a.scope) || undefined))),
-      a.description ? el('p', { className: 'dv-desc' }, a.description) : null
-    ),
+    // The header badges already name the kind and the scope; the card appears when there is a description or an origin to add.
+    hero(a, viewOf(a.scope) || undefined, undefined, a.description || ''),
     tabbed(a, [
       {
         id: 'doc',

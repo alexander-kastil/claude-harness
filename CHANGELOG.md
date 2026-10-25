@@ -2,6 +2,48 @@
 
 All notable changes to Claude Harness are listed here, newest first. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions with no version change in the package.json history (0.1.3, 0.1.5 to 0.1.18, 0.1.20 to 0.1.24, 0.1.27, 0.2.1 and 0.2.3 to 0.2.11) and development builds (0.2.14 to 0.2.22, 0.2.24 to 0.2.30, 0.2.32 to 0.2.34, 0.2.36 to 0.2.44, 0.3.0 and 0.3.2) have no entry.
 
+## [0.5.0] - 2026-10-25
+
+### Added
+
+- Share, in the right-click menu of agents, skills, commands, output styles, rules, plugins, CLAUDE.md files, hooks and MCP servers. It packs the element in its native format (a zip for a skill or plugin, one file for the rest) and saves it to your Downloads folder, with a Show in folder button. For an item that ships with a plugin, a card asks whether to share only that item or the whole plugin. Values that look like secrets (keys, tokens, passwords) are listed in a card before anything is saved, and are saved as they are only after you agree.
+- Import Skill..., Import Plugin..., Import Agent..., Import Command..., Import Output Style..., Import Rule..., Import CLAUDE.md..., Import MCP Server... and Import Hook... take a shared file back in. You pick the scope, and a card lists every file it writes. An element of the same name is replaced after a backup to `~/.claude/repo-sync-backups`, or imported under a new name. An MCP server or hook is merged into the settings file instead of replacing it. A plugin is written into a directory marketplace of yours and installed from it. Each Import button sits in the header of its type page, and the commands are in the Command Palette.
+- Sync in the row menu and the sidebar tree for a skill that has a source: it checks the source and, when it is newer, offers the update.
+- Sync from Global on a repo skill or agent whose copy in the repo differs from the Global one. A card lists the files, the copy is backed up, then overwritten with the Global version.
+- Sync Plugin from Its Marketplace, in the Marketplace health page and the plugin menu, for a plugin whose marketplace is ahead of the installed copy. It updates the marketplace and the plugin.
+- Sync to Other Copies for an MCP server that is configured differently in several files. A card asks which configuration to keep, then replaces the entry in each file after a backup.
+- A skill with a source shows a chip with its `owner/repo` in the header of its page.
+- Skill sources. Add a skill from a skills.sh or GitHub address with the new **Add from skills.sh** button on the Skills page: a card asks for the address, shows the skill's description, its files and a reminder that a skill is third-party text, and installs it into `~/.claude/skills` after you agree. A skill you copied by hand can be connected to its source with **Connect to source**, and its page then shows what the distributor's files replace, with your own files named.
+- **Check updates** asks GitHub whether the folder of each skill that has a source changed, with one request per repo and no download. The Origin column on the Skills page reads `distributor` for such a skill, with `owner/repo` in its hover card, and the Sync column shows `current`, `update`, `unchecked` or `gone`. Two new presets, **From a distributor** and **Update available**, filter the page. A skill with a newer version says so in the Sync column and in a banner on its page, with the version pair when its SKILL.md has one.
+- **Update** replaces a skill's files in place, for one skill from its page or for every skill a check found newer from the Skills page. The card names the files that are overwritten, added and deleted, and the old files are backed up to `~/.claude/repo-sync-backups`. Setting `GITHUB_TOKEN` or `GH_TOKEN` raises GitHub's limit of 60 requests an hour.
+- **Link into repo** on a global skill's page gives the repos you pick a soft link (a directory junction on Windows) to the skill, so updating the global skill updates every linked repo. A repo that already has its own folder of that name is listed as disabled with the reason, and the skill's page says which repos it is linked into.
+- The source of each skill is recorded in `~/.claude/.skill-sources.json`. Skills that the skills CLI (`npx skills add -g`) installed show their Origin from its lock file, which is only read, never written, and an update from Claude Harness turns such a link into a real folder in `~/.claude/skills`.
+- Five commands: Add Skill from skills.sh or GitHub..., Connect Skill to its Source..., Check Skills for Updates, Update Skills from their Source and Link Global Skill into a Repo.... See the new [Skill sources](docs/skill-sources.md) page.
+- Plugin Hunter. The new **Plugin Hunter** button on the Plugins page opens a page where you talk to Claude about the skills and agents you already have. Ask it to search your harness, to create the plugin or to take an element out, and **Start over** clears the conversation. Each proposal is a card with a name, description and category, a tick to include each element, and a **Retire** tick on each global or repo copy it replaces. A repo copy that differs from the global one has a **Merge** button. **New plugin** starts an empty card, and **Add skill or agent** picks from your skills and agents with a search. Only a directory marketplace on your disk can be picked, because Claude Code overwrites its copies of GitHub, git and URL marketplaces. **Create** shows a card that lists every file it writes, then writes the plugin and its marketplace entry, installs it and retires the ticked copies, with a backup in `~/.claude/repo-sync-backups`. See [Plugins](docs/plugins.md#plugin-hunter).
+- The Enabled column of the Plugins page is a switch. It enables or disables the plugin in the scope of its row, and clicking it does not open the plugin.
+
+### Changed
+
+- Confirm cards can ask for text and offer a list to pick from, with an inline error under the field, so the address and repo questions of the skill sources stay in the panel instead of a VS Code input box and pick list.
+- The buttons in a page header wrap onto a second row in a narrow panel, instead of being cut off or overlapping the title.
+- Downloads of a skill that a closed card or window left behind in the temp folder are removed.
+- Every action that starts Claude sits in an AI group: a button group led by the Claude mark, with each action as its own button and icon. Review with Claude uses a lightbulb with a sparkle. A lone Claude action gets the same group.
+- Detail pages are denser. The info card shows labelled facts (label and value) in two captioned groups, Details and the figures, instead of loose pills. Flags read as words ("Manual only", "Listed" or "Hidden", "Kept" or "Replaced"). The kind kicker and filler sentences are gone, and the status is a single Status fact, boxed only on an error or a warning.
+- Page heads show a short count line, for example "13 assets · repos/shop-api", with the full path on hover.
+- Effective harness: the Memory table lost its duplicate File column (the path is in the Name hover), and loaded paths show as `~/.claude/...` or relative to the repo.
+- The Models tab is a one-line table with Tokens, Cost, Of limit, and Replies or Launches. The harness standard card no longer restates itself.
+- The sessions search and the Headless runs list use the same one-line sessions table.
+- The cost legend shows "<1%" instead of "0%" next to "<$0.01". Session KPI notes are shorter, with the long text on hover. Findings have no "nothing recorded" chip, the Decisions legend text moved into the tab hover, and output style counts are labelled chips ("1 word").
+- Plugin Hunter has a one-line placeholder, "Retire" ticks with the wording on hover, "No plugin cards yet." and a shorter notice when there is no marketplace. Used in and Fired in wording is shorter.
+- The second line of a row in the sidebar and the tree shows at most three facts per kind, each with a hover card that says what it is.
+- The tables on the type pages use short tokens. Origin reads `global`, `repo`, `linked`, `marketplace` or `distributor`, and Sync reads `current`, `update`, `unchecked` or `gone`, with the details in the hover card. On the Skills page Sync replaces Tools. Changed counts days. An uncounted Cost or Used is a red 0. Text columns are left-aligned, columns with nothing in them are dropped, and a narrow panel drops the low-priority columns first.
+- The billing switch reads Team and API, with the full name in its hover card.
+- Plainer wording on the overview, the Fleet overview, Marketplace health, the sidebar and the command titles.
+
+### Fixed
+
+- The VSIX no longer bundles the Marketplace film workspace (`assets/film-*`).
+
 ## [0.4.0] - 2026-10-24
 
 ### Added
