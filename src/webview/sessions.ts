@@ -1,7 +1,8 @@
 // @ts-nocheck
 // The sessions search page and session lists.
+import { analyzeRowButton } from './confirm';
 import { select, showRepo, state, viewOf, vscode } from './core';
-import { el, fmtDate, fmtDur, highlight, icon, iconBtn, pageHead } from './dom';
+import { clip, el, fmtDate, fmtDur, highlight, icon, iconBtn, pageHead, plural } from './dom';
 import { render, renderMain } from './main';
 import { gridTable } from './tables';
 
@@ -18,7 +19,14 @@ export const sessionDesc = s =>
     .filter(Boolean)
     .join(' · ');
 
-export const sessionIcon = s =>
+// The hover card of a session row: its first prompt, where and when it ran, never the transcript's path.
+export const sessionTip = (s, scope) => {
+  const view = scope && viewOf(scope);
+  const facts = [view ? view.label : '', s.branch || '', s.start ? fmtDate(s.start) : '', s.agents ? `${s.agents} ${s.agents === 1 ? 'agent' : 'agents'}` : ''].filter(Boolean).join(' · ');
+  return [s.live ? `Running now: ${s.live}` : s.headless ? 'Headless session' : 'Session', s.title ? clip(s.title.replace(/\s+/g, ' '), 160) : '', facts].filter(Boolean).join('\n');
+};
+
+export const sessionIcon =s =>
   s.live ? el('span', { className: 'codicon codicon-circle-filled live' }) : icon(s.headless ? 'terminal' : s.agents ? 'type-hierarchy-sub' : 'comment-discussion');
 
 export const showSessionsPage = scope => {
@@ -42,6 +50,8 @@ export const STATE_FACETS = [
   ['today', 'Started today', s => !!s.start && sameDay(s.start, Date.now())],
   ['agents', 'With agents', s => s.agents > 0],
   ['headless', 'With headless runs', s => !!s.headless || (s.children || []).length > 0],
+  ['hookFailed', 'A hook failed', s => !!s.hookFailed],
+  ['modDenied', 'A mod denied a tool', s => !!s.modDenied],
 ];
 
 export const facetTest = f =>
@@ -64,7 +74,7 @@ export function suggestionsFor(list, q, facets) {
     .map(f => Object.assign(f, { n: pool.filter(facetTest(f)).length }))
     .filter(f => f.n > 0 && !has(f) && (!q || f.label.toLowerCase().includes(q)));
   const sessions = q ? pool.filter(s => s.title.toLowerCase().includes(q)).slice(0, 5).map(s => ({ kind: 'session', s, label: s.title })) : [];
-  return [...facetItems.slice(0, q ? 4 : 6), ...sessions].slice(0, 9);
+  return [...facetItems.slice(0, q ? 4 : 8), ...sessions].slice(0, 11);
 }
 
 export function renderSessionsPage() {
@@ -107,15 +117,16 @@ export function renderSessionsPage() {
     const hits = filterSessions(list, q(), p.facets);
     results.replaceChildren(
       ...[
-        el('div', { className: 'group-label' }, q() || p.facets.length ? `${hits.length} of ${list.length} sessions` : `${list.length} sessions`),
+        el('div', { className: 'group-label' }, q() || p.facets.length ? `${hits.length} of ${list.length} sessions` : plural(list.length, "session")),
         hits.length
           ? hits.map(s =>
               el(
                 'div',
-                { className: 'row', title: s.file, onclick: () => showSession(p.scope, s.id) },
+                { className: 'row', title: sessionTip(s, p.scope), onclick: () => showSession(p.scope, s.id) },
                 sessionIcon(s),
                 el('span', { className: 'name' }, highlight(s.title, q())),
-                el('span', { className: 'desc' }, [sessionDesc(s), (s.types || []).join(', ')].filter(Boolean).join(' · '))
+                el('span', { className: 'desc' }, [sessionDesc(s), (s.types || []).join(', ')].filter(Boolean).join(' · ')),
+                analyzeRowButton(p.scope, s.id)
               )
             )
           : el('div', { className: 'empty flush' }, 'No session matches. Press Esc to clear the search.'),

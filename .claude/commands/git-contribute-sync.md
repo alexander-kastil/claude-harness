@@ -3,7 +3,7 @@ description: Merge the owner's latest master into your claude-harness feature br
 disable-model-invocation: true
 ---
 
-# ext-contribute-sync
+# git-contribute-sync
 
 The step that avoids conflicts: run it right before the pull request, and again whenever master moves on while the pull request is open. Running this command is the instruction; it needs no further confirmation.
 
@@ -15,8 +15,8 @@ The step that avoids conflicts: run it right before the pull request, and again 
 
 ## Steps
 
-1. Remotes: `origin` must be your fork and `upstream` must be `alexander-kastil/claude-harness`, both recognised by URL in `git remote -v`. If not, stop and point to `/ext-contribute-setup`.
-2. The current branch must be a `feature/` branch. On `master`, stop and point to `/ext-contribute-start <name>`.
+1. Remotes: `origin` must be your fork and `upstream` must be `alexander-kastil/claude-harness`, both recognised by URL in `git remote -v`. If not, stop and point to `/git-contribute-setup`.
+2. The current branch must be a `feature/` branch. On `master`, stop and point to `/git-contribute-start <name>`.
 3. `git status --porcelain` must be empty. If not, stop and ask to commit the work first.
 4. `git fetch upstream`. Note whether `git diff --quiet HEAD...upstream/master -- package-lock.json` reports a change.
 5. `git merge upstream/master`. On a conflict, stop: list the files from `git diff --name-only --diff-filter=U`, show each conflict, and say to resolve them, `git add` the files, `git commit --no-edit` and run this command again.

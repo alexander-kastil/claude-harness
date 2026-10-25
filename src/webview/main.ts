@@ -12,6 +12,9 @@ import { renderRepo } from './repo-page';
 import { renderSession } from './session-page';
 import { renderSessionsPage, showSession } from './sessions';
 import { renderSidebar } from './sidebar';
+import { storeSlim } from './slim';
+import { setModActivity, setRepoTrace } from './trace';
+import { askTotals, storeMore, storeTotals } from './usage-more';
 
 export function renderMain() {
   const repo = state.repo && viewOf(state.repo);
@@ -113,12 +116,17 @@ onMessage(m => {
   } else if (m.type === 'weekly') {
     state.weekly = m.list || [];
     if (!state.detail && state.repo && state.repoTab === 'models') renderMain();
+    else if (!state.detail && !state.repo && !state.page) state.overviewRefresh ? state.overviewRefresh() : renderMain();
+    else if (state.detail && state.detail.asset.kind === 'agent' && state.detailMode !== 'edit') renderMain();
   } else if (m.type === 'sessions') {
     state.sessions[m.scope] = m.list || [];
     refreshCard(`repo:${m.scope}`);
+    // A path rule's Loaded in tab weighs its "Never matched" marker by the sessions of its repo.
+    if (state.detail && state.detail.asset.kind === 'rule' && state.detail.asset.scope === m.scope) refreshUsage();
     const current = app.querySelector('.sidebar');
     if (current) keepScroll(() => current.replaceWith(renderSidebar()));
     if (!state.detail && !state.page && state.repo === m.scope) renderMain();
+    else if (!state.detail && !state.page && !state.repo && state.overviewRefresh) state.overviewRefresh();
     if (!state.detail && state.page === 'sessions' && state.sessionsPage && state.sessionsPage.scope === m.scope && state.sessionsPage.refresh) state.sessionsPage.refresh();
   } else if (m.type === 'session') {
     const s = state.session;
@@ -139,7 +147,7 @@ onMessage(m => {
       if (state.page === 'session' && !state.detail) keepMainScroll(renderMain);
     }
   } else if (m.type === 'confirm') {
-    if (state.page === 'session' && !state.detail) showConfirm(m.ask);
+    showConfirm(m.ask);
   } else if (m.type === 'effective') {
     state.effective[m.scope] = m.data || { effective: { memory: [], rules: [], plugins: [], hooks: [] } };
     if (!state.detail && state.repo === m.scope) renderMain();
@@ -167,8 +175,33 @@ onMessage(m => {
     const same = !m.indexing && !!m.sessions && !before?.indexing && JSON.stringify(before?.sessions) === JSON.stringify(m.sessions);
     state.usage[m.id] = m.indexing ? { sessions: before?.sessions, indexing: m.indexing } : m.sessions ? { sessions: m.sessions } : { built: false };
     if (!same && state.detail && state.detail.asset.id === m.id) refreshUsage();
+    // A skill page asked for its weight before the index existed: it asks again once the index is built.
+    if (m.sessions && !same && state.detail && state.detail.asset.id === m.id && m.id && state.detail.asset.kind === 'skill') askTotals('skill');
+  } else if (m.type === 'repoTrace') {
+    setRepoTrace(m.scope, m.data);
+    if (!state.detail && !state.page && state.repo === m.scope && state.repoTab === 'effective') keepMainScroll(renderMain);
+  } else if (m.type === 'modActivity') {
+    setModActivity(m.id, m.data);
+    if (state.detail && state.detail.asset.id === m.id) keepMainScroll(renderMain);
+  } else if (m.type === 'usageMore') {
+    // The strip and counts arrive beside the sessions: a server page draws them in place of its cards, the other pages in their live Used in tab.
+    if (storeMore(m) && state.detail && state.detail.asset.id === m.id) {
+      if (state.detail.asset.kind === 'mcp') renderMain();
+      else refreshUsage();
+    }
+  } else if (m.type === 'usageTotals') {
+    if (storeTotals(m)) {
+      if (state.page === 'kind' && !state.detail && state.kindPage && state.kindPage.kind === m.kind) state.kindPage.refresh?.();
+      // A skill's flags are weighed by its uses and sessions.
+      else if (state.detail && state.detail.asset.kind === 'skill' && m.kind === 'skill' && state.detailMode !== 'edit') keepMainScroll(renderMain);
+    }
+  } else if (m.type === 'slim') {
+    if (storeSlim(m) && state.detail && state.detail.asset.id === m.id && state.detailMode !== 'edit') keepMainScroll(renderMain);
   } else if (m.type === 'mcpInfo') {
+    // A retry keeps the old banner, busy, until the new answer comes in.
+    if (m.info === undefined && state.mcpBusy[m.id] === 'busy') return;
     state.mcpInfo[m.id] = m.info;
+    if (state.mcpBusy[m.id] === 'busy') state.mcpBusy[m.id] = 'done';
     if (state.detail && state.detail.asset.id === m.id) renderMain();
   } else if (m.type === 'tools') {
     if (!state.draft || !state.detail || state.detail.asset.id !== m.id) return;
@@ -179,7 +212,10 @@ onMessage(m => {
   } else if (m.type === 'detail') {
     if (m.external && isDirty()) return;
     if (m.external && m.detail && state.detail && snapshot(m.detail) === snapshot(state.detail) && m.detail.asset.enabled === state.detail.asset.enabled) return;
+    const before = state.detail && state.detail.asset.id;
     state.detail = m.detail;
+    // A save, or another element than the one on screen, lands in View.
+    if (m.saved || (m.detail && m.detail.asset.id !== before)) state.detailMode = 'view';
     if (m.detail && m.detail.asset.kind === 'rule' && !m.external) state.ruleInfo[m.detail.asset.id] = undefined;
     if (m.detail) {
       state.expanded.add(`${m.detail.asset.scope || 'global'}|${m.detail.asset.kind}`);

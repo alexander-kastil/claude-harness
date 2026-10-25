@@ -4,7 +4,7 @@
 <tr>
 <td align="left"><a href="repositories.md">← Back to Repositories</a></td>
 <td align="center"></td>
-<td align="right"><a href="../README.md#features">↑ Back to Features</a></td>
+<td align="right"><a href="claude-md-lenses.md">→ Next: CLAUDE.md lenses</a></td>
 </tr>
 </table>
 
@@ -16,13 +16,15 @@ Claude Harness lists the Claude Code sessions that ran in each repo. A session p
 | [Sessions page](#sessions-page) | The search box, its suggestions, filters and chips |
 | [Several accounts](#several-accounts) | Sessions of more than one Claude config folder, and the last 7 days of each account |
 | [Session page](#session-page) | The header, the cost, the four KPIs and the agent details |
-| [Delegation views](#delegation-views) | The six views of how the work was delegated |
-| [Used in](#used-in) | The sessions that launched an agent or used a skill |
+| [How the work ran](#how-the-work-ran) | The six views of how the work was delegated |
+| [Findings](#findings) | What stands out in a session, what it cost and what to do |
+| [Draft an output style](#draft-an-output-style) | Claude drafts an output style from the session |
+| [Used in](#used-in) | The sessions that used an element, with the Used column and the other Used in tabs |
 | [Hover cards](#hover-cards) | The cards for agents, the main thread and repos |
 
 ## Sessions in the tree
 
-Each repo in the activity bar expands to its sessions, newest first. A session row shows its first prompt, its date, its duration, its agent count and whether it is running now. Headless `claude -p` runs started from a session's scratchpad folder appear under that session.
+Each repo in the activity bar expands to its sessions, newest first. A session row shows its first prompt, its date, its duration, its agent count and whether it is running now. Hover a row for a card with a heading (**Session**, **Running now** or **Headless session**), the first prompt, and the repo, branch, date and agent count; it never shows the path of the transcript. Headless `claude -p` runs started from a session's scratchpad folder appear under that session.
 
 Click a session row to open its session page. The **Open Session** command runs from these rows. See [Commands](commands.md).
 
@@ -32,7 +34,7 @@ The **Sessions** node has an import button. It adds a Claude Code transcript (a 
 
 An open repo in the main window shows a **Sessions** node first, above **Memory**, with its count. Click the search icon to open the Sessions page. Click the row, or its chevron, to fold or unfold the 10 newest sessions inline, with **Show all**. The repo page's **Sessions** tab lists its sessions the same way, with the 10 newest and **Show all**. See [Main window](main-window.md#sidebar) and [Repositories](repositories.md#repository-page).
 
-The Sessions page has one search box. Suggestions appear when you focus it, and they narrow as you type:
+The Sessions page has one search box. Suggestions appear when you type or press the arrow keys, and they narrow as you type. A filter shows only when a session matches it:
 
 | Suggestion | Narrows to |
 | --- | --- |
@@ -40,11 +42,15 @@ The Sessions page has one search box. Suggestions appear when you focus it, and 
 | Started today | Sessions that started today |
 | With agents | Sessions that started at least one agent |
 | With headless runs | Sessions that have headless `claude -p` runs |
+| A hook failed | Sessions in which a hook ended with an error. See [Findings](#findings). |
+| A mod denied a tool | Sessions in which a hook or mod refused a tool call |
 | `Agent: <type>` | Sessions with an agent of that type |
 | `Branch: <name>` | Sessions on that branch |
 | Matching sessions | Sessions whose title matches what you typed. Choose one to open it. |
 
 A chosen filter becomes a chip. Press Backspace in an empty box to remove the last chip. Press Esc to clear the text and all chips. Matches are highlighted in the results.
+
+Each row ends in an **Analyze** button. It opens a new Claude in a terminal with a copy of that session, the same as [Analyze](#delegation-map) on the session page, and a card under the button says what happens first. The row itself still opens the session.
 
 ![Sessions page with the search box and its suggestions](images/sessions-search.png)
 
@@ -56,7 +62,16 @@ When `claudeHarness.accounts` lists more than one Claude config folder, the sess
 
 The **Models** tab of a repo page sums what each account used in the last 7 days, or since the last reset of its weekly limit when `weekStart` is set for it (see [Settings](settings.md#several-accounts)). Its heading then reads **Since** and the date. The totals cover all repos of the account and include the agents' transcripts. Each account has its own block: its tokens, then per model the tokens, the cost at Anthropic API list prices and the number of replies, costliest model first. A reply that appears in more than one transcript, as after a resumed session, counts once.
 
+The block opens with a **This repo** row, under its own heading: the tokens, cost and replies of the sessions in the repo whose page you are on, and their agents. Under it, the groups are labeled **By model · all repos, this account** and **By agent type · all repos, this account**, since they cover every repo of the account and not only this one. The agent type group lists each agent type with its tokens, cost and launches, costliest first. An agent type that has a color in its definition shows that color as a swatch. The main thread is not counted in this group.
+
 When the account has a plan, the block shows the cost as a share of that plan's weekly limit, and each model row reads for example `67.5% of limit`. Without a plan the rows show dollars. Team Premium and Team Standard also have a limit for the Fable model family (about $215 and $43), which gets a row of its own. The limits are estimates, because Anthropic publishes none. The tab reads the week again each time you open it.
+
+The same week shows in two more places:
+
+- The **overview** shows the cost and the number of sessions of the last 7 days for each repo, in its repository rows. See [Overview](main-window.md#overview).
+- An **agent page** has a **Last 7 days** chip in its header, next to **Model** and **Color**, with the agent type's launches in the window and their cost at API list prices.
+
+![Models tab with the This repo row and the By agent type group](images/repo-models.png)
 
 ## Session page
 
@@ -67,22 +82,22 @@ Four KPIs follow the cost row:
 
 | KPI | Shows |
 | --- | --- |
-| Agents | The agent count, with the count of failed or without-report agents |
+| Agents | The number of agents that have a transcript, the same count as the sessions list. The note beside it counts the failed ones and those without a report. A launch that never started, such as one with an unknown agent type, is not counted: the note names it as "never started". |
 | Peak parallel | The most agents that ran at the same time |
 | Delegated | The share of the cost that ran in agents |
 | Cache hits | The share of input tokens read from cache |
 
 ![Session page with the cost row, the four KPIs and the Timeline view](images/session-overview.png)
 
-Below the KPIs, the **Delegation** section shows how the work was split. Then come the agent details, the findings and, when there are any, the headless runs. Click a lane or a node in the delegation views to see that agent's brief, report, tools and tokens.
+Below the KPIs, the **How the work ran** section shows how the work was split. Then come the agent details, a **Review** group and, when there are any, the headless runs. The Review group has two tabs in one box: [Findings](#findings) and [Output style](#draft-an-output-style). A tab shows only when the session has something for it. Click a lane or a node in the views to see that agent's brief, report, tools and tokens.
 
-## Delegation views
+## How the work ran
 
-The Delegation section has six views behind one toggle bar. Each toggle shows a short hover. A legend under the diagram explains its marks.
+The **How the work ran** section has six views behind one toggle bar. Each toggle shows a short hover. The legend that explains the marks sits inside the box of the view, under the diagram.
 
 | View | Shows |
 | --- | --- |
-| Timeline | A lane per agent, next to your prompts. A red circle with a white x marks a stopped agent. |
+| Timeline | A lane per agent, next to your prompts. A red circle with a white x marks a stopped agent. When a mod has events, a **Mods** toggle shows them as ticks. See [Mods in the Timeline](#mods-in-the-timeline). |
 | Delegation map | Who started which agent. Its **Sum** and **Full timeline** modes are described below. |
 | Decisions | What happened after each prompt: delegated, worked itself, followed up an agent, or answered. Its **Sum** and **Full timeline** modes are described below. |
 | Concurrency | The agents that ran at the same time. Each agent run is one bar in its own lane, so the height is the number of agents running, and the peak is marked. |
@@ -93,24 +108,31 @@ Lane colors come from the agent definition's own color field, or from the color 
 
 ### Delegation map
 
-The map shows who started each agent. Use it to follow a chain of agents back to the main thread. Two buttons above the diagram switch its mode. Each button shows a short hover. Three more buttons sit beside them: **Prompts**, **Mods** and **Analyze**.
+The map shows who started each agent. Use it to follow a chain of agents back to the main thread. Two buttons above the diagram switch its mode. Each button shows a short hover. Four more buttons sit beside them: **Prompts**, **Mods**, **Analyze** and **Continue session**.
 
 | Mode | Shows |
 | --- | --- |
 | Sum | Agents summed up by type under whoever started them. Click a type to drill down to its runs. |
 | Full timeline | Your prompts as a process from top to bottom. Each delegation branches into the agents it started, and their reports join the main thread again. A team that ran together forks at a parallel gateway beside its prompt. |
 
-The Full timeline opens by default. Every row, a type or a run, shows the same four facts in fixed right-aligned columns: the model (the runs for a type), the run time, the tool uses and the messages. A value of zero or `-` still shows.
+The Full timeline opens by default. Every row, a type or a run, shows the same four facts in fixed right-aligned columns: the model (the runs for a type), the run time, the tool uses and the tokens. A type row in the Sum mode adds up the tokens of its runs. A value of zero or `-` still shows.
 
-The three toggles beside the mode buttons work in the Full timeline:
+The buttons beside the mode buttons work in the Full timeline:
 
 | Toggle | Shows | Starts |
 | --- | --- | --- |
 | Prompts | Each prompt as its own box on the main thread, above the step it started. Its first line shows inside the box, and the whole prompt is in its hover card. | Off |
 | Mods | The events of every mod, one chip beside each step and on each agent connector the events concern. Click the toggle to switch all mods off or on together. | On. It appears only when a mod has events for the session. |
 | Analyze | Opens a new Claude in a terminal with a copy of this session, to ask about it in a chat. The first use shows a card, which says what happens. A switch on the card remembers the answer, so the card is skipped from then on. The original session stays untouched. | Always, on a session page |
+| Continue session | Resumes this very session in a terminal, so what you say is added to it. Analyze works on a copy instead. A card says what happens first. When the session is still running elsewhere, the card warns that two Claudes writing to one session mix their turns. | Always, on a session page |
 
 Analyze runs `claude --resume <session-id> --fork-session` in the folder the session ran in, so the copy starts with the session's history. The first message tells the copy where the agents' transcripts are, so it can read the work inside an agent when you ask about it. The copy is a separate session, so it counts against your plan when Claude first answers.
+
+Continue session runs `claude --resume <session-id>` in the same folder, without `--fork-session`. Claude reads the session again before it answers, which counts against your plan.
+
+### Mods in the Timeline
+
+When a mod has events in the session, the Timeline gets a **Mods** toggle above its lanes. It shares its state with the Mods toggle of the Delegation map, so one choice holds in both views. With it on, each event is a thin tick under the main thread's line, for an event that falls in a prompt's time window, or under the bar of the agent the event names. Events of a mod that sit close together merge into one tick. Hover a tick to see the events behind it.
 
 ### Mod events
 
@@ -173,22 +195,79 @@ The Token flow view traces the tokens from the session to the outcome.
 
 ![Token flow view](images/session-flow.png)
 
+## Findings
+
+The **Findings** tab of the Review group on a session page names what stands out in the run. Warnings come before notes. Each finding is a card:
+
+- A kind label, such as **Failed**, **Stopped**, **No report**, **Hook failed** or **Main-thread edits**, so the severity never rests on color alone.
+- One line of evidence: what happened.
+- Cost chips with the time and the tokens of the runs it names, and their share of the whole session, taken from the same figures as the map rows.
+- **Why it matters** and **What to do**.
+- On a finding that names an agent, a **Show on map** button that opens the Delegation map, selects the agent's row, folds open the groups above it and centers it.
+
+| Finding | When it shows |
+| --- | --- |
+| Failed | An agent run failed. The text gives the first line of its error. |
+| Stopped | An agent was stopped. It says whether you stopped it on purpose, judged from a prompt of yours shortly before. It is a note instead of a warning when a later run of the same type finished the job. |
+| No report | An agent never reported back. |
+| Generic agent | An agent ran as `general-purpose`, and one of your agents fits the run's description. The finding names that agent. A general-purpose run that no agent fits gets no finding. |
+| Follow-ups | An agent got messages after it reported. |
+| Launched again | The same job was launched more than once. |
+| Hook failed | A hook failed, with its event, how often and its exit code. It says which command to run by hand. |
+| Main-thread edits | The main thread made 10 or more file edits, more than all agents together. The finding gives the share of the edits. |
+
+The same hook failures show on the repo page: see [Plugins and hooks](effective-harness.md#plugins-and-hooks). The sessions list can filter to them with **A hook failed**.
+
+![Findings on a session page](images/session-findings.png)
+
+## Draft an output style
+
+The **Output style** tab of the Review group on a session page reads how replies should look from the transcript: the active style, your corrections about length, format, language or repetition, the interrupts, and the length and format of the replies. Choose a model in the **Model** select, then click **Draft output style**. A card says what happens first: Claude runs `claude -p` on your own login, counts against your plan, and receives the scan of the session without code or whole replies. The draft is saved as a new file in the repo's `output-styles` folder.
+
+The drafted style shows as one region under the button: its name and description, its settings, every instruction in full, and a footer with the file name and what the draft cost. **Open file** opens it in the editor. While Claude writes, a placeholder region holds the space, and a failed draft shows an error region in its place.
+
+![A drafted output style on the session page](images/session-draft-style.png)
+
 ## Used in
 
-On an agent or skill page, the **Used in** tab lists the sessions that used the element, newest first. Its count is the number of sessions.
+On the page of an agent, skill, command or output style, the **Used in** tab lists the sessions that used the element, newest first. Its count is the number of sessions. A 7-day strip above the table shows the uses of each of the last 7 days, today last, with a hover for each day. Plugins, rules and CLAUDE.md files have a tab of this kind too; see [Other Used in tabs](#other-used-in-tabs).
 
 | Column | Shows |
 | --- | --- |
 | Last used | When the element was last used in that session |
 | Repo | The repo the session ran in |
 | Session | The session's first prompt. Click it to open the session page, when a repo in the harness holds the session. |
-| Launches or Uses | Agent launches, on an agent page. Skill calls and typed slash commands, on a skill page. |
+| Launches or Uses | Agent launches, on an agent page. Skill calls and typed slash commands, on a skill page. Runs of the command, on a command page. |
+| Hooks | On an agent page only. What hooks and mods did inside that agent's run: tool calls they denied and hooks that failed. A dash when none did. |
+| Analyze button | Opens a new Claude with a copy of that session, without opening the row. |
 
 Opening the tab reads the Claude Code transcripts of every account, with the transcripts of their agents beside them, and keeps an index in the extension's global storage. The first open builds the index and shows its progress, such as `Indexing 120 of 800 transcripts`. Later opens read only the transcripts that changed. The transcripts are never changed.
 
 An agent counts each launch by the agent type it named, and a launch without a type counts as `general-purpose`. A plugin's element counts under the name its transcripts use, `plugin-name:element`. A headless run started from a session's scratchpad counts under the repo of that session.
 
 A global agent or skill leaves out the sessions of any repo that has its own copy of it. A repo's copy of a global element counts only the sessions run in that repo.
+
+An output style counts the sessions that ran with it, matched by the `name` in its frontmatter.
+
+![Used in tab of an agent with the 7-day strip and the Hooks column](images/agent-used-in.png)
+
+### Other Used in tabs
+
+| Page | Tab | What it shows |
+| --- | --- | --- |
+| Plugin | **Used in** | One row per skill, agent and command of the plugin, with its kind, when it was last used, the sessions and the uses, most used first. The plugin's **Skills** and **Agents** tabs show each element's use count, or "never used". |
+| Rule, CLAUDE.md or other memory file | **Loaded in** | The sessions that loaded the file, with a **Loaded** column: **At start** for a file read when the session began, **Matched** and the glob for a rule that loaded when Claude read a file it matches, or **Read in its folder**. |
+| Hook or hook script | **Fired in** | The sessions where the hook ran, newest first, with the runs, the failures with the last exit code, and the average time. A run is a successful run, a failure or a blocking error. A run is matched to a declared hook by its command first, then by its event and matcher. The matcher must take the tool of the run: it is a pattern that matches the whole tool name, and an empty matcher or `*` takes any tool. A run with no tool matches only a hook without a matcher. A run whose command is not declared, such as a plugin hook or a deleted hook, counts toward every declared hook with that event and matcher. A hook script counts the hooks whose command runs the script. A hook declared in a repo counts only the sessions inside that repo. The first open builds the index. |
+
+A rule with `paths:` that no session ever loaded shows a **Never matched** marker: no session read a file that matches its paths. A rule with no paths loads in every session, so it never carries the marker.
+
+![Fired in tab of a hook](images/hook-fired-in.png)
+
+### Used column on the type pages
+
+The Agents, Skills and Commands type pages have a **Used** column with the use count and when the element was last used, such as `12 · 3 d ago`. Two presets join the filters: **Never used** and **Not used in 30 days**. The Skills page also has **Desc** and **Cost** columns; see [Skill size](editing.md#skill-size). The column and the presets need the index, which the first open of any Used in tab builds. Until then the column reads `not counted yet`, its hover says how to count, and a **Count usage** button in the page header builds the index on your click (it reads once, then shows **Counting...**). A type page only reads the index, it never builds it.
+
+![Agents page with the Used column and the Never used preset](images/agents-used.png)
 
 ## Hover cards
 
@@ -206,6 +285,6 @@ Hovering a repo row in the main window sidebar shows a card with the repo path, 
 <tr>
 <td align="left"><a href="repositories.md">← Back to Repositories</a></td>
 <td align="center"><a href="#sessions">↑ Back to top</a></td>
-<td align="right"><a href="../README.md#features">↑ Back to Features</a></td>
+<td align="right"><a href="claude-md-lenses.md">→ Next: CLAUDE.md lenses</a></td>
 </tr>
 </table>

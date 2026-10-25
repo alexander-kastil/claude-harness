@@ -4,7 +4,7 @@
 <tr>
 <td align="left"><a href="editing.md">← Back to Editing</a></td>
 <td align="center"></td>
-<td align="right"><a href="claude-md-lenses.md">→ Next: CLAUDE.md lenses</a></td>
+<td align="right"><a href="sessions.md">→ Next: Sessions</a></td>
 </tr>
 </table>
 
@@ -38,14 +38,14 @@ In the sidebar, repos that are open as workspace folders are listed first under 
 
 The repo page shows the repo name, its path and its asset count. Four tabs sit under the header: **Overview**, **Effective harness**, **Sessions** and **Models**.
 
-- **Overview** has one tile for each section, with its count. Click a tile to open that section's type page for the repo: its items, with a search box and filters. Below the tiles, **Recently changed** lists the 10 most recently changed items in the repo.
+- **Overview** starts with four figure tiles: **Sessions**, **Agents launched**, **Always loaded** and **Copies**. Under **Harness** it has one tile for each section, on one line with the count beside the icon and label. A count of zero is dimmed. Click a tile to open that section's type page for the repo: its items, with a search box and filters. Below the tiles, **Recently changed** lists the 10 most recently changed items in the repo.
 - **Effective harness** shows what a session in the repo loads. See [Effective harness](effective-harness.md).
 - **Sessions** lists the repo's sessions, newest first, with the 10 newest and **Show all**. **Search and filter** opens the [Sessions page](sessions.md#sessions-page).
-- **Models** shows the tokens and cost by model over the last 7 days, for each account, across all repos. See [Last 7 days](sessions.md#last-7-days).
+- **Models** shows the tokens and cost over the last 7 days, for each account. A **This repo** row gives this repo's share, and the groups **By model** and **By agent type** cover all repos. See [Last 7 days](sessions.md#last-7-days).
 - Header buttons: **New in** the repo name (plus icon) creates an item in this repo. See [Editing](editing.md#create-rename-duplicate-and-delete). The trash button removes this repo from the harness. Nothing is deleted on disk.
 - With a harness standard provider installed, the header also has buttons to check the repo against the standard, align its `CLAUDE.md`, fix its settings and hooks, and scaffold its harness.
 
-The terminal icon on a repo row in the sidebar opens a terminal in that repo running `claude`. See [Commands](commands.md#open-claude-here).
+The Claude icon on a repo row in the sidebar (tooltip **Open Claude in** and the repo name) opens a terminal in that repo running `claude`. See [Commands](commands.md#open-claude-here).
 
 Provider features appear when a harness standard provider plugin is installed.
 
@@ -89,6 +89,6 @@ Claude Harness reports how many repos it removed. Nothing is deleted on disk.
 <tr>
 <td align="left"><a href="editing.md">← Back to Editing</a></td>
 <td align="center"><a href="#repositories">↑ Back to top</a></td>
-<td align="right"><a href="claude-md-lenses.md">→ Next: CLAUDE.md lenses</a></td>
+<td align="right"><a href="sessions.md">→ Next: Sessions</a></td>
 </tr>
 </table>

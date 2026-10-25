@@ -1,20 +1,19 @@
 // @ts-nocheck
 // The Delegation map and its process diagram.
 import { bindEvents, chipText, modsOf, promptLine, toneOf, toneOfAll } from '../shared/event-layers';
-import { claudeMark } from './confirm';
 import { persist, state, vscode } from './core';
 import { DECISION_LABELS, decisionCard, promptCard } from './decisions';
-import { clip, el, fmtDur, fmtTime, icon, plural, shortModel, shortType, svg } from './dom';
+import { claudeMark, clip, el, fmtDur, fmtNum, fmtTime, icon, plural, shortModel, shortType, svg } from './dom';
 import { hideHover, placeCard, tabTip } from './hover';
 import { colorsOf, endOfAgent, modeSwitch, widthOf } from './session-common';
-import { bindAgent, bindMainHover, laneName } from './timeline';
+import { bindAgent, bindMainHover, laneName, tokensOf } from './timeline';
 
 export const MAP_MODES = [
   ['sum', 'Sum', 'merge', 'Agents summed up by type under whoever started them; click a type to drill down to its runs.'],
   ['timeline', 'Full timeline', 'history', 'Your prompts as a process from top to bottom: each delegation branches into the agents it started, and their reports join the main thread again.'],
 ];
 
-// Every row in the map shows the same facts in the same right-aligned columns: model (runs for a type), run time, tools, messages.
+// Every row in the map shows the same facts in the same right-aligned columns: model (runs for a type), run time, tools, tokens.
 export const MAP_ROW_H = 30;
 
 export const MAP_FACT_ENDS = [244, 172, 100, 28];
@@ -29,13 +28,11 @@ export const mapCells = (right, y, list) => list.map((t, i) => svg('text', { x: 
 export const mapNameRoom = (x, right) => Math.floor((right - MAP_FACT_ENDS[0] - 70 - x) / 6.6);
 
 export function mapFacts(d) {
-  const msgs = new Map();
-  for (const e of d.events) if (e.kind === 'message' && e.agent) msgs.set(e.agent, (msgs.get(e.agent) || 0) + 1);
-  return { msgs, toolsOf: a => Object.values(a.tools).reduce((n, v) => n + v, 0), runOf: a => (typeof a.start === 'number' && a.end > a.start ? a.end - a.start : 0) };
+  return { tokensOf: a => tokensOf(a.usage), toolsOf: a => Object.values(a.tools).reduce((n, v) => n + v, 0), runOf: a => (typeof a.start === 'number' && a.end > a.start ? a.end - a.start : 0) };
 }
 
-export function mapAgentRow(a, x, y, right, d, colors, msgs, selected) {
-  const { toolsOf, runOf } = mapFacts({ events: [] });
+export function mapAgentRow(a, x, y, right, d, colors, selected) {
+  const { tokensOf, toolsOf, runOf } = mapFacts(d);
   const family = a.model ? String(a.model).replace(/^claude-/, '').replace(/-\d.*$/, '') : '-';
   const g = svg(
     'g',
@@ -43,7 +40,7 @@ export function mapAgentRow(a, x, y, right, d, colors, msgs, selected) {
     svg('rect', { x, y, width: right - x, height: MAP_ROW_H, rx: 5, class: `dg-node${a.status === 'failed' ? ' failed' : a.status === 'unknown' ? ' silent' : ''}${selected === a.id ? ' sel' : ''}` }),
     svg('rect', { x, y, width: 4, height: MAP_ROW_H, class: `dg-tone ${colors.tone(a)}` }),
     svg('text', { x: x + 12, y: y + 19, class: 'dg-label' }, clip(laneName(a), mapNameRoom(x, right))),
-    mapCells(right, y + 19, [family, fmtRun(runOf(a)), plural(toolsOf(a), 'tool'), plural(msgs.get(a.id) || 0, 'msg')])
+    mapCells(right, y + 19, [family, fmtRun(runOf(a)), plural(toolsOf(a), 'tool'), `${fmtNum(tokensOf(a))} tokens`])
   );
   bindAgent(g, a, d, colors);
   return g;
@@ -98,7 +95,7 @@ export function drawMap(host, d) {
   const left0 = PAD + MAIN_W + 48;
   const width = Math.max(W, left0 + MAP_ROW_MIN + PAD);
   const rowRight = width - PAD;
-  const { msgs, toolsOf, runOf } = mapFacts(d);
+  const { tokensOf, toolsOf, runOf } = mapFacts(d);
   const pos = new Map();
   let y = PAD + 18;
   for (const r of shown) {
@@ -115,7 +112,7 @@ export function drawMap(host, d) {
     svg('rect', { x: PAD, y: mainY, width: MAIN_W, height: mainH, rx: 6, class: 'dg-node main' }),
     svg('text', { x: PAD + 10, y: mainY + 20, class: 'dg-label strong' }, 'Main thread'),
     svg('text', { x: PAD + 10, y: mainY + 36, class: 'dg-meta' }, shortModel(d.model) || ''),
-    svg('text', { x: PAD + 10, y: mainY + 50, class: 'dg-meta' }, `${d.prompts.length} prompts · ${Object.values(d.tools).reduce((n, v) => n + v, 0)} tools`)
+    svg('text', { x: PAD + 10, y: mainY + 50, class: 'dg-meta' }, `${plural(d.prompts.length, 'prompt')} · ${plural(Object.values(d.tools).reduce((n, v) => n + v, 0), 'tool')}`)
   );
   bindMainHover(mainG, d);
   const mainRight = PAD + MAIN_W;
@@ -132,8 +129,8 @@ export function drawMap(host, d) {
     }
   }
   root.append(edges, mainG);
-  const agentNode = (a, p) => root.append(mapAgentRow(a, p.x, p.y, rowRight, d, colors, msgs, selected));
-  // A type node: how many runs, their summed run time, tools and messages; a click drills down to the runs.
+  const agentNode = (a, p) => root.append(mapAgentRow(a, p.x, p.y, rowRight, d, colors, selected));
+  // A type node: how many runs, their summed run time, tools and tokens; a click drills down to the runs.
   const typeNode = (n, p) => {
     const runs = n.agents;
     const failed = runs.filter(a => a.status === 'failed').length;
@@ -157,7 +154,7 @@ export function drawMap(host, d) {
         plural(runs.length, 'run'),
         fmtRun(runs.reduce((s, a) => s + runOf(a), 0)),
         plural(runs.reduce((s, a) => s + toolsOf(a), 0), 'tool'),
-        plural(runs.reduce((s, a) => s + (msgs.get(a.id) || 0), 0), 'msg'),
+        `${fmtNum(runs.reduce((s, a) => s + tokensOf(a), 0))} tokens`,
       ])
     );
     g.dataset.key = n.key;
@@ -225,6 +222,20 @@ function mapToggles(host, d) {
           () => {
             hideHover();
             vscode.postMessage({ type: 'analyzeSession', scope: s.scope, id: s.id });
+          },
+          claudeMark()
+        )
+      : null,
+    s
+      ? button(
+          'continue',
+          'Continue session',
+          'debug-continue',
+          'Resumes this very session in Claude, in a terminal, so what you say is added to it. Analyze works on a copy instead.',
+          { 'data-confirm': 'continue' },
+          () => {
+            hideHover();
+            vscode.postMessage({ type: 'continueSession', scope: s.scope, id: s.id });
           },
           claudeMark()
         )
@@ -343,7 +354,6 @@ export function drawProcess(W, d) {
   if (!steps.length) return el('div', { className: 'empty flush dg-empty' }, 'No prompts in this session.');
   const colors = colorsOf(d);
   const selected = state.session && state.session.selected;
-  const { msgs } = mapFacts(d);
   const byId = new Map(d.agents.map(a => [a.id, a]));
   const PAD = 12;
   const showPrompts = !!state.mapPrompts;
@@ -533,7 +543,7 @@ export function drawProcess(W, d) {
     if (stepMarks[i]) lay(stepMarks[i], stepR + 6, yy + FIRST_LINE);
   });
   for (const t of runs) {
-    root.append(mapAgentRow(t.a, t.x, t.y, right, d, colors, msgs, selected));
+    root.append(mapAgentRow(t.a, t.x, t.y, right, d, colors, selected));
     if (agentMarks.has(t.a.id)) lay(agentMarks.get(t.a.id), branchX + 12, t.y + MAP_ROW_H / 2);
   }
   if (!marks.length) return root;

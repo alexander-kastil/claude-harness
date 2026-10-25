@@ -4,6 +4,8 @@ import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { Constitution } from './constitution';
+import { consolidateApply, consolidatePlan, mergePrompt, routesOf } from './consolidate';
+import type { ConsolidateRoute, ConsolidateTarget } from './shared/messages';
 import { FileEdit, fleetRow, guardInfo, guardReasons, lastSessionAt, marketplaceHealth, renameCatalog, renameCommands, renameInSettings } from './fleet';
 import { EventSource, eventLayers, findEventSources, transcriptLayers } from './events';
 import { registerLenses } from './lenses';
@@ -28,6 +30,7 @@ import {
   splitCommandLine,
   duplicateAsset,
   globalScope,
+  isPluginCopy,
   HarnessScope,
   Kind,
   KINDS,
@@ -54,12 +57,25 @@ import {
 import { HarnessPanel, PanelHost } from './panel';
 import { Account, accountWeek, findAccountSession, importTranscript, listAccountSessions, parseAccounts, readSession } from './sessions';
 import { STYLE_MODELS, StyleModel, draftStyle, stylePrompt, writeStyleDraft } from './style';
+import { Specialist, fitGeneralFindings } from './findings';
 import { pickTools, splitTools, TOOL_FIELDS } from './tools';
+import { modActivity, repoTrace } from './trace';
 import { HarnessTree, Node } from './tree';
 import { UsageIndex } from './usage';
-import { usageRows, usageTarget } from './usage-rows';
+import type { Progress } from './usage';
+import { hookRows, hookTarget } from './usage-hooks';
+import { analyzeSkill, slimPrompt } from './slim';
+import type { SlimReport } from './shared/slim';
+import { usageMore, usageRows, usageTarget, usageTotals } from './usage-rows';
+import type { UsageTarget } from './usage-rows';
 
 const WATCHED = '{CLAUDE.md,settings.json,settings.local.json,agents/**,skills/**,commands/**,output-styles/**,rules/**,workflows/**,hooks/**,plugins/installed_plugins.json,plugins/known_marketplaces.json}';
+
+/** Text for a double-quoted prompt on the command line: one line, with nothing a shell would read. */
+const promptText = (text: string) => text.replace(/[\r\n]+/g, ' ').replace(/["`$%^&|<>]/g, "'");
+
+/** The argument a command gets when the webview started it: the command asks in the panel instead of a dialog. */
+const panelArg = (arg: unknown): { fromPanel: true; id?: string } | undefined => (arg && typeof arg === 'object' && 'fromPanel' in arg ? (arg as { fromPanel: true; id?: string }) : undefined);
 
 export function activate(context: vscode.ExtensionContext): void {
   let global: HarnessScope = globalScope(vscode.workspace.getConfiguration('claudeHarness').get<string>('root'));
@@ -99,6 +115,22 @@ export function activate(context: vscode.ExtensionContext): void {
   let timer: NodeJS.Timeout | undefined;
   // Where each agent and skill was used, over the transcripts of every account; built the first time the Used in tab opens.
   const usageIndex = new UsageIndex(path.join(context.globalStorageUri.fsPath, 'usage-index.json'));
+  // The target of an element for the pages that read beyond the session list; an output style is matched by its frontmatter name.
+  const targetOf = (asset: Asset): UsageTarget | undefined => usageTarget(asset, views, asset.kind === 'outputStyle' ? String(readMarkdown(asset.file).data.name ?? '') || undefined : undefined);
+  // The index, brought up to date: undefined without one when `build` is false. Progress at most four times a second.
+  const usageData = async (build: boolean, progress?: (p: Progress) => void) => {
+    if (!build && !(await usageIndex.exists())) return undefined;
+    let shown = Date.now();
+    return usageIndex.refresh(
+      accounts().map(a => a.root),
+      p => {
+        if (!progress || Date.now() - shown < 250) return;
+        shown = Date.now();
+        progress(p);
+      },
+      build ? 0 : 3000
+    );
+  };
 
   const assets = () => views.flatMap(v => v.categories.flatMap(c => c.items));
   const find = (id: string): Asset | undefined => assets().find(a => a.id === id);
@@ -299,6 +331,12 @@ export function activate(context: vscode.ExtensionContext): void {
       const { hooks, ...rest } = detail;
       const logs = eventLayers(eventSources, summary.file, summary.id);
       const layers = [...logs, ...transcriptLayers(hooks, logs, eventSources)];
+      // A general-purpose run is a finding only when an agent this session could have launched fits its brief.
+      const specialists: Specialist[] = [
+        ...[views[0], view!].flatMap(v => (v?.categories.find(c => c.kind === 'agent')?.items ?? []).map(a => ({ use: a.name, name: a.name, description: a.description }))),
+        ...plugins.flatMap(p => (p.categories.find(c => c.kind === 'agent')?.items ?? []).map(a => ({ use: `${p.id.slice('plugin:'.length).split('@')[0]}:${a.name}`, name: a.name, description: a.description }))),
+      ].filter(s => s.name !== 'general-purpose');
+      rest.findings = fitGeneralFindings(rest.findings, rest.agents, specialists);
       return { ...rest, repo: view!.label, agentColors, account: summary.account, plan: accounts().find(a => a.root === (summary.accountRoot ?? global.root))?.plan, ...(layers.length ? { layers } : {}) };
     },
     draftStyle: async (id, sessionId, model, started, answer, ask) => {
@@ -324,7 +362,7 @@ export function activate(context: vscode.ExtensionContext): void {
       }
       refresh();
       showFile(file);
-      return { state: 'done', file, cost: result.cost };
+      return { state: 'done', file, cost: result.cost, text: fs.readFileSync(file, 'utf8') };
     },
     exportSession: async (id, sessionId) => {
       const scope = scopes.find(s => s.id === id && s.id !== global.id);
@@ -367,6 +405,62 @@ export function activate(context: vscode.ExtensionContext): void {
       t.show();
       t.sendText(`claude --resume ${summary.id} --fork-session${hint}`);
     },
+    continueSession: async (id, sessionId, answer, ask) => {
+      const scope = scopes.find(s => s.id === id && s.id !== global.id);
+      const summary = scope ? findAccountSession(scope.base, accounts(), sessionId) : undefined;
+      if (!scope || !summary) return void vscode.window.showErrorMessage('The session transcript is gone.');
+      const recorded = (await readSession(summary)).cwd;
+      const cwd = recorded && fs.existsSync(recorded) ? recorded : scope.base;
+      if (!answer.confirmed && !context.globalState.get<boolean>('continueRemembered')) return ask({ kind: 'continue', scope: id, id: sessionId, cwd, live: !!summary.live });
+      if (answer.remember) await context.globalState.update('continueRemembered', true);
+      const env = summary.accountRoot && path.resolve(summary.accountRoot) !== path.resolve(global.root) ? { CLAUDE_CONFIG_DIR: summary.accountRoot } : undefined;
+      const t = vscode.window.createTerminal({ name: `Continue: ${summary.title.slice(0, 40)}`, cwd, env });
+      t.show();
+      t.sendText(`claude --resume ${summary.id}`);
+    },
+    reviewAsset: async (id, answer, ask) => {
+      const asset = find(id);
+      if (!asset || !asset.file) return;
+      const cwd = cwdOf(scopeOf(asset));
+      if (!answer.confirmed && !context.globalState.get<boolean>('reviewRemembered')) return ask({ kind: 'review', id, name: asset.name, file: asset.file, cwd });
+      if (answer.remember) await context.globalState.update('reviewRemembered', true);
+      const what = (KINDS.find(k => k.kind === asset.kind)?.label ?? asset.kind).replace(/s$/, '').toLowerCase();
+      const prompt = `Review the ${what} at ${asset.file}. Read it, check that it is clear, specific and consistent with the rest of the harness, and list what you would improve and why. Do not change the file until I agree.`;
+      terminal(`Review: ${asset.name}`, cwd, `claude "${promptText(prompt)}"`);
+    },
+    consolidateAsset: async (id, answer, ask) => {
+      const asset = find(id);
+      if (!asset) return;
+      const plan = planConsolidate(asset);
+      if (plan.block) return void vscode.window.showInformationMessage(`${asset.name} cannot be consolidated. ${plan.block}`);
+      const target = plan.targets.find(t => t.id === answer.target) ?? plan.targets[0];
+      if (!target) return;
+      // A destructive question: it asks every time, and a route the target's state no longer offers asks again.
+      if (!answer.confirmed || !answer.route || !routesOf(target.state).includes(answer.route)) {
+        const scope = scopeOf(asset);
+        const careful = guardReasons(await guardInfo(scope.base));
+        return ask({ kind: 'consolidate', id, name: asset.name, repo: scope.label, cwd: cwdOf(scope), targets: plan.targets, target: target.id, notes: plan.notes, careful: careful.length ? careful.join(', ') : undefined });
+      }
+      await consolidateRun(asset, target, answer.route);
+    },
+    tryAsset: async (id, answer, ask) => {
+      const asset = find(id);
+      if (!asset || !['agent', 'skill', 'command'].includes(asset.kind)) return;
+      if (!answer.confirmed && !context.globalState.get<boolean>('tryRemembered')) return ask({ kind: 'try', id, name: asset.name, as: asset.kind as 'agent' | 'skill' | 'command', cwd: cwdOf(scopeOf(asset)) });
+      if (answer.remember) await context.globalState.update('tryRemembered', true);
+      const plugin = asset.scope.startsWith('plugin:') ? asset.scope.slice('plugin:'.length).split('@')[0] : /^plugin ([^ ]+) ·/.exec(asset.description)?.[1];
+      const name = plugin ? `${plugin}:${asset.name}` : asset.name;
+      if (!/^[\w.:-]+$/.test(name)) return void vscode.window.showErrorMessage(`${asset.name} has a name Claude cannot be started with.`);
+      terminal(`Try: ${asset.name}`, cwdOf(scopeOf(asset)), asset.kind === 'agent' ? `claude --agent ${name}` : `claude "/${name}"`);
+    },
+    fixFinding: async (id, finding) => {
+      const tools = await needTools();
+      const repo = scopes.find(s => s.id === id && s.id !== global.id);
+      if (!tools || !repo) return;
+      const at = finding.file ? ` The finding is in ${finding.file}${finding.line ? ` at line ${finding.line}` : ''}.` : '';
+      const prompt = `The harness standard check reports this finding: ${finding.text}${at} Fix this one finding and nothing else.`;
+      terminal(`Fix: ${repo.label}`, repo.base, `claude "${promptText(prompt)}"`);
+    },
     importSession: async id => {
       const scope = scopes.find(s => s.id === id && s.id !== global.id);
       if (!scope) return undefined;
@@ -383,8 +477,10 @@ export function activate(context: vscode.ExtensionContext): void {
     },
     usage: async (id, build, progress) => {
       const asset = find(id);
-      const target = asset ? usageTarget(asset, views) : undefined;
-      if (!target) return undefined;
+      // A hook or hook script lists the sessions where it ran, from the hook counts of the same index.
+      const fired = asset ? hookTarget(asset, views) : undefined;
+      const target = fired ? undefined : asset ? targetOf(asset) : undefined;
+      if (!target && !fired) return undefined;
       if (!build && !(await usageIndex.exists())) return { built: false };
       const list = accounts();
       // Progress at most four times a second, and none for a refresh that is over sooner.
@@ -399,7 +495,54 @@ export function activate(context: vscode.ExtensionContext): void {
         // Opening the tab always looks for new transcripts; a repaint of the page does not within 3 s of the last look.
         build ? 0 : 3000
       );
-      return { sessions: usageRows(data, target, repoViews().map(v => ({ id: v.id, label: v.label, path: v.path })), list) };
+      const repos = repoViews().map(v => ({ id: v.id, label: v.label, path: v.path }));
+      return { sessions: fired ? hookRows(data, fired, repos, list) : usageRows(data, target!, repos, list) };
+    },
+    repoTrace: id => {
+      const view = viewOfScope(id);
+      return repoTrace(view && view.id !== global.id ? listAccountSessions(view.path, accounts()) : []);
+    },
+    modActivity: id => {
+      const asset = find(id);
+      const short = asset?.kind === 'plugin' ? asset.name.split('@')[0] : '';
+      const sessions = repoViews().flatMap(v => listAccountSessions(v.path, accounts()));
+      return modActivity(eventSources.find(s => s.plugin === short), eventSources, sessions);
+    },
+    usageMore: async (id, build, progress) => {
+      const asset = find(id);
+      const target = asset ? targetOf(asset) : undefined;
+      if (!target) return undefined;
+      const data = await usageData(build, progress);
+      return data ? { more: usageMore(data, target) } : { built: false };
+    },
+    usageTotals: async (kind, build) => {
+      if (kind !== 'agent' && kind !== 'skill' && kind !== 'command') return undefined;
+      const data = await usageData(!!build);
+      if (!data) return undefined;
+      const targets = assets()
+        .filter(a => a.kind === kind)
+        .flatMap(a => {
+          const target = targetOf(a);
+          // An own skill of a repo is listed only in that repo's sessions.
+          const dir = a.scope !== global.id && a.source !== 'plugin' ? views.find(v => v.id === a.scope)?.path : undefined;
+          return target ? [{ id: a.id, target, dir }] : [];
+        });
+      return usageTotals(data, targets, kind === 'skill');
+    },
+    slim: id => {
+      const asset = find(id);
+      if (!asset || asset.kind !== 'skill' || !asset.dir) return undefined;
+      return skillReport(asset);
+    },
+    slimAsset: async (id, answer, ask) => {
+      const asset = find(id);
+      if (!asset || asset.kind !== 'skill' || !asset.dir) return;
+      const report = skillReport(asset);
+      const cwd = cwdOf(scopeOf(asset));
+      const files = asset.files ?? [];
+      if (!answer.confirmed && !context.globalState.get<boolean>('slimRemembered')) return ask({ kind: 'slim', id, name: asset.name, file: asset.file, cwd, files: files.length, findings: report.findings });
+      if (answer.remember) await context.globalState.update('slimRemembered', true);
+      terminal(`Slim: ${asset.name}`, cwd, `claude "${promptText(slimPrompt(report, asset.file, files, !!provider))}"`);
     },
   };
 
@@ -447,8 +590,17 @@ export function activate(context: vscode.ExtensionContext): void {
 
   const assetOf = (arg: unknown): Asset | undefined => {
     if (typeof arg === 'string') return find(arg);
+    const fromPanel = panelArg(arg);
+    if (fromPanel) return fromPanel.id ? find(fromPanel.id) : undefined;
     const node = arg as Node | undefined;
     return node && (node.type === 'asset' || node.type === 'file') ? node.asset : undefined;
+  };
+
+  /** A copy a plugin ships is overwritten on update: it is not renamed, duplicated in place or deleted. Says so and returns true. */
+  const readOnlyCopy = (asset: Asset, what: string) => {
+    if (asset.kind === 'plugin' || !isPluginCopy(asset)) return false;
+    void vscode.window.showInformationMessage(`${asset.name} comes from a plugin and cannot be ${what}: an update overwrites the installed copy.`);
+    return true;
   };
 
   const askName = async (prompt: string, value?: string) =>
@@ -471,7 +623,67 @@ export function activate(context: vscode.ExtensionContext): void {
     t.sendText(text);
   };
 
+  /** A destructive question: a card in the panel when the webview started the command, the modal dialog from the nav or a tree menu. */
+  const askFirst = async (arg: unknown, card: { key: string; title: string; sub: string; facts: string[]; action: string }, modal: () => Thenable<string | undefined>): Promise<boolean> => {
+    const inPanel = panelArg(arg) ? HarnessPanel.ask({ ...card, glyph: 'trash', danger: true }) : undefined;
+    return inPanel ? (await inPanel) === 'ok' : (await modal()) === card.action;
+  };
+
   const cwdOf = (scope: HarnessScope) => (scope.id === global.id ? os.homedir() : scope.base);
+
+  /** Where a repo skill can be consolidated to, and why it cannot be. */
+  const planConsolidate = (asset: Asset) => {
+    const scope = scopeOf(asset);
+    return consolidatePlan(asset, scope.id === global.id ? undefined : scope.base, global.root, provider?.keepCopies);
+  };
+
+  /** Carries out a route of the Consolidate card or dialog: the diff editor, a terminal with Claude, or the move or retire. */
+  const consolidateRun = async (asset: Asset, target: ConsolidateTarget, route: ConsolidateRoute) => {
+    const scope = scopeOf(asset);
+    if (!routesOf(target.state).includes(route)) return;
+    if (route === 'diff') {
+      // The repo copy on the left, the target on the right: what the owner keeps goes into the right-hand file.
+      let opened = 0;
+      for (const rel of [...target.changed, ...target.repoOnly]) {
+        if (opened++ >= 8) break;
+        const left = vscode.Uri.file(path.join(asset.dir!, ...rel.split('/')));
+        if (target.repoOnly.includes(rel)) await vscode.commands.executeCommand('vscode.open', left, { preview: false });
+        else await vscode.commands.executeCommand('vscode.diff', left, vscode.Uri.file(path.join(target.dir, ...rel.split('/'))), `${asset.name}/${rel} (${scope.label} ↔ ${target.label})`, { preview: false });
+      }
+      const only = target.repoOnly.length ? ` ${target.repoOnly.join(', ')} ${target.repoOnly.length === 1 ? 'is' : 'are'} only in the repo copy: copy ${target.repoOnly.length === 1 ? 'it' : 'them'} to ${target.dir}.` : '';
+      void vscode.window.showInformationMessage(`Bring what you want to keep into ${target.label}, on the right.${only} Then run Consolidate on ${asset.name} again to retire the repo copy.`);
+    } else if (route === 'claude') {
+      // The prompt first: --add-dir takes every argument after it as a folder.
+      const add = /^[\w .:\\/-]+$/.test(target.dir) ? ` --add-dir "${target.dir}"` : '';
+      terminal(`Consolidate: ${asset.name}`, cwdOf(scope), `claude "${promptText(mergePrompt(asset, target))}"${add}`);
+      void vscode.window.showInformationMessage(`Claude merges ${asset.name} into ${target.label} in the terminal. When it is done, run Consolidate on ${asset.name} again to retire the repo copy.`);
+    } else {
+      const stamp = backupStamp();
+      try {
+        const backup = consolidateApply(asset, scope.base, target, route, backupRoot(), stamp);
+        refresh();
+        constitution.ensure([scope.base], true);
+        void vscode.window.showInformationMessage(`${route === 'move' ? `Moved ${asset.name} to ${target.label}` : `Retired the copy of ${asset.name} in ${scope.label}`}. Backup: ${backup}`);
+      } catch (e) {
+        void vscode.window.showErrorMessage((e as Error).message);
+      }
+    }
+  };
+
+  /** The size and spread of a skill, measured from its files on disk. The house rule on descriptions applies only with a provider. */
+  const skillReport = (asset: Asset): SlimReport => {
+    const doc = readMarkdown(asset.file);
+    const description = typeof doc.data.description === 'string' ? doc.data.description : asset.description;
+    const dir = asset.dir ?? path.dirname(asset.file);
+    const read = (rel: string) => {
+      try {
+        return fs.readFileSync(path.join(dir, rel), 'utf8');
+      } catch {
+        return undefined;
+      }
+    };
+    return analyzeSkill({ id: asset.id, name: asset.name, description, body: doc.body, files: asset.files ?? [], read, house: !!provider });
+  };
 
   type ScopeItem = vscode.QuickPickItem & { scope: HarnessScope };
   const pickScope = async (arg: unknown, title: string, globalLabel = 'Global'): Promise<HarnessScope | undefined> => {
@@ -518,7 +730,14 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     status,
     lensesChanged,
-    vscode.languages.registerCodeLensProvider({ language: 'markdown', scheme: 'file' }, toolLenses),
+    vscode.languages.registerCodeLensProvider(
+      [
+        { language: 'markdown', scheme: 'file' },
+        // VS Code gives these files other languages (Agent, Prompt), so match by path too
+        ...['**/agents/**/*.md', '**/commands/**/*.md', '**/skills/**/SKILL.md', '**/output-styles/**/*.md'].map(pattern => ({ scheme: 'file', pattern })),
+      ],
+      toolLenses
+    ),
     vscode.commands.registerCommand('claudeHarness.configureTools', async (uri: vscode.Uri, key: string) => {
       const doc = await vscode.workspace.openTextDocument(uri);
       const tools = await pickTools(views, assetOfFile(uri.fsPath), splitTools(parseMarkdown(doc.getText()).data[key]));
@@ -579,11 +798,13 @@ export function activate(context: vscode.ExtensionContext): void {
         found ? `Added ${found} ${found === 1 ? 'repo' : 'repos'} to the Claude harness.` : 'No new repo with a .claude folder or a CLAUDE.md found there.'
       );
     }),
-    vscode.commands.registerCommand('claudeHarness.removeRepo', async (id?: string) => {
+    vscode.commands.registerCommand('claudeHarness.removeRepo', async (arg?: string | { scope?: string }) => {
       const config = vscode.workspace.getConfiguration('claudeHarness');
       const folders = config.get<string[]>('repoFolders') ?? [];
       let targets: { dir: string; folder: boolean }[];
-      const repo = typeof id === 'string' ? scopes.find(s => s.id === id) : undefined;
+      // A repo row's menu in the panel hands over { scope: <repo id> }.
+      const id = arg && typeof arg === 'object' ? arg.scope : arg;
+      const repo = typeof id === 'string' ? scopes.find(s => s.id === id && s.id !== global.id) : undefined;
       if (repo) targets = [{ dir: repo.base, folder: false }];
       else {
         type Item = vscode.QuickPickItem & { dir?: string; folder?: boolean };
@@ -638,13 +859,16 @@ export function activate(context: vscode.ExtensionContext): void {
 
     vscode.commands.registerCommand('claudeHarness.reveal', async (arg?: unknown) => {
       const node = arg as Node | undefined;
-      const file = node && typeof node === 'object' && node.type === 'file' ? node.file : assetOf(arg)?.dir ?? assetOf(arg)?.file;
+      // A repo row's menu in the panel hands over the repo's folder.
+      const folder = arg && typeof arg === 'object' && 'repoPath' in arg ? String((arg as { repoPath: unknown }).repoPath) : undefined;
+      const file = folder ?? (node && typeof node === 'object' && node.type === 'file' ? node.file : assetOf(arg)?.dir ?? assetOf(arg)?.file);
       if (file) await vscode.commands.executeCommand('revealFileInOS', vscode.Uri.file(file));
     }),
 
     vscode.commands.registerCommand('claudeHarness.rename', async (arg?: unknown) => {
       const asset = assetOf(arg);
       if (!asset) return;
+      if (readOnlyCopy(asset, 'renamed')) return;
       const name = await askName(`Rename ${asset.name} to`, asset.name);
       if (!name || name === asset.name) return;
       let file = '';
@@ -654,6 +878,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('claudeHarness.duplicate', async (arg?: unknown) => {
       const asset = assetOf(arg);
       if (!asset) return;
+      if (readOnlyCopy(asset, 'duplicated in place')) return;
       const name = await askName(`Name of the copy of ${asset.name}`, `${asset.name}-copy`);
       if (!name) return;
       let file = '';
@@ -682,15 +907,24 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('claudeHarness.delete', async (arg?: unknown) => {
       const asset = assetOf(arg);
       if (!asset) return;
+      if (readOnlyCopy(asset, 'deleted')) return;
       if (asset.kind === 'mcp') {
         if (!asset.file || !asset.jsonPath) return;
-        const pick = await vscode.window.showWarningMessage(`Delete the MCP server ${asset.name}?`, { modal: true, detail: asset.file }, 'Delete');
-        if (pick === 'Delete') run(() => removeJsonEntry(asset.file, asset.jsonPath!));
+        const sureMcp = await askFirst(
+          arg,
+          { key: 'delete', title: `Delete the MCP server ${asset.name}?`, sub: 'Removes its entry from the config file', facts: [`Edits ${asset.file}.`], action: 'Delete' },
+          () => vscode.window.showWarningMessage(`Delete the MCP server ${asset.name}?`, { modal: true, detail: asset.file }, 'Delete')
+        );
+        if (sureMcp) run(() => removeJsonEntry(asset.file, asset.jsonPath!));
         return;
       }
       const target = asset.dir ?? asset.file;
-      const choice = await vscode.window.showWarningMessage(`Move ${asset.name} to the trash?`, { modal: true, detail: target }, 'Move to Trash');
-      if (choice !== 'Move to Trash') return;
+      const sureTrash = await askFirst(
+        arg,
+        { key: 'delete', title: `Move ${asset.name} to the trash?`, sub: 'You can restore it from the trash', facts: [target], action: 'Move to Trash' },
+        () => vscode.window.showWarningMessage(`Move ${asset.name} to the trash?`, { modal: true, detail: target }, 'Move to Trash')
+      );
+      if (!sureTrash) return;
       await vscode.workspace.fs.delete(vscode.Uri.file(target), { recursive: true, useTrash: true });
       refresh();
     }),
@@ -772,8 +1006,13 @@ export function activate(context: vscode.ExtensionContext): void {
       }
       if (!asset) return;
       const scope = scopeOf(asset);
-      const pick = await vscode.window.showWarningMessage(`Uninstall ${asset.name} from ${scope.id === global.id ? 'your user scope' : scope.label}?`, { modal: true }, 'Uninstall');
-      if (pick !== 'Uninstall') return;
+      const where = scope.id === global.id ? 'your user scope' : scope.label;
+      const sureUninstall = await askFirst(
+        arg,
+        { key: 'uninstall', title: `Uninstall ${asset.name} from ${where}?`, sub: 'Runs claude plugin uninstall in a terminal', facts: [`Removes the plugin from ${where}.`], action: 'Uninstall' },
+        () => vscode.window.showWarningMessage(`Uninstall ${asset.name} from ${where}?`, { modal: true }, 'Uninstall')
+      );
+      if (!sureUninstall) return;
       terminal(`Uninstall ${asset.name}`, cwdOf(scope), `claude plugin uninstall ${asset.name} --scope ${scope.id === global.id ? 'user' : 'project'}`);
     }),
 
@@ -930,12 +1169,16 @@ export function activate(context: vscode.ExtensionContext): void {
       const dest = path.join(backupRoot(), stamp, path.basename(scope.base), path.relative(scope.base, target));
       const same = (asset.copies ?? []).filter(c => c.same && (c.scope === global.id || c.scope.startsWith('plugin:'))).map(c => c.label);
       const detail = [`Identical to: ${same.join(', ')}`, `Backs up ${target}`, `to ${dest}`, 'then deletes it from the repo.', reasons.length ? `\nCareful: ${reasons.join(', ')}.` : ''].filter(Boolean).join('\n');
-      const ok = await vscode.window.showWarningMessage(`Retire the copy of ${asset.name} in ${scope.label}?`, { modal: true, detail }, 'Retire');
-      if (ok !== 'Retire') return;
+      const sureRetire = await askFirst(
+        arg,
+        { key: 'retire', title: `Retire the copy of ${asset.name} in ${scope.label}?`, sub: 'Backed up first, then deleted from the repo', facts: detail.split('\n').filter(Boolean), action: 'Retire' },
+        () => vscode.window.showWarningMessage(`Retire the copy of ${asset.name} in ${scope.label}?`, { modal: true, detail }, 'Retire')
+      );
+      if (!sureRetire) return;
       if (run(() => retireAsset(asset, scope.base, backupRoot(), stamp))) void vscode.window.showInformationMessage(`Retired ${asset.name}. Backup: ${dest}`);
     }),
 
-    vscode.commands.registerCommand('claudeHarness.retireCopies', async () => {
+    vscode.commands.registerCommand('claudeHarness.retireCopies', async (arg?: unknown) => {
       const candidates = repoViews().flatMap(v =>
         v.categories
           .filter(c => c.kind === 'skill' || c.kind === 'agent')
@@ -962,15 +1205,54 @@ export function activate(context: vscode.ExtensionContext): void {
       const chosen = picked.filter(p => dirs.some(d => samePath(d, p.c.view.path)));
       if (!chosen.length) return;
       const stamp = backupStamp();
-      const ok = await vscode.window.showWarningMessage(
-        `Retire ${chosen.length} ${chosen.length === 1 ? 'copy' : 'copies'} from ${dirs.length} ${dirs.length === 1 ? 'repo' : 'repos'}?`,
-        { modal: true, detail: `Each is backed up to ${path.join(backupRoot(), stamp)}\\<repo>\\ first, then deleted.\n\n${chosen.map(p => `${p.c.view.label}: ${p.c.asset.name}`).join('\n')}` },
-        'Retire'
+      const retireTitle = `Retire ${chosen.length} ${chosen.length === 1 ? 'copy' : 'copies'} from ${dirs.length} ${dirs.length === 1 ? 'repo' : 'repos'}?`;
+      const retireDetail = `Each is backed up to ${path.join(backupRoot(), stamp)}\\<repo>\\ first, then deleted.\n\n${chosen.map(p => `${p.c.view.label}: ${p.c.asset.name}`).join('\n')}`;
+      const sureCopies = await askFirst(
+        arg,
+        { key: 'retireCopies', title: retireTitle, sub: 'Backed up first, then deleted from the repos', facts: retireDetail.split('\n').filter(Boolean), action: 'Retire' },
+        () => vscode.window.showWarningMessage(retireTitle, { modal: true, detail: retireDetail }, 'Retire')
       );
-      if (ok !== 'Retire') return;
+      if (!sureCopies) return;
       run(() => chosen.forEach(p => retireAsset(p.c.asset, p.c.view.path, backupRoot(), stamp)));
       constitution.ensure(dirs, true);
       void vscode.window.showInformationMessage(`Retired ${chosen.length} ${chosen.length === 1 ? 'copy' : 'copies'}. Backup: ${path.join(backupRoot(), stamp)}`);
+    }),
+
+    // From the tree: the target is picked when there is more than one, and the native dialog asks, like the other destructive tree commands.
+    vscode.commands.registerCommand('claudeHarness.consolidate', async (arg?: unknown) => {
+      // From a right-click on a skill row in the panel: the row's context object. It asks with the card, pointing at the row.
+      const rowId = arg && typeof arg === 'object' && 'assetId' in arg ? String((arg as { assetId: unknown }).assetId) : undefined;
+      if (rowId) return void (await host.consolidateAsset?.(rowId, {}, ask => HarnessPanel.post({ type: 'confirm', ask: ask.kind === 'consolidate' ? { ...ask, key: 'click' } : ask })));
+      const asset = assetOf(arg);
+      if (!asset) return;
+      const plan = planConsolidate(asset);
+      if (plan.block || !plan.targets.length) return void vscode.window.showInformationMessage(`${asset.name} cannot be consolidated. ${plan.block ?? ''}`.trim());
+      let target = plan.targets[0];
+      if (plan.targets.length > 1) {
+        const picked = await vscode.window.showQuickPick(
+          plan.targets.map((t, i) => ({ label: `$(${t.id === 'global' ? 'globe' : 'package'}) ${t.label}`, description: `${i === 0 ? 'default · ' : ''}${t.state === 'new' ? 'not there yet' : t.state}`, detail: t.dir, t })),
+          { title: `Consolidate ${asset.name} into`, matchOnDescription: true }
+        );
+        if (!picked) return;
+        target = picked.t;
+      }
+      const scope = scopeOf(asset);
+      const count = (n: number, what: string) => `${n} ${what}${n === 1 ? '' : 's'}`;
+      const careful = guardReasons(await guardInfo(scope.base));
+      const lines: Record<ConsolidateTarget['state'], string> = {
+        identical: `${target.label} holds the same files.`,
+        near: `${target.label} holds the same files, apart from whitespace or version lines.`,
+        contained: `${target.label} holds every file of the repo copy, and ${target.targetOnly.length} more.`,
+        differs: `${count(target.changed.length, 'file')} differ and ${count(target.repoOnly.length, 'file')} exist only in the repo copy:\n${[...target.changed, ...target.repoOnly].slice(0, 8).join(', ')}`,
+        new: `${target.label} has no ${asset.name} yet. The whole folder (${count(target.files, 'file')}) is copied to ${target.dir}.`,
+      };
+      const ends = target.state === 'differs' ? 'Merge the changes into the target first, in the diff editor or with Claude; the repo copy is retired when you run this again.' : `Then the repo copy is backed up to ${path.join(backupRoot(), '<time>', path.basename(scope.base))} and deleted from the repo.`;
+      const detail = [`Repo copy: ${asset.dir}`, `Target: ${target.dir}`, '', lines[target.state], '', ends, ...plan.notes.map(n => `\n${n}`), careful.length ? `\nCareful: ${careful.join(', ')}.` : ''].join('\n');
+      const labels: Record<ConsolidateRoute, string> = { retire: 'Retire repo copy', move: `Move to ${target.label}`, diff: 'Compare in editor', claude: 'Merge with Claude' };
+      const routes = routesOf(target.state);
+      const choice = await vscode.window.showWarningMessage(`Consolidate ${asset.name} into ${target.label}?`, { modal: true, detail }, ...routes.map(r => labels[r]));
+      const route = routes.find(r => labels[r] === choice);
+      if (route) await consolidateRun(asset, target, route);
     }),
 
     vscode.commands.registerCommand('claudeHarness.renameMarketplace', async (arg?: unknown) => {

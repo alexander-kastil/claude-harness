@@ -1,25 +1,39 @@
 // @ts-nocheck
 // Type pages: every element of one kind, with search, presets and facets.
-import { LIST_VIEWS, SOURCES, categoryOf, command, groupItems, labelOf, linkName, metaOf, pluginLabel, pluginOf, select, showRepo, singular, skillPluginOf, sourceName, state, twinText, twinsOf, viewOf } from './core';
+import { LIST_VIEWS, SOURCES, categoryOf, command, mcpFailed, tidyError, groupItems, labelOf, linkName, metaOf, pluginLabel, pluginOf, select, showRepo, singular, skillPluginOf, sourceName, state, twinText, twinsOf, viewOf } from './core';
 import { el, highlight, icon, iconBtn, pageHead, plural } from './dom';
 import { hideHover } from './hover';
 import { render } from './main';
 import { assetTable, glyphOf, groupHead } from './tables';
+import { fmtTokens } from './refs';
+import { byDescriptionCost, costText, costTip, descTokens, hasHeavyDescription, hasLongDescription } from './slim';
+import { askTotals, isNeverUsed, isStale, totalsKnown, usedText, usedTip } from './usage-more';
 
 export const COPYABLE_KINDS = ['rule', 'agent', 'skill', 'command', 'outputStyle', 'workflow', 'hookScript'];
 
 export const RESTRICTED = ['restricted', 'Restricted tools', a => !!metaOf(a).tools];
 
+// The kinds with a Used column, and its two presets. Both stay empty (and so hidden) until the usage index has been read.
+export const USED_KINDS = ['agent', 'skill', 'command'];
+const USED_PRESETS = [
+  ['unused', 'Never used', isNeverUsed],
+  ['stale', 'Not used in 30 days', isStale],
+];
+
 export const KIND_PRESETS = {
-  agent: [RESTRICTED, ['alltools', 'All tools', a => !metaOf(a).tools], ['plugin', 'From plugins', a => a.source === 'plugin']],
+  agent: [RESTRICTED, ['alltools', 'All tools', a => !metaOf(a).tools], ['plugin', 'From plugins', a => a.source === 'plugin'], ...USED_PRESETS],
   skill: [
     RESTRICTED,
     ['manual', 'Manual only', a => !!metaOf(a).manual],
     ['files', 'With extra files', a => (a.files || []).length > 1],
     ['plugin', 'From plugins', a => a.source === 'plugin'],
     ['linked', 'Linked', a => !!a.link],
+    ...USED_PRESETS,
+    ['longdesc', 'Long description', hasLongDescription],
+    ['heavydesc', 'More than an index entry', hasHeavyDescription],
+    ['ranked', 'Ranked by description cost', a => descTokens(a) > 0],
   ],
-  command: [RESTRICTED, ['manual', 'Manual only', a => !!metaOf(a).manual]],
+  command: [RESTRICTED, ['manual', 'Manual only', a => !!metaOf(a).manual], ...USED_PRESETS],
   rule: [
     ['always', 'Always loaded', a => !metaOf(a).paths],
     ['scoped', 'Path-scoped', a => !!metaOf(a).paths],
@@ -46,6 +60,10 @@ export const presetsFor = kind => [
 export const pluginNameOf = a =>
   a.kind === 'mcp' ? pluginOf(a) : a.source === 'plugin' && String(a.scope).startsWith('plugin:') ? a.scope.slice('plugin:'.length).split('@')[0] : '';
 
+// What a plugin enables is its own scope: Scope: Global lists what lives in Global and never the plugins' items.
+export const PLUGIN_SCOPE = 'plugin';
+export const scopeOf = e => (e.a.source === 'plugin' ? PLUGIN_SCOPE : e.v.id);
+
 // [key, label, glyph, values of an entry, display name of a value]
 export const FACET_GROUPS = [
   ['tool', 'Tool', 'tools', e => metaOf(e.a).tools || []],
@@ -56,7 +74,7 @@ export const FACET_GROUPS = [
   ['plugin', 'Plugin', 'extensions', e => [pluginNameOf(e.a)].filter(Boolean)],
   ['market', 'Marketplace', 'package', e => (e.a.kind === 'plugin' && e.a.name.includes('@') ? [e.a.name.split('@').pop()] : [])],
   ['event', 'Event', 'zap', e => (e.a.kind === 'hook' ? [e.a.name.split(' · ')[0]] : [])],
-  ['scope', 'Scope', 'repo', e => [e.v.id], v => (viewOf(v) ? viewOf(v).label : v)],
+  ['scope', 'Scope', 'repo', e => [scopeOf(e)], v => (viewOf(v) ? viewOf(v).label : v === PLUGIN_SCOPE ? 'Plugins' : v)],
 ];
 
 export const groupOf = key => FACET_GROUPS.find(g => g[0] === key);
@@ -91,7 +109,7 @@ export const filterEntries = (kind, list, q, facets) => {
   return list.filter(e => tests.every(any => any.some(t => t(e))) && (!q || entryText(e).includes(q)));
 };
 
-export const groupsIn = list => FACET_GROUPS.filter(g => (g[0] === 'scope' ? new Set(list.map(e => e.v.id)).size > 1 : list.some(e => g[3](e).length)));
+export const groupsIn = list => FACET_GROUPS.filter(g => (g[0] === 'scope' ? new Set(list.map(scopeOf)).size > 1 : list.some(e => g[3](e).length)));
 
 export const facetValues = (g, pool) => {
   const counts = new Map();
@@ -147,17 +165,24 @@ export const KIND_FACTS = {
   agent: [
     ['Model', 76, a => metaOf(a).model || 'inherit'],
     ['Tools', 80, toolsText],
+    ['Used', 128, usedText, usedTip],
   ],
   skill: [
-    ['Tools', 80, toolsText],
-    ['Files', 48, a => String(Math.max(1, (a.files || []).length))],
+    ['Tools', 64, toolsText],
+    ['Files', 40, a => String(Math.max(1, (a.files || []).length))],
     ['Origin', 150, a => (a.source === 'plugin' ? pluginLabel(skillPluginOf(a)) : a.link ? `linked from ${linkName(a.link)}` : '-')],
+    ['Desc', 44, a => fmtTokens(descTokens(a)), a => `Description\n${fmtTokens(descTokens(a))} tokens, in the skill list of every session.${hasLongDescription(a) ? ' Long: Anthropic asks for what the skill does and when to use it, in at most 1024 characters.' : ''}`],
+    ['Cost', 124, costText, costTip],
+    ['Used', 128, usedText, usedTip],
   ],
-  command: [['Tools', 80, toolsText]],
+  command: [
+    ['Tools', 80, toolsText],
+    ['Used', 128, usedText, usedTip],
+  ],
   rule: [['Loads', 170, a => (metaOf(a).paths ? metaOf(a).paths.join(', ') : 'always')]],
   mcp: [
     ['Source', 130, mcpSourceCell, a => sourceName(a)],
-    ['Status', 104, mcpStatusWord, a => (a.enabled === false ? 'Switched off' : a.status || '')],
+    ['Status', 104, mcpStatusWord, a => (a.enabled === false ? 'Switched off' : tidyError(a.status)), a => (mcpFailed(a) ? 'bad' : '')],
   ],
   plugin: [
     ['Version', 84, a => a.description.split(' · ')[1] || '-'],
@@ -166,11 +191,10 @@ export const KIND_FACTS = {
   settings: [['Keys', 52, a => a.description.replace(/ keys$/, '')]],
 };
 
-// Opened from a repo, the page lists what loads there: Global, the plugins it enables, and the repo's own files.
+// Opened from a repo or from Global, the page lists what lives in that scope alone; the Scope filter widens it.
 export const showKindPage = (kind, scope) => {
   const view = viewOf(scope);
-  const global = state.views[0];
-  const loaded = !view ? [] : global && view.id !== global.id ? [global, view] : [view];
+  const loaded = view ? [view] : [];
   state.page = 'kind';
   state.repo = undefined;
   state.kindPage = { kind, origin: scope, query: '', facets: loaded.map(v => ({ kind: 'scope', value: v.id, label: `Scope: ${v.label}` })), open: false, active: 0, focus: true };
@@ -185,6 +209,8 @@ export function renderKindPage() {
   const origin = viewOf(p.origin);
   const lower = cat.label.toLowerCase();
   const facts = KIND_FACTS[p.kind] || [];
+  // The Used column reads the usage index when there is one; this never builds it.
+  if (USED_KINDS.includes(p.kind) && !p.counting) askTotals(p.kind);
   let entries = kindEntries(p.kind);
   const results = el('div', { className: 'kind-results' });
   const filters = el('div', { className: 'filter-bar' });
@@ -222,10 +248,15 @@ export function renderKindPage() {
   };
   const drawResults = () => {
     const hits = filterEntries(p.kind, entries, textQ(), p.facets);
-    const cols = p.kind === 'mcp' && hits.some(e => twinsOf(e.a).length) ? [...facts, ['Duplicate of', 170, a => twinText(a) || '-']] : facts;
+    // A column that is a dash on every listed row (Origin of own skills) gives its width to the Description.
+    const shown = facts.filter(f => f[0] !== 'Origin' || hits.some(e => f[2](e.a, e.v) !== '-'));
+    const cols = p.kind === 'mcp' && hits.some(e => twinsOf(e.a).length) ? [...shown, ['Duplicate of', 170, a => twinText(a) || '-']] : shown;
+    // The ranking preset lists the dearest description first in one table, across the groups.
+    const ranked = p.kind === 'skill' && has({ kind: 'preset', value: 'ranked' });
+    if (ranked) hits.sort((x, y) => byDescriptionCost(x.a, y.a));
     // Grouped lists get one table per group, in the sidebar's order: by default where each item lives.
-    const groups = LIST_VIEWS[p.kind] ? groupItems(p.kind, hits, e => e.a) : [];
-    const scoped = new Set(hits.map(e => e.v.id)).size > 1;
+    const groups = LIST_VIEWS[p.kind] && !ranked ? groupItems(p.kind, hits, e => e.a) : [];
+    const scoped = new Set(hits.map(scopeOf)).size > 1;
     const body =
       groups.length > 1
         ? groups.map(([[id, label, glyph], list]) => {
@@ -366,6 +397,12 @@ export function renderKindPage() {
     }
   });
   p.refresh = () => {
+    // Whether usage is counted decides the head's Count usage button: draw the head again when the answer changes.
+    if (totalsKnown(p.kind) !== p.shownKnown) {
+      if (totalsKnown(p.kind) !== false) p.counting = false;
+      render();
+      return;
+    }
     entries = kindEntries(p.kind);
     update();
   };
@@ -375,8 +412,11 @@ export function renderKindPage() {
     p.quiet = true;
     requestAnimationFrame(() => input.focus());
   }
-  const inOrigin = entries.filter(e => e.v.id === p.origin).length;
-  const scopes = new Set(entries.map(e => e.v.id)).size;
+  // The plugins' items are a scope of their own, so the counts are the groups' counts.
+  const own = entries.filter(e => scopeOf(e) !== PLUGIN_SCOPE);
+  const inOrigin = own.filter(e => e.v.id === p.origin).length;
+  const fromPlugins = entries.length - own.length;
+  const scopes = new Set(own.map(e => e.v.id)).size + (fromPlugins ? 1 : 0);
   const back = origin && origin.id !== 'global' ? iconBtn('arrow-left', `Back to ${origin.label}`, () => showRepo(origin.id)) : iconBtn('arrow-left', 'Back to the overview', () => showRepo(undefined));
   const create = cat.creatable
     ? iconBtn('add', `New ${singular(cat)}${origin ? ` in ${origin.label}` : ''}`, () => command('create', { kind: p.kind, scope: p.origin }))
@@ -385,10 +425,37 @@ export function renderKindPage() {
       : p.kind === 'plugin'
         ? iconBtn('add', 'Install Plugin...', () => command('installPlugin', { scope: p.origin }))
         : null;
+  // Until the usage index exists the Used column says "not counted yet"; this button builds it, on the owner's click.
+  p.shownKnown = totalsKnown(p.kind);
+  const countBtn =
+    USED_KINDS.includes(p.kind) && totalsKnown(p.kind) === false
+      ? el(
+          'button',
+          {
+            className: 'secondary count-usage',
+            disabled: !!p.counting,
+            title: 'Count usage\nReads your Claude Code transcripts once to count how often each element was used. Later visits only read what is new.',
+            onclick: () => {
+              p.counting = true;
+              askTotals(p.kind, true);
+              render();
+            },
+          },
+          icon('history'),
+          p.counting ? 'Counting...' : 'Count usage'
+        )
+      : null;
   return el(
     'section',
     { className: 'main' },
-    pageHead(cat.icon, cat.label, [origin ? `${inOrigin} in ${origin.label}` : '', `${entries.length} across ${plural(scopes, 'scope')}`].filter(Boolean).join(' · '), back, create),
+    pageHead(
+      cat.icon,
+      cat.label,
+      [origin ? `${inOrigin} in ${origin.label}` : '', fromPlugins ? `${fromPlugins} from plugins` : '', `${entries.length} across ${plural(scopes, 'scope')}`].filter(Boolean).join(' · '),
+      back,
+      create,
+      countBtn
+    ),
     el('div', { className: 'main-body', onscroll: hideHover }, el('div', { className: 'kind-search' }, el('div', { className: 'combo' }, icon('search'), input, suggest), filters), results)
   );
 }

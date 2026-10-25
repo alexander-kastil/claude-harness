@@ -103,6 +103,10 @@ export function eventLayers(sources: EventSource[], transcript: string, sessionI
 export interface TranscriptHook {
   mod?: string;
   event: ModEvent;
+  /** From the `hook_*` attachment: the command that ran, how long it took and its exit code. */
+  command?: string;
+  durationMs?: number;
+  exitCode?: number;
 }
 
 type Rec = Record<string, any>;
@@ -135,7 +139,13 @@ export function transcriptHooks(records: Rec[], agentId?: string): TranscriptHoo
     const e: ModEvent = { at: o.timestamp, ...event };
     if (agentId) e.agentId = agentId;
     if (!e.detail) delete e.detail;
-    out.push({ mod: e.detail ? MOD_PREFIX.exec(e.detail)?.[1] : undefined, event: e });
+    const trace: TranscriptHook = { mod: e.detail ? MOD_PREFIX.exec(e.detail)?.[1] : undefined, event: e };
+    const a = o.attachment;
+    const command = typeof a?.command === 'string' ? a.command : typeof a?.blockingError?.command === 'string' ? a.blockingError.command : undefined;
+    if (command) trace.command = command;
+    if (typeof a?.durationMs === 'number') trace.durationMs = a.durationMs;
+    if (typeof a?.exitCode === 'number') trace.exitCode = a.exitCode;
+    out.push(trace);
   };
   for (const o of records) {
     const a = o.attachment;
@@ -171,6 +181,31 @@ export function transcriptHooks(records: Rec[], agentId?: string): TranscriptHoo
     }
   }
   return out;
+}
+
+/** A hook that failed in a session: how often, and the exit code it most often ended with. */
+export interface HookFailure {
+  hook: string;
+  count: number;
+  exitCode?: number;
+  /** The command of the first failure that named one. */
+  command?: string;
+}
+
+/** The hooks whose attachments are `hook_non_blocking_error` or `hook_blocking_error`, most failures first. */
+export function hookFailures(hooks: TranscriptHook[]): HookFailure[] {
+  const by = new Map<string, { count: number; codes: Map<number, number>; command?: string }>();
+  for (const h of hooks) {
+    if (h.event.label !== 'failed' && h.event.label !== 'blocked') continue;
+    const s = by.get(h.event.hook) ?? { count: 0, codes: new Map<number, number>(), command: undefined as string | undefined };
+    s.count++;
+    s.command ??= h.command;
+    if (typeof h.exitCode === 'number') s.codes.set(h.exitCode, (s.codes.get(h.exitCode) ?? 0) + 1);
+    by.set(h.event.hook, s);
+  }
+  return [...by]
+    .map(([hook, s]) => ({ hook, count: s.count, exitCode: [...s.codes].sort((a, b) => b[1] - a[1])[0]?.[0], command: s.command }))
+    .sort((a, b) => b.count - a.count || a.hook.localeCompare(b.hook));
 }
 
 /**

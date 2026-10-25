@@ -14,7 +14,7 @@ A rules file that is open in the main window shows which files its paths match. 
 
 ## Paths
 
-The **Paths** section lists each glob in the rule's `paths:` field:
+The **Paths** tab lists each glob in the rule's `paths:` field:
 
 | Row | Meaning |
 | --- | --- |
@@ -23,7 +23,13 @@ The **Paths** section lists each glob in the rule's `paths:` field:
 
 A rule with no paths shows "No paths: the rule loads in every session."
 
-The section starts with a **Matched against** line that names the repo folder the globs are matched in. With a harness standard provider installed, it also ends with a row for the owner agent named in the rule, marked as found on disk or not.
+The tab starts with a **Matched against** line that names the repo folder the globs are matched in. With a harness standard provider installed, it also ends with a row for the owner agent named in the rule, marked as found on disk or not.
+
+## Loaded in
+
+A rules file has a **Loaded in** tab with the sessions that loaded it, as the CLAUDE.md files do. A rule in a repo where no session has run yet says so instead, since nothing could have loaded it. A rule with `paths:` that no session loaded carries a **Never matched** marker: Claude never read a file that matches its globs. Check the paths against the **Paths** tab, which counts the files each glob matches today. See [Other Used in tabs](sessions.md#other-used-in-tabs). The tab has the same 7-day strip as the Used in tabs.
+
+![Loaded in tab of a rule that never matched](images/rule-loaded-in.png)
 
 Provider features appear when a harness standard provider plugin is installed.
 

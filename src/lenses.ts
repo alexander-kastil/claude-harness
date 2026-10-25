@@ -30,6 +30,13 @@ export function pointerOf(d: vscode.Diagnostic): { token: string; kind: PointerT
 const lineRange = (doc: vscode.TextDocument, line: number) =>
   line + 1 < doc.lineCount ? new vscode.Range(line, 0, line + 1, 0) : new vscode.Range(line, 0, line, doc.lineAt(line).text.length);
 
+// rules files can carry another language (Instructions), so match by path as well
+const selector: vscode.DocumentSelector = [
+  { language: 'markdown', scheme: 'file' },
+  { scheme: 'file', pattern: '**/CLAUDE.md' },
+  { scheme: 'file', pattern: '**/.claude/rules/**/*.md' },
+];
+
 export function registerLenses(context: vscode.ExtensionContext, host: LensHost): vscode.DiagnosticCollection {
   const collection = vscode.languages.createDiagnosticCollection('claudeHarness.pointers');
   const own = (doc: vscode.TextDocument): PointerToken[] => {
@@ -141,8 +148,8 @@ export function registerLenses(context: vscode.ExtensionContext, host: LensHost)
   context.subscriptions.push(
     collection,
     lensChanged,
-    vscode.languages.registerCodeLensProvider({ language: 'markdown', scheme: 'file' }, lenses),
-    vscode.languages.registerCodeActionsProvider({ language: 'markdown', scheme: 'file' }, actions, { providedCodeActionKinds: [vscode.CodeActionKind.QuickFix] }),
+    vscode.languages.registerCodeLensProvider(selector, lenses),
+    vscode.languages.registerCodeActionsProvider(selector, actions, { providedCodeActionKinds: [vscode.CodeActionKind.QuickFix] }),
     vscode.commands.registerCommand('claudeHarness.removeLine', removeLine),
     vscode.commands.registerCommand('claudeHarness.repoint', repoint),
     vscode.workspace.onDidOpenTextDocument(update),

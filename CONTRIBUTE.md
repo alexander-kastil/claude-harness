@@ -10,13 +10,13 @@ Once you have cloned your fork, the repo's Claude Code commands run the remainin
 
 | Command | Steps | What it does |
 | --- | --- | --- |
-| `/ext-contribute-setup` | 2 | Checks the remotes of your clone and adds `upstream`, once |
-| `/ext-contribute-start <name>` | 3-4 | Branches off the owner's current master |
-| `/ext-sideload [--new]` | 5 | Packages your change and installs it in VS Code |
-| `/ext-contribute-sync` | 6, 8 | Merges the owner's master, tests and pushes |
-| `/ext-contribute-pr` | 7 | Syncs, then opens the pull request |
-| `/ext-contribute-finish` | 9 | Cleans up after the merge |
-| `/ext-contribute-cleanup [branch]` | - | Deletes a feature branch you no longer need |
+| `/git-contribute-setup` | 2 | Checks the remotes of your clone and adds `upstream`, once |
+| `/git-contribute-start <name>` | 3-4 | Branches off the owner's current master |
+| `/git-sideload [--new]` | 5 | Packages your change and installs it in VS Code |
+| `/git-contribute-sync` | 6, 8 | Merges the owner's master, tests and pushes |
+| `/git-contribute-pr` | 7 | Syncs, then opens the pull request |
+| `/git-contribute-finish` | 9 | Cleans up after the merge |
+| `/git-contribute-cleanup [branch]` | - | Deletes a feature branch you no longer need |
 
 ### Before you start: GitHub CLI
 
@@ -47,7 +47,7 @@ claude
 
 ### 2. Configure the remotes
 
-Run `/ext-contribute-setup`. It checks that your clone has two remotes:
+Run `/git-contribute-setup`. It checks that your clone has two remotes:
 
 - `origin` = the fork, aeshilion/claude-harness
 - `upstream` = alexander-kastil/claude-harness
@@ -62,7 +62,7 @@ git remote add upstream https://github.com/alexander-kastil/claude-harness.git
 
 ### 3. Synchronize master
 
-Run `/ext-contribute-start <name>`. It covers steps 3 and 4 and runs:
+Run `/git-contribute-start <name>`. It covers steps 3 and 4 and runs:
 
 ```bash
 git checkout master
@@ -72,7 +72,7 @@ git push origin master
 
 ### 4. Create a feature branch
 
-`/ext-contribute-start <name>` then branches off:
+`/git-contribute-start <name>` then branches off:
 
 ```bash
 git checkout -b feature/<name>
@@ -80,7 +80,7 @@ git checkout -b feature/<name>
 
 ### 5. Implement, commit and test
 
-Run `/ext-sideload` to try your change in your VS Code, or `/ext-sideload --new` to try it in a separate VS Code instance that opens the repo. It runs:
+Run `/git-sideload` to try your change in your VS Code, or `/git-sideload --new` to try it in a separate VS Code instance that opens the repo. It runs:
 
 ```bash
 npm run package
@@ -97,7 +97,7 @@ npm test
 
 ### 6. Merge upstream master before the pull request
 
-Run `/ext-contribute-sync`. This is the step that avoids conflicts; it stops on a conflict or a failing test and runs:
+Run `/git-contribute-sync`. This is the step that avoids conflicts; it stops on a conflict or a failing test and runs:
 
 ```bash
 git fetch upstream
@@ -110,7 +110,7 @@ git push -u origin HEAD
 
 ### 7. Open the pull request
 
-Run `/ext-contribute-pr`. It runs the sync first, then opens the PR with "Allow edits by maintainers" on, titled and described from your commits:
+Run `/git-contribute-pr`. It runs the sync first, then opens the PR with "Allow edits by maintainers" on, titled and described from your commits:
 
 ```bash
 gh pr create --repo alexander-kastil/claude-harness --base master --head aeshilion:feature/<name> --title "<title>" --body-file <file>
@@ -118,11 +118,11 @@ gh pr create --repo alexander-kastil/claude-harness --base master --head aeshili
 
 ### 8. Keep the pull request up to date
 
-Run `/ext-contribute-sync` again. It repeats step 6, and the PR updates itself.
+Run `/git-contribute-sync` again. It repeats step 6, and the PR updates itself.
 
 ### 9. Clean up after the merge
 
-Run `/ext-contribute-finish`. It checks that the PR merged before it deletes anything, then runs:
+Run `/git-contribute-finish`. It checks that the PR merged before it deletes anything, then runs:
 
 ```bash
 git checkout master
@@ -133,7 +133,7 @@ git push origin --delete feature/<name>
 
 ### Clean up an unused feature branch
 
-Run `/ext-contribute-cleanup <name>` for a branch you no longer need. It refuses while the branch has an open pull request, then runs:
+Run `/git-contribute-cleanup <name>` for a branch you no longer need. It refuses while the branch has an open pull request, then runs:
 
 ```bash
 git checkout master

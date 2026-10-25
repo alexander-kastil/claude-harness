@@ -1,6 +1,7 @@
 // @ts-nocheck
 // The grid table every main page uses, and its asset flavour.
 import { SOURCES, agentColorClass, app, categoryOf, labelOf, metaOf, persist, select, state } from './core';
+import { skillContext } from './context';
 import { el, fmtAgo, highlight, icon, pressable } from './dom';
 
 // A group header: the whole bar folds and unfolds its group, by click or by Enter and Space. `redraw` repaints
@@ -50,7 +51,7 @@ export const CHANGED = ['Changed', 92, a => fmtAgo(a.mtime)];
 // One grid for every table on the main pages. A column: { head, track, cell(row), title(row), num, muted, wide, cls };
 // `wide` columns drop out when the panel is narrow. A row with `open` is a button.
 export function gridTable(cols, rows, label) {
-  const cellClass = c => [c.cls, c.num ? 'at-fact' : 'at-cell', c.muted ? 'at-muted' : '', c.wide ? 'at-wide' : ''].filter(Boolean).join(' ');
+  const cellClass = (c, r) => [c.cls, c.num ? 'at-fact' : 'at-cell', c.muted ? 'at-muted' : '', c.wide ? 'at-wide' : '', c.low ? 'at-low' : '', r && c.tone ? c.tone(r) : ''].filter(Boolean).join(' ');
   const table = el(
     'div',
     { className: 'asset-table', role: 'table', 'aria-label': label },
@@ -58,36 +59,53 @@ export function gridTable(cols, rows, label) {
     rows.map(r =>
       el(
         'div',
-        Object.assign({ className: ['at-row', r.open ? '' : 'static', r.className].filter(Boolean).join(' ') }, r.open ? pressable(r.open) : {}, { role: 'row' }),
-        cols.map(c => el('span', { className: cellClass(c), role: 'cell', title: (c.title && c.title(r)) || undefined }, c.cell(r)))
+        Object.assign({ className: ['at-row', r.open ? '' : 'static', r.className].filter(Boolean).join(' ') }, r.open ? pressable(r.open) : {}, r.context || {}, { role: 'row' }),
+        cols.map(c => el('span', { className: cellClass(c, r), role: 'cell', title: (c.title && c.title(r)) || undefined }, c.cell(r)))
       )
     )
   );
   table.style.setProperty('--at-cols', cols.map(c => c.track).join(' '));
   table.style.setProperty('--at-cols-narrow', cols.filter(c => !c.wide).map(c => c.track).join(' '));
+  // A table whose fixed columns need more than the stylesheet's 620 px breakpoint drops its `wide` columns as soon as it would
+  // run past its box, instead of being clipped between 620 px and its own width; a `low` column goes next, when even the rest
+  // does not fit.
+  const need = list => list.reduce((n, c) => n + Number((/^(?:minmax\()?(\d+)px/.exec(c.track) || [])[1] || 0), 0) + 16 * (list.length - 1) + 24;
+  const kept = cols.filter(c => !c.wide);
+  const lowest = kept.filter(c => !c.low);
+  table.style.setProperty('--at-cols-narrow2', lowest.map(c => c.track).join(' '));
+  const low = cols.some(c => c.low);
+  if ((need(cols) > 620 && cols.some(c => c.wide)) || low) {
+    const fit = () => {
+      const w = table.clientWidth;
+      if (!w) return;
+      table.classList.toggle('at-compact', w < need(cols));
+      table.classList.toggle('at-compact2', low && w < need(kept));
+    };
+    new ResizeObserver(fit).observe(table);
+  }
   return table;
 }
 
 // A fact column: [header, width in px, value, optional hover text].
-export const factCol = ([head, width, value, tip]) => {
+export const factCol = ([head, width, value, tip, tone]) => {
   const text = e => String(value(e.a, e.v));
-  return { head, track: `minmax(0, ${width}px)`, num: true, cell: text, title: e => (tip ? tip(e.a) : text(e).length * 7 > width ? text(e) : '') };
+  return { head, track: `minmax(0, ${width}px)`, num: true, tone: tone ? e => tone(e.a) : undefined, cell: text, title: e => (tip ? tip(e.a) : text(e).length * 7 > width ? text(e) : '') };
 };
 
 export function assetTable(entries, facts, q, label, showScope = new Set(entries.map(e => e.v.id)).size > 1) {
   const cols = [
     {
       head: 'Name',
-      track: 'minmax(140px, 1fr)',
+      track: 'minmax(120px, 1fr)',
       cls: 'at-name',
       cell: e => {
         const color = agentColorClass(metaOf(e.a).color);
         return [icon(glyphOf(e.a)), color ? el('span', { className: `swatch ${color}` }) : null, el('span', { className: 'at-label' }, highlight(rowName(e.a), q))];
       },
     },
-    { head: 'Description', track: 'minmax(0, 2fr)', muted: true, wide: true, cell: e => highlight(descOf(e.a) || '', q), title: e => descOf(e.a) },
+    { head: 'Description', track: 'minmax(100px, 4fr)', muted: true, wide: true, cell: e => highlight(descOf(e.a) || '', q), title: e => descOf(e.a) },
     ...[...facts, CHANGED].map(factCol),
   ];
-  if (showScope) cols.push(factCol(['Scope', 130, (a, v) => v.label]));
-  return gridTable(cols, entries.map(e => Object.assign({ open: () => select(e.a.id), className: e.a.enabled === false ? 'disabled' : '' }, e)), label);
+  if (showScope) cols.push(factCol(['Scope', 130, (a, v) => (a.source === 'plugin' ? 'Plugins' : v.label)]));
+  return gridTable(cols, entries.map(e => Object.assign({ open: () => select(e.a.id), className: e.a.enabled === false ? 'disabled' : '', context: skillContext(e.a) }, e)), label);
 }

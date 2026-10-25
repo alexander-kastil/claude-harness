@@ -1,11 +1,84 @@
 // @ts-nocheck
 // The Timeline view and the agent detail.
-import { state, total } from './core';
+import { bindEvents, chipText, modsOf, toneOfAll } from '../shared/event-layers';
+import { persist, state, total } from './core';
 import { clip, el, fmtDur, fmtNum, fmtTime, icon, shortModel, shortType, svg } from './dom';
-import { hideHover, placeCard } from './hover';
+import { hideHover, placeCard, tabTip } from './hover';
+import { eventsCard } from './map';
 import { AGENT_STATUS, AXIS, BAR, LANE, agentLabel, colorsOf, endOfAgent, showHover, timeAxis, tokensText, topTools, widthOf } from './session-common';
 import { fmtUsd, selectAgent } from './session-page';
 import { showSession } from './sessions';
+
+// The Mods switch of the Timeline: the same state as the Full timeline's, so one choice holds in both views.
+function modsSwitch(host, d) {
+  const about = 'What each mod did, as ticks beside the prompt dots and on the agents it concerns.';
+  const on = !!state.mapMods;
+  const tip = target => {
+    const r = target.getBoundingClientRect();
+    placeCard('toggle:mods', () => tabTip('Mods', 'plug', about), { x: r.left - 14, y: r.bottom - 6 });
+  };
+  return el(
+    'div',
+    { className: 'dg-bar' },
+    el(
+      'div',
+      { className: `dg-modes dg-toggle` },
+      el(
+        'button',
+        {
+          className: `view-tab dg-mode${on ? ' active' : ''}`,
+          'aria-pressed': on ? 'true' : 'false',
+          'aria-description': about,
+          'data-toggle': 'mods',
+          onclick: () => {
+            hideHover();
+            state.mapMods = !state.mapMods;
+            persist();
+            drawTimeline(host, d);
+            const b = host.querySelector('[data-toggle="mods"]');
+            if (b) b.focus();
+          },
+          onmouseenter: e => tip(e.currentTarget),
+          onmouseleave: hideHover,
+          onfocus: e => tip(e.currentTarget),
+          onblur: hideHover,
+        },
+        icon('plug'),
+        el('span', {}, 'Mods')
+      )
+    )
+  );
+}
+
+// One tick per cluster of events of a mod that sit within a few pixels of each other, so a busy hook stays a handful of marks.
+function modTicks(events, x, y1, y2, name, label, key) {
+  const clusters = [];
+  for (const e of events) {
+    const px = x(Date.parse(e.at));
+    const last = clusters[clusters.length - 1];
+    if (last && px - last.x < 4) last.events.push(e);
+    else clusters.push({ x: px, events: [e] });
+  }
+  return clusters.map(c => {
+    const tone = toneOfAll(c.events);
+    const g = svg(
+      'g',
+      { class: `tl-modtick ev-${tone}`, tabindex: '0', role: 'img', 'aria-label': `${label}: ${chipText(c.events)}` },
+      svg('rect', { x: c.x - 3, y: y1 - 1, width: 6, height: y2 - y1 + 2, class: 'tl-modtick-hit' }),
+      svg('line', { x1: c.x, x2: c.x, y1, y2, class: 'tl-modtick-line' })
+    );
+    const open = () => {
+      const r = g.getBoundingClientRect();
+      placeCard(`ticks:${key}:${label}:${c.x}`, () => eventsCard(name, [{ label, events: c.events }]), { x: r.left - 14, y: r.bottom - 2 });
+    };
+    g.addEventListener('mouseenter', open);
+    g.addEventListener('focus', open);
+    g.addEventListener('mousemove', e => e.stopPropagation());
+    g.addEventListener('mouseleave', hideHover);
+    g.addEventListener('blur', hideHover);
+    return g;
+  });
+}
 
 export function drawTimeline(host, d) {
   const W = widthOf(host, 480);
@@ -46,6 +119,15 @@ export function drawTimeline(host, d) {
     i = j;
   }
   for (const p of d.prompts) main.append(svg('circle', { cx: x(p.at), cy: cy(0), r: 3.5, class: 'tl-prompt' }, svg('title', {}, `${fmtTime(p.at)} you: ${clip(p.text, 300)}`)));
+  // With Mods on, the events of every mod: a tick under the main thread's line for an event of a prompt's window, a tick
+  // under the bar of the agent an event names.
+  const mods = modsOf(d.layers);
+  const agentTicks = new Map();
+  for (const mod of state.mapMods ? mods : []) {
+    const bound = bindEvents(mod.events, d.prompts.map(p => p.at).sort((p, q) => p - q), laneOf.keys());
+    main.append(...modTicks(bound.steps.flat(), x, cy(0) + 5, cy(0) + 10, 'Main thread', mod.label, 'main'));
+    for (const [id, events] of Object.entries(bound.agents)) agentTicks.set(id, [...(agentTicks.get(id) || []), { mod, events }]);
+  }
   for (const a of d.agents)
     if (!a.parent) for (const t of a.reports) main.append(svg('circle', { cx: x(t), cy: cy(0), r: 3, class: `tl-dot ${colors.tone(a)}` }, svg('title', {}, `${fmtTime(t)} result from ${agentLabel(a)}`)));
   root.append(main);
@@ -101,6 +183,7 @@ export function drawTimeline(host, d) {
           : svg('path', { d: `M ${ex - 4} ${top - 7} L ${ex + 4} ${top - 7} L ${ex} ${top - 1} Z`, class: 'tl-msg' }, svg('title', {}, `${fmtTime(e.at)} message: ${clip(e.text, 300)}`))
       );
     }
+    for (const t of agentTicks.get(a.id) || []) g.append(...modTicks(t.events, x, cy(i) + BAR / 2 + 1, cy(i) + BAR / 2 + 5, agentLabel(a), t.mod.label, `agent:${a.id}`));
     root.append(g);
   });
 
@@ -111,7 +194,7 @@ export function drawTimeline(host, d) {
       g.append(svg('rect', { x: x(c.start), y: cy(i) - BAR / 2, width: Math.max(3, x(c.end) - x(c.start)), height: BAR, rx: 2, class: 'tl-child' }, svg('title', {}, `Headless session: ${clip(c.title, 300)}\n${fmtDur(c.end - c.start)} · click to open`)));
     root.append(g);
   });
-  host.replaceChildren(root);
+  host.replaceChildren(...(mods.length ? [modsSwitch(host, d)] : []), root);
 }
 
 export function renderAgent(d) {
@@ -188,7 +271,7 @@ export function mainCard(d) {
     ),
     tokenBar(u),
     el('div', { className: 'hc-sec' }, el('div', { className: 'hc-label' }, 'Top tools'), el('div', { className: 'hc-text' }, topTools(d.tools) || 'none')),
-    el('div', { className: 'hc-foot' }, el('span', {}, `Est. cost ${fmtUsd(u.cost || 0)}`), el('span', {}, `${d.turns} turns`))
+    el('div', { className: 'hc-foot' }, el('span', {}, `Est. cost ${fmtUsd(u.cost || 0)}`), el('span', {}, `${d.turns} ${d.turns === 1 ? 'turn' : 'turns'}`))
   );
 }
 

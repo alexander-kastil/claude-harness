@@ -629,11 +629,11 @@ select.sort {
 }
 
 .check-badge.bad {
-  color: var(--vscode-errorForeground);
+  color: var(--err-text);
 }
 
 .check-badge.warn {
-  color: var(--vscode-editorWarning-foreground);
+  color: var(--warn-text);
 }
 
 .check-badge.muted {
@@ -730,7 +730,7 @@ table.grid .cell {
 }
 
 .warn {
-  color: var(--vscode-editorWarning-foreground);
+  color: var(--warn-text);
 }
 
 .tag.warn {
@@ -865,7 +865,7 @@ table.grid .cell {
 }
 
 .style-error {
-  color: var(--vscode-errorForeground);
+  color: var(--err-text);
 }
 
 .swatch {
@@ -883,9 +883,32 @@ table.grid .cell {
 .timeline {
   width: 100%;
   overflow-x: auto;
+}
+
+/* The box under a tab bar: the session views with their legend, and the Review sections. */
+.view-box {
+  min-width: 0;
   border: 1px solid var(--vscode-panel-border);
   border-radius: 6px;
   background: var(--vscode-editorWidget-background);
+}
+
+.view-box > .legend.below {
+  margin: 0;
+  padding: 8px 12px;
+  border-top: 1px solid var(--vscode-panel-border);
+}
+
+.view-box > .legend.below:empty {
+  display: none;
+}
+
+.review-panel {
+  padding: 12px;
+}
+
+.review-panel > .findings .finding {
+  background: var(--vscode-editor-background);
 }
 
 .timeline svg {
@@ -972,6 +995,34 @@ table.grid .cell {
 
 .tl-msg {
   fill: var(--vscode-foreground);
+}
+
+/* A mod's events on the Timeline: a tick under the lane, green when it did something, red for a denial or failure. */
+.tl-modtick {
+  outline: none;
+}
+
+.tl-modtick-hit {
+  fill: transparent;
+}
+
+.tl-modtick-line {
+  stroke: var(--vscode-charts-green);
+  stroke-width: 2;
+}
+
+.tl-modtick.ev-warn .tl-modtick-line {
+  stroke: var(--vscode-charts-red);
+}
+
+.tl-modtick.ev-quiet .tl-modtick-line {
+  stroke: var(--vscode-descriptionForeground);
+  stroke-width: 1;
+}
+
+.tl-modtick:hover .tl-modtick-line,
+.tl-modtick:focus-visible .tl-modtick-line {
+  stroke-width: 3;
 }
 
 .tl .tl-stop-bg {
@@ -1322,6 +1373,14 @@ table.grid .cell {
   fill: var(--vscode-foreground);
   font-size: 12px;
   pointer-events: none;
+}
+
+/* A label that may cross a line gets a halo in the box's own color. */
+.dg-label.dg-halo {
+  paint-order: stroke;
+  stroke: var(--vscode-editorWidget-background);
+  stroke-width: 4px;
+  stroke-linejoin: round;
 }
 
 .dg-label.strong {
@@ -1854,6 +1913,29 @@ table.grid .cell {
 @media (max-width: 900px) {
   .kpis {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .kpis .tile {
+    gap: 2px;
+    padding: 10px 12px;
+  }
+
+  .kpis .tile .n {
+    font-size: 22px;
+  }
+
+  /* An odd tile would sit alone in the last row: it takes the whole row, figure beside label and note, one slim band. */
+  .kpis .tile:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    column-gap: 12px;
+    align-items: center;
+  }
+
+  .kpis .tile:last-child:nth-child(odd) .n {
+    grid-row: 1 / span 2;
   }
 }
 
@@ -1863,7 +1945,7 @@ table.grid .cell {
 }
 
 .kpi-note.warn {
-  color: var(--vscode-editorWarning-foreground);
+  color: var(--warn-text);
 }
 
 .section-head.selected {
@@ -2488,11 +2570,11 @@ mark {
 }
 
 .hc-run-status.bad {
-  color: var(--vscode-errorForeground);
+  color: var(--err-text);
 }
 
 .hc-run-status.warn {
-  color: var(--vscode-editorWarning-foreground);
+  color: var(--warn-text);
 }
 
 .hc-run-status.run {
@@ -2549,11 +2631,11 @@ mark {
 }
 
 .hc-pill.bad {
-  color: var(--vscode-errorForeground);
+  color: var(--err-text);
 }
 
 .hc-pill.warn {
-  color: var(--vscode-editorWarning-foreground);
+  color: var(--warn-text);
 }
 
 .hc-pill.run {
@@ -2686,7 +2768,7 @@ mark {
 
 .hc-error {
   overflow-wrap: anywhere;
-  color: var(--vscode-errorForeground);
+  color: var(--err-text);
 }
 
 .hc-foot {
@@ -2853,6 +2935,14 @@ mark {
   border-radius: 50%;
 }
 
+.row .name .swatch {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 6px;
+  border-radius: 50%;
+}
+
 .at-row.static {
   cursor: default;
 }
@@ -2888,7 +2978,7 @@ mark {
 
 .at-fact.warn,
 .at-cell.warn {
-  color: var(--vscode-editorWarning-foreground);
+  color: var(--warn-text);
 }
 
 .at-head .at-cell,
@@ -3008,7 +3098,7 @@ mark {
 
 /* Repo page: compact harness tiles and the tab counts. */
 .overview.compact {
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
   gap: 8px;
 }
 
@@ -3025,8 +3115,33 @@ mark {
   font-variant-numeric: tabular-nums;
 }
 
+.overview.compact .tile {
+  min-width: 0;
+}
+
+.overview.compact .tile .n {
+  flex: none;
+  text-align: right;
+  line-height: 1.2;
+}
+
+.overview.compact .tile .l {
+  min-width: 0;
+  white-space: nowrap;
+  line-height: 1.2;
+}
+
+.overview.compact .tile .l .codicon {
+  flex: none;
+  font-size: 16px;
+}
+
 .overview.compact .tile.zero {
-  opacity: 0.55;
+  opacity: 0.65;
+}
+
+.overview.compact .tile.zero:focus-visible {
+  opacity: 1;
 }
 
 .overview.compact .tile.zero:hover {
@@ -3049,46 +3164,151 @@ mark {
   }
 }
 
-/* Detail pages, view mode: summary card, KPI tiles, the document and its side cards. */
-.mode-switch {
-  display: inline-flex;
-  flex: none;
-  gap: 2px;
-  padding: 2px;
-  border: 1px solid var(--vscode-panel-border);
-  border-radius: 6px;
-  background: var(--vscode-editorWidget-background);
+/* Detail pages: the command bar under the title, one plan-picker box (.dg-modes) per object the commands act on. */
+.main-head.detail-head {
+  flex-wrap: wrap;
+  row-gap: 12px;
+  padding: 16px 20px 12px;
 }
 
-.mode-btn {
+/* Line 1 is the kind chip, the name and the source chip, and never wraps: squeezed, only the name takes an ellipsis.
+   Line 2 is the whole path, wrapping onto a further line when the panel is narrow, never cut. */
+.detail-head .title {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.dh-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 28px;
+  min-width: 0;
+}
+
+/* The two chips share one shape; only the color and the icon tell them apart. */
+.dh-kind,
+.dh-source {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  min-height: 24px;
-  padding: 2px 10px;
-  border: none;
-  border-radius: 4px;
+  gap: 6px;
+  height: 20px;
+  padding: 0 8px 0 6px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 20px;
+  white-space: nowrap;
+}
+
+.dh-kind {
+  flex: none;
+  background: var(--vscode-badge-background);
+  color: var(--vscode-badge-foreground);
+}
+
+.dh-source {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 40%;
+  background: color-mix(in srgb, var(--vscode-foreground) 12%, transparent);
+  color: var(--vscode-foreground);
+}
+
+.dh-source > :last-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dh-kind .codicon,
+.dh-source .codicon {
+  flex: none;
+  font-size: 14px;
+}
+
+.detail-head .title h1 {
+  flex: 0 1 auto;
+  min-width: 0;
+  font-size: 20px;
+  line-height: 28px;
+  letter-spacing: -0.01em;
+}
+
+.detail-head .dh-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.detail-head .title .path {
+  display: block;
+  font-size: 12px;
+  line-height: 16px;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  overflow-wrap: anywhere;
+}
+
+.detail-head .path .dir {
+  opacity: 0.65;
+}
+
+/* The global .file row rule (flex, padding, pointer) does not apply: the file name is plain text flush with the folder lines. */
+.detail-head .path .file {
+  display: inline;
+  padding: 0;
+  border-radius: 0;
+  cursor: inherit;
+  font-family: inherit;
+  font-size: inherit;
+  opacity: 1;
+}
+
+.cmd-bar {
+  display: flex;
+  flex: 1 0 100%;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.cmd-bar .dg-modes,
+.cmd-inline {
+  flex-wrap: wrap;
+  margin: 0;
+}
+
+.cmd-inline {
+  margin-top: 8px;
+}
+
+.cmd-draft {
+  margin-left: auto;
+}
+
+.view-tab:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.view-tab:disabled:hover {
   background: transparent;
   color: var(--vscode-descriptionForeground);
-  font: inherit;
-  font-size: 12px;
-  cursor: pointer;
 }
 
-.mode-btn:hover {
-  color: var(--vscode-foreground);
-  background: var(--vscode-toolbar-hoverBackground);
+.view-tab.cmd-save:not(:disabled) {
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
 }
 
-.mode-btn.active {
-  background: var(--vscode-button-secondaryBackground, var(--vscode-list-activeSelectionBackground));
-  color: var(--vscode-button-secondaryForeground, var(--vscode-list-activeSelectionForeground));
+.view-tab.cmd-save:not(:disabled):hover {
+  background: var(--vscode-button-hoverBackground);
+  color: var(--vscode-button-foreground);
 }
 
-.mode-btn:focus-visible {
-  outline: 1px solid var(--vscode-focusBorder);
-  outline-offset: 1px;
-}
+/* Detail pages, view mode: summary card, KPI tiles, the document and its side cards. */
 
 .dv {
   container-type: inline-size;
@@ -3154,7 +3374,7 @@ mark {
 
 .dv-desc.warn,
 .dv-empty.warn {
-  color: var(--vscode-editorWarning-foreground);
+  color: var(--warn-text);
 }
 
 .dv-more {
@@ -3802,12 +4022,12 @@ mark {
 }
 
 .std-pill.bad {
-  color: var(--vscode-errorForeground);
+  color: var(--err-text);
   background: color-mix(in srgb, var(--vscode-errorForeground) 14%, transparent);
 }
 
 .std-pill.warn {
-  color: var(--vscode-editorWarning-foreground);
+  color: var(--warn-text);
   background: color-mix(in srgb, var(--vscode-editorWarning-foreground) 14%, transparent);
 }
 
@@ -3817,7 +4037,7 @@ mark {
 
 .dv-chip.warn {
   border-color: var(--vscode-editorWarning-foreground);
-  color: var(--vscode-editorWarning-foreground);
+  color: var(--warn-text);
 }
 
 .std-group {
@@ -3862,11 +4082,11 @@ button.std-finding:hover {
 }
 
 .std-finding.fail > .codicon {
-  color: var(--vscode-errorForeground);
+  color: var(--err-text);
 }
 
 .std-finding.review > .codicon {
-  color: var(--vscode-editorWarning-foreground);
+  color: var(--warn-text);
 }
 
 .std-text {
@@ -3953,9 +4173,914 @@ button.std-finding:hover {
   color: var(--vscode-descriptionForeground);
 }
 
+/* Used in: the 7-day strip, the calls chip on an MCP tool card, and the use count on a plugin's rows. */
+.us-strip {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+  max-width: 420px;
+  margin: 2px 0 10px;
+}
+
+.us-day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+}
+
+.us-n {
+  min-height: 14px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.us-bars {
+  width: 100%;
+  height: 40px;
+}
+
+.us-bar {
+  fill: var(--vscode-charts-blue);
+}
+
+.us-day.empty .us-bar {
+  fill: var(--vscode-panel-border);
+}
+
+.us-label {
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  /* 10 px text needs 4.5:1 on every theme; the secondary grey measures 3.1 to 3.4 on light ones. */
+  color: var(--vscode-foreground);
+}
+
+.dv-tool-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.dv-tool-head .dv-tool-name {
+  flex: 1;
+  min-width: 0;
+}
+
+.dv-tool-calls {
+  flex: none;
+  font-size: 11px;
+  color: var(--vscode-charts-blue);
+}
+
+.dv-tool-calls.none,
+.ref-uses.none {
+  color: var(--vscode-descriptionForeground);
+}
+
+.ref-row.has-uses {
+  grid-template-columns: 16px minmax(0, 1fr) auto auto auto;
+}
+
+.ref-uses {
+  font-size: 11px;
+  color: var(--vscode-charts-blue);
+}
+
 .clamp-4 {
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 4;
   overflow: hidden;
+}
+
+/* Analyze from one row of a list, and Fix with Claude beside a finding. */
+.row:has(> .row-act) {
+  position: relative;
+  padding-right: 40px;
+}
+
+.row > .row-act {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  opacity: 0;
+}
+
+.row:hover > .row-act,
+.row > .row-act:focus-visible {
+  opacity: 1;
+}
+
+.at-row .row-act {
+  opacity: 0.55;
+}
+
+.at-row:hover .row-act,
+.at-row .row-act:focus-visible {
+  opacity: 1;
+}
+
+.std-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.std-item > .std-finding {
+  flex: 1;
+  min-width: 0;
+  width: auto;
+}
+
+/* Findings on the session page: a card per finding with its cost, why it matters, what to do and a jump to the map. */
+.findings {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.finding {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--vscode-panel-border);
+  border-left-width: 3px;
+  border-radius: 6px;
+  background: var(--vscode-editorWidget-background);
+}
+
+.finding.sev-warn {
+  border-left-color: var(--vscode-editorWarning-foreground);
+}
+
+.finding.sev-info {
+  border-left-color: var(--vscode-descriptionForeground);
+}
+
+.finding-main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.finding-kind {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--vscode-descriptionForeground);
+}
+
+.finding.sev-warn .finding-kind {
+  color: var(--warn-text);
+}
+
+.finding-title {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.finding-note {
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--vscode-descriptionForeground);
+  overflow-wrap: anywhere;
+}
+
+.finding-cost {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.finding-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 1px 8px;
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 999px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.finding-chip .codicon {
+  font-size: 13px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.finding-advice {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 4px 12px;
+  margin: 2px 0 0;
+  padding-top: 8px;
+  border-top: 1px solid var(--vscode-panel-border);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.finding-advice dt {
+  color: var(--vscode-descriptionForeground);
+}
+
+.finding-advice dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.finding-jump {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 26px;
+  white-space: nowrap;
+}
+
+.dg-node.jump {
+  animation: dg-jump 0.6s ease-out 3;
+}
+
+@keyframes dg-jump {
+  50% {
+    stroke-width: 5;
+    stroke: var(--vscode-charts-yellow);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dg-node.jump {
+    animation: none;
+    stroke: var(--vscode-charts-yellow);
+    stroke-width: 4;
+  }
+}
+
+/* The drafted output style, one region: header, settings, every instruction, file. */
+.style-model {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.style-region {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--vscode-panel-border);
+  border-left: 3px solid var(--vscode-button-background);
+  border-radius: 6px;
+  background: var(--vscode-editorWidget-background);
+}
+
+.style-region.failed {
+  border-left-color: var(--vscode-errorForeground);
+}
+
+.style-region-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.style-region-titles {
+  flex: 1;
+  min-width: 0;
+}
+
+.style-region-name {
+  font-size: 14px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.style-region-desc {
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--vscode-descriptionForeground);
+}
+
+.style-region-head > button {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cf-badge.bad {
+  background: color-mix(in srgb, var(--vscode-errorForeground) 16%, transparent);
+  color: var(--err-text);
+}
+
+.style-meta {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 2px 12px;
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 4px;
+  background: var(--vscode-textCodeBlock-background, rgba(127, 127, 127, 0.15));
+  font-family: var(--vscode-editor-font-family);
+  font-size: 12px;
+}
+
+.style-meta dt {
+  color: var(--vscode-descriptionForeground);
+}
+
+.style-meta dd {
+  margin: 0;
+}
+
+.style-region > .md {
+  max-width: 78ch;
+}
+
+.style-region-foot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-top: 10px;
+  border-top: 1px solid var(--vscode-panel-border);
+  font-size: 11.5px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.style-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.style-skeleton span {
+  height: 10px;
+  border-radius: 3px;
+  background: var(--vscode-panel-border);
+  animation: style-pulse 1.4s ease-in-out infinite;
+}
+
+.style-skeleton span:nth-child(1) {
+  width: 72%;
+}
+
+.style-skeleton span:nth-child(2) {
+  width: 90%;
+}
+
+.style-skeleton span:nth-child(3) {
+  width: 64%;
+}
+
+.style-skeleton span:nth-child(4) {
+  width: 40%;
+}
+
+@keyframes style-pulse {
+  50% {
+    opacity: 0.4;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .style-skeleton span {
+    animation: none;
+  }
+}
+
+/* Slim: the flags on a skill's description and SKILL.md, and the spread of its reference files. */
+.sl-row {
+  display: grid;
+  grid-template-columns: 16px minmax(120px, 190px) minmax(0, 1fr);
+  align-items: baseline;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.sl-row.warn .codicon {
+  color: var(--warn-text);
+}
+
+.sl-row.bad .codicon {
+  color: var(--vscode-editorError-foreground);
+}
+
+.sl-row.quiet {
+  opacity: 0.75;
+}
+
+.sl-head {
+  font-weight: 600;
+}
+
+.sl-text {
+  color: var(--vscode-descriptionForeground);
+}
+
+.sl-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 4px;
+}
+
+.sl-sub {
+  color: var(--vscode-descriptionForeground);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.sl-sum {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.sl-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sl-bar-row {
+  display: grid;
+  grid-template-columns: minmax(120px, 2fr) minmax(60px, 3fr) 56px minmax(0, 170px);
+  align-items: center;
+  gap: 10px;
+  padding: 3px 6px;
+  border-radius: 3px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.sl-bar-row:hover,
+.sl-bar-row:focus-visible {
+  background: var(--vscode-list-hoverBackground);
+}
+
+.sl-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-family: var(--vscode-editor-font-family);
+}
+
+.sl-name > span:last-child {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.sl-track {
+  height: 8px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--vscode-foreground) 10%, transparent);
+  overflow: hidden;
+}
+
+.sl-fill {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  background: var(--vscode-charts-blue);
+}
+
+.sl-bar-row.warn .sl-fill {
+  background: var(--vscode-editorWarning-foreground);
+}
+
+.sl-bar-row.bad .sl-fill {
+  background: var(--vscode-editorError-foreground);
+}
+
+.sl-bar-row.quiet .sl-fill {
+  background: var(--vscode-descriptionForeground);
+}
+
+.sl-n {
+  text-align: right;
+  color: var(--vscode-descriptionForeground);
+  font-variant-numeric: tabular-nums;
+}
+
+.sl-flags {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 4px;
+}
+
+.sl-flag {
+  min-height: 18px;
+  padding: 0 7px;
+  font-size: 11px;
+}
+
+.dv-chip.bad {
+  border-color: var(--vscode-editorError-foreground);
+  color: var(--vscode-editorError-foreground);
+}
+
+.dv-chip.quiet {
+  color: var(--vscode-descriptionForeground);
+}
+
+.kpi-note.quiet {
+  opacity: 0.75;
+}
+
+/* Consolidate card: the places a repo skill can go to, one radio row each. */
+.cf button[hidden] {
+  display: none;
+}
+
+.cf-targets {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cf-target {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  width: 100%;
+  padding: 5px 8px;
+  border: 1px solid var(--vscode-editorHoverWidget-border, var(--vscode-panel-border));
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cf-target:hover {
+  background: var(--vscode-list-hoverBackground);
+}
+
+.cf-target[aria-checked='true'] {
+  border-color: var(--vscode-focusBorder);
+  background: var(--vscode-list-activeSelectionBackground, var(--vscode-list-hoverBackground));
+  color: var(--vscode-list-activeSelectionForeground, inherit);
+}
+
+.cf-target-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cf-target-state {
+  font-size: 11px;
+  opacity: 0.75;
+}
+
+/* Search boxes use the full width of their row. */
+.session-search,
+.kind-search .combo {
+  max-width: none;
+}
+
+/* A lighter border on every search box, from the theme foreground so it holds in dark and light. */
+input[type='search'] {
+  border-color: color-mix(in srgb, var(--vscode-foreground) 35%, transparent);
+}
+
+/* Overview: the lists behind tabs repeat the tab's name in their own heading. */
+.overview-tabs {
+  margin-top: 14px;
+}
+
+.overview-list > .recent > .group-label,
+.overview-list.recent > .group-label {
+  display: none;
+}
+
+/* Text colors that hold 4.5:1 in both themes: the theme's warning and error colors are fine on dark and too light for text on a
+   light theme, so there they are darkened toward black. Icons, borders and fills keep the theme's own color. */
+body {
+  --warn-text: var(--vscode-editorWarning-foreground);
+  --err-text: var(--vscode-errorForeground);
+}
+
+body.vscode-light,
+body.vscode-high-contrast-light {
+  --warn-text: color-mix(in srgb, var(--vscode-editorWarning-foreground) 70%, black);
+  --err-text: color-mix(in srgb, var(--vscode-errorForeground) 70%, black);
+}
+
+/* Errors are red, warnings amber: a failed server, a refused connection, a failed hook run, a failed agent. */
+.dv-notice.bad {
+  border-color: var(--vscode-inputValidation-errorBorder, var(--vscode-errorForeground));
+  background: var(--vscode-inputValidation-errorBackground, color-mix(in srgb, var(--vscode-errorForeground) 10%, transparent));
+}
+
+.dv-notice.bad > .codicon {
+  color: var(--vscode-errorForeground);
+}
+
+.kpi-note.bad,
+.row .desc.bad,
+.at-row .bad,
+.at-fact.bad,
+.at-cell.bad {
+  color: var(--err-text);
+  opacity: 1;
+}
+
+.finding.sev-bad {
+  border-left-color: var(--vscode-errorForeground);
+}
+
+.finding.sev-bad .finding-kind {
+  color: var(--err-text);
+}
+
+/* The notice under a server's status: the icon sits inline before the text, and a long log wraps. */
+.dv-notice {
+  align-items: flex-start;
+}
+
+.dv-notice > .codicon {
+  flex: none;
+  margin-top: 2px;
+}
+
+.dv-notice > .dv-notice-text {
+  flex: 1 1 200px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+/* The header's path line reads at full strength: the folder in the secondary color, the file name in the text color. */
+.title .path,
+.detail-head .path .dir {
+  opacity: 1;
+  color: var(--vscode-descriptionForeground);
+}
+
+.detail-head .path .file {
+  color: var(--vscode-foreground);
+}
+
+/* A narrow detail page: the command bar keeps its groups and drops the labels, which the hover cards say. */
+.main-head.detail-head {
+  container: dhead / inline-size;
+}
+
+@container dhead (max-width: 760px) {
+  .cmd-bar {
+    gap: 6px;
+  }
+
+  .cmd-bar .view-tab.dg-mode > span:last-child {
+    display: none;
+  }
+
+  .cmd-bar .view-tab.dg-mode {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+}
+
+/* Secondary lines and chart labels keep 4.5:1: the theme's secondary color in place of a faded text color, and no fade on a
+   day without a bar (its bar stays quiet through the fill). */
+.row .desc {
+  opacity: 1;
+  color: var(--vscode-descriptionForeground);
+}
+
+.row.selected .desc,
+.row.selected .desc.bad {
+  color: inherit;
+  opacity: 0.85;
+}
+
+.us-day.empty {
+  opacity: 1;
+}
+
+.dv-notice > .codicon {
+  min-width: 0;
+}
+
+.dv-notice > .dv-notice-text {
+  text-align: left;
+}
+
+/* A path line in a page body: the folders take the ellipsis, the file name stays whole. */
+.path-text {
+  display: flex;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.path-dir {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.path-name {
+  flex: none;
+}
+
+/* A switched-off row reads in the secondary color, which holds 4.5:1, in place of a half-faded text color. */
+.row.disabled .name,
+.at-row.disabled .at-label,
+.at-row.disabled .at-name {
+  opacity: 1;
+  color: var(--vscode-descriptionForeground);
+}
+
+.row.selected.disabled .name {
+  color: inherit;
+}
+
+.dg-mode .codicon-loading {
+  animation: ch-spin 1s linear infinite;
+}
+
+@keyframes ch-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.group-label.market-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 14px 0 6px;
+}
+
+.group-label.market-group .count {
+  opacity: 0.7;
+}
+
+/* Left nav as a keyboard tree: a visible focus ring on every row and head, and room under the sticky section head when a
+   focused row scrolls into view. */
+.list {
+  scroll-padding-top: 34px;
+  scroll-padding-bottom: 8px;
+}
+
+.sidebar [role='treeitem']:focus {
+  outline: none;
+}
+
+.sidebar [role='treeitem']:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: -1px;
+}
+
+/* A section head is always one line: the label gives way with an ellipsis before its buttons wrap. */
+.section-head {
+  flex-wrap: nowrap;
+  white-space: nowrap;
+}
+
+.section-head .label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.section-head .icon-btn,
+.section-head .view-modes,
+.section-head .count {
+  flex: none;
+}
+
+/* The View picker of a header with many modes: one button, the modes in a small menu under it. */
+.nav-menu {
+  position: fixed;
+  z-index: 1002;
+  min-width: 200px;
+  padding: 4px;
+  border: 1px solid var(--vscode-menu-border, var(--vscode-widget-border, var(--vscode-panel-border)));
+  border-radius: 6px;
+  background: var(--vscode-menu-background, var(--vscode-editorWidget-background));
+  color: var(--vscode-menu-foreground, var(--vscode-foreground));
+  box-shadow: 0 2px 8px var(--vscode-widget-shadow, rgba(0, 0, 0, 0.3));
+}
+
+.nav-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.nav-menu-item:hover,
+.nav-menu-item:focus-visible {
+  background: var(--vscode-menu-selectionBackground, var(--vscode-list-hoverBackground));
+  color: var(--vscode-menu-selectionForeground, inherit);
+  outline: none;
+}
+
+.nav-menu-item.active {
+  font-weight: 600;
+}
+
+/* A stacked layout (a narrow or zoomed panel) keeps the nav tall enough to use, scrolling inside itself, and gives the page the rest. */
+@media (max-width: 640px) {
+  #app {
+    grid-template-rows: minmax(190px, 40%) minmax(0, 1fr);
+  }
+
+  .sidebar {
+    min-height: 190px;
+    border-right: 0;
+    border-bottom: 1px solid var(--vscode-sideBar-border, var(--vscode-panel-border));
+  }
+
+  .list {
+    min-height: 90px;
+  }
+}
+
+/* A table that would run past its box drops its wide columns (gridTable sets the class from its own width). */
+.asset-table.at-compact .at-row {
+  grid-template-columns: var(--at-cols-narrow);
+}
+
+.asset-table.at-compact .at-wide {
+  display: none;
+}
+
+/* One message for a search that found nothing anywhere. */
+.search-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 28px 16px;
+  text-align: center;
+  color: var(--vscode-descriptionForeground);
+}
+
+.search-empty > .codicon {
+  font-size: 28px;
+  opacity: 0.7;
+}
+
+.se-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--vscode-foreground);
+}
+
+.se-hint {
+  max-width: 520px;
+  font-size: 12px;
+}
+
+.kpis .tile .n.long {
+  font-size: 20px;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.asset-table.at-compact2 .at-row {
+  grid-template-columns: var(--at-cols-narrow2);
+}
+
+.asset-table.at-compact2 .at-low {
+  display: none;
 }

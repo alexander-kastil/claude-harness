@@ -4,9 +4,9 @@ argument-hint: [branch]
 disable-model-invocation: true
 ---
 
-# ext-contribute-cleanup
+# git-contribute-cleanup
 
-For a feature branch that never made it to a pull request, or whose pull request was closed. A merged branch is cleaned up by `/ext-contribute-finish`. Running this command is the instruction to delete the branch and its commits; it needs no further confirmation.
+For a feature branch that never made it to a pull request, or whose pull request was closed. A merged branch is cleaned up by `/git-contribute-finish`. Running this command is the instruction to delete the branch and its commits; it needs no further confirmation.
 
 ## Never
 
@@ -16,7 +16,7 @@ For a feature branch that never made it to a pull request, or whose pull request
 
 ## Steps
 
-1. Remotes: `origin` must be your fork and `upstream` must be `alexander-kastil/claude-harness`, both recognised by URL in `git remote -v`. If not, stop and point to `/ext-contribute-setup`.
+1. Remotes: `origin` must be your fork and `upstream` must be `alexander-kastil/claude-harness`, both recognised by URL in `git remote -v`. If not, stop and point to `/git-contribute-setup`.
 2. The branch is `$ARGUMENTS` (`<name>` means `feature/<name>`), or the current branch when it is empty. It must be a `feature/` branch.
 3. `gh pr list --repo alexander-kastil/claude-harness --author "@me" --head <branch> --state open --json url` must return nothing. If it returns a pull request, stop and show its URL.
 4. `git status --porcelain` must be empty. If not, stop and list the files.

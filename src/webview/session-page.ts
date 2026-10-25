@@ -3,12 +3,14 @@
 import { drawConcurrency, drawFlow, drawScatter } from './charts';
 import { app, openAt, persist, showRepo, state, total, viewOf, vscode } from './core';
 import { drawDecisions } from './decisions';
-import { clip, el, fmtDate, fmtDur, fmtTime, icon, iconBtn, pageHead, shortModel, shortType } from './dom';
+import { renderFindings } from './findings';
+import { claudeMark, clip, el, fmtDate, fmtDur, fmtTime, icon, iconBtn, pageHead, shortModel, shortType } from './dom';
 import { hideHover, placeCard, tabTip } from './hover';
 import { renderMain } from './main';
 import { drawMap } from './map';
+import { renderMarkdown } from './markdown';
 import { colorsOf, modeSwitch, peakParallel } from './session-common';
-import { sessionDesc, showSession } from './sessions';
+import { sessionDesc, sessionTip, showSession } from './sessions';
 import { drawTimeline, renderAgent } from './timeline';
 
 export const SESSION_VIEWS = [
@@ -229,8 +231,7 @@ export function renderStyle(d) {
   ];
   return el(
     'div',
-    { className: 'recent' },
-    el('div', { className: 'group-label' }, 'Output style'),
+    { className: 'style-body' },
     el('div', { className: 'legend' }, facts.map(t => el('span', { className: 'legend-item muted' }, t))),
     scan.corrections.length
       ? scan.corrections.map(c => el('div', { className: 'row style-row' }, el('span', { className: 'style-kind' }, STYLE_KINDS[c.kind] || c.kind), el('span', { className: 'name wrap' }, c.text)))
@@ -239,30 +240,147 @@ export function renderStyle(d) {
       'div',
       { className: 'style-draft' },
       el(
-        'select',
-        {
-          'aria-label': 'Model',
-          disabled: running,
-          onchange: e => {
-            state.styleModel = e.target.value;
-            persist();
+        'label',
+        { className: 'style-model' },
+        el('span', {}, 'Model'),
+        el(
+          'select',
+          {
+            disabled: running,
+            onchange: e => {
+              state.styleModel = e.target.value;
+              persist();
+            },
           },
-        },
-        STYLE_MODELS.map(([id, label]) => el('option', { value: id, selected: state.styleModel === id }, label))
+          STYLE_MODELS.map(([id, label]) => el('option', { value: id, selected: state.styleModel === id }, label))
+        )
       ),
       el(
         'button',
         { className: 'primary', disabled: running, 'data-confirm': 'draftStyle', onclick: () => vscode.postMessage({ type: 'draftStyle', scope: s.scope, id: s.id, model: state.styleModel }) },
-        running ? el('span', { className: 'codicon codicon-loading codicon-modifier-spin' }) : icon('sparkle'),
+        running ? el('span', { className: 'codicon codicon-loading codicon-modifier-spin' }) : claudeMark(),
         running ? 'Drafting...' : 'Draft output style'
       ),
-      draft.state === 'done'
-        ? el('button', { className: 'link', onclick: () => openAt(draft.file) }, `Drafted ${draft.file.split(/[\\/]/).pop()}`)
-        : draft.state === 'error'
-          ? el('span', { className: 'style-error' }, draft.error)
-          : null
-    )
+      // A host that sends no text keeps the link to the file.
+      draft.state === 'done' && draft.text === undefined ? el('button', { className: 'link', onclick: () => openAt(draft.file) }, `Drafted ${draft.file.split(/[\\/]/).pop()}`) : null
+    ),
+    styleRegion(draft, scan)
   );
+}
+
+// The frontmatter of a drafted style, as key/value pairs, and the instructions after it.
+export function splitStyle(text) {
+  const m = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/.exec(text.trim());
+  if (!m) return { meta: [], body: text.trim() };
+  const meta = m[1]
+    .split(/\r?\n/)
+    .map(line => /^([\w-]+):\s*(.*)$/.exec(line))
+    .filter(Boolean)
+    .map(x => [x[1], x[2].replace(/^["']|["']$/g, '')]);
+  return { meta, body: m[2].trim() };
+}
+
+// The drafted output style as one region: its name and description, the settings from its frontmatter and every
+// instruction in it, uncut, with the file and what the draft cost. While Claude writes it the region holds its place.
+export function styleRegion(draft, scan) {
+  if (draft.state === 'running') {
+    const model = (STYLE_MODELS.find(m => m[0] === draft.model) || [0, draft.model || 'Claude'])[1];
+    return el(
+      'section',
+      { className: 'style-region running', role: 'status', 'aria-live': 'polite', 'aria-busy': 'true' },
+      el('div', { className: 'style-region-head' }, el('span', { className: 'cf-badge' }, el('span', { className: 'codicon codicon-loading codicon-modifier-spin' })), el('div', { className: 'style-region-titles' }, el('div', { className: 'style-region-name' }, 'Drafting your output style'), el('div', { className: 'style-region-desc' }, `${model} reads the scan of this session (${scan.corrections.length === 1 ? '1 correction' : `${scan.corrections.length} corrections`}) and writes the style. This takes a minute or two.`))),
+      el('div', { className: 'style-skeleton', 'aria-hidden': 'true' }, el('span'), el('span'), el('span'), el('span'))
+    );
+  }
+  if (draft.state === 'error')
+    return el('section', { className: 'style-region failed', role: 'alert' }, el('div', { className: 'style-region-head' }, el('span', { className: 'cf-badge bad' }, icon('error')), el('div', { className: 'style-region-titles' }, el('div', { className: 'style-region-name' }, 'The draft did not work'), el('div', { className: 'style-region-desc style-error' }, draft.error))));
+  if (draft.state !== 'done' || draft.text === undefined) return null;
+  const { meta, body } = splitStyle(draft.text);
+  const get = key => (meta.find(m => m[0] === key) || [])[1];
+  const rest = meta.filter(m => m[0] !== 'name' && m[0] !== 'description');
+  const file = draft.file.split(/[\\/]/).pop();
+  return el(
+    'section',
+    { className: 'style-region done', 'aria-label': `Drafted output style ${get('name') || file}` },
+    el(
+      'div',
+      { className: 'style-region-head' },
+      el('span', { className: 'cf-badge' }, icon('sparkle')),
+      el('div', { className: 'style-region-titles' }, el('div', { className: 'style-region-name' }, get('name') || file), get('description') ? el('div', { className: 'style-region-desc' }, get('description')) : null),
+      el('button', { className: 'secondary', title: `Open the file\n${draft.file}`, onclick: () => openAt(draft.file) }, icon('go-to-file'), 'Open file')
+    ),
+    rest.length ? el('dl', { className: 'style-meta' }, rest.flatMap(([k, v]) => [el('dt', {}, k), el('dd', {}, v)])) : null,
+    body ? renderMarkdown(body).node : el('div', { className: 'empty flush' }, 'The draft has no instructions.'),
+    el('div', { className: 'style-region-foot' }, icon('file'), file, draft.cost !== undefined ? el('span', {}, ` · drafted for ${fmtUsd(draft.cost)}`) : null)
+  );
+}
+
+// Review: the two sections that look back at the session, as tab siblings in one boxed group.
+export const REVIEW_TABS = [
+  ['findings', 'Findings', 'search', 'What stood out in the session, what it cost, why it matters and what to do.'],
+  ['style', 'Output style', 'symbol-color', 'How the replies read, the corrections you made about it, and a style Claude drafts from them.'],
+];
+
+export function renderReview(d) {
+  const bodies = { findings: d.findings.length ? () => renderFindings(d) : null, style: d.style ? () => renderStyle(d) : null };
+  const tabs = REVIEW_TABS.filter(t => bodies[t[0]]);
+  if (!tabs.length) return null;
+  const current = () => (tabs.some(t => t[0] === state.reviewTab) ? state.reviewTab : tabs[0][0]);
+  const panel = el('div', { className: 'review-panel', role: 'tabpanel' });
+  const bar = el('div', { className: 'view-tabs', role: 'tablist', 'aria-label': 'Review' });
+  const buttons = tabs.map(([id, label, glyph, about]) => {
+    const tip = target => {
+      const r = target.getBoundingClientRect();
+      placeCard(`tab:${id}`, () => tabTip(label, glyph, about), { x: r.left - 14, y: r.bottom - 6 });
+    };
+    return el(
+      'button',
+      {
+        className: 'view-tab',
+        role: 'tab',
+        id: `review-tab-${id}`,
+        'data-tab': id,
+        'aria-description': about,
+        onclick: () => pick(id),
+        onmouseenter: e => tip(e.currentTarget),
+        onmouseleave: hideHover,
+        onfocus: e => tip(e.currentTarget),
+        onblur: hideHover,
+      },
+      icon(glyph),
+      el('span', {}, label),
+      id === 'findings' ? el('span', { className: 'tab-count' }, d.findings.length) : null
+    );
+  });
+  const draw = () => {
+    const id = current();
+    buttons.forEach(b => {
+      const on = b.dataset.tab === id;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-selected', on ? 'true' : 'false');
+      b.setAttribute('tabindex', on ? '0' : '-1');
+    });
+    panel.setAttribute('aria-labelledby', `review-tab-${id}`);
+    panel.dataset.tab = id;
+    panel.replaceChildren(bodies[id]());
+  };
+  const pick = id => {
+    state.reviewTab = id;
+    persist();
+    hideHover();
+    draw();
+  };
+  bar.addEventListener('keydown', e => {
+    if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+    e.preventDefault();
+    const i = tabs.findIndex(t => t[0] === current());
+    const next = tabs[(i + (e.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length][0];
+    pick(next);
+    buttons.find(b => b.dataset.tab === next).focus();
+  });
+  bar.append(...buttons);
+  draw();
+  return el('div', { className: 'recent' }, el('div', { className: 'group-label' }, 'Review'), bar, el('div', { className: 'view-box review-box' }, panel));
 }
 
 export function renderSession() {
@@ -286,11 +404,16 @@ export function renderSession() {
   const totalCost = sum('cost');
   const agentCost = totalCost - (d.usage.cost || 0);
   const inputAll = sum('input') + sum('cacheCreate') + sum('cacheRead');
-  const failed = d.agents.filter(a => a.status === 'failed').length;
-  const silent = d.agents.filter(a => a.status === 'unknown' || a.status === 'stopped').length;
+  // An agent is a run with a transcript, the same count as the sessions list; a launch that never started (an unknown
+  // agent type, say) is named beside it, not counted.
+  const started = d.agents.filter(a => a.transcript);
+  const never = d.agents.length - started.length;
+  const failed = started.filter(a => a.status === 'failed').length;
+  const silent = started.filter(a => a.status === 'unknown' || a.status === 'stopped').length;
   const pct = v => `${Math.round(v * 100)}%`;
+  const agentNote = [failed ? `${failed} failed` : '', never ? `${never} never started` : '', silent ? `${silent} without a report` : ''].filter(Boolean).join(', ') || (started.length ? 'all reported back' : 'none started');
   const kpis = [
-    [String(d.agents.length), 'Agents', 'type-hierarchy-sub', failed ? `${failed} failed` : silent ? `${silent} without a report` : d.agents.length ? 'all reported back' : 'none started', failed || silent ? 'warn' : ''],
+    [String(started.length), 'Agents', 'type-hierarchy-sub', agentNote, failed || never ? 'bad' : silent ? 'warn' : ''],
     [String(peakParallel(d.agents)), 'Peak parallel', 'layers', 'agents running at the same time'],
     [totalCost ? pct(agentCost / totalCost) : '0%', 'Delegated', 'arrow-swap', 'of the cost ran in agents'],
     [inputAll ? pct(sum('cacheRead') / inputAll) : '0%', 'Cache hits', 'database', 'of input tokens read from cache'],
@@ -324,35 +447,19 @@ export function renderSession() {
       el(
         'div',
         { className: 'recent' },
-        el('div', { className: 'group-label' }, 'Delegation'),
+        el('div', { className: 'group-label' }, 'How the work ran'),
         viewTabs(d, timeline, legend),
-        timeline,
-        legend
+        el('div', { className: 'view-box' }, timeline, legend)
       ),
       renderAgent(d),
-      d.findings.length
-        ? el(
-            'div',
-            { className: 'recent' },
-            el('div', { className: 'group-label' }, `Findings (${d.findings.length})`),
-            d.findings.map(f =>
-              el(
-                'div',
-                { className: 'row', onclick: f.agent ? () => selectAgent(f.agent) : undefined },
-                el('span', { className: `check-badge ${f.level === 'warn' ? 'warn' : 'muted'}` }, icon(f.level === 'warn' ? 'warning' : 'info')),
-                el('span', { className: 'name wrap' }, f.text)
-              )
-            )
-          )
-        : null,
-      renderStyle(d),
+      renderReview(d),
       d.children.length
         ? el(
             'div',
             { className: 'recent' },
             el('div', { className: 'group-label' }, `Headless runs (${d.children.length})`),
             d.children.map(c =>
-              el('div', { className: 'row', title: c.file, onclick: () => showSession(s.scope, c.id) }, icon('terminal'), el('span', { className: 'name' }, c.title), el('span', { className: 'desc' }, sessionDesc(c)))
+              el('div', { className: 'row', title: sessionTip(c, s.scope), onclick: () => showSession(s.scope, c.id) }, icon('terminal'), el('span', { className: 'name' }, c.title), el('span', { className: 'desc' }, sessionDesc(c)))
             )
           )
         : null

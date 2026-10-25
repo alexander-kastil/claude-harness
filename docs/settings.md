@@ -4,7 +4,7 @@
 <tr>
 <td align="left"><a href="plugins.md">← Back to Plugins</a></td>
 <td align="center"></td>
-<td align="right"><a href="../README.md#features">↑ Back to Features</a></td>
+<td align="right"><a href="commands.md">→ Next: Commands</a></td>
 </tr>
 </table>
 
@@ -17,7 +17,7 @@ Six VS Code settings control what Claude Harness lists. Find them under **Claude
 | `claudeHarness.removedRepos` | Repo folders hidden with **Remove Repo**. Adding the repo or its parent folder again shows it. | `[]` |
 | `claudeHarness.plan` | The plan of the account in the global harness folder: Pro, Max 5x, Max 20x, Team Standard, Team Premium or API billing. | Empty |
 | `claudeHarness.weekStart` | When the weekly limit of the main account resets, as weekday and UTC hour, for example `Mon 11:00`. | Empty |
-| `claudeHarness.accounts` | More Claude accounts on this machine, each `{ "label", "path", "plan" }`. | `[]` |
+| `claudeHarness.accounts` | More Claude accounts on this machine, each `{ "label", "path", "plan", "weekStart" }`. | `[]` |
 
 Changing `claudeHarness.root` reloads the global harness from the new folder, and the new folder is watched for changes.
 
@@ -39,7 +39,7 @@ See [Repositories](repositories.md) for how the two repo lists are used.
 
 ## Edit settings files
 
-The **Settings** category lists `settings.json` and `settings.local.json` for the global harness and for each repo, when the file exists. Click a file to open it in an editable JSON box.
+The **Settings** category lists `settings.json` and `settings.local.json` for the global harness and for each repo, when the file exists. Click a file to open it, then click **Edit** to change it in an editable JSON box.
 
 | Action | How |
 | --- | --- |
@@ -58,6 +58,6 @@ Save checks the JSON first. Invalid JSON shows an error with the parser message,
 <tr>
 <td align="left"><a href="plugins.md">← Back to Plugins</a></td>
 <td align="center"><a href="#settings">↑ Back to top</a></td>
-<td align="right"><a href="../README.md#features">↑ Back to Features</a></td>
+<td align="right"><a href="commands.md">→ Next: Commands</a></td>
 </tr>
 </table>

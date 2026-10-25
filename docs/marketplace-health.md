@@ -14,7 +14,7 @@ The Marketplace health page lists each marketplace you have added, with its plug
 
 ## Read the page
 
-Each marketplace shows its source kind (`github` or `directory`) and its location. A tag reads "1 ahead" when a plugin's source version is newer than the installed copy.
+The marketplaces are in two groups: **Local, on disk** for your own directory marketplaces comes first, then **Hosted** for the others. When there is no directory marketplace, the list has no group headings. Each marketplace shows its source kind (`github` or `directory`) and its location. A tag reads "1 ahead" when a plugin's source version is newer than the installed copy.
 
 | Column | Meaning |
 | --- | --- |
@@ -23,7 +23,7 @@ Each marketplace shows its source kind (`github` or `directory`) and its locatio
 | Source | The version in the marketplace |
 | State | "source ahead of the installed copy" in yellow, or "current". Also "enabled" when it is on. |
 
-Open the page from the package icon in the sidebar header, the package icon on the **Plugins** header, the **Repositories** node menu, or **Claude Harness: Marketplace Health** in the command palette.
+Open the page from the package icon in the sidebar header, the package icon on the **Plugins** row of the activity bar, the **Repositories** node menu, or **Claude Harness: Marketplace Health** in the command palette.
 
 ## Rename a directory marketplace
 

@@ -220,7 +220,8 @@ export function timeAxis(d, left, W, right) {
       for (let t = Math.ceil(s.a / step) * step; t <= s.b; t += step) {
         const tx = x(t);
         root.append(svg('line', { x1: tx, x2: tx, y1: top - 4, y2: bottom, class: 'tl-grid' }));
-        if (tx - lastLabel < 64) continue;
+        // A centered label needs half its widest text (12:59 AM, about 44px) inside the diagram on both sides.
+        if (tx - lastLabel < 64 || tx < 24 || tx > W - 24) continue;
         root.append(svg('text', { x: tx, y: top - 10, class: 'tl-axis', 'text-anchor': 'middle' }, fmtTime(t)));
         lastLabel = tx;
       }

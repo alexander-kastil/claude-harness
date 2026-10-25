@@ -3,14 +3,8 @@
 // happen, offers a switch that remembers the answer for good, confirms on its primary button and cancels with Esc, the
 // Cancel button or a click outside. The host asks for it (`confirm`) and gets the held-back message again, `confirmed`.
 import { state, vscode } from './core';
-import { el, icon, svg } from './dom';
+import { claudeMark, el, icon } from './dom';
 import { hideHover } from './hover';
-
-// The Claude mark as Anthropic ships it in the Claude Code extension.
-const CLAUDE_PATH =
-  'M4.709 15.955l4.72-2.647.08-.23-.08-.128H9.2l-.79-.048-2.698-.073-2.339-.097-2.266-.122-.571-.121L0 11.784l.055-.352.48-.321.686.06 1.52.103 2.278.158 1.652.097 2.449.255h.389l.055-.157-.134-.098-.103-.097-2.358-1.596-2.552-1.688-1.336-.972-.724-.491-.364-.462-.158-1.008.656-.722.881.06.225.061.893.686 1.908 1.476 2.491 1.833.365.304.145-.103.019-.073-.164-.274-1.355-2.446-1.446-2.49-.644-1.032-.17-.619a2.97 2.97 0 01-.104-.729L6.283.134 6.696 0l.996.134.42.364.62 1.414 1.002 2.229 1.555 3.03.456.898.243.832.091.255h.158V9.01l.128-1.706.237-2.095.23-2.695.08-.76.376-.91.747-.492.584.28.48.685-.067.444-.286 1.851-.559 2.903-.364 1.942h.212l.243-.242.985-1.306 1.652-2.064.73-.82.85-.904.547-.431h1.033l.76 1.129-.34 1.166-1.064 1.347-.881 1.142-1.264 1.7-.79 1.36.073.11.188-.02 2.856-.606 1.543-.28 1.841-.315.833.388.091.395-.328.807-1.969.486-2.309.462-3.439.813-.042.03.049.061 1.549.146.662.036h1.622l3.02.225.79.522.474.638-.079.485-1.215.62-1.64-.389-3.829-.91-1.312-.329h-.182v.11l1.093 1.068 2.006 1.81 2.509 2.33.127.578-.322.455-.34-.049-2.205-1.657-.851-.747-1.926-1.62h-.128v.17l.444.649 2.345 3.521.122 1.08-.17.353-.608.213-.668-.122-1.374-1.925-1.415-2.167-1.143-1.943-.14.08-.674 7.254-.316.37-.729.28-.607-.461-.322-.747.322-1.476.389-1.924.315-1.53.286-1.9.17-.632-.012-.042-.14.018-1.434 1.967-2.18 2.945-1.726 1.845-.414.164-.717-.37.067-.662.401-.589 2.388-3.036 1.44-1.882.93-1.086-.006-.158h-.055L4.132 18.56l-1.13.146-.487-.456.061-.746.231-.243 1.908-1.312-.006.006z';
-
-export const claudeMark = (size = 14) => svg('svg', { class: 'claude-mark', width: size, height: size, viewBox: '0 0 24 24', 'aria-hidden': 'true' }, svg('path', { d: CLAUDE_PATH }));
 
 const MODEL_NAMES = { sonnet: 'Sonnet', opus: 'Opus', haiku: 'Haiku' };
 
@@ -29,25 +23,184 @@ const CARDS = {
     send: remember => vscode.postMessage({ type: 'analyzeSession', scope: ask.scope, id: ask.id, confirmed: true, remember }),
   }),
   draftStyle: ask => ({
-    mark: icon('sparkle'),
+    mark: claudeMark(18),
     title: 'Draft an output style',
     sub: `with Claude ${MODEL_NAMES[ask.model] || ask.model}`,
     facts: [
       ['account', 'Runs claude -p on your own Claude login, so it counts against your plan.'],
       ['list-unordered', `Sends the scan of this session: ${ask.corrections} ${ask.corrections === 1 ? 'correction' : 'corrections'} you made, the interrupts and the length and format of the replies. No code and no whole replies.`],
-      ['new-file', el('span', {}, 'Saves the draft to ', el('code', {}, ask.folder), '.')],
+      ['new-file', el('span', {}, 'Saves the draft to ', el('code', {}, ask.folder), ', under a name no style has.')],
+      ['eye', 'The whole draft appears on this page when it is done, ready to read before you use it.'],
     ],
     action: 'Draft',
     send: remember => vscode.postMessage({ type: 'draftStyle', scope: ask.scope, id: ask.id, model: ask.model, confirmed: true, remember }),
+  }),
+  continue: ask => ({
+    mark: claudeMark(18),
+    title: 'Continue this session',
+    sub: 'in Claude, in a terminal',
+    facts: [
+      ['terminal', el('span', {}, 'A terminal opens in ', el('code', {}, ask.cwd), ' and resumes this very session.')],
+      ['edit', ask.live ? 'It is still running elsewhere. Two Claudes writing to one session mix their turns; end the other one first.' : 'What you say is added to this session, not to a copy.'],
+      ['credit-card', 'Claude reads the session again before it answers. That counts against your plan.'],
+    ],
+    action: 'Continue',
+    send: remember => vscode.postMessage({ type: 'continueSession', scope: ask.scope, id: ask.id, confirmed: true, remember }),
+  }),
+  review: ask => ({
+    mark: claudeMark(18),
+    title: `Review ${ask.name} with Claude`,
+    sub: 'in a new Claude, in a terminal',
+    facts: [
+      ['terminal', el('span', {}, 'A terminal opens in ', el('code', {}, ask.cwd), '.')],
+      ['file', el('span', {}, 'Claude is asked to read ', el('code', {}, ask.file), ' and say what to improve. It changes nothing until you agree.')],
+      ['credit-card', 'The run counts against your plan.'],
+    ],
+    action: 'Open in terminal',
+    send: remember => vscode.postMessage({ type: 'reviewAsset', id: ask.id, confirmed: true, remember }),
+  }),
+  try: ask => ({
+    mark: claudeMark(18),
+    title: `Try ${ask.name} in Claude`,
+    sub: 'in a new Claude, in a terminal',
+    facts: [
+      ['terminal', el('span', {}, 'A terminal opens in ', el('code', {}, ask.cwd), '.')],
+      ['play', ask.as === 'agent' ? el('span', {}, 'Claude starts as this agent: ', el('code', {}, `claude --agent ${ask.name}`), '.') : el('span', {}, 'Claude starts and runs ', el('code', {}, `/${ask.name}`), '.')],
+      ['credit-card', 'The run counts against your plan.'],
+    ],
+    action: 'Open in terminal',
+    send: remember => vscode.postMessage({ type: 'tryAsset', id: ask.id, confirmed: true, remember }),
+  }),
+  // The page's own question, no host involved: dropping the edits of the open element. No Don't ask again switch.
+  discard: ask => ({
+    mark: icon('discard'),
+    title: 'Discard your changes?',
+    sub: `to ${ask.name}`,
+    facts: [['discard', 'The edits are dropped and the saved element is shown again.']],
+    action: 'Discard',
+    danger: true,
+    plain: true,
+    send: () => ask.onConfirm(),
+  }),
+  slim: ask => ({
+    mark: claudeMark(18),
+    title: `Slim ${ask.name} with Claude`,
+    sub: 'in a new Claude, in a terminal',
+    facts: [
+      ['terminal', el('span', {}, 'A terminal opens in ', el('code', {}, ask.cwd), '.')],
+      ['files', `Claude is told the skill's ${ask.files} ${ask.files === 1 ? 'file' : 'files'} and ${ask.findings ? `the ${ask.findings} ${ask.findings === 1 ? 'thing' : 'things'} flagged here` : 'that nothing is flagged'}. It says what to move and cut, and changes nothing until you agree.`],
+      ['credit-card', 'The run counts against your plan.'],
+    ],
+    action: 'Open in terminal',
+    send: remember => vscode.postMessage({ type: 'slimAsset', id: ask.id, confirmed: true, remember }),
+  }),
+  // Consolidate a repo skill: destructive, so no Don't ask again switch. The place it goes to is chosen on the card, and
+  // that place's state decides the facts and the buttons (`mount` redraws both when the choice changes).
+  consolidate: ask => {
+    let cur = ask.targets.find(t => t.id === ask.target) || ask.targets[0];
+    const count = (n, what) => `${n} ${what}${n === 1 ? '' : 's'}`;
+    const names = list => list.slice(0, 4).join(', ') + (list.length > 4 ? `, and ${list.length - 4} more` : '');
+    // A place in plain words: Global, or the plugin by its name.
+    const place = t => (t.id === 'global' ? 'Global' : `the ${t.id.split('@')[0]} plugin`);
+    const routeOf = t => (t.state === 'differs' ? 'diff' : t.state === 'new' ? 'move' : 'retire');
+    const actionOf = t => (t.state === 'differs' ? 'Compare in editor' : t.state === 'new' ? `Move to ${place(t)}` : 'Retire repo copy');
+    const titleOf = t => `Consolidate ${ask.name} into ${place(t)}`;
+    const stateOf = t => ({ identical: 'identical', near: 'nearly identical', contained: 'holds it and more', differs: 'differs', new: 'not there yet' })[t.state];
+    const factsOf = t => {
+      const out = [];
+      if (t.state === 'new') {
+        out.push(['info', `${place(t)} does not have ${ask.name} yet.`]);
+        out.push(['new-folder', el('span', {}, `Moving copies the whole folder (${count(t.files, 'file')}) to `, el('code', {}, t.dir), `, then removes the copy in ${ask.repo}. A backup is kept.`)]);
+      } else if (t.state === 'differs') {
+        const parts = [t.changed.length ? `${count(t.changed.length, 'file')} ${t.changed.length === 1 ? 'is' : 'are'} different` : '', t.repoOnly.length ? `${count(t.repoOnly.length, 'file')} ${t.repoOnly.length === 1 ? 'is' : 'are'} only in ${ask.repo}` : ''].filter(Boolean);
+        out.push(['diff', `${ask.repo} and ${place(t)} do not match: ${parts.join(', ')} (${names([...t.changed, ...t.repoOnly])}).`]);
+        out.push(['edit', `Compare opens the files side by side, ${ask.repo} on the left and ${place(t)} on the right. Copy what you want to keep to the right, then open this card again to retire the copy in ${ask.repo}.`]);
+        out.push(['terminal', el('span', {}, 'Or Claude merges them in a terminal in ', el('code', {}, ask.cwd), '. That counts against your plan.')]);
+      } else {
+        const same = { identical: `${ask.repo} has the same copy as ${place(t)} (${count(t.files, 'file')}).`, near: `${ask.repo} has the same copy as ${place(t)}, apart from whitespace or version lines.`, contained: `${place(t)} has everything in the ${ask.repo} copy, and ${count(t.targetOnly.length, 'more file')}.` }[t.state];
+        out.push(['check', same]);
+        out.push(['archive', `Retiring it removes the copy in ${ask.repo}. A backup is kept.`]);
+      }
+      for (const note of ask.notes) out.push(['info', note]);
+      if (ask.careful) out.push(['warning', `Careful: ${ask.careful}.`]);
+      return out;
+    };
+    return {
+      mark: icon('git-merge'),
+      title: titleOf(cur),
+      sub: `the copy in ${ask.repo}`,
+      facts: factsOf(cur),
+      action: actionOf(cur),
+      alt: 'Merge with Claude',
+      altClaude: true,
+      danger: true,
+      plain: true,
+      send: () => vscode.postMessage({ type: 'consolidateAsset', id: ask.id, target: cur.id, route: routeOf(cur), confirmed: true }),
+      sendAlt: () => vscode.postMessage({ type: 'consolidateAsset', id: ask.id, target: cur.id, route: 'claude', confirmed: true }),
+      mount: ({ card, go, alt, relayout }) => {
+        const facts = card.querySelector('.cf-facts');
+        const rows = ask.targets.map(t => {
+          const row = el('button', { className: 'cf-target', role: 'radio', 'aria-checked': String(t === cur), onclick: () => pick(t) }, icon(t.id === 'global' ? 'globe' : 'package'), el('span', { className: 'cf-target-name' }, t.id === 'global' ? 'Global' : t.id.split('@')[0]), el('span', { className: 'cf-target-state' }, stateOf(t)));
+          return [t, row];
+        });
+        const redraw = () => {
+          facts.replaceChildren(...factsOf(cur).map(([glyph, text]) => el('li', {}, icon(glyph), typeof text === 'string' ? el('span', {}, text) : text)));
+          card.querySelector('.cf-title').textContent = titleOf(cur);
+          go.textContent = actionOf(cur);
+          alt.hidden = cur.state !== 'differs';
+          for (const [t, row] of rows) row.setAttribute('aria-checked', String(t === cur));
+          relayout();
+        };
+        const pick = t => {
+          cur = t;
+          redraw();
+        };
+        if (rows.length > 1) facts.before(el('div', { className: 'cf-targets', role: 'radiogroup', 'aria-label': 'Consolidate into' }, rows.map(([, row]) => row)));
+        alt.hidden = cur.state !== 'differs';
+      },
+    };
+  },
+  // A question the host waits on: its buttons answer with the token. No Don't ask again switch.
+  panel: ask => ({
+    mark: icon(ask.glyph || 'question'),
+    title: ask.title,
+    sub: ask.sub,
+    facts: ask.facts.slice(0, 8).map(f => ['circle-small-filled', f]).concat(ask.facts.length > 8 ? [['ellipsis', `and ${ask.facts.length - 8} more lines`]] : []),
+    action: ask.action,
+    alt: ask.alt,
+    danger: ask.danger,
+    plain: true,
+    send: () => vscode.postMessage({ type: 'answer', token: ask.token, choice: 'ok' }),
+    sendAlt: () => vscode.postMessage({ type: 'answer', token: ask.token, choice: 'alt' }),
   }),
 };
 
 let current;
 
+// The element the owner last pressed or typed in, outside a card: where a question about that action points.
+let lastTarget;
+const noteTarget = e => {
+  const t = e.target;
+  if (t && t.closest && !t.closest('.cf')) lastTarget = t.closest('button, [role=button], a, .row') || t;
+};
+document.addEventListener('mousedown', noteTarget, true);
+document.addEventListener('keydown', noteTarget, true);
+
+// The element a question points at: marked data-confirm="<kind>", and when several are, data-confirm-key picks by the
+// ask's key or by its session. A question about one row of a list points at that row's button.
+function findAnchor(ask) {
+  if ((ask.kind === 'panel' || ask.kind === 'consolidate') && ask.key === 'click') return lastTarget && lastTarget.isConnected ? lastTarget : null;
+  const all = [...document.querySelectorAll(`[data-confirm="${ask.kind}"]`)];
+  const key = ask.key || (ask.scope && ask.id ? `${ask.scope}/${ask.id}` : undefined);
+  const keyed = all.find(n => n.dataset.confirmKey === key);
+  return keyed || (ask.kind === 'panel' ? null : all.find(n => !n.dataset.confirmKey)) || null;
+}
+
 export function closeConfirm(refocus) {
   if (!current) return;
-  const { card, cleanup, anchor } = current;
+  const { card, cleanup, anchor, ask, answered } = current;
   current = undefined;
+  if (ask.token && !answered) vscode.postMessage({ type: 'answer', token: ask.token, choice: 'cancel' });
   cleanup();
   card.classList.add('leaving');
   setTimeout(() => card.remove(), 90);
@@ -58,13 +211,17 @@ export function closeConfirm(refocus) {
 // Shows the card for a host's question under the button marked data-confirm="<kind>", while that session is still open.
 export function showConfirm(ask) {
   const make = CARDS[ask.kind];
-  const anchor = () => document.querySelector(`[data-confirm="${ask.kind}"]`);
-  if (!make || !anchor() || !state.session || state.session.scope !== ask.scope || state.session.id !== ask.id) return;
+  const anchor = () => findAnchor(ask);
+  if (!make || !anchor()) {
+    // Nothing to point at: a waiting host action is cancelled instead of left hanging.
+    if (ask.token) vscode.postMessage({ type: 'answer', token: ask.token, choice: 'cancel' });
+    return;
+  }
   closeConfirm();
   hideHover();
   const c = make(ask);
-  let remember = true;
-  const track = el('button', { className: 'cf-switch on', role: 'switch', 'aria-checked': 'true', 'aria-labelledby': 'cf-remember' }, el('span', { className: 'cf-thumb' }));
+  let remember = false;
+  const track = el('button', { className: 'cf-switch', role: 'switch', 'aria-checked': 'false', 'aria-labelledby': 'cf-remember' }, el('span', { className: 'cf-thumb' }));
   const flip = () => {
     remember = !remember;
     track.classList.toggle('on', remember);
@@ -78,12 +235,28 @@ export function showConfirm(ask) {
       className: 'primary',
       onclick: () => {
         const keep = remember;
+        if (current) current.answered = true;
         closeConfirm(true);
         c.send(keep);
       },
     },
     c.action
   );
+  const alt = c.alt
+    ? el(
+        'button',
+        {
+          className: 'secondary',
+          onclick: () => {
+            if (current) current.answered = true;
+            closeConfirm(true);
+            c.sendAlt();
+          },
+        },
+        c.altClaude ? claudeMark() : null,
+        c.alt
+      )
+    : null;
   const card = el(
     'div',
     { className: 'cf', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'cf-title', 'aria-describedby': 'cf-facts' },
@@ -92,8 +265,8 @@ export function showConfirm(ask) {
     el(
       'div',
       { className: 'cf-foot' },
-      el('div', { className: 'cf-remember' }, track, el('span', { id: 'cf-remember', onclick: flip }, "Don't ask again")),
-      el('div', { className: 'cf-actions' }, cancel, go)
+      c.plain ? el('div', { className: 'cf-remember' }) : el('div', { className: 'cf-remember' }, track, el('span', { id: 'cf-remember', onclick: flip }, "Don't ask again")),
+      el('div', { className: 'cf-actions' }, cancel, alt, go)
     )
   );
   document.body.append(card);
@@ -118,6 +291,17 @@ export function showConfirm(ask) {
     card.classList.toggle('up', !(below + h <= innerHeight - 8 || above < 8));
   };
   place();
+  // A card that changes with a choice on it redraws its facts and buttons, then asks for a new place.
+  if (c.mount)
+    c.mount({
+      card,
+      go,
+      alt,
+      relayout: () => {
+        last = '';
+        place();
+      },
+    });
   const outside = e => {
     if (!card.contains(e.target) && !(anchor() || { contains: () => false }).contains(e.target)) closeConfirm();
   };
@@ -128,7 +312,8 @@ export function showConfirm(ask) {
       closeConfirm(true);
     } else if (e.key === 'Tab') {
       // Focus stays in the card while it is open.
-      const stops = [track, cancel, go];
+      // A button the card hid is no stop.
+      const stops = [c.plain ? null : track, cancel, alt, go].filter(n => n && !n.hidden);
       const i = stops.indexOf(document.activeElement);
       e.preventDefault();
       stops[(i + (e.shiftKey ? stops.length - 1 : 1)) % stops.length].focus();
@@ -144,11 +329,42 @@ export function showConfirm(ask) {
   current = {
     card,
     anchor,
+    ask,
+    answered: false,
     cleanup: () => {
       document.removeEventListener('mousedown', outside, true);
       cancelAnimationFrame(frame);
     },
   };
   frame = requestAnimationFrame(follow);
-  go.focus();
+  (c.danger ? cancel : go).focus();
 }
+
+// Marks a button as where a card of this kind points; `key` tells it from the others of its kind (one row among many).
+export const confirmAt = (node, kind, key) => {
+  node.dataset.confirm = kind;
+  if (key) node.dataset.confirmKey = key;
+  return node;
+};
+
+// Analyze from one row of a list: a button that asks for the card under itself, without opening the row.
+export const analyzeRowButton = (scope, id) =>
+  confirmAt(
+    el(
+      'button',
+      {
+        className: 'icon-btn row-act',
+        title: 'Analyze\nA new Claude in a terminal with a copy of this session, to ask about it. The session stays untouched.',
+        'aria-label': 'Analyze this session',
+        onclick: e => {
+          e.stopPropagation();
+          hideHover();
+          vscode.postMessage({ type: 'analyzeSession', scope, id });
+        },
+        onkeydown: e => e.stopPropagation(),
+      },
+      claudeMark()
+    ),
+    'analyze',
+    `${scope}/${id}`
+  );

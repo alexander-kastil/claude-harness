@@ -4,7 +4,7 @@ argument-hint: <name>
 disable-model-invocation: true
 ---
 
-# ext-contribute-start
+# git-contribute-start
 
 Creates `feature/$ARGUMENTS` from the owner's current master. Running this command is the instruction; it needs no further confirmation.
 
@@ -16,7 +16,7 @@ Creates `feature/$ARGUMENTS` from the owner's current master. Running this comma
 
 ## Steps
 
-1. Remotes: `origin` must be your fork and `upstream` must be `alexander-kastil/claude-harness`, both recognised by URL in `git remote -v`. If not, stop and point to `/ext-contribute-setup`.
+1. Remotes: `origin` must be your fork and `upstream` must be `alexander-kastil/claude-harness`, both recognised by URL in `git remote -v`. If not, stop and point to `/git-contribute-setup`.
 2. `git status --porcelain` must be empty. If not, stop and list the files.
 3. The name is `$ARGUMENTS`; when it is empty, ask for one. When `feature/<name>` already exists locally or on `origin`, stop.
 4. `git checkout master`, then `git pull --ff-only upstream master`. A refused fast-forward means `master` holds commits of its own: stop and list them with `git log --oneline upstream/master..master`.

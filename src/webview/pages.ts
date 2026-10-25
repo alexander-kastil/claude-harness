@@ -1,7 +1,8 @@
 // @ts-nocheck
 // Fleet overview, marketplace health and the scaffold form.
 import { checkBadge, checkText, command, persist, showRepo, state, std, vscode } from './core';
-import { el, icon, iconBtn, pageHead } from './dom';
+import { confirmAt } from './confirm';
+import { el, icon, iconBtn, pageHead, plural } from './dom';
 import { renderMain } from './main';
 
 export const liveCheck = r => state.checks[r.id] || { state: r.checkState };
@@ -14,14 +15,14 @@ export function renderFleet() {
     const s = std();
     const cols = [
       ['Repo', '', r => el('span', { className: 'cell' }, icon('repo'), r.label)],
-      s && ['Layout', '', r => r.layout || '', r => (r.layout && r.layout !== 'router' ? 'warn' : '')],
+      s && ['Layout', '', r => r.layout || '-', r => (r.layout && r.layout !== 'router' ? 'warn' : '')],
       s && ['Standard', '', r => el('span', { className: 'cell' }, checkBadge(liveCheck(r)), checkText(liveCheck(r)))],
-      ['Lines', 'num', r => r.lines || '', r => (s && r.lines > 120 ? 'warn' : '')],
-      s && ['Em dashes', 'num', r => (r.emDashes === undefined ? '' : r.emDashes), r => (r.emDashes ? 'warn' : '')],
-      s && ['Review', 'num', r => (r.check ? r.check.review : ''), r => (r.check && r.check.review ? 'warn' : '')],
-      ['Plugins', 'num', r => r.plugins.length || ''],
-      ['Hook copies', 'num', r => r.hookCopies || ''],
-      ['Copies', 'num', r => r.copies || ''],
+      ['Lines', 'num', r => String(r.lines || 0), r => (s && r.lines > 120 ? 'warn' : '')],
+      s && ['Em dashes', 'num', r => (r.emDashes === undefined ? '-' : String(r.emDashes)), r => (r.emDashes ? 'warn' : '')],
+      s && ['Review', 'num', r => (r.check ? String(r.check.review) : '-'), r => (r.check && r.check.review ? 'warn' : '')],
+      ['Plugins', 'num', r => String(r.plugins.length)],
+      ['Hook copies', 'num', r => String(r.hookCopies || 0)],
+      ['Copies', 'num', r => String(r.copies || 0)],
     ].filter(Boolean);
     const heads = cols.map(c => c[0]);
     body.append(
@@ -66,10 +67,10 @@ export function renderFleet() {
     pageHead(
       'dashboard',
       'Fleet overview',
-      rows ? `${rows.length} repositories` : 'Reading...',
+      rows ? (rows.length === 1 ? '1 repository' : `${rows.length} repositories`) : 'Reading...',
       std() ? iconBtn('checklist', 'Check every repo against the harness standard', () => command('checkRepos')) : null,
       std('fix') ? iconBtn('wrench', 'Fix settings and hooks...', () => command('fixSettings')) : null,
-      iconBtn('archive', 'Retire clean copies...', () => command('retireCopies')),
+      confirmAt(iconBtn('archive', 'Retire clean copies...', () => command('retireCopies')), 'panel', 'retireCopies'),
       iconBtn('refresh', 'Reload the table', () => vscode.postMessage({ type: 'fleet' }))
     ),
     body
@@ -83,8 +84,14 @@ export function renderMarkets() {
   const body = el('div', { className: 'main-body' });
   if (!list) body.append(el('div', { className: 'empty flush' }, 'Reading the marketplaces...'));
   else if (!list.length) body.append(el('div', { className: 'empty flush' }, 'No marketplace registered. Add one with claude plugin marketplace add.'));
-  else
-    for (const m of list) {
+  else {
+    // The owner's own marketplaces, the directory sources on disk, come first as a group of their own.
+    const local = list.filter(m => m.kind === 'directory');
+    const hosted = list.filter(m => m.kind !== 'directory');
+    const groups = [local.length ? ['Local, on disk', 'folder', local] : null, hosted.length ? [local.length ? 'Hosted' : '', 'cloud', hosted] : null].filter(Boolean);
+    for (const [title, glyph, items] of groups) {
+      if (title) body.append(el('div', { className: 'group-label market-group' }, icon(glyph), title, el('span', { className: 'count' }, String(items.length))));
+      for (const m of items) {
       const ahead = m.plugins.filter(p => p.ahead).length;
       body.append(
         el(
@@ -123,8 +130,10 @@ export function renderMarkets() {
             : el('div', { className: 'empty flush' }, 'No plugins installed from it')
         )
       );
+      }
     }
-  return el('section', { className: 'main' }, pageHead('package', 'Marketplace health', list ? `${list.length} marketplaces` : 'Reading...', iconBtn('refresh', 'Reload', () => vscode.postMessage({ type: 'marketplaces' }))), body);
+  }
+  return el('section', { className: 'main' }, pageHead('package', 'Marketplace health', list ? plural(list.length, 'marketplace') : 'Reading...', iconBtn('refresh', 'Reload', () => vscode.postMessage({ type: 'marketplaces' }))), body);
 }
 
 export const initForm = () => ({ summary: state.init.form.summary, areas: state.init.form.areas, rules: state.init.form.rules.split(/\r?\n/) });

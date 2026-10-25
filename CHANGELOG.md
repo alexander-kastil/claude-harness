@@ -1,6 +1,73 @@
 # Changelog
 
-All notable changes to Claude Harness are listed here, newest first. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions with no version change in the package.json history (0.1.3, 0.1.5 to 0.1.18, 0.1.20 to 0.1.24, 0.1.27, 0.2.1 and 0.2.3 to 0.2.11) and development builds (0.2.14 to 0.2.22, 0.2.24 to 0.2.30, 0.2.32 to 0.2.34, 0.2.36 to 0.2.44 and 0.3.0) have no entry.
+All notable changes to Claude Harness are listed here, newest first. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions with no version change in the package.json history (0.1.3, 0.1.5 to 0.1.18, 0.1.20 to 0.1.24, 0.1.27, 0.2.1 and 0.2.3 to 0.2.11) and development builds (0.2.14 to 0.2.22, 0.2.24 to 0.2.30, 0.2.32 to 0.2.34, 0.2.36 to 0.2.44, 0.3.0 and 0.3.2) have no entry.
+
+## [0.4.0] - 2026-10-24
+
+### Added
+
+- Used in tabs beyond agents and skills. Commands, plugins and output styles get one, listing the sessions that used them. A plugin's tab has a table per element, and its Skills and Agents tabs show a use count on every row. Rules and CLAUDE.md files get a Loaded in tab instead, and a path-scoped rule that no session ever loaded is marked Never matched. Every such tab starts with a strip of the last 7 days of activity.
+- A Used column (count and last use) on the Agents, Skills and Commands type pages, with the presets Never used and Not used in 30 days. The column reads the usage index, which is built the first time a Used in tab is opened.
+- MCP servers show how often their tools were called: a calls chip on every tool card, and the Tool list tile reads `N tokens every session, M calls`.
+- Failing hooks appear as findings on the session page, the repo page's Hooks table has a Failures column, and the sessions list can be filtered by A hook failed and A mod denied a tool.
+- The Timeline on the session page has a Mods layer. It shares the Mods toggle of the Delegation map, so the two stay in step.
+- The repo page's Memory and Rules tables have a Last session column showing what the latest session actually loaded, and a Loaded by the last session section lists it.
+- Review with Claude on skills, agents, commands, rules and output styles opens Claude in a terminal to review the element.
+- Try it on agents, skills and commands starts Claude in a terminal with the element already selected (`claude --agent <name>`, `claude "/<name>"`).
+- Continue session, next to Analyze, resumes the session itself instead of a copy, and warns first when the session is still live.
+- Analyze is also on each row of a Used in tab and on each row of the sessions list.
+- Last 7 days in more places. The Models tab has a This repo row and a By agent type group, and the agent page has a tile with its launches and cost over the last 7 days.
+- The type tiles of the overview are one line high, with the count beside the icon and the label, and a count of zero is dimmed. The harness tiles of the repo page share the style. The lists of the overview are tabs under the search box: Last sessions, Repositories and Recently changed. The page remembers the last tab, and search results show above the tabs. Last sessions lists the 10 newest sessions over all repos, with title, repository, branch, start, duration, agents and live state; each row opens the session. Each row of Repositories spreads its data over the full width in columns: memory, rules, agents, skills and MCP counts, sessions and cost of the last 7 days, and the time since the last session. The search box is now Search Harness & Sessions, and matching sessions show as a group of their own.
+- Ctrl+Alt+A opens Claude Harness.
+- The sidebar shows the color of an agent as a swatch, for agents with a `color` in their frontmatter.
+- A Fired in tab on the pages of hooks and hook scripts lists the sessions where the hook ran: the run count, the failures with their exit code and the average duration. A run is matched by its command, then by its event and matcher. The tab builds the index when you open it.
+- The Used in tab of an agent has a Hooks column, such as `2 denied · 1 failed`, for the tool calls a hook or mod denied and the hook runs that failed inside that agent's own run.
+- Each finding on the session page is a card: a kind label, a line of evidence, chips for the time, the tokens and the share of the session it cost, Why it matters, What to do, and a Show on map button that selects the agent's row on the Delegation map and centers it. A stopped run says whether you stopped it on purpose (a prompt shortly before) and becomes a note when a later run of the same type finished the job. Warnings come before notes.
+- Draft output style shows the finished draft as one region on the session page: name, description, settings, every instruction in full, and a footer with the file, its cost and Open file. A placeholder holds the space while drafting, an error replaces it when drafting fails, and the Model select has a visible label.
+- A Size card on a skill's page flags a long description (over 200 tokens, or past Anthropic's limit of 1024 characters) and a SKILL.md that is too long (over 500 lines or 5000 tokens). The flag is weighted by how often the skill ran, and the card lists the largest `##` sections to move out.
+- The References tab of a skill shows a token bar per file, with the flags Giant, Tiny, Not linked and Two levels deep.
+- The Skills type page has a Desc column and a Cost column (description tokens times sessions), and the presets Ranked by description cost and Long description.
+- Slim with Claude on a skill page appears when something is flagged, and opens Claude in a terminal to say what to move and cut.
+- Consolidate, on the page of a repo skill and in the right-click menu of repo skill rows in the sidebar and on the type page, moves the skill to the plugin it ships with (its marketplace source folder, never the installed copy), otherwise to global. An identical copy is retired. A differing copy is merged first, in the diff editor or with Merge with Claude, and retired once the copies match. A skill that exists only in the repo is moved to global.
+- The commands of an item page sit below the title in boxed, labelled groups: page, file, Claude, item and draft.
+- The page of every harness element has a new header of two lines. The first line has the kind chip, the name and the source chip (the repo, the plugin or Global), and the two chips share one shape. It never wraps, and a name that does not fit is cut, with its full text in the hover card. The second line shows the whole path, wrapping after folder separators, with the file name last.
+- Count usage, a button on the Agents, Skills and Commands type pages, builds the usage index on your click. Until it exists, the Used column says `not counted yet`.
+- A plugin's Enable control on its page, labeled Enabled for your user.
+- The Files tile of a skill says in its sub-line what the files are: SKILL.md, references, scripts and the rest.
+- An MCP server that fails to connect shows its error in a box on its page, with Retry that shows it is retrying. A server that needs a sign-in offers Sign in, and a switched-off server shows no sign-in.
+- A Configure Tools... lens above the tools fields in the frontmatter of a harness file opens the tool picker, where the built-in tools have a heading of their own.
+- The sidebar tree works from the keyboard: arrow keys move between rows and fold them, Home and End jump to the first and last. Repos have a right-click menu.
+- The Review group on the session page has the tabs Findings and Output style.
+
+### Changed
+
+- Ran as general-purpose is a finding only when an agent you have fits the run's description, and it names that agent. Main thread made N edits shows only at 10 edits or more that outnumber the agents' edits, with the share of edits as a yardstick.
+- A global section header in the sidebar (Agents, Skills, MCP Servers and so on) opens the same page as its tile on the overview, and still folds and unfolds.
+- On the Delegation map, agent rows and the type rows of the Sum view show tokens instead of a message count.
+- Save changes? (Save, Don't Save, Cancel), delete MCP server, move to trash, uninstall plugin and retire copies ask in a card in the panel instead of a system dialog. The cards that delete or remove something have no Don't ask again. Started from the sidebar or a tree menu, they still use the dialog.
+- Saving any item switches back to View mode, with the Save button, with Ctrl+S and with Save on the unsaved-changes card.
+- Every action that starts Claude shows the Claude icon, including Open Claude Here in the title bar of the tree.
+- The search boxes of the type pages and the sessions page use the full width, and the border of every search box has more contrast in the dark and the light theme.
+- Try it asks in a card before it starts Claude, and the Don't ask again switch of every card starts off. A card that deletes or removes something has none.
+- The page of an item that a plugin ships is read-only, and the host refuses edits to it as well. A new item opens in View mode.
+- View and Revert on an item with unsaved changes ask before they discard them.
+- Consolidate reads `Consolidate X into Global`, and the button that removes the repo copy is Retire repo copy.
+- The command bar of an item page collapses to icons when the page is narrower than 760 px, and the hover cards say what each one does.
+- Error text is red everywhere, and an MCP error no longer repeats its code (`ECONNREFUSED: ECONNREFUSED:`). Secondary text and the weekday labels of the activity strips have more contrast.
+- A type page opened from a repo lists only that repo. The items of a plugin are their own scope, so the counts in the header match the list. A global item with a copy in a repo reads `global, with a copy in X`.
+- A rule that no session loaded says so in its Loaded in tab, and a hook run is matched to a hook only by its own command, so failures no longer land on a hook that never ran.
+- Marketplace health lists Local, on disk above Hosted.
+- The Models tab names the scope of its groups: By model and By agent type cover all repos of this account.
+- The Fleet table shows a dash or 0 instead of a blank cell, and its count reads 1 repository.
+- Below 640 px the sidebar sits above the page instead of beside it.
+- The Repositories table of the overview drops its secondary columns to fit a narrow panel.
+- The Used, Desc and Cost columns of the type pages have fixed widths, so the Description column keeps the rest.
+- The Last 7 days figure of an agent is a chip beside Model and Color instead of a tile on a row of its own. In a narrow panel the tiles are shorter, and an odd last tile spans the row as a slim band.
+- The selected row of the sidebar scrolls into view, the hover cards dismiss, and an empty search shows one message. Home clears the search of the overview. Section headers stay on one line, and a section with more than three views gets a View menu.
+- On the session page, Delegation is now called How the work ran, and the legend sits inside the view box. The labels of Concurrency and Scatter no longer overlap the axis ticks, the median lines or each other.
+- The agent count of a session page matches the list: only runs with a transcript count, and a note names the launches that never started.
+- The hover card of a session row shows a heading, the first prompt and the repo, branch, date and agent count, instead of a file path.
+- Opening the sessions page from Search sessions in the sidebar no longer shows a blank panel.
 
 ## [0.3.1] - 2026-10-23
 
@@ -13,7 +80,7 @@ All notable changes to Claude Harness are listed here, newest first. The format 
 - A live session's page reads the transcript again every 5 seconds while it is in sight, repaints only when something changed, and keeps the scroll position.
 - A Used in tab on the page of an agent or skill lists the sessions that used it, newest first: when, the repo, the session (a click opens it) and how often it was launched or used. It reads the transcripts of every account, the agents' own included, and keeps an index, so a later visit reads only what was added since. A global agent or skill leaves out the sessions of repos that have their own copy. See [Sessions](docs/sessions.md#used-in).
 - Edit mode of an agent always has a color row: eight swatches, first the colors your agents already use, most used first, then Claude Code's own colors; a field for any hex code, where an invalid code is never saved; and None, which removes the `color` field. See [Editing](docs/editing.md#edit-an-item).
-- A contributor guide, [CONTRIBUTE.md](CONTRIBUTE.md), walks through forking the repo, a feature branch, syncing with the owner's master, trying the change in VS Code and the pull request, with a Claude Code command for each step (`/ext-contribute-setup`, `/ext-contribute-start`, `/ext-sideload`, `/ext-contribute-sync`, `/ext-contribute-pr`, `/ext-contribute-finish` and `/ext-contribute-cleanup`).
+- A contributor guide, [CONTRIBUTE.md](CONTRIBUTE.md), walks through forking the repo, a feature branch, syncing with the owner's master, trying the change in VS Code and the pull request, with a Claude Code command for each step (`/git-contribute-setup`, `/git-contribute-start`, `/git-sideload`, `/git-contribute-sync`, `/git-contribute-pr`, `/git-contribute-finish` and `/git-contribute-cleanup`).
 
 ### Changed
 

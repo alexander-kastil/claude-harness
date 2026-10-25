@@ -3,7 +3,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { test } from 'node:test';
-import { EVENTS_MANIFEST, UNNAMED_MOD, eventLayers, eventLogPath, eventSourceAt, findEventSources, readEventLog, transcriptHooks, transcriptLayers } from '../../src/events';
+import { EVENTS_MANIFEST, UNNAMED_MOD, eventLayers, eventLogPath, eventSourceAt, findEventSources, hookFailures, readEventLog, transcriptHooks, transcriptLayers } from '../../src/events';
 import { bindEvents, chipText, modsOf, promptLine, promptParts, toneOfAll } from '../../src/shared/event-layers';
 import type { ModEvent } from '../../src/shared/messages';
 
@@ -149,6 +149,49 @@ test('transcriptHooks reads every hook attachment and the tool calls a hook deni
     transcriptHooks(records.slice(0, 2), 'a1').map(h => h.event.agentId),
     ['a1']
   );
+});
+
+test('transcriptHooks carries the command, duration and exit code of a hook attachment, and leaves them off otherwise', () => {
+  const at = (s: number) => new Date(Date.UTC(2026, 9, 23, 9, 0, s)).toISOString();
+  const hook = (s: number, attachment: Record<string, unknown>) => ({ type: 'attachment', timestamp: at(s), attachment });
+  const hooks = transcriptHooks([
+    hook(1, { type: 'hook_success', hookName: 'Stop', hookEvent: 'Stop', content: 'ok', command: 'node stop.js', durationMs: 42, exitCode: 0 }),
+    hook(2, { type: 'hook_non_blocking_error', hookName: 'PreToolUse:Edit', hookEvent: 'PreToolUse', stderr: 'nope', command: 'bash guard.sh', durationMs: 7, exitCode: 127 }),
+    hook(3, { type: 'hook_blocking_error', hookName: 'PostToolUse:Edit', hookEvent: 'PostToolUse', blockingError: { blockingError: 'x', command: 'bash post.sh' } }),
+    hook(4, { type: 'hook_cancelled', hookName: 'Stop', hookEvent: 'Stop', command: 7, durationMs: '9' }),
+    { type: 'user', timestamp: at(5), message: { content: [{ type: 'tool_result', tool_use_id: 't', content: 'PreToolUse:Edit hook error: frozen', is_error: true }] } },
+  ]);
+  assert.deepEqual(
+    hooks.map(h => [h.command, h.durationMs, h.exitCode]),
+    [
+      ['node stop.js', 42, 0],
+      ['bash guard.sh', 7, 127],
+      ['bash post.sh', undefined, undefined],
+      [undefined, undefined, undefined],
+      [undefined, undefined, undefined],
+    ]
+  );
+});
+
+test('hookFailures counts failed and blocked attachments per hook with the exit code that came most often', () => {
+  const at = (s: number) => new Date(Date.UTC(2026, 9, 23, 9, 0, s)).toISOString();
+  const hook = (s: number, attachment: Record<string, unknown>) => ({ type: 'attachment', timestamp: at(s), attachment });
+  const bad = (s: number, name: string, exitCode: number, command = 'bash guard.sh') => hook(s, { type: 'hook_non_blocking_error', hookName: name, hookEvent: 'PreToolUse', stderr: 'no', exitCode, command });
+  const failures = hookFailures(
+    transcriptHooks([
+      bad(1, 'PreToolUse:Edit', 127),
+      bad(2, 'PreToolUse:Edit', 127),
+      bad(3, 'PreToolUse:Edit', 1),
+      hook(4, { type: 'hook_blocking_error', hookName: 'PostToolUse:Write', hookEvent: 'PostToolUse', blockingError: { blockingError: 'x', command: 'bash post.sh' } }),
+      hook(5, { type: 'hook_success', hookName: 'Stop', hookEvent: 'Stop', content: 'ok', exitCode: 0 }),
+      { type: 'user', timestamp: at(6), message: { content: [{ type: 'tool_result', tool_use_id: 't', content: 'PreToolUse:Bash hook error: frozen', is_error: true }] } },
+    ])
+  );
+  assert.deepEqual(failures, [
+    { hook: 'PreToolUse:Edit', count: 3, exitCode: 127, command: 'bash guard.sh' },
+    { hook: 'PostToolUse:Write', count: 1, exitCode: undefined, command: 'bash post.sh' },
+  ]);
+  assert.deepEqual(hookFailures([]), []);
 });
 
 test('transcriptLayers groups the traces by mod, joins a manifest plugin to its label and drops what a log already shows', () => {

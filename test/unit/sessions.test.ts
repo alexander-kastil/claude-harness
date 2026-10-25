@@ -145,7 +145,13 @@ test('readSession links launches, reports, messages and failures into a timeline
     [['message', 'aaa111']]
   );
   assert.ok(d.findings.some(f => f.level === 'warn' && /nope "Bad type" failed/.test(f.text)));
-  assert.ok(d.findings.some(f => /main thread made 1 file edit/.test(f.text)));
+  const failed = d.findings.find(f => f.kind === 'failed')!;
+  assert.equal(failed.agent, bad.id);
+  assert.deepEqual(failed.runs, [bad.id]);
+  assert.match(failed.why!, /missing/);
+  assert.match(failed.fix!, /Agents page/);
+  // One edit on the main thread is no yardstick for a finding.
+  assert.ok(!d.findings.some(f => f.kind === 'edits'));
   assert.equal(d.children.length, 1);
   assert.deepEqual(
     d.decisions.map(x => [x.action, x.shape, x.types, x.outcome, x.mainTools]),

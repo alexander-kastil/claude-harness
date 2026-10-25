@@ -1,13 +1,13 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { Hit, Listed, ScanState, listTranscripts, scanFile } from './usage-scan';
+import { Hit, HookStat, Listed, ScanState, listTranscripts, scanFile } from './usage-scan';
 
 // Where each agent and skill was used: an index over every Claude Code transcript of every account, kept in the
 // extension's storage. A file is read once; after that only what was appended to it, since transcripts only grow.
 // Reading a transcript is usage-scan.ts, matching the index to an element is usage-rows.ts.
 
 /** Bumped when the stored shape or what counts as a use changes; an index of another version is built again. */
-export const USAGE_VERSION = 1;
+export const USAGE_VERSION = 3;
 
 export interface FileEntry {
   size: number;
@@ -17,6 +17,12 @@ export interface FileEntry {
   /** Byte offset after the last complete line read. */
   offset: number;
   hits: Hit[];
+  /** Hook runs counted by hook and command, absent when the transcript holds none. */
+  hooks?: HookStat[];
+  /** An agent transcript: the type of the agent as its meta file names it, as a launch's subagent_type does. */
+  agent?: string;
+  /** An agent transcript: tool calls a hook or mod denied. */
+  denied?: number;
   /** An agent transcript: the main transcript of the session it belongs to. */
   main?: string;
   /** A main transcript: the account folder it was found under. */
@@ -47,8 +53,21 @@ export function planOf(prev: FileEntry | undefined, st: fs.Stats): Plan {
   return !replaced && st.size > prev.size ? 'append' : 'full';
 }
 
+/** The type of an agent transcript from its neighbouring meta file, named as the session page names it; undefined without one. */
+async function agentTypeOf(file: string): Promise<string | undefined> {
+  try {
+    const m = JSON.parse(await fs.promises.readFile(file.replace(/\.jsonl$/, '.meta.json'), 'utf8'));
+    const type = m.customAgentType ?? (m.taskKind === 'in_process_teammate' ? (m.spawnedAgentType ?? 'claude') : m.agentType);
+    return typeof type === 'string' && type ? type : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 async function scanEntry(t: Listed, st: fs.Stats, prev: FileEntry | undefined): Promise<FileEntry> {
-  const s: ScanState = prev ? { hits: [...prev.hits], offset: prev.offset, parsed: 0, main: !t.main, cwd: prev.cwd, title: prev.title } : { hits: [], offset: 0, parsed: 0, main: !t.main };
+  const s: ScanState = prev
+    ? { hits: [...prev.hits], hooks: prev.hooks?.map(h => ({ ...h })), denied: prev.denied, offset: prev.offset, parsed: 0, main: !t.main, cwd: prev.cwd, title: prev.title }
+    : { hits: [], offset: 0, parsed: 0, main: !t.main };
   let size = st.size;
   let mtime = st.mtimeMs;
   try {
@@ -59,8 +78,13 @@ async function scanEntry(t: Listed, st: fs.Stats, prev: FileEntry | undefined): 
     mtime = 0;
   }
   const entry: FileEntry = { size, mtime, ino: st.ino, birth: st.birthtimeMs, offset: s.offset, hits: s.hits };
-  if (t.main) entry.main = t.main;
-  else {
+  if (s.hooks?.length) entry.hooks = s.hooks;
+  if (t.main) {
+    entry.main = t.main;
+    const agent = prev?.agent ?? (await agentTypeOf(t.file));
+    if (agent) entry.agent = agent;
+    if (s.denied) entry.denied = s.denied;
+  } else {
     entry.root = t.root;
     if (s.cwd !== undefined) entry.cwd = s.cwd;
     if (s.title !== undefined) entry.title = s.title;
@@ -68,7 +92,9 @@ async function scanEntry(t: Listed, st: fs.Stats, prev: FileEntry | undefined): 
   return entry;
 }
 
-const yieldNow = () => new Promise<void>(resolve => setImmediate(resolve));
+const hookRuns = (e: FileEntry) => (e.hooks ?? []).reduce((n, h) => n + h.runs, 0);
+
+const yieldNow =() => new Promise<void>(resolve => setImmediate(resolve));
 
 /** The index on disk and in memory. One build or refresh runs at a time; callers in the meantime share it. */
 export class UsageIndex {
@@ -145,7 +171,7 @@ export class UsageIndex {
         const entry = (files[job.t.file] = await scanEntry(job.t, job.st, job.prev));
         // A transcript that only grew without a use in it is not written out: its stored offset still reads on from the right place.
         const was = old.files[job.t.file];
-        if (!was || !job.prev || entry.hits.length !== was.hits.length || entry.title !== was.title || entry.cwd !== was.cwd) changed = true;
+        if (!was || !job.prev || entry.hits.length !== was.hits.length || hookRuns(entry) !== hookRuns(was) || entry.denied !== was.denied || entry.title !== was.title || entry.cwd !== was.cwd) changed = true;
         done++;
         this.emit({ done, total: jobs.length });
         await yieldNow();
