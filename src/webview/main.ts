@@ -92,6 +92,7 @@ onMessage(m => {
     const before = state.checks;
     state.checks = m.checks || {};
     state.standard = m.standard;
+    if (m.lists) state.lists = m.lists;
     const current = app.querySelector('.sidebar');
     keepScroll(() => (current ? current.replaceWith(renderSidebar()) : render()));
     if (state.repo && before[state.repo] && state.checks[state.repo] && before[state.repo].state !== state.checks[state.repo].state && !['running', 'unchecked'].includes(state.checks[state.repo].state))

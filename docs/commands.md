@@ -27,7 +27,9 @@ Every command is in the **Claude Harness** category. Commands marked *hidden* do
 | Enable / Disable Plugin (*hidden*) | Turns a plugin on or off | Tree inline, plugin page |
 | Add MCP Server... | Asks for the scope, a name, and a command line or URL, then adds the server to `~/.claude.json` or the repo's `.mcp.json` | Palette, MCP Servers header, tree inline |
 | Copy as claude mcp add Command (*hidden*) | Copies a `claude mcp add` line for the server to the clipboard | Tree right-click, server page |
-| Open Claude Here | Opens a terminal in a repo, or in your home folder, running `claude`. Every action that starts Claude sits in an AI group, led by the Claude mark. | Palette, tree title bar, repo rows |
+| Open Claude Here | Opens a terminal in a repo, or in your home folder, running `claude` (or the command set in `claudeHarness.terminal.command`). Every action that starts Claude sits in an AI group, led by the Claude mark. | Palette, tree title bar, repo rows |
+| New Claude Terminal | Opens a new terminal running `claude`, in the active editor's workspace folder. Each terminal gets its own name. See [Settings](settings.md#new-claude-terminal-and-image-paste). | Palette, Ctrl+F1, Claude mark button in the editor title bar |
+| Paste Image into Claude | Saves an image on the clipboard as a PNG and types its path into the terminal, so Claude Code reads it. Text on the clipboard pastes as usual. Windows only. See [Settings](settings.md#new-claude-terminal-and-image-paste). | Palette, Ctrl+V in a terminal |
 | Install Plugin... | Picks a plugin from your marketplaces and the scope, then runs `claude plugin install` in a terminal | Palette, Plugins header, tree inline |
 | Uninstall Plugin... | Confirms, then runs `claude plugin uninstall` in a terminal | Palette, tree right-click, plugin page |
 | Open Settings File... | Picks any `settings.json` or `settings.local.json` and opens it in the editable JSON view | Palette, tree inline on Settings |

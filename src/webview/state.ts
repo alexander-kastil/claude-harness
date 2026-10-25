@@ -3,7 +3,7 @@
 import type { CheckSummary } from '../constitution';
 import type { Field, ScopeView } from '../harness';
 import type { McpInfo } from '../probe';
-import type { Detail, DistCheck, DistNote, Progress, Standard, UsageSession } from '../shared/messages';
+import type { Detail, DistCheck, DistNote, ListLimits, Progress, Standard, UsageSession } from '../shared/messages';
 
 export interface Draft {
   fields: Field[];
@@ -33,6 +33,7 @@ export interface State {
   mcpBusy: Record<string, 'busy' | 'done' | undefined>;
   checks: Record<string, CheckSummary>;
   standard?: Standard;
+  lists: ListLimits;
   page?: string;
   fleet?: any;
   effective: Record<string, any>;

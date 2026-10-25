@@ -9,6 +9,7 @@ export { saved, vscode };
 
 export const state: State = {
   views: [],
+  lists: { sessions: 10, recentRepos: 10, huntCatalog: 60, decisions: 6 },
   openRepos: new Set(saved.openRepos || []),
   detail: undefined,
   repo: undefined,

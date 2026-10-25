@@ -43,7 +43,7 @@ export function decisionCard(label, items, d) {
   const byId = new Map(d.agents.map(a => [a.id, a]));
   const colors = colorsOf(d);
   const sorted = [...items].sort((p, q) => p.at - q.at);
-  const shown = sorted.slice(0, 6);
+  const shown = sorted.slice(0, state.lists.decisions);
   const first = sorted[0].at;
   const last = sorted[sorted.length - 1].at;
   const launches = items.reduce((n, x) => n + x.launches, 0);

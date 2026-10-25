@@ -2,7 +2,7 @@
   "name": "claude-harness",
   "displayName": "Claude Harness",
   "description": "Visualize and edit your Claude Code harness in VS Code: memory, rules, agents, skills, commands, output styles, workflows, hooks, MCP servers and plugins, globally and per repository.",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "publisher": "integrations-at",
   "license": "SEE LICENSE IN LICENSE",
   "icon": "media/icon.png",
@@ -47,113 +47,241 @@
     "onStartupFinished"
   ],
   "contributes": {
-    "configuration": {
-      "title": "Claude Harness",
-      "properties": {
-        "claudeHarness.root": {
-          "type": "string",
-          "default": "",
-          "markdownDescription": "Folder of the global harness. Empty means `~/.claude`.",
-          "order": 1
-        },
-        "claudeHarness.repoFolders": {
-          "type": "array",
-          "items": {
-            "type": "string"
+    "configurationDefaults": {
+      "terminal.integrated.commandsToSkipShell": [
+        "claudeHarness.pasteImage"
+      ]
+    },
+    "configuration": [
+      {
+        "title": "General",
+        "order": 1,
+        "properties": {
+          "claudeHarness.root": {
+            "type": "string",
+            "default": "",
+            "markdownDescription": "Folder of the global harness. Empty means `~/.claude`.",
+            "order": 1
           },
-          "default": [],
-          "markdownDescription": "Folders added with **Add Repo...**. Each is a repo folder, or a parent folder whose subfolders are repos. A folder is listed when it has a `.claude` folder or a `CLAUDE.md`.",
-          "order": 2
-        },
-        "claudeHarness.removedRepos": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "default": [],
-          "markdownDescription": "Repo folders hidden with **Remove Repo...**. Adding the repo or its parent folder again shows it again.",
-          "order": 3
-        },
-        "claudeHarness.plan": {
-          "type": "string",
-          "enum": [
-            "",
-            "pro",
-            "max5",
-            "max20",
-            "team-standard",
-            "team",
-            "api"
-          ],
-          "enumItemLabels": [
-            "Not set",
-            "Pro",
-            "Max 5x",
-            "Max 20x",
-            "Team Standard",
-            "Team Premium",
-            "API billing"
-          ],
-          "default": "",
-          "markdownDescription": "The plan of the Claude account in the global harness folder. Session cost is then shown against that plan's weekly limit estimate. Empty means no plan.",
-          "order": 4
-        },
-        "claudeHarness.weekStart": {
-          "type": "string",
-          "default": "",
-          "markdownDescription": "When the weekly limit of the main account resets, as weekday and UTC hour, for example `Mon 11:00`. The weekly summary counts from the last reset. Empty means a rolling 7 days.",
-          "order": 5
-        },
-        "claudeHarness.accounts": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "label": {
-                "type": "string",
-                "description": "Name shown on the sessions of this account. Defaults to the folder name."
-              },
-              "path": {
-                "type": "string",
-                "description": "The Claude config folder of the account, the one Claude Code reads from `CLAUDE_CONFIG_DIR`. A leading `~` is the home folder."
-              },
-              "plan": {
-                "type": "string",
-                "enum": [
-                  "",
-                  "pro",
-                  "max5",
-                  "max20",
-                  "team-standard",
-                  "team",
-                  "api"
-                ],
-                "enumItemLabels": [
-                  "Not set",
-                  "Pro",
-                  "Max 5x",
-                  "Max 20x",
-                  "Team Standard",
-                  "Team Premium",
-                  "API billing"
-                ],
-                "description": "The plan of this account."
-              },
-              "weekStart": {
-                "type": "string",
-                "description": "When the weekly limit of this account resets, as weekday and UTC hour, for example `Mon 11:00`. Empty means a rolling 7 days."
-              }
+          "claudeHarness.repoFolders": {
+            "type": "array",
+            "items": {
+              "type": "string"
             },
-            "required": [
-              "path"
-            ]
+            "default": [],
+            "markdownDescription": "Folders added with **Add Repo...**. Each is a repo folder, or a parent folder whose subfolders are repos. A folder is listed when it has a `.claude` folder or a `CLAUDE.md`.",
+            "order": 2
           },
-          "default": [],
-          "markdownDescription": "More Claude accounts on this machine, each with its own config folder, for example `~/.claude-work`. Sessions of every account are listed, labeled with the account. The global harness folder stays the main account, labeled Default.",
-          "order": 6
+          "claudeHarness.removedRepos": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "default": [],
+            "markdownDescription": "Repo folders hidden with **Remove Repo...**. Adding the repo or its parent folder again shows it again.",
+            "order": 3
+          },
+          "claudeHarness.plan": {
+            "type": "string",
+            "enum": [
+              "",
+              "pro",
+              "max5",
+              "max20",
+              "team-standard",
+              "team",
+              "api"
+            ],
+            "enumItemLabels": [
+              "Not set",
+              "Pro",
+              "Max 5x",
+              "Max 20x",
+              "Team Standard",
+              "Team Premium",
+              "API billing"
+            ],
+            "default": "",
+            "markdownDescription": "The plan of the Claude account in the global harness folder. Session cost is then shown against that plan's weekly limit estimate. Empty means no plan.",
+            "order": 4
+          },
+          "claudeHarness.weekStart": {
+            "type": "string",
+            "default": "",
+            "markdownDescription": "When the weekly limit of the main account resets, as weekday and UTC hour, for example `Mon 11:00`. The weekly summary counts from the last reset. Empty means a rolling 7 days.",
+            "order": 5
+          },
+          "claudeHarness.accounts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "label": {
+                  "type": "string",
+                  "description": "Name shown on the sessions of this account. Defaults to the folder name."
+                },
+                "path": {
+                  "type": "string",
+                  "description": "The Claude config folder of the account, the one Claude Code reads from `CLAUDE_CONFIG_DIR`. A leading `~` is the home folder."
+                },
+                "plan": {
+                  "type": "string",
+                  "enum": [
+                    "",
+                    "pro",
+                    "max5",
+                    "max20",
+                    "team-standard",
+                    "team",
+                    "api"
+                  ],
+                  "enumItemLabels": [
+                    "Not set",
+                    "Pro",
+                    "Max 5x",
+                    "Max 20x",
+                    "Team Standard",
+                    "Team Premium",
+                    "API billing"
+                  ],
+                  "description": "The plan of this account."
+                },
+                "weekStart": {
+                  "type": "string",
+                  "description": "When the weekly limit of this account resets, as weekday and UTC hour, for example `Mon 11:00`. Empty means a rolling 7 days."
+                }
+              },
+              "required": [
+                "path"
+              ]
+            },
+            "default": [],
+            "markdownDescription": "More Claude accounts on this machine, each with its own config folder, for example `~/.claude-work`. Sessions of every account are listed, labeled with the account. The global harness folder stays the main account, labeled Default.",
+            "order": 6
+          }
+        }
+      },
+      {
+        "title": "Terminals",
+        "order": 2,
+        "properties": {
+          "claudeHarness.terminal.location": {
+            "type": "string",
+            "enum": [
+              "editor",
+              "panel"
+            ],
+            "enumDescriptions": [
+              "Open the terminals Claude Harness starts in the editor area.",
+              "Open the terminals Claude Harness starts in the bottom panel."
+            ],
+            "default": "editor",
+            "description": "Where the terminals Claude Harness starts open.",
+            "order": 1
+          },
+          "claudeHarness.terminal.openToSide": {
+            "type": "boolean",
+            "default": true,
+            "description": "Open a terminal beside the open files instead of in their group. Applies when the location is the editor area.",
+            "order": 2
+          },
+          "claudeHarness.terminal.command": {
+            "type": "string",
+            "default": "claude",
+            "order": 3,
+            "markdownDescription": "The command that starts Claude in every terminal Claude Harness opens, for example `claude` or a full path. Empty means `claude`."
+          },
+          "claudeHarness.terminal.args": {
+            "type": "string",
+            "default": "",
+            "order": 4,
+            "markdownDescription": "Extra arguments added right after the command when an interactive Claude session starts, for example `--model sonnet`. Not added to plugin install, uninstall or marketplace commands."
+          }
+        }
+      },
+      {
+        "title": "Quota",
+        "order": 3,
+        "properties": {
+          "claudeHarness.quota.enabled": {
+            "type": "boolean",
+            "default": true,
+            "order": 1,
+            "description": "Show the Claude usage item in the status bar and read the live limits. Turn off to hide it and stop the requests."
+          },
+          "claudeHarness.quota.warnPercent": {
+            "type": "number",
+            "default": 75,
+            "minimum": 1,
+            "maximum": 100,
+            "description": "Used share at which the status bar item turns to the warning color and the bars turn amber.",
+            "order": 2
+          },
+          "claudeHarness.quota.criticalPercent": {
+            "type": "number",
+            "default": 90,
+            "minimum": 1,
+            "maximum": 100,
+            "description": "Used share at which the status bar item turns to the error color and the bars turn red. Not lower than the warning share.",
+            "order": 3
+          },
+          "claudeHarness.quota.activeRefreshSeconds": {
+            "type": "number",
+            "default": 60,
+            "minimum": 10,
+            "maximum": 3600,
+            "description": "Seconds between reads of the live limits while Claude was used in the last 10 minutes.",
+            "order": 4
+          },
+          "claudeHarness.quota.idleRefreshSeconds": {
+            "type": "number",
+            "default": 120,
+            "minimum": 10,
+            "maximum": 3600,
+            "description": "Seconds between reads of the live limits while Claude is idle.",
+            "order": 5
+          }
+        }
+      },
+      {
+        "title": "Lists",
+        "order": 4,
+        "properties": {
+          "claudeHarness.lists.sessions": {
+            "type": "number",
+            "default": 10,
+            "minimum": 1,
+            "maximum": 500,
+            "description": "Sessions listed in the sidebar and on a repo page before the show all control.",
+            "order": 1
+          },
+          "claudeHarness.lists.recentRepos": {
+            "type": "number",
+            "default": 10,
+            "minimum": 1,
+            "maximum": 500,
+            "description": "Recently changed elements listed on a repo page.",
+            "order": 2
+          },
+          "claudeHarness.lists.huntCatalog": {
+            "type": "number",
+            "default": 60,
+            "minimum": 1,
+            "maximum": 1000,
+            "description": "Catalog entries listed in the Plugin Hunter picker before the search must be narrowed.",
+            "order": 3
+          },
+          "claudeHarness.lists.decisions": {
+            "type": "number",
+            "default": 6,
+            "minimum": 1,
+            "maximum": 100,
+            "description": "Decisions shown on one card of the Decisions view.",
+            "order": 4
+          }
         }
       }
-    },
+    ],
     "viewsContainers": {
       "activitybar": [
         {
@@ -174,6 +302,11 @@
       ]
     },
     "commands": [
+      {
+        "command": "claudeHarness.pasteImage",
+        "title": "Paste Image into Claude",
+        "category": "Claude Harness"
+      },
       {
         "command": "claudeHarness.open",
         "title": "Open Claude Harness",
@@ -262,6 +395,15 @@
         "title": "Copy as claude mcp add Command",
         "category": "Claude Harness",
         "icon": "$(copy)"
+      },
+      {
+        "command": "claudeHarness.newClaudeTerminal",
+        "title": "New Claude Terminal",
+        "category": "Claude Harness",
+        "icon": {
+          "light": "media/claude-mark-light.svg",
+          "dark": "media/claude-mark-dark.svg"
+        }
       },
       {
         "command": "claudeHarness.openClaude",
@@ -498,6 +640,15 @@
     ],
     "keybindings": [
       {
+        "command": "claudeHarness.pasteImage",
+        "key": "ctrl+v",
+        "when": "terminalFocus && isWindows"
+      },
+      {
+        "command": "claudeHarness.newClaudeTerminal",
+        "key": "ctrl+f1"
+      },
+      {
         "command": "claudeHarness.open",
         "key": "ctrl+alt+a"
       }
@@ -717,6 +868,12 @@
           "command": "claudeHarness.removeRepo",
           "when": "webviewId == 'claudeHarness.panel' && webviewSection == 'repo'",
           "group": "4_remove@1"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "claudeHarness.newClaudeTerminal",
+          "group": "navigation"
         }
       ],
       "commandPalette": [

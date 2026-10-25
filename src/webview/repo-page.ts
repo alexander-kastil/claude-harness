@@ -88,7 +88,7 @@ export function repoOverview(view, pick) {
       el('span', { className: 'l' }, icon(glyph), label),
       el('span', { className: 'kpi-note' }, note)
     );
-  const recent = [...entries].sort((x, y) => y.a.mtime - x.a.mtime).slice(0, 10);
+  const recent = [...entries].sort((x, y) => y.a.mtime - x.a.mtime).slice(0, state.lists.recentRepos);
   return [
     el(
       'div',

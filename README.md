@@ -122,6 +122,8 @@ Review, Slim, Try it, Analyze, Continue and Merge with Claude start your `claude
 
 ![The confirm card of Slim with Claude, shown before a terminal opens](docs/images/feature-claude-slim.png)
 
+These terminals open in the editor area beside your files, run the command you set in `claudeHarness.terminal.command`, and start with the arguments of `claudeHarness.terminal.args`. Ctrl+F1 opens a new Claude terminal in the active workspace folder, and Ctrl+V in a terminal on Windows pastes an image from the clipboard into Claude Code. The status bar shows your 5-hour and weekly limits live, with bars and reset times in its hover card. See [Settings](docs/settings.md#terminals).
+
 ## Quick start
 
 Install Claude Harness: it opens on the `~/.claude` you already have.
@@ -155,7 +157,7 @@ Install Claude Harness: it opens on the `~/.claude` you already have.
 | [MCP switches](docs/mcp-toggles.md) | Turns an MCP server on or off for one repo or in every folder |
 | [Plugins](docs/plugins.md) | Enables, disables, installs and uninstalls plugins, marks mods, and builds a new plugin from your skills and agents with Plugin Hunter |
 | [Skill sources](docs/skill-sources.md) | Adds skills from skills.sh or GitHub, checks them for a newer version, updates them in place, and links a global skill into a repo |
-| [Settings](docs/settings.md) | Sets the global harness folder and the repo lists the extension keeps, and edits the settings files |
+| [Settings](docs/settings.md) | Sets the global harness folder, the repo lists, where Claude terminals open and which command starts them, the Claude usage item in the status bar and the list lengths, and edits the settings files |
 | [Commands](docs/commands.md) | Every Claude Harness command, what it does and where to find it |
 
 Provider features appear when a harness standard provider plugin is installed.

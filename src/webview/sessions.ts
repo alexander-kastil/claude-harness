@@ -286,7 +286,7 @@ export function renderSessionList(view) {
     vscode.postMessage({ type: 'sessions', scope: view.id });
   }
   const all = list || [];
-  const shown = state.allSessions.has(view.id) ? all : all.slice(0, 10);
+  const shown = state.allSessions.has(view.id) ? all : all.slice(0, state.lists.sessions);
   return el(
     'div',
     { className: 'recent' },

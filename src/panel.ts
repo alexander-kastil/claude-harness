@@ -1,5 +1,7 @@
 import * as crypto from 'crypto';
 import * as os from 'os';
+import { openTerminal, claudeCommand } from './terminals';
+import { listLimits } from './settings';
 import * as vscode from 'vscode';
 import { Asset, Field, ScopeView, fromFields, globalScope, isPluginCopy, kindInfo, mcpToken, readMarkdown, readText, toFields, writeMarkdown, writeText } from './harness';
 import { McpInfo, StdioConfig, probeHttp, probeStdio } from './probe';
@@ -191,7 +193,7 @@ export class HarnessPanel {
   }
 
   private postState(): void {
-    this.post({ type: 'state', views: this.host.views(), checks: this.host.checks?.() ?? {}, standard: this.host.standard?.() });
+    this.post({ type: 'state', views: this.host.views(), checks: this.host.checks?.() ?? {}, standard: this.host.standard?.(), lists: listLimits() });
     if (this.selected) this.post({ type: 'detail', detail: this.detail(this.selected), external: true });
   }
 
@@ -261,9 +263,8 @@ export class HarnessPanel {
       return;
     }
     const view = this.host.views().find(v => v.id === asset.scope);
-    const terminal = vscode.window.createTerminal({ name: `Sign in: ${asset.name}`, cwd: asset.scope !== 'global' && view?.path ? view.path : os.homedir() });
-    terminal.show();
-    terminal.sendText('claude "/mcp"');
+    const terminal = openTerminal({ name: `Sign in: ${asset.name}`, cwd: asset.scope !== 'global' && view?.path ? view.path : os.homedir() });
+    terminal.sendText(claudeCommand('"/mcp"'));
   }
 
   private jsonExcerpt(asset: Asset): string {

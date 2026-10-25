@@ -1,6 +1,6 @@
 // @ts-nocheck
 // The Plugin Hunter's plugin card: its fields, the skills and agents in it with their copies, the picker that adds more, and Create.
-import { app, vscode } from './core';
+import { app, state, vscode } from './core';
 import { confirmAt } from './confirm';
 import { aiGroup, el, icon, iconBtn, plural } from './dom';
 import { hunt, marketOf, repaint, saveNow, saveSoon } from './hunt-state';
@@ -82,7 +82,7 @@ function adder(p) {
   const catalog = (hunt.info ? hunt.info.catalog : [])
     .filter(c => !taken.has(`${c.asset.kind}:${c.asset.name}`) && (!q || c.asset.name.toLowerCase().includes(q) || c.description.toLowerCase().includes(q)))
     .sort((a, b) => Number(b.asset.kind === 'skill') - Number(a.asset.kind === 'skill') || a.asset.name.localeCompare(b.asset.name));
-  const shown = catalog.slice(0, 60);
+  const shown = catalog.slice(0, state.lists.huntCatalog);
   const list = el(
     'div',
     { className: 'hunt-pick-list' },
@@ -106,7 +106,7 @@ function adder(p) {
       )
     ),
     shown.length ? null : el('div', { className: 'empty flush' }, 'Nothing matches.'),
-    catalog.length > 60 ? el('div', { className: 'empty flush' }, `${catalog.length - 60} more: narrow the search.`) : null
+    catalog.length > shown.length ? el('div', { className: 'empty flush' }, `${catalog.length - shown.length} more: narrow the search.`) : null
   );
   return el(
     'div',

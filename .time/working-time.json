@@ -1420,6 +1420,88 @@
       "catalogue": {
         "action": "none"
       }
+    },
+    {
+      "date": "2026-10-25",
+      "from": "09:08",
+      "to": "13:50",
+      "sessionId": "a0615f30-f999-442e-b167-ed2711f2037d",
+      "branch": "release/0.5.0",
+      "commits": [
+        "2cffe5a",
+        "166f3fc"
+      ],
+      "surfaces": [
+        "claude-harness"
+      ],
+      "files": [
+        "src/hunt.ts",
+        "src/hunt-host.ts",
+        "src/hunt-create.ts",
+        "src/hunt-catalog.ts",
+        "src/hunt-market.ts",
+        "src/webview/hunt.ts",
+        "src/share.ts",
+        "src/share-host.ts",
+        "src/zip.ts",
+        "src/sync.ts",
+        "src/shared/byline.ts",
+        "src/webview/detail-view.ts",
+        "src/webview/dom.ts",
+        "src/webview/dist.ts",
+        "src/webview/tables.ts",
+        "src/webview/kind-page.ts",
+        "CHANGELOG.md",
+        "docs/plugins.md",
+        "docs/commands.md"
+      ],
+      "mechanism": {
+        "takes": "an inventory of the configuration items an AI coding assistant loads (instructions, reusable skills, helper definitions, tool servers) spread over a user-wide folder, several project folders and installed add-on packages, plus a person's requests in a chat",
+        "does": "lets a model propose, over several chat turns, which items belong together as one installable package, writes that package into a package catalogue folder, installs it and retires the scattered copies with a backup; packages any single item in its native format for sharing and imports such a file back into a chosen scope with merge and conflict handling; and keeps copies in step with their source (a remote repository, the user-wide copy, a newer catalogue release, or a chosen version of a duplicated tool server entry)",
+        "returns": "one installed package per proposal, shareable files per item, and items whose copies agree, each change listed on a confirmation card before it is written"
+      },
+      "portsAsIs": [
+        "multi-turn chat that edits one structured proposal card",
+        "native-format export and import per configuration kind with merge of JSON entries",
+        "write, install, then retire order with backup and rollback on a failed install",
+        "sync of one entry across files without touching the rest of each file"
+      ],
+      "perCustomer": [
+        "which assistant and which configuration kinds it has",
+        "where packages are catalogued and installed"
+      ],
+      "evidence": [
+        "unit tests: 144 of 144",
+        "UI suite in an isolated VS Code: 66 of 66",
+        "usability hunt: 18 bugs found and fixed",
+        "release 0.5.0 published: PR #14, pipeline run 322, Marketplace shows 0.5.0",
+        "CHANGELOG.md [0.5.0]"
+      ],
+      "toolchain": {
+        "skills": [
+          "vscode-extension",
+          "ui-ux-pro-max",
+          "humanizer",
+          "publish-vscode-ext",
+          "report-plugin:report",
+          "claude-orchestration",
+          "learn-loop-plugin:claude-learn",
+          "learn-loop-harvest-plugin:claude-learn-harvest",
+          "learn-loop-worktime-plugin:claude-learn-worktime",
+          "track-time"
+        ],
+        "mcpServers": [],
+        "agents": [
+          "vscode-ext-specialist",
+          "subagent-delegation-plugin:fact-gatherer",
+          "fork"
+        ]
+      },
+      "industry": "software tooling for developers",
+      "status": "Built and running in-house",
+      "catalogue": {
+        "action": "none"
+      }
     }
   ]
 }
