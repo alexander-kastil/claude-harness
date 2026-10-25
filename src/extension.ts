@@ -59,6 +59,8 @@ import {
   validateName,
 } from './harness';
 import { HarnessPanel, PanelHost } from './panel';
+import { pathText, saveClipboardImage } from './image-paste';
+import { claudeCli, claudeCommand, claudeExecutable, defaultCwd, openTerminal, uniqueTerminalName } from './terminals';
 import { Account, accountWeek, findAccountSession, importTranscript, listAccountSessions, parseAccounts, readSession } from './sessions';
 import { STYLE_MODELS, StyleModel, draftStyle, stylePrompt, writeStyleDraft } from './style';
 import { Specialist, fitGeneralFindings } from './findings';
@@ -68,6 +70,7 @@ import { HarnessTree, Node } from './tree';
 import { UsageIndex } from './usage';
 import type { Progress } from './usage';
 import { hookRows, hookTarget } from './usage-hooks';
+import { registerQuota } from './quota';
 import { analyzeSkill, slimPrompt } from './slim';
 import type { SlimReport } from './shared/slim';
 import { usageMore, usageRows, usageTarget, usageTotals } from './usage-rows';
@@ -405,9 +408,8 @@ export function activate(context: vscode.ExtensionContext): void {
         ? ` "This is a copy of the session, opened so I can analyze it. The agents of the session wrote their transcripts to ${agents}, one agent-ID.jsonl per agent. When a question is about the work inside an agent, read that transcript a part at a time. Reply only: Ready."`
         : '';
       const env = summary.accountRoot && path.resolve(summary.accountRoot) !== path.resolve(global.root) ? { CLAUDE_CONFIG_DIR: summary.accountRoot } : undefined;
-      const t = vscode.window.createTerminal({ name: `Analyze: ${summary.title.slice(0, 40)}`, cwd, env });
-      t.show();
-      t.sendText(`claude --resume ${summary.id} --fork-session${hint}`);
+      const t = openTerminal({ name: `Analyze: ${summary.title.slice(0, 40)}`, cwd, env });
+      t.sendText(claudeCommand(`--resume ${summary.id} --fork-session${hint}`));
     },
     continueSession: async (id, sessionId, answer, ask) => {
       const scope = scopes.find(s => s.id === id && s.id !== global.id);
@@ -418,9 +420,8 @@ export function activate(context: vscode.ExtensionContext): void {
       if (!answer.confirmed && !context.globalState.get<boolean>('continueRemembered')) return ask({ kind: 'continue', scope: id, id: sessionId, cwd, live: !!summary.live });
       if (answer.remember) await context.globalState.update('continueRemembered', true);
       const env = summary.accountRoot && path.resolve(summary.accountRoot) !== path.resolve(global.root) ? { CLAUDE_CONFIG_DIR: summary.accountRoot } : undefined;
-      const t = vscode.window.createTerminal({ name: `Continue: ${summary.title.slice(0, 40)}`, cwd, env });
-      t.show();
-      t.sendText(`claude --resume ${summary.id}`);
+      const t = openTerminal({ name: `Continue: ${summary.title.slice(0, 40)}`, cwd, env });
+      t.sendText(claudeCommand(`--resume ${summary.id}`));
     },
     reviewAsset: async (id, answer, ask) => {
       const asset = find(id);
@@ -430,7 +431,7 @@ export function activate(context: vscode.ExtensionContext): void {
       if (answer.remember) await context.globalState.update('reviewRemembered', true);
       const what = (KINDS.find(k => k.kind === asset.kind)?.label ?? asset.kind).replace(/s$/, '').toLowerCase();
       const prompt = `Review the ${what} at ${asset.file}. Read it, check that it is clear, specific and consistent with the rest of the harness, and list what you would improve and why. Do not change the file until I agree.`;
-      terminal(`Review: ${asset.name}`, cwd, `claude "${promptText(prompt)}"`);
+      terminal(`Review: ${asset.name}`, cwd, claudeCommand(`"${promptText(prompt)}"`));
     },
     consolidateAsset: async (id, answer, ask) => {
       const asset = find(id);
@@ -455,7 +456,7 @@ export function activate(context: vscode.ExtensionContext): void {
       const plugin = asset.scope.startsWith('plugin:') ? asset.scope.slice('plugin:'.length).split('@')[0] : /^plugin ([^ ]+) ·/.exec(asset.description)?.[1];
       const name = plugin ? `${plugin}:${asset.name}` : asset.name;
       if (!/^[\w.:-]+$/.test(name)) return void vscode.window.showErrorMessage(`${asset.name} has a name Claude cannot be started with.`);
-      terminal(`Try: ${asset.name}`, cwdOf(scopeOf(asset)), asset.kind === 'agent' ? `claude --agent ${name}` : `claude "/${name}"`);
+      terminal(`Try: ${asset.name}`, cwdOf(scopeOf(asset)), claudeCommand(asset.kind === 'agent' ? `--agent ${name}` : `"/${name}"`));
     },
     fixFinding: async (id, finding) => {
       const tools = await needTools();
@@ -463,7 +464,7 @@ export function activate(context: vscode.ExtensionContext): void {
       if (!tools || !repo) return;
       const at = finding.file ? ` The finding is in ${finding.file}${finding.line ? ` at line ${finding.line}` : ''}.` : '';
       const prompt = `The harness standard check reports this finding: ${finding.text}${at} Fix this one finding and nothing else.`;
-      terminal(`Fix: ${repo.label}`, repo.base, `claude "${promptText(prompt)}"`);
+      terminal(`Fix: ${repo.label}`, repo.base, claudeCommand(`"${promptText(prompt)}"`));
     },
     importSession: async id => {
       const scope = scopes.find(s => s.id === id && s.id !== global.id);
@@ -555,7 +556,7 @@ export function activate(context: vscode.ExtensionContext): void {
       const files = asset.files ?? [];
       if (!answer.confirmed && !context.globalState.get<boolean>('slimRemembered')) return ask({ kind: 'slim', id, name: asset.name, file: asset.file, cwd, files: files.length, findings: report.findings });
       if (answer.remember) await context.globalState.update('slimRemembered', true);
-      terminal(`Slim: ${asset.name}`, cwd, `claude "${promptText(slimPrompt(report, asset.file, files, !!provider))}"`);
+      terminal(`Slim: ${asset.name}`, cwd, claudeCommand(`"${promptText(slimPrompt(report, asset.file, files, !!provider))}"`));
     },
   };
 
@@ -631,9 +632,7 @@ export function activate(context: vscode.ExtensionContext): void {
   };
 
   const terminal = (name: string, cwd: string, text: string) => {
-    const t = vscode.window.createTerminal({ name, cwd });
-    t.show();
-    t.sendText(text);
+    openTerminal({ name, cwd }).sendText(text);
   };
 
   /** A destructive question: a card in the panel when the webview started the command, the modal dialog from the nav or a tree menu. */
@@ -771,7 +770,7 @@ export function activate(context: vscode.ExtensionContext): void {
     } else if (route === 'claude') {
       // The prompt first: --add-dir takes every argument after it as a folder.
       const add = /^[\w .:\\/-]+$/.test(target.dir) ? ` --add-dir "${target.dir}"` : '';
-      terminal(`Consolidate: ${asset.name}`, cwdOf(scope), `claude "${promptText(mergePrompt(asset, target))}"${add}`);
+      terminal(`Consolidate: ${asset.name}`, cwdOf(scope), `${claudeCommand(`"${promptText(mergePrompt(asset, target))}"`)}${add}`);
       void vscode.window.showInformationMessage(`Claude merges ${asset.name} into ${target.label} in the terminal. When it is done, run Consolidate on ${asset.name} again to retire the repo copy.`);
     } else {
       const stamp = backupStamp();
@@ -844,6 +843,7 @@ export function activate(context: vscode.ExtensionContext): void {
   };
 
   context.subscriptions.push(
+    ...registerQuota({ root: () => global.root }),
     ...registerShare({ root: () => global.root, scopes: () => scopes, assetOf, refresh, backupRoot }),
     ...registerDistributor({
       root: () => global.root,
@@ -885,6 +885,7 @@ export function activate(context: vscode.ExtensionContext): void {
         loadScopes();
         refresh();
       }
+      if (e.affectsConfiguration('claudeHarness.lists')) HarnessPanel.update();
       if (e.affectsConfiguration('claudeHarness.accounts') || e.affectsConfiguration('claudeHarness.plan') || e.affectsConfiguration('claudeHarness.weekStart')) refresh();
       if (!e.affectsConfiguration('claudeHarness.root')) return;
       global = globalScope(vscode.workspace.getConfiguration('claudeHarness').get<string>('root'));
@@ -897,6 +898,14 @@ export function activate(context: vscode.ExtensionContext): void {
       refresh();
     }),
 
+    vscode.commands.registerCommand('claudeHarness.pasteImage', async () => {
+      const paste = () => vscode.commands.executeCommand('workbench.action.terminal.paste');
+      if (process.platform !== 'win32' || (await vscode.env.clipboard.readText())) return paste();
+      const file = await saveClipboardImage();
+      const terminal = vscode.window.activeTerminal;
+      if (file && terminal) terminal.sendText(pathText(file), false);
+      else await paste();
+    }),
     vscode.commands.registerCommand('claudeHarness.open', (id?: string) => HarnessPanel.show(context, host, typeof id === 'string' ? id : undefined)),
     vscode.commands.registerCommand('claudeHarness.addRepo', async () => {
       const picked = await vscode.window.showOpenDialog({
@@ -1104,7 +1113,11 @@ export function activate(context: vscode.ExtensionContext): void {
 
     vscode.commands.registerCommand('claudeHarness.openClaude', async (arg?: unknown) => {
       const scope = await pickScope(arg, 'Open Claude in', 'Home folder');
-      if (scope) terminal(`Claude: ${scope.id === global.id ? 'home' : scope.label}`, cwdOf(scope), 'claude');
+      if (scope) terminal(`Claude: ${scope.id === global.id ? 'home' : scope.label}`, cwdOf(scope), claudeCommand());
+    }),
+
+    vscode.commands.registerCommand('claudeHarness.newClaudeTerminal', () => {
+      openTerminal({ name: uniqueTerminalName('Claude'), cwd: defaultCwd() }).sendText(claudeCommand());
     }),
 
     vscode.commands.registerCommand('claudeHarness.installPlugin', async (arg?: unknown) => {
@@ -1120,7 +1133,7 @@ export function activate(context: vscode.ExtensionContext): void {
       if (!plugin) return;
       const scope = await pickScope(arg, `Install ${plugin.label} for`, 'You, in every folder');
       if (!scope) return;
-      terminal(`Install ${plugin.label}`, cwdOf(scope), `claude plugin install ${plugin.label} --scope ${scope.id === global.id ? 'user' : 'project'}`);
+      terminal(`Install ${plugin.label}`, cwdOf(scope), claudeCli(`plugin install ${plugin.label} --scope ${scope.id === global.id ? 'user' : 'project'}`));
     }),
 
     vscode.commands.registerCommand('claudeHarness.uninstallPlugin', async (arg?: unknown) => {
@@ -1138,7 +1151,7 @@ export function activate(context: vscode.ExtensionContext): void {
         () => vscode.window.showWarningMessage(`Uninstall ${asset.name} from ${where}?`, { modal: true }, 'Uninstall')
       );
       if (!sureUninstall) return;
-      terminal(`Uninstall ${asset.name}`, cwdOf(scope), `claude plugin uninstall ${asset.name} --scope ${scope.id === global.id ? 'user' : 'project'}`);
+      terminal(`Uninstall ${asset.name}`, cwdOf(scope), claudeCli(`plugin uninstall ${asset.name} --scope ${scope.id === global.id ? 'user' : 'project'}`));
     }),
 
     vscode.commands.registerCommand('claudeHarness.openSettings', async () => {
@@ -1212,7 +1225,7 @@ export function activate(context: vscode.ExtensionContext): void {
       if (!repo || repo.id === global.id) return;
       const dirs = await guard([repo.base], `Align CLAUDE.md in ${repo.label}`);
       if (!dirs?.length) return;
-      terminal(`Align: ${repo.label}`, repo.base, `claude "${tools.plugin.align.replace(/"/g, '\\"')}"`);
+      terminal(`Align: ${repo.label}`, repo.base, claudeCommand(`"${tools.plugin.align.replace(/"/g, '\\"')}"`));
     }),
 
     vscode.commands.registerCommand('claudeHarness.fixSettings', async (arg?: unknown) => {
@@ -1407,7 +1420,7 @@ export function activate(context: vscode.ExtensionContext): void {
         (e): e is FileEdit => !!e
       );
       await previewEdits(edits, `Rename ${market.name}`);
-      const commands = renameCommands(market, to);
+      const commands = renameCommands(market, to).map(c => c.replace(/^claude /, `${claudeExecutable()} `));
       const ok = await vscode.window.showWarningMessage(
         `Rename ${market.name} to ${to}?`,
         { modal: true, detail: `Rewrites ${edits.length} ${edits.length === 1 ? 'file' : 'files'}:\n${edits.map(e => `  ${e.file}`).join('\n')}\n\nThen a terminal re-registers the marketplace:\n${commands.map(c => `  ${c}`).join('\n')}` },
@@ -1415,8 +1428,7 @@ export function activate(context: vscode.ExtensionContext): void {
       );
       if (ok !== 'Rename') return;
       run(() => edits.forEach(e => fs.writeFileSync(e.file, e.after, 'utf8')));
-      const t = vscode.window.createTerminal({ name: `Rename ${market.name}`, cwd: os.homedir() });
-      t.show();
+      const t = openTerminal({ name: `Rename ${market.name}`, cwd: os.homedir() });
       for (const c of commands) t.sendText(c);
     })
   );

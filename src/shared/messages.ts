@@ -36,6 +36,14 @@ export interface Pending {
   body: string;
 }
 
+/** How many rows a list shows before its "show all" control, from the claudeHarness.lists.* settings. */
+export interface ListLimits {
+  sessions: number;
+  recentRepos: number;
+  huntCatalog: number;
+  decisions: number;
+}
+
 export interface Standard {
   name: string;
   fix: boolean;
@@ -276,7 +284,7 @@ export type ToHost =
 
 /** Host to webview. Payloads the host passes through from a reader stay `unknown` here. */
 export type ToWebview =
-  | { type: 'state'; views: ScopeView[]; checks: Record<string, CheckSummary>; standard?: Standard; /** From hosts older than the repo list. */ categories?: Category[] }
+  | { type: 'state'; views: ScopeView[]; checks: Record<string, CheckSummary>; standard?: Standard; /** From the settings; absent from hosts older than the list settings. */ lists?: ListLimits; /** From hosts older than the repo list. */ categories?: Category[] }
   | { type: 'detail'; detail?: Detail; external?: boolean; /** Sent after a save was written: the page returns to view mode. */ saved?: boolean }
   | ({ type: 'page' } & Page)
   | { type: 'mcpInfo'; id: string; info?: McpInfo }

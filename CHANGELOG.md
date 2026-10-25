@@ -1,6 +1,23 @@
 # Changelog
 
-All notable changes to Claude Harness are listed here, newest first. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions with no version change in the package.json history (0.1.3, 0.1.5 to 0.1.18, 0.1.20 to 0.1.24, 0.1.27, 0.2.1 and 0.2.3 to 0.2.11) and development builds (0.2.14 to 0.2.22, 0.2.24 to 0.2.30, 0.2.32 to 0.2.34, 0.2.36 to 0.2.44, 0.3.0 and 0.3.2) have no entry.
+All notable changes to Claude Harness are listed here, newest first. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions with no version change in the package.json history (0.1.3, 0.1.5 to 0.1.18, 0.1.20 to 0.1.24, 0.1.27, 0.2.1 and 0.2.3 to 0.2.11) and development builds (0.2.14 to 0.2.22, 0.2.24 to 0.2.30, 0.2.32 to 0.2.34, 0.2.36 to 0.2.44, 0.3.0, 0.3.2, 0.4.1 to 0.4.3, 0.5.2 and 0.5.3) have no entry.
+
+## [0.6.0] - 2026-10-25
+
+### Added
+
+- Claude usage in the status bar: `5h 12% · wk 47%` for the 5-hour session and the weekly limit, read live from your Claude account with the sign-in Claude Code already stores in the global harness folder. The item turns to the warning color at 75% and to the error color at 90%. Its hover card has one bar per limit (the weekly limit of a single model gets its own bar): the fill is the used share, the tick is how much of the window has passed, and two lines mark the warning and critical shares. Next to each bar is the time until the reset, as `hh:mm` for the 5-hour session and `dd:hh:mm` for the weekly limits, and the card ends with when the values were read. Clicking the item opens Claude Harness. While a read fails, the item keeps the last values and says so. See [Settings](https://github.com/alexander-kastil/claude-harness/blob/HEAD/docs/settings.md#claude-usage-in-the-status-bar).
+- Five Quota settings: `claudeHarness.quota.enabled` hides the item and stops the requests, `quota.warnPercent` and `quota.criticalPercent` set the two shares, and `quota.activeRefreshSeconds` (60) and `quota.idleRefreshSeconds` (120) set how often the limits are read while Claude was used in the last 10 minutes and while it is idle.
+- New Claude Terminal, on Ctrl+F1 and as a Claude mark button in the title bar of the editor. It starts `claude` in a new terminal, in the folder of the active editor's workspace folder (the first workspace folder, or your home folder, when none is open). Every new terminal gets its own name: Claude, Claude (2), Claude (3).
+- Paste Image into Claude, on Ctrl+V in a terminal on Windows. When the clipboard holds an image and no text, it saves the image as a PNG in a `claude-harness-images` folder of your temp folder and types its path into the terminal, so Claude Code reads the image. A clipboard with text pastes as before.
+- Four Terminals settings: `claudeHarness.terminal.location` (editor or panel), `terminal.openToSide`, `terminal.command` (the command or full path that starts Claude, for example `claude`) and `terminal.args` (extra arguments such as `--model sonnet`, added to every interactive session).
+- Four Lists settings for how many rows a list shows before its show all control: `claudeHarness.lists.sessions` (10), `lists.recentRepos` (10), `lists.huntCatalog` (60) and `lists.decisions` (6). A change applies without a reload.
+
+### Changed
+
+- Every terminal Claude Harness opens (Open Claude Here, Review, Slim, Try it, Fix, Consolidate, Analyze, Continue, the MCP sign-in, plugin install and uninstall, marketplace rename) now opens in the editor area, beside the files you have open, instead of in the bottom panel. Set `claudeHarness.terminal.location` to `panel` for the old place, or `terminal.openToSide` to `false` to open it in the group of your files.
+- Those terminals start the command from `claudeHarness.terminal.command`, and the sessions also take `claudeHarness.terminal.args`. Plugin install, uninstall and marketplace commands use the command without the extra arguments.
+- The settings are grouped in the Settings editor under General, Terminals, Quota and Lists.
 
 ## [0.5.0] - 2026-10-25
 

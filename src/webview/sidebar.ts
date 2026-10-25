@@ -320,7 +320,7 @@ export function renderSessionsNode(list, view, q) {
     list.append(el('div', { className: 'empty' }, sessions ? 'None' : 'Reading the sessions...'));
     return;
   }
-  const shown = state.allSessions.has(view.id) || q ? all : all.slice(0, 10);
+  const shown = state.allSessions.has(view.id) || q ? all : all.slice(0, state.lists.sessions);
   const dayOf = s => SESSION_DAYS.find(d => d[3](s.start || 0))[0];
   const groups = SESSION_DAYS.map(([id, label, glyph]) => [[id, label, glyph], shown.filter(s => dayOf(s) === id)]).filter(g => g[1].length);
   const row = s => {
