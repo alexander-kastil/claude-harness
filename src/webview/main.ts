@@ -10,7 +10,7 @@ import { renderOverview } from './overview';
 import { onHuntMessage, renderHunt } from './hunt';
 import { renderFleet, renderInit, renderMarkets } from './pages';
 import { renderRepo } from './repo-page';
-import { renderSession } from './session-page';
+import { redrawCheckpoint, renderSession } from './session-page';
 import { renderSessionsPage, showSession } from './sessions';
 import { renderSidebar } from './sidebar';
 import { storeSlim } from './slim';
@@ -63,7 +63,7 @@ const LIVE_MS = 5000;
 
 // What a repaint would change: new records, prompts, events, usage, or an agent's progress.
 const sessionSig = (d: any) =>
-  d && !d.error ? JSON.stringify([d.end, d.live, d.prompts?.length, d.events?.length, d.usage, (d.agents || []).map((a: any) => [a.id, a.status, a.end, a.tools])]) : '';
+  d && !d.error ? JSON.stringify([d.end, d.live, d.prompts?.length, d.checkpoints?.length, d.events?.length, d.usage, (d.agents || []).map((a: any) => [a.id, a.status, a.end, a.tools])]) : '';
 
 // A live repaint keeps the page where the owner had scrolled it, also after the diagrams have drawn, until they scroll.
 const keepMainScroll = (paint: () => void) => {
@@ -144,6 +144,13 @@ onMessage(m => {
       s.shown = sig;
       if (onScreen) keepMainScroll(renderMain);
       else renderMain();
+    }
+  } else if (m.type === 'checkpointFiles') {
+    const s = state.session;
+    if (s && s.scope === m.scope && s.id === m.id && s.checkpoint === m.checkpoint) {
+      s.cpFiles = m.files;
+      if (m.restored) s.cpRestored = m.restored;
+      redrawCheckpoint();
     }
   } else if (m.type === 'styleDraft') {
     if (state.session && state.session.scope === m.scope && state.session.id === m.id) {

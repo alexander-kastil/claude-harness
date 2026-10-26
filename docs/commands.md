@@ -51,6 +51,7 @@ Every command is in the **Claude Harness** category. Commands marked *hidden* do
 | Retire Clean Copies... | Retires identical repo copies of skills and agents after you pick them. See [Duplicates](duplicates.md#retire-clean-copies). | Palette, Repositories node, Fleet overview |
 | Rename Marketplace... | Renames a directory marketplace in the settings files, then re-registers it in a terminal. See [Marketplace health](marketplace-health.md#rename-a-directory-marketplace). | Palette, Marketplace health page |
 | Open Repo (*hidden*) | Opens a repo's page | Right-click on a repo row |
+| Rename Session... | Renames a Claude Code session the way `/rename` does, so `/resume` shows the new name. See [Sessions](sessions.md#sessions-in-the-tree). | Palette, right-click on a session row |
 | Open Session (*hidden*) | Opens a Claude Code session's page. See [Sessions](sessions.md). | Session rows in the tree |
 | Remove Line (*hidden*) | Deletes a line that a CodeLens or quick fix flags. See [CLAUDE.md lenses](claude-md-lenses.md). | CodeLens, quick fix |
 | Repoint... (*hidden*) | Replaces a dead pointer with a name you pick. See [CLAUDE.md lenses](claude-md-lenses.md#dead-pointers). | CodeLens |

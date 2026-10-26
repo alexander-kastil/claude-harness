@@ -63,6 +63,12 @@ export interface PanelHost {
   /** Without a confirmed answer and a remembered one, asks in the panel through `ask` and returns idle. */
   draftStyle?(scopeId: string, id: string, model: string, started: () => void, answer: Answer, ask: (c: Confirm) => void): Promise<StyleDraft>;
   exportSession?(scopeId: string, id: string): Promise<void>;
+  /** The files Claude changed after the checkpoint at a prompt, and what restoring each does. */
+  checkpointFiles?(scopeId: string, id: string, checkpoint: string): Promise<{ path: string; action: 'overwrite' | 'remove' | 'recreate' }[]>;
+  /** Opens one of those files in the diff editor: the checkpoint's copy against the file now. */
+  checkpointDiff?(scopeId: string, id: string, checkpoint: string, file: string): Promise<void>;
+  /** Asks in the panel, then puts the files back as the checkpoint had them; none when the owner cancelled. */
+  checkpointRestore?(scopeId: string, id: string, checkpoint: string): Promise<{ count: number; failed: string[] } | undefined>;
   /** Opens a terminal in the session's repo with a new Claude that is a copy of the session; asks first like draftStyle. */
   analyzeSession?(scopeId: string, id: string, answer: Answer, ask: (c: Confirm) => void): Promise<void>;
   /** Opens a terminal that resumes the session itself (no copy); asks first like analyzeSession. */
@@ -398,6 +404,21 @@ export class HarnessPanel {
       case 'exportSession':
         await this.host.exportSession?.(m.scope, m.id);
         return;
+      case 'checkpointFiles': {
+        const files = (await this.host.checkpointFiles?.(m.scope, m.id, m.checkpoint)) ?? [];
+        this.post({ type: 'checkpointFiles', scope: m.scope, id: m.id, checkpoint: m.checkpoint, files });
+        return;
+      }
+      case 'checkpointDiff':
+        await this.host.checkpointDiff?.(m.scope, m.id, m.checkpoint, m.file);
+        return;
+      case 'checkpointRestore': {
+        const restored = await this.host.checkpointRestore?.(m.scope, m.id, m.checkpoint);
+        if (!restored) return;
+        const files = (await this.host.checkpointFiles?.(m.scope, m.id, m.checkpoint)) ?? [];
+        this.post({ type: 'checkpointFiles', scope: m.scope, id: m.id, checkpoint: m.checkpoint, files, restored });
+        return;
+      }
       case 'analyzeSession':
         await this.host.analyzeSession?.(m.scope, m.id, { confirmed: m.confirmed, remember: m.remember }, ask => this.post({ type: 'confirm', ask }));
         return;

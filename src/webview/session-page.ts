@@ -11,7 +11,7 @@ import { drawMap } from './map';
 import { renderMarkdown } from './markdown';
 import { colorsOf, modeSwitch, peakParallel } from './session-common';
 import { sessionTable } from './sessions';
-import { drawTimeline, renderAgent } from './timeline';
+import { drawTimeline, renderAgent, renderCheckpoint } from './timeline';
 
 export const SESSION_VIEWS = [
   ['timeline', 'Timeline', 'graph-line', 'When each agent ran, next to your prompts.'],
@@ -33,7 +33,7 @@ export function viewLegend(d) {
   const fact = text => el('span', { className: 'legend-item muted' }, text);
   const main = el('span', { className: 'legend-item' }, el('span', { className: 'swatch tone-main' }), 'main thread');
   const parts = {
-    timeline: [...types, el('span', { className: 'legend-break' }), fact('● prompt'), fact('○ result'), fact('▼ message'), el('span', { className: 'legend-item' }, el('span', { className: 'stop-glyph', 'aria-hidden': 'true' }, '×'), 'stopped')],
+    timeline: [...types, el('span', { className: 'legend-break' }), fact('● prompt'), fact('○ result'), fact('▼ message'), ...(d.checkpoints && d.checkpoints.length ? [fact('◯ checkpoint')] : []), el('span', { className: 'legend-item' }, el('span', { className: 'stop-glyph', 'aria-hidden': 'true' }, '×'), 'stopped')],
     map: [main, ...types],
     decisions: [fact('line width: prompts'), fact('gold: delegated')],
     concurrency: [...types, fact('height: agents running'), fact('one bar per agent run'), fact('ticks: prompts')],
@@ -108,7 +108,33 @@ export const selectAgent = (id, refocus) => {
   if (detail) detail.replaceWith(renderAgent(state.session.data));
 };
 
-export const fmtUsd = v => (v <= 0 ? '$0' : v < 0.01 ? '<$0.01' : v < 1000 ? `$${v.toFixed(2)}` : `$${Math.round(v).toLocaleString()}`);
+// Picks a checkpoint on the Timeline, or drops the pick when it is pressed again; the host answers with the files it changed.
+export const selectCheckpoint = (id, refocus) => {
+  const s = state.session;
+  if (!s || !s.data) return;
+  s.checkpoint = s.checkpoint === id ? undefined : id;
+  s.cpFiles = undefined;
+  s.cpRestored = undefined;
+  if (s.checkpoint) vscode.postMessage({ type: 'checkpointFiles', scope: s.scope, id: s.id, checkpoint: id });
+  const host = app.querySelector('.timeline');
+  if (host) drawView(host, s.data);
+  if (host && refocus) {
+    const mark = [...host.querySelectorAll('.tl-cp')].find(g => g.dataset.checkpoint === id);
+    if (mark) mark.focus();
+  }
+  redrawCheckpoint();
+};
+
+export const redrawCheckpoint = () => {
+  const s = state.session;
+  const detail = app.querySelector('.cp-detail');
+  if (!s || !s.data || !detail) return;
+  const next = renderCheckpoint(s.data);
+  detail.replaceWith(next);
+  if (s.checkpoint && s.cpFiles === undefined) next.scrollIntoView({ block: 'nearest' });
+};
+
+export const fmtUsd =v => (v <= 0 ? '$0' : v < 0.01 ? '<$0.01' : v < 1000 ? `$${v.toFixed(2)}` : `$${Math.round(v).toLocaleString()}`);
 
 export const fmtShare = (v, grant) => {
   const p = (v / grant) * 100;
@@ -464,6 +490,7 @@ export function renderSession() {
         el('div', { className: 'view-box' }, timeline, legend)
       ),
       renderAgent(d),
+      renderCheckpoint(d),
       renderReview(d),
       d.children.length
         ? el(

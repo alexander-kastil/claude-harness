@@ -2,6 +2,19 @@
 
 All notable changes to Claude Harness are listed here, newest first. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions with no version change in the package.json history (0.1.3, 0.1.5 to 0.1.18, 0.1.20 to 0.1.24, 0.1.27, 0.2.1 and 0.2.3 to 0.2.11) and development builds (0.2.14 to 0.2.22, 0.2.24 to 0.2.30, 0.2.32 to 0.2.34, 0.2.36 to 0.2.44, 0.3.0, 0.3.2, 0.4.1 to 0.4.3, 0.5.2 and 0.5.3) have no entry.
 
+## [0.6.5] - 2026-10-26
+
+### Added
+
+- Checkpoints on the Session page's Timeline. A ring marks every prompt where Claude Code saved a checkpoint of the files it edits. Click a ring to list the files Claude changed after that prompt; each file opens in VS Code's side-by-side diff, the file as it was at the prompt on the left and as it is now on the right.
+- Restore files to here, in a checkpoint's detail. A card names every file it will overwrite, recreate or remove before anything is written. It undoes the edits Claude made with its own edit tools back to that prompt, not the whole folder: changes from shell commands or by hand are not in a checkpoint.
+- Rewind the conversation, beside it in the Claude button group. It opens the session in a terminal, like Continue, where Claude's own rewind takes the conversation back. The extension never edits the transcript.
+- Rename Session, on a session row's right-click menu and in the palette. An input box is prefilled with the session's current name. Confirming writes the name the way Claude Code's `/rename` does, so `/resume` shows it too; Escape or an empty name changes nothing. From the palette it first asks which session.
+
+### Changed
+
+- A session is named in the order `/resume` uses: its agent name, then its custom title (`/rename`), its AI-generated title, its summary, its first prompt, and last the first 8 characters of its id. Before, a session was always named by its first prompt.
+
 ## [0.6.0] - 2026-10-25
 
 ### Added

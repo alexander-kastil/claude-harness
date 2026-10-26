@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
+import { Checkpoint, CheckpointFile, changedSince, checkpointsOf, historyDir, readSnapshots } from './checkpoints';
 import { TranscriptHook, hookFailures, transcriptHooks } from './events';
 import { projectSlug } from './fleet';
 import { EDIT_TOOLS, buildFindings } from './findings';
@@ -203,6 +204,8 @@ export interface SessionDetail {
   style: StyleScan;
   /** What hooks did, read from the main and the subagent transcripts; the host turns them into mod layers. */
   hooks: TranscriptHook[];
+  /** The prompts where Claude Code saved a checkpoint of the files it edits; empty when it edited none. */
+  checkpoints: Checkpoint[];
 }
 
 type Rec = Record<string, any>;
@@ -310,6 +313,69 @@ function readHead(file: string, bytes: number, size: number): Rec[] {
   }
 }
 
+function readTail(file: string, bytes: number, size: number): Rec[] {
+  const fd = fs.openSync(file, 'r');
+  try {
+    const len = Math.min(bytes, size);
+    const buf = Buffer.alloc(len);
+    const n = fs.readSync(fd, buf, 0, len, size - len);
+    const lines = buf.subarray(0, n).toString('utf8').split('\n');
+    if (size > len) lines.shift();
+    return lines.flatMap(parseLine);
+  } finally {
+    fs.closeSync(fd);
+  }
+}
+
+const TITLE_WINDOW = 64 * 1024;
+const TITLE_KEYS = [
+  ['agent-name', 'agentName'],
+  ['custom-title', 'customTitle'],
+  ['ai-title', 'aiTitle'],
+  ['summary', 'summary'],
+] as const;
+
+/**
+ * The title records of a session as `/resume` reads them: the first and last 64 KB of the file, and for each key
+ * the last occurrence wins, the tail before the head.
+ */
+export function titleRecords(file: string, size: number): Record<string, string> {
+  const head = readHead(file, TITLE_WINDOW, size);
+  const tail = readTail(file, TITLE_WINDOW, size);
+  const out: Record<string, string> = {};
+  for (const [type, key] of TITLE_KEYS) {
+    for (const records of [tail, head]) {
+      const v = records.filter(o => o.type === type && typeof o[key] === 'string' && o[key].trim()).pop()?.[key];
+      if (v) {
+        out[key] = v.trim();
+        break;
+      }
+    }
+  }
+  return out;
+}
+
+/** The name `/resume` shows: agent name, custom title, AI title, summary, first prompt, then the first 8 characters of the id. */
+export const sessionTitle = (titles: Record<string, string>, prompt: string | undefined, id: string): string =>
+  titles.agentName || titles.customTitle || titles.aiTitle || titles.summary || prompt?.trim() || id.slice(0, 8);
+
+/** Renames a session the way `/rename` does: a custom-title record (and an agent-name record when the session has one) and the sidecar file. */
+export function renameSession(file: string, title: string): void {
+  const id = path.basename(file, '.jsonl');
+  const name = title.trim();
+  const size = fs.statSync(file).size;
+  const named = Object.keys(titleRecords(file, size)).includes('agentName');
+  const lines = [{ type: 'custom-title', customTitle: name, sessionId: id }, ...(named ? [{ type: 'agent-name', agentName: name, sessionId: id }] : [])];
+  const fd = fs.openSync(file, 'r');
+  const last = Buffer.alloc(1);
+  const unterminated = size > 0 && fs.readSync(fd, last, 0, 1, size - 1) === 1 && last[0] !== 10;
+  fs.closeSync(fd);
+  fs.appendFileSync(file, (unterminated ? '\n' : '') + lines.map(l => JSON.stringify(l)).join('\n') + '\n');
+  const dir = path.join(path.dirname(file), id);
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, 'custom-title.json'), JSON.stringify({ customTitle: name }));
+}
+
 const readdir = (dir: string) => {
   try {
     return fs.readdirSync(dir);
@@ -379,7 +445,7 @@ function summaryOf(file: string, live: Map<string, string>): SessionSummary | un
     summary = {
       id,
       file,
-      title: prompt ?? 'No prompt',
+      title: sessionTitle(titleRecords(file, stat.size), prompt, id),
       start: time(first),
       end: stat.mtimeMs,
       size: stat.size,
@@ -925,6 +991,12 @@ function statusOf(run: AgentRun, reports: Report[], stopped: boolean, finished: 
   return reports.length ? 'done' : 'unknown';
 }
 
+/** The files Claude changed after the checkpoint at a prompt, read fresh from the transcript and the disk. */
+export async function checkpointFiles(summary: SessionSummary, checkpointId: string): Promise<CheckpointFile[]> {
+  const snaps = readSnapshots(await readRecords(summary.file));
+  return changedSince(snaps, checkpointId, historyDir(summary.file, summary.id));
+}
+
 const details = new Map<string, { mtime: number; size: number; detail: SessionDetail }>();
 
 /** Reads a session transcript and its subagent transcripts into a delegation timeline. */
@@ -1115,6 +1187,7 @@ export async function readSession(summary: SessionSummary): Promise<SessionDetai
     findings,
     style: scanStyle(main, prompts),
     hooks,
+    checkpoints: checkpointsOf(readSnapshots(records)),
   };
   details.set(file, { mtime: newest, size: stat.size, detail });
   return detail;

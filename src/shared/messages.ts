@@ -254,6 +254,12 @@ export type ToHost =
   | { type: 'fixFinding'; scope: string; text: string; file?: string; line?: number }
   /** The owner's answer to a `panel` card: its token, and which button. */
   | { type: 'answer'; token: string; choice: 'ok' | 'alt' | 'cancel'; /** From a card with an input. */ text?: string; /** From a card with choices. */ picked?: string[] }
+  /** The files Claude changed after a prompt's checkpoint; answered by `checkpointFiles`. */
+  | { type: 'checkpointFiles'; scope: string; id: string; checkpoint: string }
+  /** Opens one of those files in the side-by-side diff, the checkpoint's copy on the left and the file now on the right. */
+  | { type: 'checkpointDiff'; scope: string; id: string; checkpoint: string; file: string }
+  /** Puts those files back as the checkpoint had them; always asks first, listing every file it overwrites or removes. */
+  | { type: 'checkpointRestore'; scope: string; id: string; checkpoint: string }
   | { type: 'importSession'; scope: string }
   | { type: 'openAt'; file: string; line?: number }
   /** Where an agent or skill was used; `build` builds the transcript index when none exists yet. */
@@ -299,6 +305,8 @@ export type ToWebview =
   | { type: 'weekly'; list: unknown }
   | { type: 'session'; scope: string; id: string; data: unknown }
   | ({ type: 'styleDraft'; scope: string; id: string } & StyleDraft)
+  /** For `checkpointFiles`; `restored` follows a restore, with the files that could not be written. */
+  | { type: 'checkpointFiles'; scope: string; id: string; checkpoint: string; files: { path: string; action: 'overwrite' | 'remove' | 'recreate' }[]; restored?: { count: number; failed: string[] } }
   | { type: 'confirm'; ask: Confirm }
   /** For `usage`: progress messages carry `indexing` while the index is built or brought up to date, the last one `sessions` or `built: false`. */
   | { type: 'usageInfo'; id: string; sessions?: UsageSession[]; indexing?: Progress; built?: false }

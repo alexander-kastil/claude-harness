@@ -990,6 +990,112 @@ table.grid .cell {
   fill: var(--vscode-foreground);
 }
 
+.tl-cp {
+  cursor: pointer;
+  outline: none;
+}
+
+.tl-cp-ring {
+  fill: transparent;
+  stroke: var(--vscode-textLink-foreground);
+  stroke-width: 1.5;
+  pointer-events: all;
+}
+
+.tl-cp:hover .tl-cp-ring,
+.tl-cp:focus-visible .tl-cp-ring,
+.tl-cp.sel .tl-cp-ring {
+  fill: color-mix(in srgb, var(--vscode-textLink-foreground) 30%, transparent);
+  stroke-width: 2.5;
+}
+
+.cp-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cp-detail[hidden] {
+  display: none;
+}
+
+.cp-prompt,
+.cp-hint,
+.cp-empty {
+  color: var(--vscode-descriptionForeground);
+}
+
+.cp-files {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cp-file {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 6px;
+  text-align: left;
+  background: transparent;
+  color: var(--vscode-foreground);
+  border: 0;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.cp-file:hover {
+  background: var(--vscode-list-hoverBackground);
+}
+
+.cp-path {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  direction: rtl;
+  text-align: left;
+}
+
+.cp-action {
+  color: var(--vscode-descriptionForeground);
+}
+
+.cp-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.cp-actions .cp-restore {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  color: var(--vscode-button-secondaryForeground);
+  background: var(--vscode-button-secondaryBackground, transparent);
+  border: 1px solid var(--vscode-button-border, var(--vscode-widget-border, var(--vscode-contrastBorder, #8884)));
+  border-radius: 2px;
+  cursor: pointer;
+}
+
+.cp-actions .cp-restore:hover:not(:disabled) {
+  background: var(--vscode-button-secondaryHoverBackground);
+}
+
+.cp-actions .cp-restore:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.cp-note {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
 .tl-link,
 .tl-queue {
   stroke: var(--vscode-descriptionForeground);

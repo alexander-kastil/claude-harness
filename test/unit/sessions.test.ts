@@ -4,7 +4,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { test } from 'node:test';
 import { projectSlug } from '../../src/fleet';
-import { listSessions, messageCost, promptText, readSession } from '../../src/sessions';
+import { listSessions, messageCost, promptText, readSession, renameSession } from '../../src/sessions';
 
 const at = (hms: string) => `2026-10-20T${hms}.000Z`;
 const ms = (hms: string) => Date.parse(at(hms));
@@ -204,4 +204,35 @@ test('readSession reads teammates, their idle reports and the agents they start'
     d.agents.map(a => a.id),
     ['afacts-a-123', nested.id]
   );
+});
+
+test('a session is named in the order of /resume and renamed like /rename', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-title-'));
+  const root = path.join(tmp, '.claude');
+  const repo = path.join(tmp, 'repo');
+  fs.mkdirSync(repo, { recursive: true });
+  const folder = path.join(root, 'projects', projectSlug(repo));
+  fs.mkdirSync(folder, { recursive: true });
+  const sid = '99999999-2222-3333-4444-555555555555';
+  const file = path.join(folder, `${sid}.jsonl`);
+  const prompt = { type: 'user', timestamp: at('10:00:00'), cwd: repo, entrypoint: 'cli', sessionId: sid, message: { role: 'user', content: 'first prompt text' } };
+  const write = (extra: unknown[]) => fs.writeFileSync(file, [prompt, ...extra].map(r => JSON.stringify(r)).join('\n') + '\n');
+  const title = () => listSessions(repo, root)[0].title;
+  write([]);
+  assert.equal(title(), 'first prompt text');
+  write([{ type: 'summary', summary: 'a summary', leafUuid: 'x' }]);
+  assert.equal(title(), 'a summary');
+  write([{ type: 'summary', summary: 'a summary' }, { type: 'ai-title', aiTitle: 'ai one', sessionId: sid }, { type: 'ai-title', aiTitle: 'ai two', sessionId: sid }]);
+  assert.equal(title(), 'ai two');
+  renameSession(file, 'my name');
+  assert.equal(title(), 'my name');
+  assert.equal(JSON.parse(fs.readFileSync(path.join(folder, sid, 'custom-title.json'), 'utf8')).customTitle, 'my name');
+  assert.ok(!fs.readFileSync(file, 'utf8').includes('"agent-name"'));
+  write([{ type: 'agent-name', agentName: 'named', sessionId: sid }, { type: 'custom-title', customTitle: 'named', sessionId: sid }]);
+  assert.equal(title(), 'named');
+  renameSession(file, 'renamed');
+  assert.equal(title(), 'renamed');
+  fs.writeFileSync(file, JSON.stringify({ type: 'system', timestamp: at('10:00:00') }) + '\n');
+  assert.equal(title(), sid.slice(0, 8));
+  fs.rmSync(tmp, { recursive: true, force: true });
 });
