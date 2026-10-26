@@ -80,7 +80,7 @@ test('the panel opens on the overview with every tile counted and data in the li
   await home();
   await notBlank('overview');
   const tiles = await labels('.main .overview .tile');
-  assert.deepEqual(tiles.map(t => t.replace(/^\d+/, '')), ['Memory', 'Rules', 'Agents', 'Skills', 'Commands', 'Output Styles', 'Workflows', 'Hooks', 'Hook Scripts', 'MCP Servers', 'Plugins', 'Settings']);
+  assert.deepEqual(tiles.map(t => t.replace(/^\d+/, '')), ['Memory', 'Rules', 'Agents', 'Skills', 'Commands', 'Output Styles', 'Workflows', 'Hooks', 'Mods', 'MCP Servers', 'Plugins', 'Settings']);
   assert.match(await text('.main-head .path'), /68 global assets · 5 repositories/);
 });
 
@@ -567,6 +567,9 @@ test('the Models tab of a repo breaks the last 7 days down by model and agent ty
   assert.match(body, /opus-5-5/);
   assert.match(body, /haiku-5-5/);
   assert.match(body, /BY AGENT TYPE/i);
+  const bars = await s.ev(D => ({ share: D.querySelectorAll('.main-body .wk-share .wk-bar').length, mix: D.querySelectorAll('.main-body .wk-mix').length }));
+  assert.ok(bars.share >= 2, `every row shows its share of the cost as a bar, got ${bars.share}`);
+  assert.ok(bars.mix >= 2, `every model row shows its token mix as a bar, got ${bars.mix}`);
 });
 
 test('the MCP server page says why a server failed and offers Retry', T, async () => {
@@ -838,6 +841,22 @@ test('the sidebar scrolls the opened element into view, unfolding its section', 
   } finally {
     await s.resize();
   }
+});
+
+test('every row of a type table suppresses the browser menu', T, async () => {
+  for (const kind of ['Skills', 'Agents', 'Rules', 'Commands']) {
+    await tile(kind);
+    const bad = await s.ev(D => [...D.querySelectorAll('.at-row')].filter(r => !JSON.parse(r.getAttribute('data-vscode-context') || '{}').preventDefaultContextMenuItems).length);
+    assert.equal(bad, 0, `${kind}: every row carries preventDefaultContextMenuItems`);
+  }
+});
+
+test('a preset beside the Scope chip says that two filters apply', T, async () => {
+  await tile('Skills');
+  await s.mouse('.main button.preset', 'Changed this week');
+  const label = await s.ev(D => D.querySelector('.filter-bar .filter-on')?.textContent);
+  assert.match(label || '', /^2 filters on$/);
+  await s.mouse('.main button.preset', 'Changed this week');
 });
 
 test('right-clicking a repo row opens the harness menu, never Cut, Copy and Paste', T, async () => {

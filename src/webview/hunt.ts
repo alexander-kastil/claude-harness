@@ -8,7 +8,7 @@ import { showKindPage } from './kind-page';
 import { card, newCard } from './hunt-card';
 import { chatView } from './hunt-chat';
 import { marketPicker } from './hunt-picker';
-import { hunt, repaint } from './hunt-state';
+import { hunt, repaint, tickWait } from './hunt-state';
 
 export const openHunt = () => {
   vscode.postMessage({ type: 'huntInfo' });
@@ -27,6 +27,8 @@ export function onHuntMessage(m) {
     if (!hunt.picked || !m.info.markets.some(k => k.name === hunt.picked && k.owned)) hunt.picked = m.info.picked;
   } else if (m.type === 'huntRun') {
     hunt.running = m.state === 'running';
+    if (hunt.running) hunt.startedAt = Date.now();
+    tickWait(hunt.running);
     hunt.pending = m.state === 'running' ? hunt.prompt : '';
     hunt.error = m.state === 'error' ? m.error || 'Claude could not answer. Your message is still in the box.' : '';
     if (m.state === 'done') {
@@ -59,8 +61,9 @@ export function renderHunt() {
   const ask = el('textarea', {
     className: 'hunt-ask-text',
     rows: 4,
-    placeholder: 'Message Claude, e.g. "search all angular related harness elements", "create the plugin" or "take angular-pwa-swa out"',
-    value: hunt.prompt,
+    placeholder: hunt.running ? 'Claude is answering. Your message is in the conversation below.' : 'Message Claude, e.g. "search all angular related harness elements", "create the plugin" or "take angular-pwa-swa out"',
+    // The sent message shows once, in the conversation; the box holds it again only if the answer fails.
+    value: hunt.running ? '' : hunt.prompt,
     readonly: hunt.running,
     'aria-label': 'Message to Claude',
     oninput: e => {
@@ -85,12 +88,12 @@ export function renderHunt() {
         { className: 'hunt-ask' },
         ask,
         hunt.error ? el('div', { className: 'notice bad', role: 'alert' }, hunt.error) : null,
-        el('div', { className: 'hunt-ask-actions' }, hunt.notice ? el('span', { className: 'hunt-note', role: 'status' }, icon('check'), hunt.notice) : null, el('span', { className: 'spacer' }), el('button', { className: 'secondary', onclick: newCard }, icon('add'), 'New plugin'), aiGroup('', huntBtn))
+        el('div', { className: 'hunt-ask-actions' }, hunt.notice ? el('span', { className: 'hunt-note', role: 'status' }, icon('check'), hunt.notice) : null, el('span', { className: 'spacer' }), el('button', { className: 'secondary', disabled: hunt.running, onclick: newCard }, icon('add'), 'New plugin'), aiGroup('', huntBtn))
       ),
       noMarket(),
       chatView(),
       hunt.info ? null : el('div', { className: 'empty flush' }, 'Reading your skills and agents...'),
-      cards.length ? cards.map(card) : hunt.info ? el('div', { className: 'empty flush' }, 'No plugin cards yet.') : null
+      cards.length ? cards.map(card) : hunt.info ? el('div', { className: 'empty flush' }, 'No plugin cards yet. Ask Claude above to search your skills and agents, or press New plugin.') : null
     )
   );
 }

@@ -1502,6 +1502,182 @@
       "catalogue": {
         "action": "none"
       }
+    },
+    {
+      "date": "2026-10-25",
+      "from": "13:50",
+      "to": "15:10",
+      "sessionId": "a0615f30-f999-442e-b167-ed2711f2037d",
+      "branch": "6-x",
+      "commits": [
+        "dc32ac3",
+        "b21b95c",
+        "6c79993"
+      ],
+      "surfaces": [
+        "claude-harness"
+      ],
+      "files": [
+        "src/quota.ts",
+        "src/countdown.ts",
+        "src/image-paste.ts",
+        "src/webview/confirm.ts",
+        "src/webview/kind-page.ts",
+        "src/webview/context.ts",
+        "src/webview/repo-page.ts",
+        "src/webview/week-tile.ts",
+        "src/webview/dom.ts"
+      ],
+      "mechanism": {
+        "takes": "a developer's AI assistant plan usage, clipboard images pasted into a terminal, and the assistant's local configuration and session history",
+        "does": "draws the plan's usage and the time left until each limit resets inside the status bar hover, saves a pasted image to a temporary file and types its path into the assistant's terminal prompt, and makes the configuration browser state which window and which filters its figures cover",
+        "returns": "a usage figure with reset countdowns, an image reference the terminal assistant can read, and tables, filter bars and cards that no longer contradict or cover each other"
+      },
+      "portsAsIs": [
+        "clipboard image to file path paste for terminal assistants",
+        "usage meter with reset countdowns in an editor status bar hover"
+      ],
+      "perCustomer": [
+        "the plan limits the meter reads"
+      ],
+      "evidence": [
+        "tests: 149 unit, 68 UI on a fresh test root",
+        "Marketplace pipeline run 323 published v0.6.0",
+        "issues #13 and #10 closed by commit 6c79993 on branch 6-x"
+      ],
+      "toolchain": {
+        "skills": [
+          "vscode-extension",
+          "publish-vscode-ext",
+          "mod-authoring",
+          "claude-orchestration",
+          "report",
+          "create-handoff",
+          "claude-learn",
+          "track-time"
+        ],
+        "mcpServers": [],
+        "agents": [
+          "vscode-ext-specialist",
+          "subagent-delegation-plugin:fact-gatherer",
+          "general-purpose"
+        ]
+      },
+      "industry": "software tooling for developers",
+      "status": "Live",
+      "catalogue": {
+        "action": "none"
+      }
+    },
+    {
+      "date": "2026-10-26",
+      "from": "12:03",
+      "to": "12:46",
+      "sessionId": "b52c76fb-99f3-43ed-9789-f67c3e83cae4",
+      "branch": "6-x",
+      "commits": [],
+      "surfaces": [
+        "claude-harness"
+      ],
+      "files": [
+        "src/sessions.ts",
+        "src/extension.ts",
+        "package.json",
+        "test/unit/sessions.test.ts"
+      ],
+      "mechanism": {
+        "takes": "the session transcripts an AI coding assistant writes to disk",
+        "does": "names every session by the same precedence the assistant's own resume picker applies (agent name, a title the user set, a generated title, a summary, the first prompt, the id), reading the title records from both ends of each transcript with the last one winning, and renames a session from the editor by appending the same title records and sidecar file the assistant's own rename command writes",
+        "returns": "session lists whose names match the assistant's resume picker, and renames that the picker shows as well"
+      },
+      "portsAsIs": [
+        "resume-consistent session naming over Claude Code transcripts",
+        "out-of-process session rename compatible with the assistant's own rename"
+      ],
+      "perCustomer": [],
+      "evidence": [
+        "tests: 152 unit",
+        "isolated VS Code: a fixture session renamed from the palette, Escape writes nothing",
+        "real sessions read only: agent name, custom title and first prompt fallbacks shown as the resume picker shows them"
+      ],
+      "toolchain": {
+        "skills": [
+          "vscode-extension",
+          "report",
+          "claude-orchestration",
+          "claude-learn",
+          "claude-learn-harvest",
+          "claude-learn-worktime",
+          "track-time"
+        ],
+        "mcpServers": [],
+        "agents": [
+          "subagent-delegation-plugin:fact-gatherer",
+          "general-purpose",
+          "vscode-ext-specialist",
+          "fork"
+        ]
+      },
+      "industry": "software tooling for developers",
+      "status": "Built and running in-house",
+      "catalogue": {
+        "action": "none"
+      }
+    },
+    {
+      "date": "2026-10-26",
+      "from": "12:09",
+      "to": "12:46",
+      "sessionId": "c7cbbcc7-73cd-4d1d-b4b6-34f260d8f59b",
+      "branch": "6-x",
+      "commits": [],
+      "surfaces": [
+        "claude-harness"
+      ],
+      "files": [
+        "src/checkpoints.ts",
+        "src/webview/timeline.ts",
+        "src/webview/session-page.ts",
+        "src/sessions.ts",
+        "src/extension.ts",
+        "src/shared/messages.ts"
+      ],
+      "mechanism": {
+        "takes": "an AI coding assistant's session transcript and the per-prompt backups it keeps of the files it edits",
+        "does": "marks every prompt with a saved file checkpoint on the session's timeline, lists the files that differ from that checkpoint with a then-and-now side-by-side diff, writes them back after a confirmation that names each overwrite, recreate or removal, and hands conversation rewind back to the assistant in a terminal",
+        "returns": "a visual checkpoint history of the session and a working tree whose assistant-made edits are put back to the chosen prompt"
+      },
+      "portsAsIs": [
+        "checkpoint markers on a session timeline",
+        "restore to a prompt behind a confirm card that lists each file"
+      ],
+      "perCustomer": [],
+      "evidence": [
+        "tests: 152 unit (npm test)",
+        "isolated VS Code check on a scratch session: checkpoint rings, file list, side-by-side diff, confirm card and a real restore",
+        "installed as 0.6.5 by sideload with -NoBump"
+      ],
+      "toolchain": {
+        "skills": [
+          "vscode-extension",
+          "claude-orchestration",
+          "report",
+          "claude-learn",
+          "claude-learn-worktime",
+          "track-time"
+        ],
+        "mcpServers": [],
+        "agents": [
+          "vscode-ext-specialist",
+          "subagent-delegation-plugin:fact-gatherer",
+          "fork"
+        ]
+      },
+      "industry": "software tooling for developers",
+      "status": "Built and running in-house",
+      "catalogue": {
+        "action": "none"
+      }
     }
   ]
 }

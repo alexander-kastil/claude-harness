@@ -2,7 +2,7 @@
   "name": "claude-harness",
   "displayName": "Claude Harness",
   "description": "Visualize and edit your Claude Code harness in VS Code: memory, rules, agents, skills, commands, output styles, workflows, hooks, MCP servers and plugins, globally and per repository.",
-  "version": "0.6.0",
+  "version": "0.6.5",
   "publisher": "integrations-at",
   "license": "SEE LICENSE IN LICENSE",
   "icon": "media/icon.png",
@@ -553,6 +553,12 @@
         "icon": "$(type-hierarchy-sub)"
       },
       {
+        "command": "claudeHarness.renameSession",
+        "title": "Rename Session...",
+        "category": "Claude Harness",
+        "icon": "$(edit)"
+      },
+      {
         "command": "claudeHarness.removeLine",
         "title": "Remove Line",
         "category": "Claude Harness"
@@ -706,6 +712,11 @@
           "command": "claudeHarness.reveal",
           "when": "view == claudeHarness.tree && viewItem =~ /^(asset|file)/",
           "group": "1_open@2"
+        },
+        {
+          "command": "claudeHarness.renameSession",
+          "when": "view == claudeHarness.tree && viewItem == session",
+          "group": "2_edit@1"
         },
         {
           "command": "claudeHarness.rename",

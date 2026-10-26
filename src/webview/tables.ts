@@ -58,7 +58,7 @@ export function gridTable(cols, rows, label) {
   const table = el(
     'div',
     { className: 'asset-table', role: 'table', 'aria-label': label },
-    el('div', { className: 'at-row at-head', role: 'row' }, cols.map(c => el('span', { className: cellClass(c), role: 'columnheader', title: c.tip }, c.head))),
+    el('div', { className: 'at-row at-head', role: 'row', 'data-vscode-context': JSON.stringify({ webviewSection: 'asset', preventDefaultContextMenuItems: true }) }, cols.map(c => el('span', { className: cellClass(c), role: 'columnheader', title: c.tip }, c.head))),
     rows.map(r =>
       el(
         'div',

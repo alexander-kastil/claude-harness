@@ -16,6 +16,7 @@ export type Kind =
   | 'workflow'
   | 'hook'
   | 'hookScript'
+  | 'mod'
   | 'mcp'
   | 'plugin'
   | 'settings';
@@ -59,7 +60,7 @@ export const KINDS: KindInfo[] = [
   { kind: 'outputStyle', label: 'Output Styles', icon: 'symbol-color', creatable: true, markdown: true, fields: ['name', 'description', 'keep-coding-instructions'] },
   { kind: 'workflow', label: 'Workflows', icon: 'type-hierarchy', creatable: true, markdown: false, fields: [] },
   { kind: 'hook', label: 'Hooks', icon: 'zap', creatable: false, markdown: false, fields: [] },
-  { kind: 'hookScript', label: 'Hook Scripts', icon: 'file-code', creatable: false, markdown: false, fields: [] },
+  { kind: 'mod', label: 'Mods', icon: 'beaker', creatable: false, markdown: false, fields: [] },
   { kind: 'mcp', label: 'MCP Servers', icon: 'server', creatable: false, markdown: false, fields: [] },
   { kind: 'plugin', label: 'Plugins', icon: 'extensions', creatable: false, markdown: false, fields: [] },
   { kind: 'settings', label: 'Settings', icon: 'settings-gear', creatable: false, markdown: false, fields: [] },
@@ -620,8 +621,7 @@ export function scan(scope: HarnessScope): Category[] {
     })
   );
 
-  items.set(
-    'hookScript',
+  const hookScripts =
     listFiles(path.join(root, 'hooks'), () => true, true).map(rel => {
       const file = path.join(root, 'hooks', rel);
       const name = rel.split(path.sep).join('/');
@@ -632,8 +632,8 @@ export function scan(scope: HarnessScope): Category[] {
         // an unreadable script has no line count
       }
       return make('hookScript', name, { name, description: '', file, mtime: mtimeOf(file), lines });
-    })
-  );
+    });
+  items.get('hook')!.push(...hookScripts);
 
   const settingsFile = path.join(root, 'settings.json');
   const settings = readJson(settingsFile);
@@ -694,15 +694,15 @@ export function scan(scope: HarnessScope): Category[] {
   const pluginKeys = new Set([...Object.keys(enabled), ...Object.entries(installed).filter(([, e]) => e.some(x => x.scope === 'user')).map(([k]) => k)]);
   for (const key of [...pluginKeys].sort((a, b) => a.localeCompare(b))) {
     const version = (installed[key] ?? []).find(x => x.scope === 'user')?.version ?? (installed[key] ?? [])[0]?.version;
-    items.get('plugin')!.push(
-      make('plugin', key, {
-        name: key,
-        description: [enabled[key] === true ? 'enabled' : 'disabled', version].filter(Boolean).join(' · '),
-        file: settingsFile,
-        enabled: enabled[key] === true,
-        mtime: mtimeOf(settingsFile),
-      })
-    );
+    const plugin = make('plugin', key, {
+      name: key,
+      description: [enabled[key] === true ? 'enabled' : 'disabled', version].filter(Boolean).join(' · '),
+      file: settingsFile,
+      enabled: enabled[key] === true,
+      mtime: mtimeOf(settingsFile),
+    });
+    items.get('plugin')!.push(plugin);
+    if (pluginIsMod(root, key)) items.get('mod')!.push(plugin);
   }
 
   for (const name of ['settings.json', 'settings.local.json']) {

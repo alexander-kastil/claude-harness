@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
+import { restoreFiles } from './checkpoints';
 import { Constitution } from './constitution';
 import { consolidateApply, consolidatePlan, mergePrompt, routesOf } from './consolidate';
 import type { ConsolidateRoute, ConsolidateTarget } from './shared/messages';
@@ -61,12 +62,12 @@ import {
 import { HarnessPanel, PanelHost } from './panel';
 import { pathText, saveClipboardImage } from './image-paste';
 import { claudeCli, claudeCommand, claudeExecutable, defaultCwd, openTerminal, uniqueTerminalName } from './terminals';
-import { Account, accountWeek, findAccountSession, importTranscript, listAccountSessions, parseAccounts, readSession } from './sessions';
+import { Account, accountWeek, checkpointFiles, findAccountSession, importTranscript, listAccountSessions, parseAccounts, readSession, renameSession } from './sessions';
 import { STYLE_MODELS, StyleModel, draftStyle, stylePrompt, writeStyleDraft } from './style';
 import { Specialist, fitGeneralFindings } from './findings';
 import { pickTools, splitTools, TOOL_FIELDS } from './tools';
 import { modActivity, repoTrace } from './trace';
-import { HarnessTree, Node } from './tree';
+import { HarnessTree, Node, sessionText } from './tree';
 import { UsageIndex } from './usage';
 import type { Progress } from './usage';
 import { hookRows, hookTarget } from './usage-hooks';
@@ -251,6 +252,20 @@ export function activate(context: vscode.ExtensionContext): void {
     checksChanged.fire();
   });
 
+  // The checkpoint's copy of a file for the diff editor: the saved backup named in the query, empty when the file did not exist then.
+  context.subscriptions.push(
+    vscode.workspace.registerTextDocumentContentProvider('claude-harness-checkpoint', {
+      provideTextDocumentContent: uri => {
+        const backup = new URLSearchParams(uri.query).get('backup');
+        return backup && fs.existsSync(backup) ? fs.readFileSync(backup, 'utf8') : '';
+      },
+    })
+  );
+  const checkpointSession = (id: string, sessionId: string) => {
+    const scope = scopes.find(s => s.id === id && s.id !== global.id);
+    return scope ? findAccountSession(scope.base, accounts(), sessionId) : undefined;
+  };
+
   const host: PanelHost = {
     views: () => views,
     find,
@@ -389,6 +404,38 @@ export function activate(context: vscode.ExtensionContext): void {
         return void vscode.window.showErrorMessage(`Could not export the transcript: ${(e as Error).message}`);
       }
       void vscode.window.showInformationMessage(`Exported the session transcript to ${target.fsPath}.`);
+    },
+    checkpointFiles: async (id, sessionId, checkpoint) => {
+      const summary = checkpointSession(id, sessionId);
+      return summary ? (await checkpointFiles(summary, checkpoint)).map(({ path, action }) => ({ path, action })) : [];
+    },
+    checkpointDiff: async (id, sessionId, checkpoint, file) => {
+      const summary = checkpointSession(id, sessionId);
+      const entry = summary ? (await checkpointFiles(summary, checkpoint)).find(f => f.path === file) : undefined;
+      if (!entry) return void vscode.window.showInformationMessage('That file no longer differs from the checkpoint.');
+      const then = vscode.Uri.from({ scheme: 'claude-harness-checkpoint', path: '/' + file.replace(/\\/g, '/'), query: new URLSearchParams(entry.backup ? { backup: entry.backup } : {}).toString() });
+      const now = entry.action === 'recreate' ? vscode.Uri.from({ scheme: 'claude-harness-checkpoint', path: '/' + file.replace(/\\/g, '/'), query: 'now=gone' }) : vscode.Uri.file(file);
+      await vscode.commands.executeCommand('vscode.diff', then, now, `${path.basename(file)}: at the checkpoint, now`);
+    },
+    checkpointRestore: async (id, sessionId, checkpoint) => {
+      const summary = checkpointSession(id, sessionId);
+      if (!summary) return void vscode.window.showErrorMessage('The session transcript is gone.');
+      const files = await checkpointFiles(summary, checkpoint);
+      if (!files.length) return { count: 0, failed: [] };
+      const verb = { overwrite: 'Overwrites', remove: 'Removes', recreate: 'Recreates' } as const;
+      const answer = await HarnessPanel.ask({
+        key: 'click',
+        glyph: 'history',
+        title: 'Restore files to here',
+        sub: `Undoes the edits Claude made after this prompt, in ${files.length} ${files.length === 1 ? 'file' : 'files'}`,
+        facts: files.map(f => `${verb[f.action]} ${f.path}`),
+        scroll: true,
+        action: 'Restore files',
+        danger: true,
+      });
+      if (answer !== 'ok') return undefined;
+      const { restored, failed } = restoreFiles(files);
+      return { count: restored, failed: failed.map(f => `${f.path}: ${f.error}`) };
     },
     analyzeSession: async (id, sessionId, answer, ask) => {
       const scope = scopes.find(s => s.id === id && s.id !== global.id);
@@ -1204,6 +1251,24 @@ export function activate(context: vscode.ExtensionContext): void {
       const repo = node && typeof node === 'object' && node.type === 'session' ? node.view.id : repoOfArg(arg)?.id;
       const id = node && typeof node === 'object' && node.type === 'session' ? node.session.id : sessionId;
       if (repo && id) HarnessPanel.showPage(context, host, { page: 'session', repo, session: id });
+    }),
+    vscode.commands.registerCommand('claudeHarness.renameSession', async (arg?: unknown) => {
+      const node = arg as Node | undefined;
+      let summary = node && typeof node === 'object' && node.type === 'session' ? node.session : undefined;
+      if (!summary) {
+        const local = repoViews().filter(v => v.local);
+        const picks = (local.length ? local : repoViews())
+          .flatMap(v => listAccountSessions(v.path, accounts()))
+          .sort((a, b) => b.end - a.end)
+          .slice(0, 50)
+          .map(s => ({ label: s.title.length > 80 ? `${s.title.slice(0, 77)}...` : s.title, description: sessionText(s), summary: s }));
+        summary = (await vscode.window.showQuickPick(picks, { placeHolder: 'Session to rename' }))?.summary;
+      }
+      if (!summary) return;
+      const title = (await vscode.window.showInputBox({ prompt: 'Rename session to', value: summary.title, validateInput: v => (v.trim() ? undefined : 'Enter a name') }))?.trim();
+      if (!title || title === summary.title) return;
+      const file = summary.file;
+      run(() => renameSession(file, title));
     }),
     vscode.commands.registerCommand('claudeHarness.checkRepos', (arg?: unknown) => {
       const repo = repoOfArg(arg);

@@ -1,12 +1,12 @@
 // @ts-nocheck
 // The Timeline view and the agent detail.
 import { bindEvents, chipText, modsOf, toneOfAll } from '../shared/event-layers';
-import { persist, state, total } from './core';
-import { clip, el, fmtDur, fmtNum, fmtTime, icon, shortModel, shortType, svg } from './dom';
+import { persist, state, total, vscode } from './core';
+import { aiGroup, clip, el, fmtDur, fmtNum, fmtTime, icon, plural, shortModel, shortType, svg } from './dom';
 import { hideHover, placeCard, tabTip } from './hover';
 import { eventsCard } from './map';
-import { AGENT_STATUS, AXIS, BAR, LANE, agentLabel, colorsOf, endOfAgent, showHover, timeAxis, tokensText, topTools, widthOf } from './session-common';
-import { fmtUsd, selectAgent } from './session-page';
+import { AGENT_STATUS, AXIS, BAR, LANE, agentLabel, colorsOf, endOfAgent, showHover, summaryText, timeAxis, tokensText, topTools, widthOf } from './session-common';
+import { fmtUsd, selectAgent, selectCheckpoint } from './session-page';
 import { showSession } from './sessions';
 
 // The Mods switch of the Timeline: the same state as the Full timeline's, so one choice holds in both views.
@@ -44,7 +44,8 @@ function modsSwitch(host, d) {
           onblur: hideHover,
         },
         icon('plug'),
-        el('span', {}, 'Mods')
+        el('span', {}, 'Mods'),
+        el('span', { className: `codicon codicon-${on ? 'pass-filled' : 'circle-large-outline'} mod-state`, 'aria-hidden': 'true' })
       )
     )
   );
@@ -64,7 +65,8 @@ function modTicks(events, x, y1, y2, name, label, key) {
     const g = svg(
       'g',
       { class: `tl-modtick ev-${tone}`, tabindex: '0', role: 'img', 'aria-label': `${label}: ${chipText(c.events)}` },
-      svg('rect', { x: c.x - 3, y: y1 - 1, width: 6, height: y2 - y1 + 2, class: 'tl-modtick-hit' }),
+      svg('rect', { x: c.x - 4, y: y1 - 1, width: 8, height: y2 - y1 + 2, class: 'tl-modtick-hit' }),
+      svg('line', { x1: c.x, x2: c.x, y1, y2, class: 'tl-modtick-halo' }),
       svg('line', { x1: c.x, x2: c.x, y1, y2, class: 'tl-modtick-line' })
     );
     const open = () => {
@@ -119,6 +121,26 @@ export function drawTimeline(host, d) {
     i = j;
   }
   for (const p of d.prompts) main.append(svg('circle', { cx: x(p.at), cy: cy(0), r: 3.5, class: 'tl-prompt' }, svg('title', {}, `${fmtTime(p.at)} you: ${clip(p.text, 300)}`)));
+  // A ring round the prompt's dot where Claude Code saved a checkpoint; a click lists the files Claude changed after it.
+  for (const c of d.checkpoints || []) {
+    const chosen = !!(state.session && state.session.checkpoint === c.id);
+    const mark = svg(
+      'g',
+      { class: `tl-cp${chosen ? ' sel' : ''}`, tabindex: '0', role: 'button', 'aria-label': `Checkpoint at ${fmtTime(c.at)}`, 'data-checkpoint': c.id },
+      svg('circle', { cx: x(c.at), cy: cy(0), r: 7, class: 'tl-cp-ring' }),
+      svg('title', {}, `${fmtTime(c.at)} you: ${clip(d.prompts.reduce((best, p) => (Math.abs(p.at - c.at) < Math.abs(best.at - c.at) ? p : best), d.prompts[0] || { at: c.at, text: '' }).text, 300)}\nCheckpoint: Claude Code saved the files it edits at this prompt. Click to see what changed after it.`)
+    );
+    mark.addEventListener('click', e => {
+      e.stopPropagation();
+      selectCheckpoint(c.id);
+    });
+    mark.addEventListener('keydown', e => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      e.preventDefault();
+      selectCheckpoint(c.id, true);
+    });
+    main.append(mark);
+  }
   // With Mods on, the events of every mod: a tick under the main thread's line for an event of a prompt's window, a tick
   // under the bar of the agent an event names.
   const mods = modsOf(d.layers);
@@ -225,11 +247,71 @@ export function renderAgent(d) {
       facts.flatMap(([k, v]) => [el('span', { className: 'key' }, k), el('span', { className: 'value' }, String(v))])
     ),
     a.prompt ? el('details', {}, el('summary', {}, 'Brief'), el('pre', { className: 'json wrap' }, a.prompt)) : null,
-    a.result ? el('details', { open: true }, el('summary', {}, 'Report'), el('pre', { className: 'json wrap' }, a.result)) : null
+    a.result
+      ? el('details', { open: true }, el('summary', {}, 'Report'), el('div', { className: 'agent-report' }, clip(summaryText(a.result).replace(/\s+/g, ' '), 240)), el('details', {}, el('summary', {}, 'Full report'), el('pre', { className: 'json wrap' }, a.result)))
+      : null
   );
 }
 
-export const hcStat = (label, value, key) => el('div', { className: 'hc-stat' }, el('span', { className: `hc-k${key ? ` k-${key}` : ''}` }, label), el('span', { className: 'hc-v' }, value));
+const CP_ACTION = { overwrite: 'overwrite', remove: 'remove', recreate: 'recreate' };
+
+// The detail of the checkpoint picked on the Timeline: the files Claude changed after it, each opening in the diff editor,
+// and the two ways back. Restoring files is the extension's; rewinding the conversation stays with Claude (a terminal).
+export function renderCheckpoint(d) {
+  const s = state.session;
+  const cp = s && s.checkpoint && (d.checkpoints || []).find(c => c.id === s.checkpoint);
+  if (!cp) return el('div', { className: 'cp-detail', hidden: true });
+  const prompt = d.prompts.reduce((best, p) => (Math.abs(p.at - cp.at) < Math.abs(best.at - cp.at) ? p : best), d.prompts[0] || { at: cp.at, text: '' });
+  const files = s.cpFiles;
+  const ask = e => vscode.postMessage({ type: 'checkpointRestore', scope: s.scope, id: s.id, checkpoint: cp.id });
+  const note = s.cpRestored && (!s.cpRestored.count && !s.cpRestored.failed.length ? 'Nothing to restore.' : s.cpRestored.failed.length ? `Restored ${plural(s.cpRestored.count, 'file')}; ${s.cpRestored.failed.length} failed: ${s.cpRestored.failed.join('; ')}` : `Restored ${plural(s.cpRestored.count, 'file')}.`);
+  return el(
+    'div',
+    { className: 'cp-detail' },
+    el('div', { className: 'group-label' }, `Checkpoint at ${fmtTime(cp.at)}`),
+    prompt.text ? el('div', { className: 'cp-prompt' }, `You: ${clip(prompt.text, 200)}`) : null,
+    files === undefined
+      ? el('div', { className: 'cp-empty' }, 'Reading the saved files ...')
+      : files.length
+        ? el(
+            'div',
+            { className: 'cp-files' },
+            files.map(f =>
+              el(
+                'button',
+                { className: 'cp-file', title: `Open the file at the checkpoint next to now\nThe left side is the file as it was at this prompt, the right side as it is on disk.`, onclick: () => vscode.postMessage({ type: 'checkpointDiff', scope: s.scope, id: s.id, checkpoint: cp.id, file: f.path }) },
+                icon('diff'),
+                el('span', { className: 'cp-path' }, el('bdi', {}, f.path)),
+                el('span', { className: 'cp-action' }, CP_ACTION[f.action] || f.action)
+              )
+            )
+          )
+        : el('div', { className: 'cp-empty' }, 'Claude changed no file after this prompt that differs from it now.'),
+    note ? el('div', { className: 'cp-note' }, icon('check'), el('span', {}, note)) : null,
+    el(
+      'div',
+      { className: 'cp-actions' },
+      el(
+        'button',
+        {
+          className: 'cp-restore',
+          disabled: !files || !files.length,
+          title: "Restore files to here\nUndoes the edits Claude made with its own edit tools back to this prompt, not the whole folder. Changes made by shell commands or by hand after it are not part of a checkpoint.",
+          onclick: ask,
+        },
+        icon('history'),
+        el('span', {}, 'Restore files to here')
+      ),
+      aiGroup(
+        '',
+        el('button', { 'data-confirm': 'continue', title: 'Rewind the conversation\nOpens this session in a terminal, where Claude\'s own /rewind takes the conversation back to this prompt.', onclick: () => vscode.postMessage({ type: 'continueSession', scope: s.scope, id: s.id }) }, icon('debug-continue'), el('span', {}, 'Rewind the conversation'))
+      )
+    ),
+    el('div', { className: 'cp-hint' }, "Restoring undoes Claude's own edits back to this prompt, not the whole folder. Shell commands and hand edits are not in a checkpoint.")
+  );
+}
+
+export const hcStat =(label, value, key) => el('div', { className: 'hc-stat' }, el('span', { className: `hc-k${key ? ` k-${key}` : ''}` }, label), el('span', { className: 'hc-v' }, value));
 
 export function tokenBar(u) {
   const tokenIn = u.input + u.cacheCreate;

@@ -15,6 +15,7 @@ export function stylePrompt(scan: StyleScan): string {
     'Write a Claude Code output style for this user, from the evidence of one session below.',
     'Answer with the complete markdown file and nothing else: YAML frontmatter with `name`, `description` (one line) and `keep-coding-instructions: true`, then the instructions in the body.',
     'The instructions say how replies should read: length, format, structure, language, and what to leave out. Base every rule on the evidence; invent none.',
+    'Keep the file short: at most eight one-line rules, each under 20 words, no introduction, no explanation, no closing note.',
     'Give the style a name of its own; never reuse the name of the style that was active.',
     '',
     '## Evidence',

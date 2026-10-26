@@ -27,5 +27,8 @@
 | 2026-10-23 | 0.08 | 18:39 | 19:55 | Version 0.3.1 published to the Marketplace, with up-to-date docs and screenshots, a complete changelog and a new repository description |
 | 2026-10-25 | 3.70 | 09:08 | 13:50 | Version 0.5.0: a plugin builder you talk to, sharing and import, sync commands and a denser, calmer interface, published to the Marketplace |
 | 2026-10-25 | 1.00 | 09:20 | 10:20 | Install, link, check and update skills from skills.sh and GitHub, with usability fixes and docs |
+| 2026-10-25 | 1.33 | 13:50 | 15:10 | Version 0.6.0 published with reset countdowns in the usage hover and image paste into Claude terminals, then six interface fixes and correct plural wording on a new branch |
+| 2026-10-26 | 0.72 | 12:03 | 12:46 | Version 0.6.5: sessions named as in Claude Code's resume list, and a command to rename a session, with changelog and docs |
+| 2026-10-26 | 0.00 | 12:09 | 12:46 | Version 0.6.5: checkpoints on the session timeline, with side-by-side diffs and restoring files to an earlier prompt, plus docs and changelog (parallel, not billed) |
 
-**Total: 21.85h**
+**Total: 23.90h**

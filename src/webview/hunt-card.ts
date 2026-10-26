@@ -24,9 +24,22 @@ const kindIcon = kind => icon(kind === 'skill' ? 'mortar-board' : 'hubot');
 // The icon and name of an element, with what follows the name.
 const nameLine = (a, ...after) => el('div', { className: 'hunt-name' }, kindIcon(a.kind), el('span', { className: 'hunt-name-text', title: a.name }, a.name), ...after);
 
+const rootOf = file => file.replace(/[\\/]\.claude[\\/].*$/i, '');
+
+// Repos that share a name show the folder they sit in, so that two of them are told apart without the hover.
+const sharedNames = () => {
+  const roots = new Map();
+  for (const c of hunt.info ? hunt.info.catalog : []) for (const r of c.asset.repos) roots.set(r.repo, new Set([...(roots.get(r.repo) || []), rootOf(r.path).toLowerCase()]));
+  return new Set([...roots].filter(([, set]) => set.size > 1).map(([name]) => name));
+};
+
+const repoName = r => el('span', { className: 'hunt-name-text', title: r.path }, r.repo);
+const repoWhere = (r, shared) => (shared.has(r.repo) ? el('div', { className: 'hunt-where', title: rootOf(r.path) }, `in ${rootOf(r.path).split(/[\\/]/).slice(-2, -1)[0] || rootOf(r.path)}`) : null);
+
 function assetRows(p, a) {
   const rows = [];
-  const tick = (label, checked, onchange, title) => el('label', { className: 'hunt-retire', title }, el('input', { type: 'checkbox', checked, onchange: e => (onchange(e.target.checked), saveSoon()) }), label);
+  const shared = sharedNames();
+  const tick = (label, checked, onchange, title) => el('label', { className: 'hunt-retire', title }, el('input', { type: 'checkbox', checked, onchange: e => (onchange(e.target.checked), saveSoon(), syncRetireAll(p)) }), label);
   const gone = !a.global && !a.repos.length;
   rows.push(
     el(
@@ -50,13 +63,12 @@ function assetRows(p, a) {
   );
   a.repos.forEach((r, i) => {
     const base = !a.global && i === 0;
-    const note = base ? '' : !r.same && a.kind === 'agent' ? 'Differs from the global copy. Agents are not merged here: compare the two files in the editor.' : '';
     rows.push(
       el(
         'div',
         { className: `hunt-asset sub${a.include ? '' : ' off'}` },
         el('span', { className: 'hunt-gap' }),
-        el('div', { className: 'hunt-main' }, el('div', { className: 'hunt-name' }, icon('repo'), el('span', { className: 'hunt-name-text', title: r.path }, r.repo)), note ? el('div', { className: 'hunt-why' }, note) : null),
+        el('div', { className: 'hunt-main' }, el('div', { className: 'hunt-name' }, icon('repo'), repoName(r)), repoWhere(r, shared)),
         el(
           'div',
           { className: 'hunt-side' },
@@ -64,12 +76,51 @@ function assetRows(p, a) {
           tick('Retire', r.retire, v => (r.retire = v), 'Retire repo copy\nAfter the plugin is installed, this copy is backed up and removed.'),
           !r.same && !base && a.kind === 'skill' && a.global
             ? aiGroup('compact', confirmAt(el('button', { className: 'secondary', title: 'Merge with Claude\nOpens Consolidate for this copy: compare it with the global copy in the editor, or let Claude merge them in a terminal.', onclick: () => vscode.postMessage({ type: 'huntMerge', path: r.path, kind: a.kind }) }, icon('git-merge'), 'Merge'), 'consolidate'))
-            : null
+            : !r.same && !base && a.kind === 'agent' && a.global
+              ? el('button', { className: 'secondary', title: 'Compare with the global copy\nOpens the repo copy next to the global one in the editor. Agents are not merged here.', onclick: () => vscode.postMessage({ type: 'huntMerge', path: r.path, kind: a.kind }) }, icon('diff'), 'Compare')
+              : null
         )
       )
     );
   });
   return rows;
+}
+
+// One tick for the Retire tick of every listed copy: set, partly set or clear.
+const copiesOf = p => p.assets.flatMap(a => [a.global, ...a.repos].filter(Boolean));
+
+const showRetireAll = (box, copies) => {
+  const on = copies.filter(c => c.retire).length;
+  box.checked = on === copies.length;
+  box.indeterminate = on > 0 && on < copies.length;
+};
+
+// A single Retire tick moved: bring the Retire all tick in line.
+const syncRetireAll = p => {
+  const box = app.querySelector(`[data-card="${p.id}"] .hunt-retire-all`);
+  if (box) showRetireAll(box, copiesOf(p));
+};
+
+function retireAll(p) {
+  const copies = copiesOf(p);
+  if (!copies.length) return null;
+  const box = el('input', {
+    type: 'checkbox',
+    className: 'hunt-retire-all',
+    'aria-label': 'Retire all',
+    onchange: e => {
+      copies.forEach(c => (c.retire = e.target.checked));
+      saveSoon();
+      repaint();
+    },
+  });
+  showRetireAll(box, copies);
+  return el(
+    'label',
+    { className: 'hunt-retire', title: 'Retire all\nTicks Retire on every listed copy, global and repo. Untick to clear them all again.' },
+    box,
+    'Retire all'
+  );
 }
 
 // A created card: what went into the plugin, read only.
@@ -144,6 +195,18 @@ function whyNot(p, market) {
   return '';
 }
 
+// The description grows with its text, so no sentence is cut off and no scrollbar sits in a two-row box.
+const fit = ta => {
+  ta.style.height = 'auto';
+  ta.style.height = `${ta.scrollHeight + 2}px`;
+};
+
+function describe(p, done) {
+  const ta = el('textarea', { rows: 2, value: p.description, readonly: !!done, oninput: e => ((p.description = e.target.value), fit(ta), saveSoon()) });
+  requestAnimationFrame(() => fit(ta));
+  return ta;
+}
+
 export function card(p) {
   const market = marketOf();
   const result = hunt.results[p.id];
@@ -198,7 +261,7 @@ export function card(p) {
     el(
       'div',
       { className: 'hunt-fields' },
-      field('Description', el('textarea', { rows: 2, value: p.description, readonly: !!done, oninput: e => ((p.description = e.target.value), saveSoon()) })),
+      field('Description', describe(p, done)),
       field(
         'Category folder',
         el('input', { type: 'text', placeholder: market && market.categorized ? 'e.g. guards' : 'optional', value: p.category, readonly: !!done, list: `hunt-cats-${p.id}`, oninput: e => ((p.category = e.target.value.trim()), saveSoon(), sync()) }),
@@ -231,10 +294,11 @@ export function card(p) {
             open ? 'Done adding' : 'Add skill or agent'
           ),
           el('span', { className: 'hunt-count' }, plural(chosen.length, 'asset')),
+          retireAll(p),
           el('span', { className: 'hunt-hint', role: 'status' }, blocked),
           el('span', { className: 'spacer' }),
           create
         ),
-    !done && result && result.text ? el('div', { className: `notice${result.state === 'error' ? ' bad' : ''}`, role: result.state === 'error' ? 'alert' : 'status' }, result.text) : null
+    !done && result && result.text ? el('div', { className: `notice hunt-result${result.state === 'error' ? ' bad' : ''}`, role: result.state === 'error' ? 'alert' : 'status', title: result.text }, result.text) : null
   );
 }

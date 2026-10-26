@@ -990,6 +990,112 @@ table.grid .cell {
   fill: var(--vscode-foreground);
 }
 
+.tl-cp {
+  cursor: pointer;
+  outline: none;
+}
+
+.tl-cp-ring {
+  fill: transparent;
+  stroke: var(--vscode-textLink-foreground);
+  stroke-width: 1.5;
+  pointer-events: all;
+}
+
+.tl-cp:hover .tl-cp-ring,
+.tl-cp:focus-visible .tl-cp-ring,
+.tl-cp.sel .tl-cp-ring {
+  fill: color-mix(in srgb, var(--vscode-textLink-foreground) 30%, transparent);
+  stroke-width: 2.5;
+}
+
+.cp-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cp-detail[hidden] {
+  display: none;
+}
+
+.cp-prompt,
+.cp-hint,
+.cp-empty {
+  color: var(--vscode-descriptionForeground);
+}
+
+.cp-files {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cp-file {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 6px;
+  text-align: left;
+  background: transparent;
+  color: var(--vscode-foreground);
+  border: 0;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.cp-file:hover {
+  background: var(--vscode-list-hoverBackground);
+}
+
+.cp-path {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  direction: rtl;
+  text-align: left;
+}
+
+.cp-action {
+  color: var(--vscode-descriptionForeground);
+}
+
+.cp-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.cp-actions .cp-restore {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  color: var(--vscode-button-secondaryForeground);
+  background: var(--vscode-button-secondaryBackground, transparent);
+  border: 1px solid var(--vscode-button-border, var(--vscode-widget-border, var(--vscode-contrastBorder, #8884)));
+  border-radius: 2px;
+  cursor: pointer;
+}
+
+.cp-actions .cp-restore:hover:not(:disabled) {
+  background: var(--vscode-button-secondaryHoverBackground);
+}
+
+.cp-actions .cp-restore:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.cp-note {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
 .tl-link,
 .tl-queue {
   stroke: var(--vscode-descriptionForeground);
@@ -1014,9 +1120,15 @@ table.grid .cell {
   fill: transparent;
 }
 
+.tl-modtick-halo {
+  stroke: var(--vscode-editor-background);
+  stroke-width: 6;
+}
+
 .tl-modtick-line {
   stroke: var(--vscode-charts-green);
-  stroke-width: 2;
+  stroke-width: 3;
+  stroke-linecap: round;
 }
 
 .tl-modtick.ev-warn .tl-modtick-line {
@@ -1025,12 +1137,64 @@ table.grid .cell {
 
 .tl-modtick.ev-quiet .tl-modtick-line {
   stroke: var(--vscode-descriptionForeground);
-  stroke-width: 1;
+  stroke-width: 2;
 }
 
 .tl-modtick:hover .tl-modtick-line,
 .tl-modtick:focus-visible .tl-modtick-line {
-  stroke-width: 3;
+  stroke-width: 4;
+}
+
+/* The Models tab's bars: a row's share of the account's cost, and a model's token mix. */
+.wk-share {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.wk-bar {
+  display: flex;
+  flex: 1 1 auto;
+  height: 8px;
+  min-width: 40px;
+  margin: 0;
+  overflow: hidden;
+  border-radius: 4px;
+  background: var(--vscode-panel-border);
+}
+
+.wk-fill {
+  height: 100%;
+  background: var(--vscode-charts-blue);
+}
+
+.wk-pct {
+  min-width: 32px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/* The mix bar reuses the hover card's segment colours; the hover card's own bar is a thin strip pulled up under a figure. */
+.wk-bar.wk-mix {
+  height: 8px;
+  margin-top: 0;
+}
+
+/* The Mods switch states itself: a hollow circle when off, a filled green check when on, and a green fill behind the label. */
+.dg-toggle > [data-toggle='mods'] .mod-state {
+  margin-left: 2px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.dg-toggle > [data-toggle='mods'].active {
+  background: var(--vscode-charts-green);
+  color: var(--vscode-editor-background);
+  font-weight: 600;
+}
+
+.dg-toggle > [data-toggle='mods'].active .mod-state {
+  color: inherit;
 }
 
 .tl .tl-stop-bg {
@@ -2160,6 +2324,10 @@ mark {
   transform: rotate(45deg);
 }
 
+.cf.beside::before {
+  display: none;
+}
+
 .cf.up::before {
   top: auto;
   bottom: -6px;
@@ -2922,6 +3090,12 @@ mark {
   width: 1px;
   margin: 3px 4px;
   background: var(--vscode-panel-border);
+}
+
+.filter-on {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  margin-right: 2px;
 }
 
 .preset:focus-visible,
@@ -5373,6 +5547,19 @@ body.vscode-high-contrast-light {
   box-sizing: border-box;
 }
 
+.hunt-field textarea {
+  overflow: hidden;
+  resize: none;
+}
+
+.hunt-where {
+  font-size: 11px;
+  opacity: 0.65;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .hunt-label {
   font-size: 11px;
   font-weight: 600;
@@ -5622,6 +5809,22 @@ body.vscode-high-contrast-light {
 .hunt-msg-text {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+
+/* The result of a create or an error on a plugin card: two lines, the whole text in the hover card. */
+.notice.hunt-result {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+/* Claude's reply is two lines at most; the card lists every element with its copies. */
+.hunt-msg.claude .hunt-msg-text {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
 }
 
 /* A confirm card that asks for text or a pick. */

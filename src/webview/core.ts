@@ -127,7 +127,7 @@ export const RULE_GROUPS = [
 
 export const HOOK_EVENTS = ['SessionStart', 'UserPromptSubmit', 'PreToolUse', 'PermissionRequest', 'PostToolUse', 'Notification', 'SubagentStop', 'Stop', 'PreCompact', 'SessionEnd'];
 
-export const eventOf = a => a.name.split(' · ')[0];
+export const eventOf = a => (a.kind === 'hookScript' ? 'Scripts' : a.name.split(' · ')[0]);
 
 export const eventRank = e => (HOOK_EVENTS.includes(e) ? HOOK_EVENTS.indexOf(e) : HOOK_EVENTS.length);
 
@@ -171,7 +171,6 @@ export const LIST_VIEWS = {
   },
   outputStyle: { group: 'where', groupings: { where: where(byName) }, sorts: {} },
   workflow: { group: 'where', groupings: { where: where(byName) }, sorts: {} },
-  hookScript: { group: 'where', groupings: { where: where(byName) }, sorts: {} },
   hook: {
     group: 'where',
     groupings: {
@@ -186,6 +185,7 @@ export const LIST_VIEWS = {
     sorts: { name: byName, state: (a, b) => Number(!!b.enabled) - Number(!!a.enabled) || byName(a, b) },
   },
 };
+LIST_VIEWS.mod = LIST_VIEWS.plugin;
 
 export const listModes = kind => [...Object.keys(LIST_VIEWS[kind].groupings), ...Object.keys(LIST_VIEWS[kind].sorts)];
 

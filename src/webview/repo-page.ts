@@ -129,6 +129,27 @@ export function repoSessions(view) {
   ];
 }
 
+// A row's cost as a bar of the account's total in the window, with the percentage beside it.
+function costShare(cost, total) {
+  const p = total > 0 ? (cost / total) * 100 : 0;
+  const fill = el('span', { className: 'wk-fill' });
+  fill.style.width = `${Math.min(100, p)}%`;
+  return el('span', { className: 'wk-share' }, el('span', { className: 'wk-bar', role: 'img', 'aria-label': `${Math.round(p)}% of the cost` }, fill), el('span', { className: 'wk-pct' }, p > 0 && p < 1 ? '<1%' : `${Math.round(p)}%`));
+}
+
+// A model's tokens split into input (with cache writes), output and cache reads, as one bar.
+function tokenMix(u) {
+  const parts = [['in', u.input + u.cacheCreate, 'Input'], ['out', u.output, 'Output'], ['read', u.cacheRead, 'Cache read']];
+  const sum = Math.max(1, parts.reduce((n, p) => n + p[1], 0));
+  const bar = el('span', { className: 'wk-bar wk-mix hc-bar', role: 'img', 'aria-label': parts.map(p => `${p[2]} ${fmtNum(p[1])}`).join(', '), title: parts.map(p => `${p[2]}: ${fmtNum(p[1])}`).join('\n') });
+  for (const [k, n] of parts) {
+    const seg = el('span', { className: `seg ${k}` });
+    seg.style.width = `${(n / sum) * 100}%`;
+    bar.append(seg);
+  }
+  return bar;
+}
+
 // The last 7 days of each account by model, over all repos. A plan shows the cost as a share of its estimated weekly limit.
 export function repoModels(view) {
   const totals = state.weekly;
@@ -152,12 +173,14 @@ export function repoModels(view) {
           { head: 'Cost', track: '72px', num: true, cell: r => fmtUsd(r.cost) },
           t.limit ? { head: 'Of limit', track: '72px', num: true, cell: r => fmtShare(r.cost, t.limit) } : null,
           { head: count, track: '76px', num: true, cell: r => String(r.count) },
+          { head: 'Share of cost', track: '120px', wide: true, cell: r => costShare(r.cost, t.cost), tip: `Cost as a share of ${t.account}'s total in this window.` },
+          rows.some(r => r.mix) ? { head: 'Token mix', track: '120px', wide: true, cell: r => (r.mix ? tokenMix(r.mix) : ''), tip: 'Input, output and cache-read tokens.' } : null,
         ].filter(Boolean),
         rows,
         label
       );
     const repoRows = mine ? [{ name: [icon('repo'), el('span', { className: 'at-label' }, view.label)], title: `What sessions in ${view.label} and their agents used in this window.`, tokens: mine.tokens, cost: mine.cost, count: mine.messages }] : [];
-    const modelRows = t.models.map(m => ({ name: [icon('chip'), el('span', { className: 'at-label' }, shortModel(m.model))], tokens: m.input + m.cacheCreate + m.cacheRead + m.output, cost: m.cost, count: m.messages }));
+    const modelRows = t.models.map(m => ({ name: [icon('chip'), el('span', { className: 'at-label' }, shortModel(m.model))], tokens: m.input + m.cacheCreate + m.cacheRead + m.output, cost: m.cost, count: m.messages, mix: m }));
     const agentRows = (t.agents || []).map(a => {
       const def = agentDefs.find(d => d.name === a.type);
       const color = def ? agentColorClass(metaOf(def).color) : '';

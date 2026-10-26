@@ -76,8 +76,8 @@ const CARDS = {
     title: 'Hunt a plugin with Claude',
     sub: 'with Claude Sonnet, in a conversation',
     facts: [
-      ['account', 'Runs claude -p on your own Claude login. This message and every later one of this conversation count against your plan.'],
-      ['list-unordered', `Sends your message, the conversation so far and the inventory of ${ask.items} ${ask.items === 1 ? 'skill or agent' : 'skills and agents'}, yours and those of your installed plugins, with name, description and where each lives. No file contents.`],
+      ['account', 'Uses your own Claude account. This message and every later one of this conversation count against your plan.'],
+      ['list-unordered', `Sends your message, the conversation so far and the inventory of ${ask.items} ${ask.items === 1 ? 'skill or agent' : 'skills and agents'} of yours, with name, description and where each lives. No file contents.`],
       ['eye', 'Claude answers in the conversation and can add or change the plugin card. Nothing is created until you press Create, or ask Claude to create it and confirm.'],
     ],
     action: 'Hunt',
@@ -445,9 +445,13 @@ export function showConfirm(ask) {
     const at = `${r.left},${r.top},${innerWidth},${innerHeight}`;
     if (at === last) return;
     last = at;
+    // From the sidebar the card stays inside its column, so it never spills over the table beside it.
+    const side = a.closest('.sidebar');
+    card.style.width = side ? `${Math.max(240, Math.min(380, side.getBoundingClientRect().width - 16))}px` : '';
     const w = card.offsetWidth;
     const h = card.offsetHeight;
-    const left = Math.max(16, Math.min(r.left, innerWidth - w - 16));
+    const minLeft = side ? side.getBoundingClientRect().left + 8 : 16;
+    const left = Math.max(minLeft, Math.min(r.left, innerWidth - w - 16));
     const below = r.bottom + 8;
     const above = r.top - 8 - h;
     card.style.left = `${left}px`;
@@ -457,6 +461,14 @@ export function showConfirm(ask) {
     card.style.top = `${top}px`;
     card.style.setProperty('--cf-arrow', `${Math.max(14, Math.min(r.left + r.width / 2 - left, w - 14))}px`);
     card.classList.toggle('up', !fitsBelow && fitsAbove);
+    // Neither side has room: the card goes beside the element it asks about, never over it.
+    const covers = top < r.bottom && top + h > r.top;
+    card.classList.toggle('beside', covers);
+    if (covers) {
+      const besideLeft = r.right + 8 + w <= innerWidth - 8 ? r.right + 8 : Math.max(8, r.left - 8 - w);
+      card.style.left = `${besideLeft}px`;
+      card.style.top = `${Math.max(8, Math.min(r.top, innerHeight - h - 8))}px`;
+    }
   };
   place();
   // A card that changes with a choice on it redraws its facts and buttons, then asks for a new place.

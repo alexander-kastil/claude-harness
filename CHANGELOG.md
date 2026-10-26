@@ -2,6 +2,35 @@
 
 All notable changes to Claude Harness are listed here, newest first. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions with no version change in the package.json history (0.1.3, 0.1.5 to 0.1.18, 0.1.20 to 0.1.24, 0.1.27, 0.2.1 and 0.2.3 to 0.2.11) and development builds (0.2.14 to 0.2.22, 0.2.24 to 0.2.30, 0.2.32 to 0.2.34, 0.2.36 to 0.2.44, 0.3.0, 0.3.2, 0.4.1 to 0.4.3, 0.5.2 and 0.5.3) have no entry.
 
+## [0.6.5] - 2026-10-26
+
+### Added
+
+- Checkpoints on the Session page's Timeline. A ring marks every prompt where Claude Code saved a checkpoint of the files it edits. Click a ring to list the files Claude changed after that prompt; each file opens in VS Code's side-by-side diff, the file as it was at the prompt on the left and as it is now on the right.
+- Restore files to here, in a checkpoint's detail. A card names every file it will overwrite, recreate or remove before anything is written. It undoes the edits Claude made with its own edit tools back to that prompt, not the whole folder: changes from shell commands or by hand are not in a checkpoint.
+- Rewind the conversation, beside it in the Claude button group. It opens the session in a terminal, like Continue, where Claude's own rewind takes the conversation back. The extension never edits the transcript.
+- Rename Session, on a session row's right-click menu and in the palette. An input box is prefilled with the session's current name. Confirming writes the name the way Claude Code's `/rename` does, so `/resume` shows it too; Escape or an empty name changes nothing. From the palette it first asks which session.
+- Retire all in Plugin Hunter, at the foot of a plugin card beside the asset count. It ticks Retire on every listed copy at once, global and repo, and clearing it clears them all; it shows a dash while only some are ticked and follows the single ticks. The Retire ticks themselves still start off.
+- Compare on a repo copy of an agent that differs from the global one, in Plugin Hunter. It opens the two files side by side in the editor. Agents are not merged here.
+- A Mods section in the sidebar and on the overview, listing the installed plugins that are mods. It replaces the Hook Scripts section.
+
+### Changed
+
+- Plugin Hunter starts on the marketplace you used last, or else on your own marketplace with the most installed plugins, not the first one by name.
+- Plugin Hunter shows one count of skills and agents: the page header and the Hunt confirm card agree, and Claude is sent exactly those, from Global and from every known repo, with where each has copies and which installed plugin ships it. Before, Claude saw only Global, the open repos and plugins, and could answer "all global" for an element that also had repo copies.
+- A search in Plugin Hunter that finds elements now puts them on a plugin card in the same answer. The empty state says how to start.
+- After an answer, Plugin Hunter scrolls to the newest reply with its card below it. While Claude works, the box is emptied so your message shows once, the waiting reply counts the time so far, and Start over and New plugin are disabled.
+- Two repos with the same folder name show the folder they sit in on a Plugin Hunter card. A differing repo copy of an agent has one Compare button instead of a repeated note in each row. The card's Description box grows with its text.
+- Plugin Hunter's Claude replies are at most two short sentences, since the card already lists every element with its copies. A longer reply is shown cut to two lines.
+- Text Claude writes is kept short everywhere it reaches you. A Plugin Hunter reply is cut to two sentences, and a "left out" note says only how many. A plugin card's result or error shows two lines, the whole text in the hover card. A drafted output style is asked for at most eight one-line rules. The Consolidate merge asks Claude for one sentence with a count, not a file list. A session name is one line of at most 100 characters. A sub-agent's report shows two lines on its detail, the full report one click away, and its hover card three lines.
+- The Hunt confirm card says "Uses your own Claude account" instead of naming the command.
+- The hook scripts of the `hooks/` folder are listed in the Hooks section, under the group Scripts, and the Fleet overview's hook copies count them there.
+- A session is named in the order `/resume` uses: its agent name, then its custom title (`/rename`), its AI-generated title, its summary, its first prompt, and last the first 8 characters of its id. Before, a session was always named by its first prompt.
+
+### Fixed
+
+- A created Plugin Hunter card lists every element that went into the plugin. After a refresh it listed only the elements whose copies were not retired, because the retired ones were no longer on disk.
+
 ## [0.6.0] - 2026-10-25
 
 ### Added

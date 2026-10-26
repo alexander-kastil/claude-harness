@@ -13,7 +13,7 @@ export function chatPrompt(message: string, inventory: string, card: HuntProposa
   return [
     'The owner is building a new Claude Code plugin in a conversation with you. They may ask you to search their inventory, to put the plugin together, to change what is in it, or to create it.',
     '',
-    '## Inventory (global first, then the open repo, then installed plugins; the brackets say where each lives)',
+    '## Inventory (every skill and agent of Global and of all the owner\'s known repos, global first; the brackets say where each has a copy and which installed plugin already ships it)',
     inventory,
     '',
     '## The plugin card as it stands now',
@@ -27,8 +27,9 @@ export function chatPrompt(message: string, inventory: string, card: HuntProposa
     '',
     '## Answer',
     'One JSON object and nothing else, in this shape:',
-    '{"reply":"what you found or changed, in plain short text, naming the elements","proposal":{"name":"lowercase-kebab-case plugin name","description":"one sentence","category":"one lowercase folder name","assets":[{"kind":"skill" or "agent","name":"exactly as in the inventory","why":"one sentence","inPlugin":"name of the installed plugin that already ships it, only when the inventory shows one"}]},"create":true}',
-    '"reply" is always there. "proposal" only when this turn sets or changes what the plugin holds: it is then the whole plugin after this turn, so an element the owner took out is left out. "create" is true only when the owner asks you to create the plugin; the card as it stands is created, so set "proposal" in the same answer when it has none yet.',
+    '{"reply":"at most two short sentences","proposal":{"name":"lowercase-kebab-case plugin name","description":"one sentence","category":"one lowercase folder name","assets":[{"kind":"skill" or "agent","name":"exactly as in the inventory","why":"one sentence","inPlugin":"name of the installed plugin that already ships it, only when the inventory shows one"}]},"create":true}',
+    'When the owner asks you to search for or find elements (for example "search all dotnet related harness elements"), the elements you find are the plugin: set "proposal" with them in the same answer, so the owner gets a card to edit. In the "proposal", never call an element global when it also has repo copies.',
+    '"reply" is always there and is at most two short sentences, in plain words: what you found or changed, as a count or a short summary. Never list the elements or where their copies live; the card lists every element with its copies. "proposal" only when this turn sets or changes what the plugin holds: it is then the whole plugin after this turn, so an element the owner took out is left out. "create" is true only when the owner asks you to create the plugin; the card as it stands is created, so set "proposal" in the same answer when it has none yet.',
     'Use only names from the inventory.',
   ].join('\n');
 }
@@ -51,6 +52,13 @@ function shapeProposal(data: any): Answered | undefined {
     category: str(data.category),
     assets: data.assets.filter((a: any) => a && typeof a.name === 'string').map((a: any) => ({ kind: str(a.kind), name: str(a.name), why: str(a.why), inPlugin: str(a.inPlugin) || undefined })),
   };
+}
+
+/** A reply of at most two sentences and 240 characters, whatever Claude wrote. */
+export function shortReply(text: string): string {
+  const flat = text.replace(/\s+/g, ' ').trim();
+  const two = (flat.match(/[^.!?]+[.!?]+(?=\s|$)|[^.!?]+$/g) ?? [flat]).slice(0, 2).join('').trim();
+  return two.length > 240 ? `${two.slice(0, 237).trimEnd()}...` : two;
 }
 
 /** Claude's answer to one turn. Text that is not the JSON shape is taken as the reply itself, so a chat never dead-ends. */

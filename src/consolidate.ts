@@ -120,4 +120,4 @@ export function consolidateApply(asset: Asset, repoDir: string, target: Consolid
 export const mergePrompt = (asset: Asset, target: ConsolidateTarget): string =>
   `Consolidate the skill ${asset.name} into ${target.label}. The repo copy at ${asset.dir} differs from the copy at ${target.dir}. ` +
   `Compare the two folders file by file, SKILL.md and every reference and script. Bring everything worth keeping from the repo copy into ${target.dir}, ` +
-  `keep what the target already does better, and leave the repo copy untouched. When you are done, list the files you changed in ${target.dir}.`;
+  `keep what the target already does better, and leave the repo copy untouched. When you are done, answer in one short sentence with the count of files you changed in ${target.dir}; do not list them or explain.`;

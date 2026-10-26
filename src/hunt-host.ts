@@ -3,8 +3,8 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import type { HuntHost } from './panel';
 import { KeepCopies, ScopeView, backupStamp } from './harness';
-import { HUNT_SYSTEM, applyProposal, chatPrompt, parseTurn, unknownNames } from './hunt';
-import { assetAt, buildCatalog, inventoryText, reconcile } from './hunt-catalog';
+import { HUNT_SYSTEM, applyProposal, chatPrompt, parseTurn, shortReply, unknownNames } from './hunt';
+import { assetAt, buildCatalog, inventoryText, items, reconcile } from './hunt-catalog';
 import { installPlugin, planCreate, retireCopies, unwritePlugin, writePlugin } from './hunt-create';
 import { readMarkets } from './hunt-market';
 import type { HuntInfo, HuntProposal, HuntTurn } from './shared/hunt';
@@ -47,10 +47,14 @@ export function huntHost(d: HuntDeps): HuntHost {
   const info = (): HuntInfo => {
     const markets = readMarkets(d.root());
     const last = d.state.get<string>(MARKET);
-    const picked = markets.find(m => m.owned && m.name === last)?.name ?? markets.find(m => m.owned)?.name;
+    // The last one used, else the own marketplace that holds the most installed plugins.
+    const installed = (name: string) => d.plugins().filter(p => p.id.endsWith(`@${name}`)).length;
+    const richest = markets.filter(m => m.owned).sort((a, b) => installed(b.name) - installed(a.name))[0]?.name;
+    const picked = markets.find(m => m.owned && m.name === last)?.name ?? richest;
     const catalog = buildCatalog(d.views(), d.plugins());
-    const proposals = reconcile(stored(), catalog).sort((a, b) => b.created - a.created);
-    return { markets, picked, catalog, proposals, chat: d.state.get<HuntTurn[]>(CHAT, []), created: d.state.get<Record<string, string>>(CREATED, {}) };
+    const created = d.state.get<Record<string, string>>(CREATED, {});
+    const proposals = reconcile(stored(), catalog, created).sort((a, b) => b.created - a.created);
+    return { markets, picked, catalog, proposals, chat: d.state.get<HuntTurn[]>(CHAT, []), created };
   };
 
   const self: HuntHost = {
@@ -82,12 +86,12 @@ export function huntHost(d: HuntDeps): HuntHost {
         const result = await draftStyle(chatPrompt(prompt, inventory, sent, chat.slice(-HISTORY)), 'sonnet', os.tmpdir(), 300000, HUNT_SYSTEM);
         if ('error' in result) return void post({ type: 'huntRun', state: 'error', error: friendly(result.error) });
         const turn = parseTurn(result.text);
-        let reply = turn.reply || 'Done.';
+        let reply = shortReply(turn.reply) || 'Done.';
         // Edits made on the card while Claude was answering are the card as it is now.
         const live = reconcile(stored(), catalog).find(p => p.id === currentId);
         if (turn.proposal) {
           const left = unknownNames(turn.proposal, catalog);
-          if (left.length) reply += ` Left out, because they are not your own skills or agents: ${left.join(', ')}.`;
+          if (left.length) reply += ` Left out ${left.length} not in your inventory.`;
           const card = applyProposal(live, turn.proposal, chat.find(t => t.role === 'owner')?.text ?? prompt, catalog, live?.id ?? `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`, Date.now(), sent);
           // A proposal with nothing in it never empties a card, and never makes an empty one.
           if (card.assets.length) {
@@ -100,9 +104,10 @@ export function huntHost(d: HuntDeps): HuntHost {
         const now = Date.now();
         await d.state.update(CHAT, [...chat, { role: 'owner', text: prompt, at: now }, { role: 'claude', text: reply, at: now }]);
         if (turn.create) createId = touched ?? d.state.get<string>(CURRENT);
-        post({ type: 'huntRun', state: 'done', card: touched });
+        // The page gets the new card first, so that "done" can bring it and the reply into view.
         latest = info();
         post({ type: 'hunt', info: latest });
+        post({ type: 'huntRun', state: 'done', card: touched });
       } catch (e) {
         post({ type: 'huntRun', state: 'error', error: friendly((e as Error).message) });
       } finally {
@@ -170,7 +175,12 @@ export function huntHost(d: HuntDeps): HuntHost {
     merge: async (kind, file, ask) => {
       const asset = assetAt(d.views(), kind, file)?.asset;
       if (!asset) return void vscode.window.showInformationMessage('That copy is no longer on disk.');
-      if (asset.kind !== 'skill') return void vscode.window.showInformationMessage('Only skills are merged.');
+      if (asset.kind === 'agent') {
+        // Agents are not merged: the repo copy opens next to the global one in the diff editor.
+        const global = d.views().filter(v => v.id === 'global').flatMap(v => items(v, 'agent')).find(a => a.name === asset.name);
+        if (!global) return void vscode.window.showInformationMessage('There is no global copy to compare with.');
+        return void vscode.commands.executeCommand('vscode.diff', vscode.Uri.file(global.file), vscode.Uri.file(asset.file), `${asset.name}: global and repo copy`);
+      }
       await d.consolidate(asset.id, {}, ask);
     },
   };
