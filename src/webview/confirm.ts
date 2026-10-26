@@ -76,8 +76,8 @@ const CARDS = {
     title: 'Hunt a plugin with Claude',
     sub: 'with Claude Sonnet, in a conversation',
     facts: [
-      ['account', 'Runs claude -p on your own Claude login. This message and every later one of this conversation count against your plan.'],
-      ['list-unordered', `Sends your message, the conversation so far and the inventory of ${ask.items} ${ask.items === 1 ? 'skill or agent' : 'skills and agents'}, yours and those of your installed plugins, with name, description and where each lives. No file contents.`],
+      ['account', 'Uses your own Claude account. This message and every later one of this conversation count against your plan.'],
+      ['list-unordered', `Sends your message, the conversation so far and the inventory of ${ask.items} ${ask.items === 1 ? 'skill or agent' : 'skills and agents'} of yours, with name, description and where each lives. No file contents.`],
       ['eye', 'Claude answers in the conversation and can add or change the plugin card. Nothing is created until you press Create, or ask Claude to create it and confirm.'],
     ],
     action: 'Hunt',

@@ -14,6 +14,8 @@ export const hunt = {
   picked: undefined,
   prompt: '',
   running: false,
+  // When the running turn started, for the elapsed time shown while Claude works.
+  startedAt: 0,
   error: '',
   // A short confirmation of an action, shown by the message box.
   notice: '',
@@ -31,6 +33,23 @@ export const hunt = {
   focusMenu: false,
   focusAdder: false,
   showReply: false,
+};
+
+/** What the waiting reply says: that Claude is still at it, and for how long. */
+export const waitText = () => {
+  const s = Math.max(0, Math.floor((Date.now() - hunt.startedAt) / 1000));
+  return `Claude is working on it, ${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')} so far. A search over many skills can take a couple of minutes.`;
+};
+
+let ticker;
+/** Starts or stops the once-a-second update of the waiting reply; it changes that one text, so the page does not repaint. */
+export const tickWait = on => {
+  clearInterval(ticker);
+  if (!on) return;
+  ticker = setInterval(() => {
+    const text = app.querySelector('.hunt-msg.wait .hunt-msg-text');
+    if (text) text.textContent = waitText();
+  }, 1000);
 };
 
 let saveTimer;
@@ -61,14 +80,15 @@ const afterPaint = () => {
     bring(input);
     hunt.focusName = undefined;
     hunt.reveal = undefined;
-  } else if (hunt.reveal) {
-    bring(card(hunt.reveal));
-    hunt.reveal = undefined;
-    hunt.showReply = false;
   } else if (hunt.showReply) {
+    // The newest reply at the top: the card it made or changed sits right below it.
     const replies = app.querySelectorAll('.hunt-msg.claude');
     bring(replies[replies.length - 1], 'start');
     hunt.showReply = false;
+    hunt.reveal = undefined;
+  } else if (hunt.reveal) {
+    bring(card(hunt.reveal));
+    hunt.reveal = undefined;
   }
   if (hunt.focusAdder) {
     app.querySelector('.hunt-adder input')?.focus();

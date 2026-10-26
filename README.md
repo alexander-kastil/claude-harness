@@ -112,7 +112,7 @@ Merges duplicate skills across scopes and plugins into one source. A copy identi
 
 ### Plugin Hunter
 
-Talk to Claude about the skills and agents you already have, and it proposes a plugin. Create writes the plugin into a marketplace folder of yours, installs it and retires the copies you tick, with a backup. The Enabled column of the Plugins page is a switch that enables or disables a plugin.
+Talk to Claude about the skills and agents you already have, and it proposes a plugin. Create writes the plugin into a marketplace folder of yours, installs it and retires the copies you tick, with a backup. **Retire all** ticks every copy at once. The Enabled column of the Plugins page is a switch that enables or disables a plugin.
 
 ![Plugin Hunter with a conversation and the card of a proposed plugin](docs/images/plugin-hunter.png)
 

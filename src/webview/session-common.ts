@@ -100,7 +100,7 @@ export function hoverCard(a, color, parent) {
       'div',
       { className: 'hc-sec' },
       el('div', { className: 'hc-label' }, 'What it did'),
-      summary ? el('div', { className: 'hc-text hc-summary clamp-6' }, summary) : el('div', { className: 'hc-text muted' }, a.status === 'running' ? 'Still running.' : 'No report.')
+      summary ? el('div', { className: 'hc-text hc-summary clamp-3' }, summary) : el('div', { className: 'hc-text muted' }, a.status === 'running' ? 'Still running.' : 'No report.')
     ),
     el('div', { className: 'hc-foot' }, el('span', {}, typeof a.launchedAt === 'number' ? `Launched ${fmtTime(a.launchedAt)}` : ''), el('span', {}, 'Click for the full brief and report'))
   );

@@ -56,38 +56,49 @@ export function buildCatalog(views: ScopeView[], plugins: ScopeView[]): HuntCata
 
 const clip = (text: string, n: number) => (text.length > n ? `${text.slice(0, n - 3)}...` : text);
 
-/** The inventory in the order of the prompt: Global, then the open repos, then installed plugins. */
+/**
+ * The inventory in the order of the prompt: Global, then the open repos, then every other known repo. It lists exactly the
+ * elements of the catalog (one line each, so the page's count and Claude's agree); a plugin only marks the elements it ships.
+ */
 export function inventoryText(views: ScopeView[], plugins: ScopeView[], open: string[]): string {
   const rank = (v: ScopeView) => (v.id === 'global' ? 0 : open.some(o => o.toLowerCase() === v.path.toLowerCase()) ? 1 : 2);
-  const places = [...views.filter(v => rank(v) < 2).sort((a, b) => rank(a) - rank(b)), ...plugins.map(p => Object.assign({}, p, { label: `plugin ${pluginName(p)}` }))];
+  const places = [...views].sort((a, b) => rank(a) - rank(b));
   const lines: string[] = [];
   for (const kind of ['skill', 'agent'] as const) {
+    const shipped = new Map<string, string>();
+    for (const p of plugins) for (const a of items(p, kind)) if (!shipped.has(a.name)) shipped.set(a.name, pluginName(p));
     const byName = new Map<string, { where: string[]; description: string }>();
     for (const v of places)
       for (const a of items(v, kind)) {
         const e = byName.get(a.name) ?? { where: [], description: a.description };
-        e.where.push(v.id === 'global' ? 'global' : v.label);
+        const label = v.id === 'global' ? 'global' : v.label;
+        if (!e.where.includes(label)) e.where.push(label);
         byName.set(a.name, e);
       }
-    for (const [name, e] of byName) lines.push(`- ${kind} ${name} [${e.where.join(', ')}]: ${clip(e.description.replace(/\s+/g, ' '), 160)}`);
+    for (const [name, e] of byName) lines.push(`- ${kind} ${name} [${e.where.join(', ')}${shipped.has(name) ? `; shipped by plugin ${shipped.get(name)}` : ''}]: ${clip(e.description.replace(/\s+/g, ' '), 160)}`);
   }
   return lines.join('\n');
 }
 
 /** Saved cards against the disk as it is now: paths, copies and plugins are re-read, the owner's ticks stay where the path is still there. */
-export function reconcile(proposals: HuntProposal[], catalog: HuntCatalogItem[]): HuntProposal[] {
+export function reconcile(proposals: HuntProposal[], catalog: HuntCatalogItem[], created: Record<string, string> = {}): HuntProposal[] {
   const have = new Map(catalog.map(c => [keyOf(c.asset), c.asset]));
-  return proposals.map(p => ({
-    ...p,
-    assets: p.assets.map(a => {
-      const now = have.get(keyOf(a));
-      if (!now) return { ...a, include: false, global: undefined, repos: [], inPlugin: undefined };
-      return {
-        ...a,
-        inPlugin: now.inPlugin,
-        global: now.global ? { path: now.global.path, retire: a.global?.path === now.global.path && a.global.retire } : undefined,
-        repos: now.repos.map(r => ({ ...r, retire: !!a.repos.find(o => o.path === r.path)?.retire })),
-      };
-    }),
-  }));
+  // A created card is a record of what went into the plugin: its retired copies are off the disk now, so it is never re-read.
+  return proposals.map(p =>
+    created[p.id]
+      ? p
+      : {
+          ...p,
+          assets: p.assets.map(a => {
+            const now = have.get(keyOf(a));
+            if (!now) return { ...a, include: false, global: undefined, repos: [], inPlugin: undefined };
+            return {
+              ...a,
+              inPlugin: now.inPlugin,
+              global: now.global ? { path: now.global.path, retire: a.global?.path === now.global.path && a.global.retire } : undefined,
+              repos: now.repos.map(r => ({ ...r, retire: !!a.repos.find(o => o.path === r.path)?.retire })),
+            };
+          }),
+        }
+  );
 }

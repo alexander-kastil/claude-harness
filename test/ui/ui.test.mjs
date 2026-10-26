@@ -80,7 +80,7 @@ test('the panel opens on the overview with every tile counted and data in the li
   await home();
   await notBlank('overview');
   const tiles = await labels('.main .overview .tile');
-  assert.deepEqual(tiles.map(t => t.replace(/^\d+/, '')), ['Memory', 'Rules', 'Agents', 'Skills', 'Commands', 'Output Styles', 'Workflows', 'Hooks', 'Hook Scripts', 'MCP Servers', 'Plugins', 'Settings']);
+  assert.deepEqual(tiles.map(t => t.replace(/^\d+/, '')), ['Memory', 'Rules', 'Agents', 'Skills', 'Commands', 'Output Styles', 'Workflows', 'Hooks', 'Mods', 'MCP Servers', 'Plugins', 'Settings']);
   assert.match(await text('.main-head .path'), /68 global assets · 5 repositories/);
 });
 

@@ -3,13 +3,13 @@
 import { vscode } from './core';
 import { confirmAt, showConfirm } from './confirm';
 import { claudeMark, el, icon, plural } from './dom';
-import { hunt, repaint } from './hunt-state';
+import { hunt, repaint, waitText } from './hunt-state';
 
 // The turns of the conversation shown without asking.
 const SHOWN_TURNS = 4;
 
 export function chatView() {
-  const all = [...hunt.chat, ...(hunt.pending ? [{ role: 'owner', text: hunt.pending }, { role: 'claude', text: 'Working on it...', wait: true }] : [])];
+  const all = [...hunt.chat, ...(hunt.pending ? [{ role: 'owner', text: hunt.pending }, { role: 'claude', text: waitText(), wait: true }] : [])];
   if (!all.length) return null;
   const hidden = hunt.earlier ? 0 : Math.max(0, all.length - SHOWN_TURNS);
   const turns = all.slice(hidden);
@@ -18,6 +18,7 @@ export function chatView() {
       'button',
       {
         className: 'secondary',
+        disabled: hunt.running,
         title: 'Start over\nClears the conversation. The plugin cards stay.',
         onclick: () =>
           showConfirm({

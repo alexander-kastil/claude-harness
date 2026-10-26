@@ -5547,6 +5547,19 @@ body.vscode-high-contrast-light {
   box-sizing: border-box;
 }
 
+.hunt-field textarea {
+  overflow: hidden;
+  resize: none;
+}
+
+.hunt-where {
+  font-size: 11px;
+  opacity: 0.65;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .hunt-label {
   font-size: 11px;
   font-weight: 600;
@@ -5796,6 +5809,22 @@ body.vscode-high-contrast-light {
 .hunt-msg-text {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+
+/* The result of a create or an error on a plugin card: two lines, the whole text in the hover card. */
+.notice.hunt-result {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+/* Claude's reply is two lines at most; the card lists every element with its copies. */
+.hunt-msg.claude .hunt-msg-text {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
 }
 
 /* A confirm card that asks for text or a pick. */

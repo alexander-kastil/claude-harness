@@ -356,8 +356,11 @@ export function titleRecords(file: string, size: number): Record<string, string>
 }
 
 /** The name `/resume` shows: agent name, custom title, AI title, summary, first prompt, then the first 8 characters of the id. */
-export const sessionTitle = (titles: Record<string, string>, prompt: string | undefined, id: string): string =>
-  titles.agentName || titles.customTitle || titles.aiTitle || titles.summary || prompt?.trim() || id.slice(0, 8);
+export const sessionTitle = (titles: Record<string, string>, prompt: string | undefined, id: string): string => {
+  const name = (titles.agentName || titles.customTitle || titles.aiTitle || titles.summary || prompt?.trim() || id.slice(0, 8)).replace(/\s+/g, ' ').trim();
+  // One short line: a model-written title or a long first prompt never fills a row.
+  return name.length > 100 ? `${name.slice(0, 97).trimEnd()}...` : name;
+};
 
 /** Renames a session the way `/rename` does: a custom-title record (and an agent-name record when the session has one) and the sidecar file. */
 export function renameSession(file: string, title: string): void {

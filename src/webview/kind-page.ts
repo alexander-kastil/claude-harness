@@ -11,7 +11,7 @@ import { fmtTokens } from './refs';
 import { byDescriptionCost, costText, costTip, descTokens, hasHeavyDescription, hasLongDescription } from './slim';
 import { askTotals, countTone, isNeverUsed, isStale, totalsKnown, usedText, usedTip } from './usage-more';
 
-export const COPYABLE_KINDS = ['rule', 'agent', 'skill', 'command', 'outputStyle', 'workflow', 'hookScript'];
+export const COPYABLE_KINDS = ['rule', 'agent', 'skill', 'command', 'outputStyle', 'workflow', 'hook'];
 
 export const RESTRICTED = ['restricted', 'Restricted tools', a => !!metaOf(a).tools];
 
@@ -202,6 +202,7 @@ export const KIND_FACTS = {
   ],
   settings: [['Keys', 52, a => a.description.replace(/ keys$/, '')]],
 };
+KIND_FACTS.mod = KIND_FACTS.plugin;
 
 // Opened from a repo or from Global, the page lists what lives in that scope alone; the Scope filter widens it.
 export const showKindPage = (kind, scope) => {

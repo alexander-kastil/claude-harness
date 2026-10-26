@@ -43,7 +43,7 @@ export function hookTarget(asset: Asset, views: ScopeView[]): HookTarget | undef
   const declared: DeclaredHook[] = [];
   const mine = new Set<number>();
   for (const view of views)
-    for (const hook of view.categories.find(c => c.kind === 'hook')?.items ?? []) {
+    for (const hook of (view.categories.find(c => c.kind === 'hook')?.items ?? []).filter(i => i.kind === 'hook')) {
       const group = groupOf(hook);
       if (!group) continue;
       for (const h of group.hooks?.length ? group.hooks : [{}]) {

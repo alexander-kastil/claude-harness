@@ -93,7 +93,7 @@ export function fleetRow(view: ScopeView, check: { state: string; result?: Check
     check: result ? { fail: result.fail, review: result.review, kind: result.kind } : undefined,
     checkState: check.state,
     plugins: [...new Set(enabled)].sort(),
-    hookCopies: items('hookScript').filter(copied).length,
+    hookCopies: items('hook').filter(a => a.kind === 'hookScript' && copied(a)).length,
     copies: [...items('skill'), ...items('agent')].filter(copied).length,
   };
 }

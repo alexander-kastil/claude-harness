@@ -171,7 +171,7 @@ test('linkCopies marks hook scripts and plugin copies; Retire backs up a clean r
   const pluginView = { id: 'plugin:p@m', label: 'plugin p@m', path: plugin, categories: [{ ...scan(globalScope(plugin))[2], items: scan({ ...globalScope(plugin), id: 'plugin:p@m' }).find(c => c.kind === 'agent')!.items }] };
   linkCopies(views, [pluginView]);
   const item = (v: number, kind: string, name: string) => views[v].categories.find(c => c.kind === kind)!.items.find(a => a.name === name)!;
-  assert.deepEqual(item(1, 'hookScript', 'guard.sh').copies!.map(c => c.same), [false]);
+  assert.deepEqual(item(1, 'hook', 'guard.sh').copies!.map(c => c.same), [false]);
   assert.deepEqual(item(1, 'agent', 'writer').copies!.map(c => [c.scope, c.same, c.near]), [['plugin:p@m', false, true]]);
   const skill = item(1, 'skill', 'hugo');
   assert.equal(retireBlock(skill, repo), undefined);

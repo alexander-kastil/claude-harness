@@ -5,7 +5,7 @@ import { persist, state, total, vscode } from './core';
 import { aiGroup, clip, el, fmtDur, fmtNum, fmtTime, icon, plural, shortModel, shortType, svg } from './dom';
 import { hideHover, placeCard, tabTip } from './hover';
 import { eventsCard } from './map';
-import { AGENT_STATUS, AXIS, BAR, LANE, agentLabel, colorsOf, endOfAgent, showHover, timeAxis, tokensText, topTools, widthOf } from './session-common';
+import { AGENT_STATUS, AXIS, BAR, LANE, agentLabel, colorsOf, endOfAgent, showHover, summaryText, timeAxis, tokensText, topTools, widthOf } from './session-common';
 import { fmtUsd, selectAgent, selectCheckpoint } from './session-page';
 import { showSession } from './sessions';
 
@@ -247,7 +247,9 @@ export function renderAgent(d) {
       facts.flatMap(([k, v]) => [el('span', { className: 'key' }, k), el('span', { className: 'value' }, String(v))])
     ),
     a.prompt ? el('details', {}, el('summary', {}, 'Brief'), el('pre', { className: 'json wrap' }, a.prompt)) : null,
-    a.result ? el('details', { open: true }, el('summary', {}, 'Report'), el('pre', { className: 'json wrap' }, a.result)) : null
+    a.result
+      ? el('details', { open: true }, el('summary', {}, 'Report'), el('div', { className: 'agent-report' }, clip(summaryText(a.result).replace(/\s+/g, ' '), 240)), el('details', {}, el('summary', {}, 'Full report'), el('pre', { className: 'json wrap' }, a.result)))
+      : null
   );
 }
 
