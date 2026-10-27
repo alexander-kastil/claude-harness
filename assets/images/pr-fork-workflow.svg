@@ -1,0 +1,338 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1640" height="2394" viewBox="0 0 1640 2394" role="img" aria-labelledby="t d">
+<title id="t">From your fork to a pull request that merges cleanly</title>
+<desc id="d">How to contribute to alexander-kastil/claude-harness from the fork aeshilion/claude-harness. Three columns, left to right: the upstream repo on GitHub, the fork on GitHub (origin), and the local clone on your machine. Time runs top to bottom, and each of the steps 1 to 9 is a row, numbered on the left. The animation plays the steps in order and shows the commits moving between the columns. Step 6, merging upstream master into the feature branch right before the pull request, is the step that avoids conflicts. Step 8 loops back to it while the pull request is open. The column on the right names the Claude Code command on the row of its step: /git-contribute-setup for step 2, /git-contribute-start for 3 and 4, /git-sideload for 5, /git-contribute-sync for 6 and 8, /git-contribute-pr for 7 and /git-contribute-finish for 9. Below the steps, /git-contribute-cleanup deletes a feature branch you no longer need.</desc>
+<style>
+  svg { font-family: 'Inter','Inter var',system-ui,-apple-system,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif; font-size: 26px; }
+  .mono { font-family: ui-monospace,'Cascadia Mono','SF Mono',Menlo,Consolas,monospace; }
+  .kicker { font-size: 26px; font-weight: 800; letter-spacing: .22em; fill: #1C1C1A; }
+  .h1 { font-size: 58px; font-weight: 700; letter-spacing: -.028em; fill: #1C1C1A; }
+  .sec { font-size: 22px; font-weight: 800; letter-spacing: .19em; fill: #1C1C1A; }
+  .secq { font-size: 22px; font-weight: 500; letter-spacing: .19em; fill: #8C877D; }
+  .micro { font-size: 21px; font-weight: 700; letter-spacing: .17em; fill: #8C877D; }
+  .repo { font-size: 22px; fill: #1C1C1A; }
+  .place { font-size: 27px; font-weight: 600; fill: #1C1C1A; }
+  .where { font-size: 23px; fill: #4A4844; }
+  .branch { font-size: 22px; fill: #4A4844; }
+  .lab { font-size: 24px; fill: #4A4844; }
+  .labgold { font-size: 24px; font-weight: 700; fill: #B8912F; }
+  .badge { font-size: 26px; font-weight: 700; fill: #1C1C1A; }
+  .badgegold { font-size: 26px; font-weight: 700; fill: #FFFFFF; }
+  .cmd { font-size: 24px; fill: #4A4844; }
+  /* final frame is the base style: overlays and commit tokens rest hidden */
+  .ov, .tok { opacity: 0; }
+  .pop { transform-box: fill-box; transform-origin: center; }
+  @keyframes k0 { 0%,5.294%{stroke-dashoffset:100;opacity:1} 8.235%,98.2%{stroke-dashoffset:0;opacity:1} 100%{stroke-dashoffset:0;opacity:0} }
+  @keyframes k1 { 0%,9.118%{stroke-dashoffset:100;opacity:1} 12.059%,98.2%{stroke-dashoffset:0;opacity:1} 100%{stroke-dashoffset:0;opacity:0} }
+  @keyframes k2 { 0%,26.176%{stroke-dashoffset:100;opacity:1} 28.235%,98.2%{stroke-dashoffset:0;opacity:1} 100%{stroke-dashoffset:0;opacity:0} }
+  @keyframes k3 { 0%,28.235%{stroke-dashoffset:100;opacity:1} 30.882%,98.2%{stroke-dashoffset:0;opacity:1} 100%{stroke-dashoffset:0;opacity:0} }
+  @keyframes k4 { 0%,47.941%{stroke-dashoffset:100;opacity:1} 50.588%,98.2%{stroke-dashoffset:0;opacity:1} 100%{stroke-dashoffset:0;opacity:0} }
+  @keyframes k5 { 0%,81.765%{opacity:0} 82.500%,98.2%{opacity:1} 100%{opacity:0} }
+  @keyframes k6 { 0%,83.235%{opacity:0} 83.971%,98.2%{opacity:1} 100%{opacity:0} }
+  @keyframes k7 { 0%,5.588%{opacity:0} 6.618%,98.2%{opacity:1} 100%{opacity:0} }
+  @keyframes k8 { 0%,9.412%{opacity:0} 10.441%,98.2%{opacity:1} 100%{opacity:0} }
+  @keyframes k9 { 0%,28.529%{opacity:0} 29.559%,98.2%{opacity:1} 100%{opacity:0} }
+  @keyframes k10 { 0%,48.235%{opacity:0} 49.265%,98.2%{opacity:1} 100%{opacity:0} }
+  @keyframes k11 { 0%,11.176%{opacity:0} 11.324%,98.2%{opacity:1} 100%{opacity:0} }
+  @keyframes k12 { 0%,17.059%{opacity:0} 17.206%,98.2%{opacity:1} 100%{opacity:0} }
+  @keyframes k13 { 0%,40.588%{opacity:0} 40.735%,98.2%{opacity:1} 100%{opacity:0} }
+  @keyframes k14 { 0%,52.941%{opacity:0} 53.088%,98.2%{opacity:1} 100%{opacity:0} }
+  @keyframes k15 { 0%,67.647%{opacity:0} 67.794%,98.2%{opacity:1} 100%{opacity:0} }
+  @keyframes k16 { 0%,77.941%{opacity:0} 78.088%,98.2%{opacity:1} 100%{opacity:0} }
+  @keyframes k17 { 0%,2.941%{stroke-dashoffset:100;opacity:1} 5.294%,98.2%{stroke-dashoffset:0;opacity:1} 100%{stroke-dashoffset:0;opacity:0} }
+  @keyframes k18 { 0%,5.147%{opacity:0} 5.735%,98.2%{opacity:1} 100%{opacity:0} }
+  @keyframes k19 { 0%,2.941%{opacity:0;transform:translate(0px,0px)} 3.235%{opacity:1} 5.059%{opacity:1} 5.294%,100%{opacity:0;transform:translate(254px,0px)} }
+  @keyframes k20 { 0%,6.471%{stroke-dashoffset:100;opacity:1} 9.118%,98.2%{stroke-dashoffset:0;opacity:1} 100%{stroke-dashoffset:0;opacity:0} }
+  @keyframes k21 { 0%,8.971%{opacity:0} 9.559%,98.2%{opacity:1} 100%{opacity:0} }
+  @keyframes k22 { 0%,6.471%{opacity:0;transform:translate(0px,0px)} 6.765%{opacity:1} 8.882%{opacity:1} 9.118%,100%{opacity:0;transform:translate(560px,0px)} }
+  @keyframes k23 { 0%,11.176%{opacity:0} 13.529%,98.2%{opacity:1} 100%{opacity:0} }
+  @keyframes k24 { 0%,13.382%{opacity:0} 13.971%,98.2%{opacity:1} 100%{opacity:0} }
+  @keyframes k25 { 0%,13.824%{opacity:0} 15.882%,98.2%{opacity:1} 100%{opacity:0} }
+  @keyframes k26 { 0%,15.735%{opacity:0} 16.324%,98.2%{opacity:1} 100%{opacity:0} }
+  @keyframes k27 { 0%,17.059%{stroke-dashoffset:100;opacity:1} 20.000%,98.2%{stroke-dashoffset:0;opacity:1} 100%{stroke-dashoffset:0;opacity:0} }
+  @keyframes k28 { 0%,19.853%{opacity:0} 20.441%,98.2%{opacity:1} 100%{opacity:0} }
+  @keyframes k29 { 0%,17.059%{opacity:0;transform:translate(0px,0px)} 17.353%{opacity:1} 19.765%{opacity:1} 20.000%,100%{opacity:0;transform:translate(844px,0px)} }
+  @keyframes k30 { 0%,20.882%{stroke-dashoffset:100;opacity:1} 23.235%,98.2%{stroke-dashoffset:0;opacity:1} 100%{stroke-dashoffset:0;opacity:0} }
+  @keyframes k31 { 0%,23.088%{opacity:0} 23.676%,98.2%{opacity:1} 100%{opacity:0} }
+  @keyframes k32 { 0%,20.882%{opacity:0;transform:translate(0px,0px)} 21.176%{opacity:1} 23.000%{opacity:1} 23.235%,100%{opacity:0;transform:translate(-560px,0px)} }
+  @keyframes k33 { 0%,40.588%{stroke-dashoffset:100;opacity:1} 44.118%,98.2%{stroke-dashoffset:0;opacity:1} 100%{stroke-dashoffset:0;opacity:0} }
+  @keyframes k34 { 0%,43.971%{opacity:0} 44.559%,98.2%{opacity:1} 100%{opacity:0} }
+  @keyframes k35 { 0%,40.588%{opacity:0;transform:translate(0px,0px)} 40.882%{opacity:1} 43.882%{opacity:1} 44.118%,100%{opacity:0;transform:translate(622px,0px)} }
+  @keyframes k36 { 0%,45.588%{stroke-dashoffset:100;opacity:1} 47.941%,98.2%{stroke-dashoffset:0;opacity:1} 100%{stroke-dashoffset:0;opacity:0} }
+  @keyframes k37 { 0%,47.794%{opacity:0} 48.382%,98.2%{opacity:1} 100%{opacity:0} }
+  @keyframes k38 { 0%,45.588%{opacity:0;transform:translate(0px,0px)} 45.882%{opacity:1} 47.706%{opacity:1} 47.941%,100%{opacity:0;transform:translate(-112px,0px)} }
+  @keyframes k39 { 0%,52.941%{opacity:0} 57.059%,98.2%{opacity:1} 100%{opacity:0} }
+  @keyframes k40 { 0%,56.912%{opacity:0} 57.500%,98.2%{opacity:1} 100%{opacity:0} }
+  @keyframes k41 { 0%,52.941%{opacity:0;transform:translate(0px,0px)} 53.235%{opacity:1} 56.824%{opacity:1} 57.059%,100%{opacity:0;transform:translate(-480px,0px)} }
+  @keyframes k42 { 0%,67.647%{stroke-dashoffset:100;opacity:1} 70.588%,98.2%{stroke-dashoffset:0;opacity:1} 100%{stroke-dashoffset:0;opacity:0} }
+  @keyframes k43 { 0%,70.441%{opacity:0} 71.029%,98.2%{opacity:1} 100%{opacity:0} }
+  @keyframes k44 { 0%,67.647%{opacity:0;transform:translate(0px,0px)} 67.941%{opacity:1} 70.353%{opacity:1} 70.588%,100%{opacity:0;transform:translate(622px,0px)} }
+  @keyframes k45 { 0%,71.765%{stroke-dashoffset:100;opacity:1} 73.824%,98.2%{stroke-dashoffset:0;opacity:1} 100%{stroke-dashoffset:0;opacity:0} }
+  @keyframes k46 { 0%,73.676%{opacity:0} 74.265%,98.2%{opacity:1} 100%{opacity:0} }
+  @keyframes k47 { 0%,71.765%{opacity:0;transform:translate(0px,0px)} 72.059%{opacity:1} 73.588%{opacity:1} 73.824%,100%{opacity:0;transform:translate(-112px,0px)} }
+  @keyframes k48 { 0%,77.941%{stroke-dashoffset:100;opacity:1} 80.588%,98.2%{stroke-dashoffset:0;opacity:1} 100%{stroke-dashoffset:0;opacity:0} }
+  @keyframes k49 { 0%,80.441%{opacity:0} 81.029%,98.2%{opacity:1} 100%{opacity:0} }
+  @keyframes k50 { 0%,77.941%{opacity:0;transform:translate(0px,0px)} 78.235%{opacity:1} 80.353%{opacity:1} 80.588%,100%{opacity:0;transform:translate(844px,0px)} }
+  @keyframes k51 { 0%,5.294%{opacity:0;transform:scale(.2)} 5.941%{opacity:1;transform:scale(1.35)} 6.765%,98.2%{opacity:1;transform:scale(1)} 100%{opacity:0;transform:scale(1)} }
+  @keyframes k52 { 0%,9.118%{opacity:0;transform:scale(.2)} 9.765%{opacity:1;transform:scale(1.35)} 10.588%,98.2%{opacity:1;transform:scale(1)} 100%{opacity:0;transform:scale(1)} }
+  @keyframes k53 { 0%,20.000%{opacity:0;transform:scale(.2)} 20.647%{opacity:1;transform:scale(1.35)} 21.471%,98.2%{opacity:1;transform:scale(1)} 100%{opacity:0;transform:scale(1)} }
+  @keyframes k54 { 0%,23.235%{opacity:0;transform:scale(.2)} 23.882%{opacity:1;transform:scale(1.35)} 24.706%,98.2%{opacity:1;transform:scale(1)} 100%{opacity:0;transform:scale(1)} }
+  @keyframes k55 { 0%,25.588%{opacity:0;transform:scale(.2)} 26.235%{opacity:1;transform:scale(1.35)} 27.059%,98.2%{opacity:1;transform:scale(1)} 100%{opacity:0;transform:scale(1)} }
+  @keyframes k56 { 0%,32.059%{opacity:0;transform:scale(.2)} 32.706%{opacity:1;transform:scale(1.35)} 33.529%,98.2%{opacity:1;transform:scale(1)} 100%{opacity:0;transform:scale(1)} }
+  @keyframes k57 { 0%,34.118%{opacity:0;transform:scale(.2)} 34.765%{opacity:1;transform:scale(1.35)} 35.588%,98.2%{opacity:1;transform:scale(1)} 100%{opacity:0;transform:scale(1)} }
+  @keyframes k58 { 0%,36.176%{opacity:0;transform:scale(.2)} 36.824%{opacity:1;transform:scale(1.35)} 37.647%,98.2%{opacity:1;transform:scale(1)} 100%{opacity:0;transform:scale(1)} }
+  @keyframes k59 { 0%,33.235%{opacity:0;transform:scale(.2)} 33.882%{opacity:1;transform:scale(1.35)} 34.706%,98.2%{opacity:1;transform:scale(1)} 100%{opacity:0;transform:scale(1)} }
+  @keyframes k60 { 0%,37.059%{opacity:0;transform:scale(.2)} 37.706%{opacity:1;transform:scale(1.35)} 38.529%,98.2%{opacity:1;transform:scale(1)} 100%{opacity:0;transform:scale(1)} }
+  @keyframes k61 { 0%,39.706%{opacity:0;transform:scale(.2)} 40.353%{opacity:1;transform:scale(1.35)} 41.176%,98.2%{opacity:1;transform:scale(1)} 100%{opacity:0;transform:scale(1)} }
+  @keyframes k62 { 0%,44.118%{opacity:0;transform:scale(.2)} 44.765%{opacity:1;transform:scale(1.35)} 45.588%,98.2%{opacity:1;transform:scale(1)} 100%{opacity:0;transform:scale(1)} }
+  @keyframes k63 { 0%,47.941%{opacity:0;transform:scale(.2)} 48.588%{opacity:1;transform:scale(1.35)} 49.412%,98.2%{opacity:1;transform:scale(1)} 100%{opacity:0;transform:scale(1)} }
+  @keyframes k64 { 0%,52.353%{opacity:0;transform:scale(.2)} 53.000%{opacity:1;transform:scale(1.35)} 53.824%,98.2%{opacity:1;transform:scale(1)} 100%{opacity:0;transform:scale(1)} }
+  @keyframes k65 { 0%,60.588%{opacity:0;transform:scale(.2)} 61.235%{opacity:1;transform:scale(1.35)} 62.059%,98.2%{opacity:1;transform:scale(1)} 100%{opacity:0;transform:scale(1)} }
+  @keyframes k66 { 0%,62.059%{opacity:0;transform:scale(.2)} 62.706%{opacity:1;transform:scale(1.35)} 63.529%,98.2%{opacity:1;transform:scale(1)} 100%{opacity:0;transform:scale(1)} }
+  @keyframes k67 { 0%,70.588%{opacity:0;transform:scale(.2)} 71.235%{opacity:1;transform:scale(1.35)} 72.059%,98.2%{opacity:1;transform:scale(1)} 100%{opacity:0;transform:scale(1)} }
+  @keyframes k68 { 0%,73.824%{opacity:0;transform:scale(.2)} 74.471%{opacity:1;transform:scale(1.35)} 75.294%,98.2%{opacity:1;transform:scale(1)} 100%{opacity:0;transform:scale(1)} }
+  @keyframes k69 { 0%,76.176%{opacity:0;transform:scale(.2)} 76.824%{opacity:1;transform:scale(1.35)} 77.647%,98.2%{opacity:1;transform:scale(1)} 100%{opacity:0;transform:scale(1)} }
+  @keyframes k70 { 0%,77.353%{opacity:0;transform:scale(.2)} 78.000%{opacity:1;transform:scale(1.35)} 78.824%,98.2%{opacity:1;transform:scale(1)} 100%{opacity:0;transform:scale(1)} }
+  @keyframes k71 { 0%,80.588%{opacity:0;transform:scale(.2)} 81.235%{opacity:1;transform:scale(1.35)} 82.059%,98.2%{opacity:1;transform:scale(1)} 100%{opacity:0;transform:scale(1)} }
+  @keyframes k72 { 0%,2.941%{opacity:0} 3.971%,98.2%{opacity:1} 100%{opacity:0} }
+  @keyframes k73 { 0%,6.471%{opacity:0} 7.500%,98.2%{opacity:1} 100%{opacity:0} }
+  @keyframes k74 { 0%,11.176%{opacity:0} 12.206%,98.2%{opacity:1} 100%{opacity:0} }
+  @keyframes k75 { 0%,13.824%{opacity:0} 14.853%,98.2%{opacity:1} 100%{opacity:0} }
+  @keyframes k76 { 0%,17.059%{opacity:0} 18.088%,98.2%{opacity:1} 100%{opacity:0} }
+  @keyframes k77 { 0%,20.882%{opacity:0} 21.912%,98.2%{opacity:1} 100%{opacity:0} }
+  @keyframes k78 { 0%,26.176%{opacity:0} 27.206%,98.2%{opacity:1} 100%{opacity:0} }
+  @keyframes k79 { 0%,32.059%{opacity:0} 33.088%,98.2%{opacity:1} 100%{opacity:0} }
+  @keyframes k80 { 0%,33.235%{opacity:0} 34.265%,98.2%{opacity:1} 100%{opacity:0} }
+  @keyframes k81 { 0%,40.588%{opacity:0} 41.618%,98.2%{opacity:1} 100%{opacity:0} }
+  @keyframes k82 { 0%,45.588%{opacity:0} 46.618%,98.2%{opacity:1} 100%{opacity:0} }
+  @keyframes k83 { 0%,52.941%{opacity:0} 53.971%,98.2%{opacity:1} 100%{opacity:0} }
+  @keyframes k84 { 0%,76.176%{opacity:0} 77.206%,98.2%{opacity:1} 100%{opacity:0} }
+  @keyframes k85 { 0%,77.941%{opacity:0} 78.971%,98.2%{opacity:1} 100%{opacity:0} }
+  @keyframes k86 { 0%,81.765%{opacity:0} 82.794%,98.2%{opacity:1} 100%{opacity:0} }
+  @keyframes k87 { 0%,83.235%{opacity:0} 84.265%,98.2%{opacity:1} 100%{opacity:0} }
+  @keyframes k88 { 0%{opacity:0} 2.353%{opacity:0} 3.235%,9.706%{opacity:1} 10.588%{opacity:0} 100%{opacity:0} }
+  @keyframes k89 { 0%{opacity:0} 10.588%{opacity:0} 11.471%,15.588%{opacity:1} 16.471%{opacity:0} 100%{opacity:0} }
+  @keyframes k90 { 0%{opacity:0} 16.471%{opacity:0} 17.353%,24.412%{opacity:1} 25.294%{opacity:0} 100%{opacity:0} }
+  @keyframes k91 { 0%{opacity:0} 25.294%{opacity:0} 26.176%,30.294%{opacity:1} 31.176%{opacity:0} 100%{opacity:0} }
+  @keyframes k92 { 0%{opacity:0} 31.176%{opacity:0} 32.059%,38.529%{opacity:1} 39.412%{opacity:0} 100%{opacity:0} }
+  @keyframes k93 { 0%{opacity:0} 39.412%{opacity:0} 40.294%,50.882%{opacity:1} 51.765%{opacity:0} 66.471%{opacity:0} 67.353%,74.412%{opacity:1} 75.294%{opacity:0} 100%{opacity:0} }
+  @keyframes k94 { 0%{opacity:0} 51.765%{opacity:0} 52.647%,59.118%{opacity:1} 60.000%{opacity:0} 100%{opacity:0} }
+  @keyframes k95 { 0%{opacity:0} 60.000%{opacity:0} 60.882%,74.412%{opacity:1} 75.294%{opacity:0} 100%{opacity:0} }
+  @keyframes k96 { 0%{opacity:0} 75.294%{opacity:0} 76.176%,84.412%{opacity:1} 85.294%{opacity:0} 100%{opacity:0} }
+  @keyframes k97 { 0%,63.235%{stroke-dashoffset:100;opacity:1} 66.176%,98.2%{stroke-dashoffset:0;opacity:1} 100%{stroke-dashoffset:0;opacity:0} }
+  @keyframes k98 { 0%,66.029%{opacity:0} 66.618%,98.2%{opacity:1} 100%{opacity:0} }
+  @keyframes k99 { 0%,63.235%{opacity:0} 64.265%,98.2%{opacity:1} 100%{opacity:0} }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
+</style>
+<rect x="0" y="0" width="1640" height="2394" fill="#F7F5F1"/>
+<text x="36" y="86" class="kicker">CLAUDE-HARNESS</text>
+<text x="32" y="170" class="h1">From your fork to a pull request that merges cleanly</text>
+<text x="36" y="238"><tspan class="sec">WHERE EACH BRANCH LIVES</tspan><tspan class="secq">  ·  TIME RUNS TOP TO BOTTOM</tspan></text>
+<rect x="270" y="290" width="268" height="2060" rx="8" fill="#FFFFFF" stroke="#E7E3DB" stroke-width="2"/>
+<line x1="288" y1="496" x2="520" y2="496" stroke="#EFECE6" stroke-width="2"/>
+<rect x="554" y="290" width="306" height="2060" rx="8" fill="#FFFFFF" stroke="#E7E3DB" stroke-width="2"/>
+<line x1="572" y1="496" x2="842" y2="496" stroke="#EFECE6" stroke-width="2"/>
+<rect x="876" y="290" width="348" height="2060" rx="8" fill="#FFFFFF" stroke="#E7E3DB" stroke-width="2"/>
+<line x1="894" y1="496" x2="1206" y2="496" stroke="#EFECE6" stroke-width="2"/>
+<rect x="1240" y="290" width="370" height="2060" rx="8" fill="#FFFFFF" stroke="#E7E3DB" stroke-width="2"/>
+<line x1="1258" y1="496" x2="1592" y2="496" stroke="#EFECE6" stroke-width="2"/>
+<line x1="288" y1="764" x2="520" y2="764" stroke="#EFECE6" stroke-width="2"/>
+<line x1="572" y1="764" x2="842" y2="764" stroke="#EFECE6" stroke-width="2"/>
+<line x1="894" y1="764" x2="1206" y2="764" stroke="#EFECE6" stroke-width="2"/>
+<line x1="1258" y1="764" x2="1592" y2="764" stroke="#EFECE6" stroke-width="2"/>
+<line x1="288" y1="926" x2="520" y2="926" stroke="#EFECE6" stroke-width="2"/>
+<line x1="572" y1="926" x2="842" y2="926" stroke="#EFECE6" stroke-width="2"/>
+<line x1="894" y1="926" x2="1206" y2="926" stroke="#EFECE6" stroke-width="2"/>
+<line x1="1258" y1="926" x2="1592" y2="926" stroke="#EFECE6" stroke-width="2"/>
+<line x1="288" y1="1088" x2="520" y2="1088" stroke="#EFECE6" stroke-width="2"/>
+<line x1="572" y1="1088" x2="842" y2="1088" stroke="#EFECE6" stroke-width="2"/>
+<line x1="894" y1="1088" x2="1206" y2="1088" stroke="#EFECE6" stroke-width="2"/>
+<line x1="288" y1="1296" x2="520" y2="1296" stroke="#EFECE6" stroke-width="2"/>
+<line x1="572" y1="1296" x2="842" y2="1296" stroke="#EFECE6" stroke-width="2"/>
+<line x1="894" y1="1296" x2="1206" y2="1296" stroke="#EFECE6" stroke-width="2"/>
+<line x1="1258" y1="1296" x2="1592" y2="1296" stroke="#EFECE6" stroke-width="2"/>
+<line x1="288" y1="1488" x2="520" y2="1488" stroke="#EFECE6" stroke-width="2"/>
+<line x1="572" y1="1488" x2="842" y2="1488" stroke="#EFECE6" stroke-width="2"/>
+<line x1="894" y1="1488" x2="1206" y2="1488" stroke="#EFECE6" stroke-width="2"/>
+<line x1="1258" y1="1488" x2="1592" y2="1488" stroke="#EFECE6" stroke-width="2"/>
+<line x1="288" y1="1680" x2="520" y2="1680" stroke="#EFECE6" stroke-width="2"/>
+<line x1="572" y1="1680" x2="842" y2="1680" stroke="#EFECE6" stroke-width="2"/>
+<line x1="894" y1="1680" x2="1206" y2="1680" stroke="#EFECE6" stroke-width="2"/>
+<line x1="1258" y1="1680" x2="1592" y2="1680" stroke="#EFECE6" stroke-width="2"/>
+<line x1="288" y1="1784" x2="520" y2="1784" stroke="#EFECE6" stroke-width="2"/>
+<line x1="572" y1="1784" x2="842" y2="1784" stroke="#EFECE6" stroke-width="2"/>
+<line x1="894" y1="1784" x2="1206" y2="1784" stroke="#EFECE6" stroke-width="2"/>
+<line x1="1258" y1="1784" x2="1592" y2="1784" stroke="#EFECE6" stroke-width="2"/>
+<line x1="288" y1="1982" x2="520" y2="1982" stroke="#EFECE6" stroke-width="2"/>
+<line x1="572" y1="1982" x2="842" y2="1982" stroke="#EFECE6" stroke-width="2"/>
+<line x1="894" y1="1982" x2="1206" y2="1982" stroke="#EFECE6" stroke-width="2"/>
+<line x1="1258" y1="1982" x2="1592" y2="1982" stroke="#EFECE6" stroke-width="2"/>
+<line x1="288" y1="2210" x2="520" y2="2210" stroke="#EFECE6" stroke-width="2"/>
+<line x1="572" y1="2210" x2="842" y2="2210" stroke="#EFECE6" stroke-width="2"/>
+<line x1="894" y1="2210" x2="1206" y2="2210" stroke="#EFECE6" stroke-width="2"/>
+<line x1="1258" y1="2210" x2="1592" y2="2210" stroke="#EFECE6" stroke-width="2"/>
+<text x="292" y="338" class="micro">UPSTREAM</text>
+<text x="292" y="378" class="repo mono">alexander-kastil/</text>
+<text x="292" y="407" class="repo mono">claude-harness</text>
+<text x="292" y="442" class="where">the owner's repo</text>
+<text x="292" y="470" class="where">on GitHub</text>
+<text x="576" y="338" class="micro">ORIGIN</text>
+<text x="576" y="378" class="repo mono">aeshilion/</text>
+<text x="576" y="407" class="repo mono">claude-harness</text>
+<text x="576" y="442" class="where">your fork on GitHub</text>
+<text x="898" y="338" class="micro">LOCAL CLONE</text>
+<text x="898" y="378" class="place">your machine</text>
+<text x="1262" y="338" class="micro">CLAUDE CODE</text>
+<text x="1262" y="378" class="place">slash commands</text>
+<text x="1262" y="442" class="where">run the steps for you</text>
+<path d="M310,514 V2328" fill="none" stroke="#8C877D" stroke-width="5" stroke-linecap="round"/>
+<path d="M594,592 V2328" pathLength="100" stroke-dasharray="100 100" fill="none" stroke="#8C877D" stroke-width="5" stroke-linecap="round" style="animation:k0 34s linear infinite"/>
+<path d="M1184,692 V2328" pathLength="100" stroke-dasharray="100 100" fill="none" stroke="#8C877D" stroke-width="5" stroke-linecap="round" style="animation:k1 34s linear infinite"/>
+<path d="M1184,1134 C1184,1196 962,1168 962,1230" pathLength="100" stroke-dasharray="100 100" fill="none" stroke="#1C1C1A" stroke-width="5" stroke-linecap="round" style="animation:k2 34s linear infinite"/>
+<path d="M962,1230 V2156" pathLength="100" stroke-dasharray="100 100" fill="none" stroke="#1C1C1A" stroke-width="5" stroke-linecap="round" style="animation:k3 34s linear infinite"/>
+<path d="M820,1614 V2156" pathLength="100" stroke-dasharray="100 100" fill="none" stroke="#1C1C1A" stroke-width="5" stroke-linecap="round" style="animation:k4 34s linear infinite"/>
+<path d="M945,2156 H979" stroke="#1C1C1A" stroke-width="5" stroke-linecap="round" style="animation:k5 34s linear infinite"/>
+<path d="M803,2156 H837" stroke="#1C1C1A" stroke-width="5" stroke-linecap="round" style="animation:k6 34s linear infinite"/>
+<text x="328" y="538" class="branch mono">master</text>
+<text x="612" y="634" class="branch mono" style="animation:k7 34s linear infinite">master</text>
+<text x="1166" y="734" class="branch mono" text-anchor="end" style="animation:k8 34s linear infinite">master</text>
+<text x="980" y="1270" class="branch mono" style="animation:k9 34s linear infinite">feature/&lt;name&gt;</text>
+<text x="802" y="1656" class="branch mono" text-anchor="end" style="animation:k10 34s linear infinite">feature/&lt;name&gt;</text>
+<rect x="586" y="811" width="16" height="22" fill="#FFFFFF" style="animation:k11 34s linear infinite"/>
+<rect x="586" y="973" width="16" height="22" fill="#FFFFFF" style="animation:k12 34s linear infinite"/>
+<rect x="586" y="1535" width="16" height="22" fill="#FFFFFF" style="animation:k13 34s linear infinite"/>
+<rect x="586" y="1731" width="16" height="22" fill="#FFFFFF" style="animation:k14 34s linear infinite"/>
+<rect x="586" y="1863" width="16" height="22" fill="#FFFFFF" style="animation:k15 34s linear infinite"/>
+<rect x="812" y="1863" width="16" height="22" fill="#FFFFFF" style="animation:k15 34s linear infinite"/>
+<rect x="586" y="2087" width="16" height="22" fill="#FFFFFF" style="animation:k16 34s linear infinite"/>
+<rect x="812" y="2087" width="16" height="22" fill="#FFFFFF" style="animation:k16 34s linear infinite"/>
+<rect x="954" y="2087" width="16" height="22" fill="#FFFFFF" style="animation:k16 34s linear infinite"/>
+<path d="M325,592 H565" pathLength="100" stroke-dasharray="100 100" fill="none" stroke="#4A4844" stroke-width="4" style="animation:k17 34s linear infinite"/>
+<polygon points="579,592 559,583.5 559,600.5" fill="#4A4844" style="animation:k18 34s linear infinite"/>
+<circle class="tok" cx="325" cy="592" r="10" fill="#4A4844" stroke="#FFFFFF" stroke-width="3" style="animation:k19 34s linear infinite"/>
+<path d="M609,692 H1155" pathLength="100" stroke-dasharray="100 100" fill="none" stroke="#4A4844" stroke-width="4" style="animation:k20 34s linear infinite"/>
+<polygon points="1169,692 1149,683.5 1149,700.5" fill="#4A4844" style="animation:k21 34s linear infinite"/>
+<circle class="tok" cx="609" cy="692" r="10" fill="#4A4844" stroke="#FFFFFF" stroke-width="3" style="animation:k22 34s linear infinite"/>
+<path d="M1169,822 H336.9" fill="none" stroke="#8C877D" stroke-width="3" stroke-dasharray="9 8" style="animation:k23 34s linear infinite"/>
+<polygon points="325,822 342,814.5 342,829.5" fill="#8C877D" style="animation:k24 34s linear infinite"/>
+<path d="M1169,886 H620.9" fill="none" stroke="#8C877D" stroke-width="3" stroke-dasharray="9 8" style="animation:k25 34s linear infinite"/>
+<polygon points="609,886 626,878.5 626,893.5" fill="#8C877D" style="animation:k26 34s linear infinite"/>
+<path d="M325,984 H1155" pathLength="100" stroke-dasharray="100 100" fill="none" stroke="#4A4844" stroke-width="4" style="animation:k27 34s linear infinite"/>
+<polygon points="1169,984 1149,975.5 1149,992.5" fill="#4A4844" style="animation:k28 34s linear infinite"/>
+<circle class="tok" cx="325" cy="984" r="10" fill="#4A4844" stroke="#FFFFFF" stroke-width="3" style="animation:k29 34s linear infinite"/>
+<path d="M1169,1048 H623" pathLength="100" stroke-dasharray="100 100" fill="none" stroke="#4A4844" stroke-width="4" style="animation:k30 34s linear infinite"/>
+<polygon points="609,1048 629,1039.5 629,1056.5" fill="#4A4844" style="animation:k31 34s linear infinite"/>
+<circle class="tok" cx="1169" cy="1048" r="10" fill="#4A4844" stroke="#FFFFFF" stroke-width="3" style="animation:k32 34s linear infinite"/>
+<path d="M325,1546 H929.5" pathLength="100" stroke-dasharray="100 100" fill="none" stroke="#B8912F" stroke-width="6" style="animation:k33 34s linear infinite"/>
+<polygon points="947,1546 922,1535 922,1557" fill="#B8912F" style="animation:k34 34s linear infinite"/>
+<circle class="tok" cx="325" cy="1546" r="10" fill="#B8912F" stroke="#FFFFFF" stroke-width="3" style="animation:k35 34s linear infinite"/>
+<path d="M947,1614 H852.5" pathLength="100" stroke-dasharray="100 100" fill="none" stroke="#B8912F" stroke-width="6" style="animation:k36 34s linear infinite"/>
+<polygon points="835,1614 860,1603 860,1625" fill="#B8912F" style="animation:k37 34s linear infinite"/>
+<circle class="tok" cx="947" cy="1614" r="10" fill="#B8912F" stroke="#FFFFFF" stroke-width="3" style="animation:k38 34s linear infinite"/>
+<path d="M805,1742 H339" fill="none" stroke="#1C1C1A" stroke-width="4" stroke-dasharray="12 9" style="animation:k39 34s linear infinite"/>
+<polygon points="325,1742 345,1733.5 345,1750.5" fill="#1C1C1A" style="animation:k40 34s linear infinite"/>
+<circle class="tok" cx="805" cy="1742" r="10" fill="#1C1C1A" stroke="#FFFFFF" stroke-width="3" style="animation:k41 34s linear infinite"/>
+<path d="M325,1874 H931.6" pathLength="100" stroke-dasharray="100 100" fill="none" stroke="#D9C48A" stroke-width="5" style="animation:k42 34s linear infinite"/>
+<polygon points="947,1874 925,1864.5 925,1883.5" fill="#D9C48A" style="animation:k43 34s linear infinite"/>
+<circle class="tok" cx="325" cy="1874" r="10" fill="#C9AE62" stroke="#FFFFFF" stroke-width="3" style="animation:k44 34s linear infinite"/>
+<path d="M947,1940 H850.4" pathLength="100" stroke-dasharray="100 100" fill="none" stroke="#D9C48A" stroke-width="5" style="animation:k45 34s linear infinite"/>
+<polygon points="835,1940 857,1930.5 857,1949.5" fill="#D9C48A" style="animation:k46 34s linear infinite"/>
+<circle class="tok" cx="947" cy="1940" r="10" fill="#C9AE62" stroke="#FFFFFF" stroke-width="3" style="animation:k47 34s linear infinite"/>
+<path d="M325,2098 H1155" pathLength="100" stroke-dasharray="100 100" fill="none" stroke="#4A4844" stroke-width="4" style="animation:k48 34s linear infinite"/>
+<polygon points="1169,2098 1149,2089.5 1149,2106.5" fill="#4A4844" style="animation:k49 34s linear infinite"/>
+<circle class="tok" cx="325" cy="2098" r="10" fill="#4A4844" stroke="#FFFFFF" stroke-width="3" style="animation:k50 34s linear infinite"/>
+<circle cx="310" cy="592" r="11" fill="#FFFFFF" stroke="#8C877D" stroke-width="4"/>
+<circle cx="310" cy="984" r="11" fill="#FFFFFF" stroke="#8C877D" stroke-width="4"/>
+<circle class="pop" cx="594" cy="592" r="11" fill="#FFFFFF" stroke="#8C877D" stroke-width="4" style="animation:k51 34s linear infinite"/>
+<circle class="pop" cx="1184" cy="692" r="11" fill="#FFFFFF" stroke="#8C877D" stroke-width="4" style="animation:k52 34s linear infinite"/>
+<circle class="pop" cx="1184" cy="984" r="11" fill="#FFFFFF" stroke="#8C877D" stroke-width="4" style="animation:k53 34s linear infinite"/>
+<circle class="pop" cx="594" cy="1048" r="11" fill="#FFFFFF" stroke="#8C877D" stroke-width="4" style="animation:k54 34s linear infinite"/>
+<circle class="pop" cx="1184" cy="1134" r="11" fill="#FFFFFF" stroke="#8C877D" stroke-width="4" style="animation:k55 34s linear infinite"/>
+<circle class="pop" cx="962" cy="1340" r="11" fill="#FFFFFF" stroke="#1C1C1A" stroke-width="4" style="animation:k56 34s linear infinite"/>
+<circle class="pop" cx="962" cy="1392" r="11" fill="#FFFFFF" stroke="#1C1C1A" stroke-width="4" style="animation:k57 34s linear infinite"/>
+<circle class="pop" cx="962" cy="1444" r="11" fill="#FFFFFF" stroke="#1C1C1A" stroke-width="4" style="animation:k58 34s linear infinite"/>
+<circle class="pop" cx="310" cy="1354" r="11" fill="#FFFFFF" stroke="#8C877D" stroke-width="4" style="animation:k59 34s linear infinite"/>
+<circle class="pop" cx="310" cy="1432" r="11" fill="#FFFFFF" stroke="#8C877D" stroke-width="4" style="animation:k60 34s linear infinite"/>
+<circle class="pop" cx="310" cy="1546" r="11" fill="#FFFFFF" stroke="#8C877D" stroke-width="4" style="animation:k61 34s linear infinite"/>
+<circle class="pop" cx="962" cy="1546" r="15" fill="#FFFFFF" stroke="#B8912F" stroke-width="6" style="animation:k62 34s linear infinite"/>
+<circle class="pop" cx="820" cy="1614" r="11" fill="#FFFFFF" stroke="#B8912F" stroke-width="5" style="animation:k63 34s linear infinite"/>
+<circle class="pop" cx="820" cy="1742" r="11" fill="#FFFFFF" stroke="#1C1C1A" stroke-width="4" style="animation:k64 34s linear infinite"/>
+<circle class="pop" cx="310" cy="1828" r="11" fill="#FFFFFF" stroke="#8C877D" stroke-width="4" style="animation:k65 34s linear infinite"/>
+<circle class="pop" cx="310" cy="1874" r="11" fill="#FFFFFF" stroke="#8C877D" stroke-width="4" style="animation:k66 34s linear infinite"/>
+<circle class="pop" cx="962" cy="1874" r="13" fill="#FFFFFF" stroke="#D9C48A" stroke-width="5" style="animation:k67 34s linear infinite"/>
+<circle class="pop" cx="820" cy="1940" r="11" fill="#FFFFFF" stroke="#D9C48A" stroke-width="5" style="animation:k68 34s linear infinite"/>
+<circle class="pop" cx="310" cy="2028" r="15" fill="#FFFFFF" stroke="#1C1C1A" stroke-width="5" style="animation:k69 34s linear infinite"/>
+<circle class="pop" cx="310" cy="2098" r="11" fill="#FFFFFF" stroke="#8C877D" stroke-width="4" style="animation:k70 34s linear infinite"/>
+<circle class="pop" cx="1184" cy="2098" r="11" fill="#FFFFFF" stroke="#8C877D" stroke-width="4" style="animation:k71 34s linear infinite"/>
+<text x="336" y="577" class="lab" style="animation:k72 34s linear infinite">fork</text>
+<text x="722" y="677" class="lab" style="animation:k73 34s linear infinite">clone</text>
+<text x="336" y="807" class="lab" style="animation:k74 34s linear infinite">upstream</text>
+<text x="620" y="871" class="lab" style="animation:k75 34s linear infinite">origin</text>
+<text x="336" y="969" class="lab" style="animation:k76 34s linear infinite">pull</text>
+<text x="620" y="1033" class="lab" style="animation:k77 34s linear infinite">push</text>
+<text x="1164" y="1204" class="lab" text-anchor="end" style="animation:k78 34s linear infinite">branch</text>
+<text x="984" y="1400" class="lab" style="animation:k79 34s linear infinite">commits</text>
+<text x="332" y="1401" class="lab" style="animation:k80 34s linear infinite">master moves on</text>
+<text x="336" y="1529" class="labgold" style="animation:k81 34s linear infinite">merge</text>
+<text x="940" y="1597" class="labgold" text-anchor="end" style="animation:k82 34s linear infinite">push</text>
+<text x="620" y="1727" class="lab" style="animation:k83 34s linear infinite">pull request</text>
+<text x="334" y="2036" class="lab" style="animation:k84 34s linear infinite">merged</text>
+<text x="336" y="2083" class="lab" style="animation:k85 34s linear infinite">pull</text>
+<text x="962" y="2194" class="lab" text-anchor="middle" style="animation:k86 34s linear infinite">delete</text>
+<text x="820" y="2194" class="lab" text-anchor="middle" style="animation:k87 34s linear infinite">delete</text>
+<circle cx="222" cy="642" r="26" fill="#FFFFFF" stroke="#1C1C1A" stroke-width="2.5"/>
+<text x="222" y="651" class="badge" text-anchor="middle">1</text>
+<circle cx="222" cy="854" r="26" fill="#FFFFFF" stroke="#1C1C1A" stroke-width="2.5"/>
+<text x="222" y="863" class="badge" text-anchor="middle">2</text>
+<circle cx="222" cy="1016" r="26" fill="#FFFFFF" stroke="#1C1C1A" stroke-width="2.5"/>
+<text x="222" y="1025" class="badge" text-anchor="middle">3</text>
+<circle cx="222" cy="1182" r="26" fill="#FFFFFF" stroke="#1C1C1A" stroke-width="2.5"/>
+<text x="222" y="1191" class="badge" text-anchor="middle">4</text>
+<circle cx="222" cy="1392" r="26" fill="#FFFFFF" stroke="#1C1C1A" stroke-width="2.5"/>
+<text x="222" y="1401" class="badge" text-anchor="middle">5</text>
+<circle cx="222" cy="1580" r="27" fill="#B8912F"/>
+<text x="222" y="1589" class="badgegold" text-anchor="middle">6</text>
+<circle cx="222" cy="1742" r="26" fill="#FFFFFF" stroke="#1C1C1A" stroke-width="2.5"/>
+<text x="222" y="1751" class="badge" text-anchor="middle">7</text>
+<circle cx="222" cy="1884" r="26" fill="#FFFFFF" stroke="#1C1C1A" stroke-width="2.5"/>
+<text x="222" y="1893" class="badge" text-anchor="middle">8</text>
+<circle cx="222" cy="2098" r="26" fill="#FFFFFF" stroke="#1C1C1A" stroke-width="2.5"/>
+<text x="222" y="2107" class="badge" text-anchor="middle">9</text>
+<g class="ov" style="animation:k88 34s linear infinite"><circle cx="222" cy="642" r="27" fill="#B8912F"/><text x="222" y="651" class="badgegold" text-anchor="middle">1</text></g>
+<circle class="ov" cx="222" cy="642" r="37" fill="none" stroke="#B8912F" stroke-width="4" style="animation:k88 34s linear infinite"/>
+<g class="ov" style="animation:k89 34s linear infinite"><circle cx="222" cy="854" r="27" fill="#B8912F"/><text x="222" y="863" class="badgegold" text-anchor="middle">2</text></g>
+<circle class="ov" cx="222" cy="854" r="37" fill="none" stroke="#B8912F" stroke-width="4" style="animation:k89 34s linear infinite"/>
+<g class="ov" style="animation:k90 34s linear infinite"><circle cx="222" cy="1016" r="27" fill="#B8912F"/><text x="222" y="1025" class="badgegold" text-anchor="middle">3</text></g>
+<circle class="ov" cx="222" cy="1016" r="37" fill="none" stroke="#B8912F" stroke-width="4" style="animation:k90 34s linear infinite"/>
+<g class="ov" style="animation:k91 34s linear infinite"><circle cx="222" cy="1182" r="27" fill="#B8912F"/><text x="222" y="1191" class="badgegold" text-anchor="middle">4</text></g>
+<circle class="ov" cx="222" cy="1182" r="37" fill="none" stroke="#B8912F" stroke-width="4" style="animation:k91 34s linear infinite"/>
+<g class="ov" style="animation:k92 34s linear infinite"><circle cx="222" cy="1392" r="27" fill="#B8912F"/><text x="222" y="1401" class="badgegold" text-anchor="middle">5</text></g>
+<circle class="ov" cx="222" cy="1392" r="37" fill="none" stroke="#B8912F" stroke-width="4" style="animation:k92 34s linear infinite"/>
+<circle class="ov" cx="222" cy="1580" r="37" fill="none" stroke="#B8912F" stroke-width="4" style="animation:k93 34s linear infinite"/>
+<g class="ov" style="animation:k94 34s linear infinite"><circle cx="222" cy="1742" r="27" fill="#B8912F"/><text x="222" y="1751" class="badgegold" text-anchor="middle">7</text></g>
+<circle class="ov" cx="222" cy="1742" r="37" fill="none" stroke="#B8912F" stroke-width="4" style="animation:k94 34s linear infinite"/>
+<g class="ov" style="animation:k95 34s linear infinite"><circle cx="222" cy="1884" r="27" fill="#B8912F"/><text x="222" y="1893" class="badgegold" text-anchor="middle">8</text></g>
+<circle class="ov" cx="222" cy="1884" r="37" fill="none" stroke="#B8912F" stroke-width="4" style="animation:k95 34s linear infinite"/>
+<g class="ov" style="animation:k96 34s linear infinite"><circle cx="222" cy="2098" r="27" fill="#B8912F"/><text x="222" y="2107" class="badgegold" text-anchor="middle">9</text></g>
+<circle class="ov" cx="222" cy="2098" r="37" fill="none" stroke="#B8912F" stroke-width="4" style="animation:k96 34s linear infinite"/>
+<path d="M192,1884 C130,1884 130,1580 170.5,1580" pathLength="100" stroke-dasharray="100 100" fill="none" stroke="#B8912F" stroke-width="4" style="animation:k97 34s linear infinite"/>
+<polygon points="189,1580 167,1570 167,1590" fill="#B8912F" style="animation:k98 34s linear infinite"/>
+<text x="126" y="1740" class="labgold" text-anchor="end" style="animation:k99 34s linear infinite">repeat 6</text>
+<text x="1262" y="862" class="cmd mono">/git-contribute-setup</text>
+<text x="1262" y="1107" class="cmd mono">/git-contribute-start</text>
+<text x="1262" y="1400" class="cmd mono">/git-sideload</text>
+<text x="1262" y="1588" class="cmd mono">/git-contribute-sync</text>
+<text x="1262" y="1750" class="cmd mono">/git-contribute-pr</text>
+<text x="1262" y="1892" class="cmd mono">/git-contribute-sync</text>
+<text x="1262" y="2106" class="cmd mono">/git-contribute-finish</text>
+<text x="1262" y="862" class="cmd mono ov" style="fill:#B8912F;animation:k89 34s linear infinite">/git-contribute-setup</text>
+<text x="1262" y="1107" class="cmd mono ov" style="fill:#B8912F;animation:k90 34s linear infinite">/git-contribute-start</text>
+<text x="1262" y="1107" class="cmd mono ov" style="fill:#B8912F;animation:k91 34s linear infinite">/git-contribute-start</text>
+<text x="1262" y="1400" class="cmd mono ov" style="fill:#B8912F;animation:k92 34s linear infinite">/git-sideload</text>
+<text x="1262" y="1588" class="cmd mono ov" style="fill:#B8912F;animation:k93 34s linear infinite">/git-contribute-sync</text>
+<text x="1262" y="1750" class="cmd mono ov" style="fill:#B8912F;animation:k94 34s linear infinite">/git-contribute-pr</text>
+<text x="1262" y="1892" class="cmd mono ov" style="fill:#B8912F;animation:k95 34s linear infinite">/git-contribute-sync</text>
+<text x="1262" y="2106" class="cmd mono ov" style="fill:#B8912F;animation:k96 34s linear infinite">/git-contribute-finish</text>
+<text x="1262" y="2260" class="cmd mono">/git-contribute-cleanup</text>
+<text x="1262" y="2296" class="where">deletes a feature branch</text>
+<text x="1262" y="2326" class="where">you no longer need</text>
+</svg>
