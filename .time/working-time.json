@@ -1678,6 +1678,115 @@
       "catalogue": {
         "action": "none"
       }
+    },
+    {
+      "date": "2026-10-27",
+      "from": "19:54",
+      "to": "20:15",
+      "sessionId": "ec5bc3e4-a57c-4657-9203-8d40e8d4817a",
+      "branch": "master",
+      "commits": [],
+      "surfaces": [
+        "claude-harness"
+      ],
+      "files": [
+        "src/extension.ts",
+        "src/image-paste.ts",
+        "package.json",
+        "test/unit/image-paste.test.ts"
+      ],
+      "mechanism": {
+        "takes": "one or more files or folders picked in the editor's file tree",
+        "does": "turns each pick into an AI coding assistant file reference, quoting paths that hold spaces, and types the references into the focused terminal's prompt without submitting, so the running assistant session gets them as context on the next message",
+        "returns": "an unsent prompt in the running assistant session that references the picked files and folders, or a warning when no terminal is open"
+      },
+      "portsAsIs": [
+        "file tree context menu entry with multi-select",
+        "path to assistant reference formatting with space quoting",
+        "type into the focused terminal without pressing Enter"
+      ],
+      "perCustomer": [
+        "which assistant CLI reads the references"
+      ],
+      "evidence": [
+        "test/unit/image-paste.test.ts",
+        "tests: 158 of 158 unit tests pass",
+        "verified in an isolated VS Code through the Explorer right-click menu, single folder and two-item selection",
+        "installed locally as 0.7.0"
+      ],
+      "toolchain": {
+        "skills": [
+          "claude-learn",
+          "report",
+          "vscode-extension"
+        ],
+        "mcpServers": [],
+        "agents": [
+          "fact-gatherer",
+          "vscode-ext-specialist"
+        ]
+      },
+      "industry": "software tooling for developers",
+      "status": "Built and running in-house",
+      "catalogue": {
+        "action": "none"
+      }
+    },
+    {
+      "date": "2026-10-27",
+      "from": "19:50",
+      "to": "20:16",
+      "sessionId": "77d11474-6fed-402e-a544-85fc9af057e0",
+      "branch": "0.7.0",
+      "commits": [
+        "1afa8e9"
+      ],
+      "surfaces": [
+        "claude-harness"
+      ],
+      "files": [
+        "README.md",
+        "assets/images/marketplace-header.png",
+        "assets/images/marketplace-header.html",
+        "CONTRIBUTE.md",
+        "assets/images/pr-fork-workflow.svg"
+      ],
+      "mechanism": {
+        "takes": "a screenshot of a product's store listing with the header block framed, and a screenshot of the readme showing where it belongs",
+        "does": "crops the framed header, paints out the live counters (installs, stars) on the sampled background, re-pads the block to an even margin, links it to the store page at the top of the readme, and rebuilds the same header as a standalone HTML page that renders within a few pixel values of the image so it can be regenerated later",
+        "returns": "a linked store banner at the top of the readme plus an editable HTML source of it"
+      },
+      "portsAsIs": [
+        "store listing banner from a framed screenshot",
+        "HTML source that re-renders the banner image at its exact size"
+      ],
+      "perCustomer": [
+        "the store page and its header content",
+        "which counters are shown"
+      ],
+      "evidence": [
+        "assets/images/marketplace-header.html rendered at 1590x317 matched the PNG at a mean difference of 2.5 of 255",
+        "margins measured 32 px left, top and bottom",
+        "contribution guide image pushed to master as 1afa8e9"
+      ],
+      "toolchain": {
+        "skills": [
+          "claude-push",
+          "ui-ux-pro-max",
+          "claude-learn",
+          "track-time"
+        ],
+        "mcpServers": [],
+        "agents": [
+          "general-purpose",
+          "vscode-ext-specialist"
+        ]
+      },
+      "industry": "software tooling for developers",
+      "status": "Built and running in-house",
+      "catalogue": {
+        "action": "none"
+      }
     }
   ]
 }

@@ -60,7 +60,7 @@ import {
   validateName,
 } from './harness';
 import { HarnessPanel, PanelHost } from './panel';
-import { pathText, saveClipboardImage } from './image-paste';
+import { mentionText, pathText, saveClipboardImage } from './image-paste';
 import { claudeCli, claudeCommand, claudeExecutable, defaultCwd, openTerminal, uniqueTerminalName } from './terminals';
 import { Account, accountWeek, checkpointFiles, findAccountSession, importTranscript, listAccountSessions, parseAccounts, readSession, renameSession } from './sessions';
 import { STYLE_MODELS, StyleModel, draftStyle, stylePrompt, writeStyleDraft } from './style';
@@ -952,6 +952,14 @@ export function activate(context: vscode.ExtensionContext): void {
       const terminal = vscode.window.activeTerminal;
       if (file && terminal) terminal.sendText(pathText(file), false);
       else await paste();
+    }),
+    vscode.commands.registerCommand('claudeHarness.addToClaudeContext', (clicked?: vscode.Uri, selected?: vscode.Uri[]) => {
+      const uris = selected?.length ? selected : clicked ? [clicked] : [];
+      const files = uris.filter(u => u.scheme === 'file').map(u => u.fsPath);
+      const terminal = vscode.window.activeTerminal;
+      if (!files.length) return;
+      if (terminal) terminal.sendText(mentionText(files), false);
+      else vscode.window.showWarningMessage('Open a Claude terminal first, then add files to its context.');
     }),
     vscode.commands.registerCommand('claudeHarness.open', (id?: string) => HarnessPanel.show(context, host, typeof id === 'string' ? id : undefined)),
     vscode.commands.registerCommand('claudeHarness.addRepo', async () => {

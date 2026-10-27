@@ -2,7 +2,7 @@
   "name": "claude-harness",
   "displayName": "Claude Harness",
   "description": "Visualize and edit your Claude Code harness in VS Code: memory, rules, agents, skills, commands, output styles, workflows, hooks, MCP servers and plugins, globally and per repository.",
-  "version": "0.6.5",
+  "version": "0.7.0",
   "publisher": "integrations-at",
   "license": "SEE LICENSE IN LICENSE",
   "icon": "media/icon.png",
@@ -306,6 +306,14 @@
         "command": "claudeHarness.pasteImage",
         "title": "Paste Image into Claude",
         "category": "Claude Harness"
+      },
+      {
+        "command": "claudeHarness.addToClaudeContext",
+        "title": "Add to Claude Context",
+        "icon": {
+          "light": "media/claude-mark-light.svg",
+          "dark": "media/claude-mark-dark.svg"
+        }
       },
       {
         "command": "claudeHarness.open",
@@ -660,6 +668,12 @@
       }
     ],
     "menus": {
+      "explorer/context": [
+        {
+          "command": "claudeHarness.addToClaudeContext",
+          "group": "6_copypath@99"
+        }
+      ],
       "view/title": [
         {
           "command": "claudeHarness.open",
@@ -888,6 +902,10 @@
         }
       ],
       "commandPalette": [
+        {
+          "command": "claudeHarness.addToClaudeContext",
+          "when": "false"
+        },
         {
           "command": "claudeHarness.configureTools",
           "when": "false"

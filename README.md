@@ -1,5 +1,7 @@
 # Claude Harness
 
+[![Claude Harness on the Visual Studio Marketplace](assets/images/marketplace-header.png)](https://marketplace.visualstudio.com/items?itemName=integrations-at.claude-harness)
+
 **See what your harness does, then change it.**
 
 Claude Harness is a VS Code editor for your whole Claude Code harness: memory, rules, agents, skills, commands, output styles, workflows, hooks, MCP servers and plugins, globally and per repository. It reads the session transcripts Claude Code already writes, so every part of the harness shows what it did and what it cost.
