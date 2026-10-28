@@ -81,7 +81,7 @@ test('the panel opens on the overview with every tile counted and data in the li
   await notBlank('overview');
   const tiles = await labels('.main .overview .tile');
   assert.deepEqual(tiles.map(t => t.replace(/^\d+/, '')), ['Memory', 'Rules', 'Agents', 'Skills', 'Commands', 'Output Styles', 'Workflows', 'Hooks', 'Mods', 'MCP Servers', 'Plugins', 'Settings']);
-  assert.match(await text('.main-head .path'), /68 global assets · 5 repositories/);
+  assert.match(await text('.main-head .path'), /69 global assets · 5 repositories/);
 });
 
 test('before the index exists the Used and Cost columns and the detail page agree, and Count usage builds it', T, async () => {
@@ -182,7 +182,7 @@ test('a type page lists every skill of the scope, with a heading per origin and 
 test('detail page of a skill: the command bar, the header tiles and the size flag', T, async () => {
   await openRow('Skills', 'release-playbook');
   await notBlank('skill page');
-  assert.deepEqual(await labels('.main .view-tab').then(l => l.slice(0, 12)), ['Back', 'View', 'Edit', 'Open in editor', 'Reveal', 'Review with Claude', 'Slim with Claude', 'Try it', 'Connect to source', 'Link into repo', 'Rename', 'Duplicate']);
+  assert.deepEqual(await labels('.main .view-tab').then(l => l.slice(0, 13)), ['Back', 'View', 'Edit', 'Open in editor', 'Reveal', 'Review with Claude', 'Slim with Claude', 'Draw with Claude', 'Try it', 'Connect to source', 'Link into repo', 'Rename', 'Duplicate']);
   await s.mouse('.view-tab', 'Instructions');
   const body = await text();
   assert.match(body, /SKILL\.md is long/);
@@ -198,7 +198,7 @@ test('Edit then Ctrl+S saves the file and returns the page to View', T, async ()
     await openRow('Skills', 'api-design');
     await s.mouse('.main button', 'Edit');
     await s.waitFor(D => D.querySelector('.main textarea'));
-    await s.ev(D => { const t = D.querySelector('.main textarea'); t.focus(); t.value += ' UITEST-MARK'; t.dispatchEvent(new Event('input', { bubbles: true })); });
+    await s.ev(D => { const t = D.querySelector('.main .editor textarea'); t.focus(); t.value += ' UITEST-MARK'; t.dispatchEvent(new Event('input', { bubbles: true })); });
     assert.ok((await labels('.main button')).includes('Save'));
     await s.chord('s', { ctrl: true });
     await s.waitFor(D => !D.querySelector('.main textarea'));
