@@ -120,7 +120,7 @@ Talk to Claude about the skills and agents you already have, and it proposes a p
 
 ### Command line
 
-Run the harness from a terminal with `node <extension folder>/out/src/cli.js <command>`. In Claude Code, with the [harness plugin](#install-the-harness-plugin) installed, type `@h` in a prompt to mention a view such as `@harness:usage` or `@harness:inventory`: when you send the prompt, the view runs and Claude reads its output as context. See [Command line](docs/command-line.md).
+Run **Claude Harness: Install 'harness' Command Line** once to put `harness` on your PATH, with Tab completion in PowerShell and Git Bash; then run `harness <command>` in a terminal. Without it, run `node <extension folder>/out/src/cli.js <command>`. In Claude Code, with the [harness plugin](#install-the-harness-plugin) installed, type `@h` in a prompt to mention a view such as `@harness:usage` or `@harness:inventory`: when you send the prompt, the view runs and Claude reads its output as context. See [Command line](docs/command-line.md).
 
 - `inventory [--repo <dir>]`: the harness of Global, or of one repo.
 - `consolidate`: every skill, agent, rule, command or workflow that exists in more than one place.

@@ -8,7 +8,7 @@
 </tr>
 </table>
 
-The Claude Harness features run from a terminal as `node <extension folder>/out/src/cli.js <command>`. In Claude Code, the harness plugin turns the views that only read into `@harness:` mentions you put in a prompt. The plugin needs Claude Harness 0.8.0 or later, and its version always matches the extension's. See [Install the harness plugin](../README.md#install-the-harness-plugin).
+The Claude Harness features run from a terminal as `harness <command>` once **Claude Harness: Install 'harness' Command Line** has put `harness` on your PATH, or as `node <extension folder>/out/src/cli.js <command>` without it. In Claude Code, the harness plugin turns the views that only read into `@harness:` mentions you put in a prompt. The plugin needs Claude Harness 0.8.0 or later, and its version always matches the extension's. See [Install the harness plugin](../README.md#install-the-harness-plugin).
 
 ## Mentions in Claude Code
 
@@ -25,9 +25,13 @@ Type `@h` in a prompt to list the views, or `@harness:u` to narrow them, then mo
 
 The commands that write, and `media doctor`, which needs a folder, run from a terminal only.
 
+## Tab completion
+
+**Install 'harness' Command Line** adds a line to your PowerShell profiles and to `~/.bashrc` that loads `harness completion powershell` or `harness completion bash`. In a new terminal, press Tab after `harness ` to complete commands, options and values such as skill and agent names, sessions and film folders. VS Code's terminal suggestion box does not show these: only a preview API of VS Code can fill it.
+
 ## Commands
 
-Each command follows `node <extension folder>/out/src/cli.js `.
+Each command follows `harness ` (or `node <extension folder>/out/src/cli.js `).
 
 | Command | What it does |
 | --- | --- |
@@ -47,7 +51,8 @@ Each command follows `node <extension folder>/out/src/cli.js `.
 | `skills put --file <file> --to <skill>/<path>\|agents/<name>.md [--dry-run]` | Puts new or rewritten text into a skill or an agent file; an existing file is backed up first. |
 | `skills remove --name <skill>\|--leaf <skill>/<path> [--market <dir>] [--dry-run]` | Deletes a skill or one leaf of it, backed up first, and lists what still mentions it. |
 | `skills repoint --from <skill> --to <skill> [--skills a,b] [--agents x,y] [--market <dir>] [--dry-run]` | Rewrites the mentions of one skill name to another in skills and agents. |
-| `complete --line "<command line>" [--position <n>]` | The candidates for the word at the cursor, one per line, or a list with `--json`. The shell completers call it. |
+| `complete --line "<command line>" [--position <n>]` | The candidates for the word at the cursor, one per line, or a list with `--json`. The Tab completion scripts call it. |
+| `completion powershell\|bash` | Prints the Tab completion script for that shell; the lines **Install 'harness' Command Line** adds load it. |
 
 ## Options
 

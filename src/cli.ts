@@ -10,7 +10,7 @@ import { agentsCommand } from './cli-agents';
 import { mediaCommand } from './cli-media';
 import { delegationCommand, usageCommand } from './cli-insights';
 import { skillsCommand } from './cli-skills';
-import { completeCommand } from './cli-complete';
+import { completeCommand, completionCommand } from './cli-complete';
 
 export { parse };
 
@@ -49,6 +49,7 @@ Usage: node cli.js <command> [options]
                                       Rewrite the mentions of one skill name to another in skills and agents.
   complete --line "<command line>" [--position <n>]
                                       The candidates for the word at the cursor, one per line (--json for a list); the shell completers call it.
+  completion powershell|bash          The script a shell profile evaluates to register Tab completion for harness.
 
 Options:
   --root <dir>      Claude's folder (default ~/.claude)
@@ -287,6 +288,8 @@ export async function run(argv: string[], io: Io): Promise<number> {
       return await skillsCommand(a, io);
     } else if (cmd === 'complete') {
       return await completeCommand(a, io);
+    } else if (cmd === 'completion') {
+      return await completionCommand(a, io);
     } else if (cmd === 'consolidate' && sub === 'retire') {
       const w = load(a);
       const stamp = backupStamp();

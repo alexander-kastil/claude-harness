@@ -1,13 +1,13 @@
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { Args, Io, one } from './cli-core';
+import { Args, Io, Stop, one } from './cli-core';
 import { pluginDirs } from './harness';
 import { projectSlug } from './fleet';
 import { readMarkets } from './hunt-market';
 import { isPrompt, promptText } from './sessions';
 
-// `complete`: the candidates for the word at the cursor. Claude Code's prompt hook calls it per keystroke with the draft line.
+// `complete`: the candidates for the word at the cursor. The shell completers that `completion` prints call it per Tab with the line.
 
 /** Where a value comes from: a fixed list, or a lookup that the line's own flags narrow. `[]` is a value with no candidates. */
 type Values = string[] | 'names' | 'skills' | 'agents' | 'session' | 'markets' | 'media';
@@ -68,6 +68,7 @@ export const COMMANDS: CommandSpec[] = [
   { path: 'skills remove', flags: [{ name: 'name', takes: 'skills' }, { name: 'leaf', takes: [] }, { name: 'leaf', takes: [] },{ name: 'market', takes: [] }, DRY] },
   { path: 'skills repoint', flags: [{ name: 'from', takes: 'skills' }, { name: 'to', takes: 'skills' }, { name: 'skills', takes: 'skills' }, { name: 'agents', takes: 'agents' }, { name: 'market', takes: [] }, DRY] },
   { path: 'complete', flags: [{ name: 'line', takes: [] }, { name: 'position', takes: [] }] },
+  { path: 'completion', flags: [], positional: ['powershell', 'bash'] },
 ];
 
 const claudeRoot = (a: Args) => path.resolve(one(a, 'root') ?? path.join(os.homedir(), '.claude'));
@@ -264,12 +265,47 @@ export function candidates(line: string, position = line.length): Candidate[] {
     const tokens = words(before);
     if (!before.length || /\s$/.test(before)) tokens.push('');
     const typed = tokens.pop() ?? '';
-    // The first word is `harness` or `/harness` as typed in Claude Code; its own candidates are not ours to give.
+    // The first word is the command itself, `harness`; its own candidates are not ours to give.
     if (!tokens.length) return [];
     return candidatesFor(tokens.slice(1), typed);
   } catch {
     return [];
   }
+}
+
+/** PowerShell: a native argument completer that asks `harness complete` with the line and the cursor offset inside it. */
+const POWERSHELL = [
+  'Register-ArgumentCompleter -Native -CommandName harness -ScriptBlock {',
+  '  param($wordToComplete, $commandAst, $cursorPosition)',
+  '  $line = $commandAst.ToString()',
+  '  $start = $commandAst.Extent.StartOffset',
+  '  $end = $commandAst.Extent.EndOffset',
+  '  if ($cursorPosition -gt $end) { $line += " " * ($cursorPosition - $end) }',
+  '  $position = [Math]::Min($cursorPosition - $start, $line.Length)',
+  '  if ($PSVersionTable.PSVersion -lt [version]"7.3") { $line = $line -replace \'"\', \'\\"\' }',
+  '  harness complete --line $line --position $position 2>$null | ForEach-Object {',
+  '    $text = if ($_ -match "\\s") { "\'$_\'" } else { $_ }',
+  '    [System.Management.Automation.CompletionResult]::new($text, $_, "ParameterValue", $_)',
+  '  }',
+  '}',
+].join('\n');
+
+/** Bash (Git Bash included): a `complete -F` function that asks `harness complete` with COMP_LINE and COMP_POINT. */
+const BASH = [
+  '_harness_complete() {',
+  '  local IFS=$\'\\n\'',
+  '  COMPREPLY=( $(harness complete --line "$COMP_LINE" --position "$COMP_POINT" 2>/dev/null) )',
+  '}',
+  'complete -F _harness_complete harness',
+].join('\n');
+
+/** `completion powershell|bash`: the script a shell profile evaluates to register Tab completion for `harness`. */
+export async function completionCommand(a: Args, io: Io): Promise<number> {
+  const shell = a.words[1];
+  if (shell === 'powershell') io.out(POWERSHELL);
+  else if (shell === 'bash') io.out(BASH);
+  else throw new Stop('Usage: harness completion powershell|bash', 2);
+  return 0;
 }
 
 /** `complete --line "<command line>" [--position <n>]`: one candidate per line, or a JSON array with --json. */

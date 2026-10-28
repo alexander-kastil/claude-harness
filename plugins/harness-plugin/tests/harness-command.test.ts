@@ -50,7 +50,7 @@ describe("harness-command: @harness mentions", () => {
   test("a token that is no mention is left untouched", async () => {
     const h = handlers();
     const { $ } = fakeProcess({ stdout: "[]" });
-    const r = await h["prompt.autocomplete"]($, ask("/harness"), next);
+    const r = await h["prompt.autocomplete"]($, ask("harness"), next);
     expect(r.suggestions).toBe(base);
   });
 

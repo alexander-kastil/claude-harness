@@ -50,7 +50,7 @@ test('HELP and the command table name the same commands', async () => {
 
 test('a command prefix completes to the command', () => {
   assert.deepEqual(texts('harness con'), ['consolidate']);
-  assert.deepEqual(texts('harness com'), ['complete']);
+  assert.deepEqual(texts('harness com'), ['complete', 'completion']);
 });
 
 test('--kind completes skill and agent', () => {
@@ -124,9 +124,29 @@ test('complete answers one candidate per line, or a JSON array with --json', asy
   assert.ok(found.some(c => c.text === '--name' && c.kind === 'flag'));
 });
 
-test('a line typed in Claude Code as /harness completes like harness', () => {
-  assert.deepEqual(texts('/harness con'), ['consolidate']);
-  assert.deepEqual(texts('/harness agents '), ['list', 'route']);
+test('completion prints the PowerShell completer that calls complete', async () => {
+  const out: string[] = [];
+  assert.equal(await run(['completion', 'powershell'], { out: t => out.push(t), err: () => undefined }), 0);
+  const script = out.join('\n');
+  assert.ok(script.includes('Register-ArgumentCompleter -Native -CommandName harness'));
+  assert.ok(script.includes('harness complete --line $line --position $position'));
+  assert.ok(script.includes('CompletionResult'));
+});
+
+test('completion prints the bash completer that calls complete', async () => {
+  const out: string[] = [];
+  assert.equal(await run(['completion', 'bash'], { out: t => out.push(t), err: () => undefined }), 0);
+  const script = out.join('\n');
+  assert.ok(script.includes('complete -F _harness_complete harness'));
+  assert.ok(script.includes('harness complete --line "$COMP_LINE" --position "$COMP_POINT"'));
+});
+
+test('completion with another shell exits 2 with the usage', async () => {
+  const err: string[] = [];
+  assert.equal(await run(['completion', 'zsh'], { out: () => undefined, err: t => err.push(t) }), 2);
+  assert.equal(err.join('\n'), 'Usage: harness completion powershell|bash');
+  assert.equal(await run(['completion'], { out: () => undefined, err: () => undefined }), 2);
+  assert.deepEqual(texts('harness completion ').slice(0, 2), ['powershell', 'bash']);
 });
 
 test('complete stays fast on the fixture root', () => {
