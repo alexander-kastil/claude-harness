@@ -9,6 +9,7 @@ import { hideHover } from './hover';
 import { renderMain } from './main';
 import { goBack, historyLabel } from './refs';
 import { slimOf } from './slim';
+import { drawingOf } from './drawing';
 import { syncableFromGlobal, syncableMcp } from './sync';
 
 // The kinds Review with Claude and Try it apply to.
@@ -316,6 +317,22 @@ function commandBar(d, dirty) {
       REVIEWABLE.includes(a.kind) ? claude('lightbulb-sparkle', 'Review with Claude', 'Review with Claude\nA new Claude in a terminal reads this file and says what to improve.', 'review', 'reviewAsset') : null,
       a.kind === 'skill' && slimOf(a.id)?.findings
         ? claude('fold', 'Slim with Claude', "Slim with Claude\nA new Claude in a terminal gets the skill's files and what is flagged on this page, and says what to move and cut.", 'slim', 'slimAsset')
+        : null,
+      a.kind === 'skill'
+        ? (() => {
+            const drawn = drawingOf(a.id);
+            const running = !!drawn?.running;
+            return confirmAt(
+              cmd(
+                'brush',
+                running ? 'Drawing...' : drawn?.svg ? 'Redraw with Claude' : 'Draw with Claude',
+                `${drawn?.svg ? 'Redraw' : 'Draw'} with Claude\nClaude draws what this skill does, from its SKILL.md, and the drawing shows above the details. It runs in the background and counts against your plan.${drawn?.error ? `\nLast try failed: ${drawn.error}` : ''}`,
+                () => (hideHover(), vscode.postMessage({ type: 'drawAsset', id: a.id })),
+                { disabled: running }
+              ),
+              'draw'
+            );
+          })()
         : null,
       TRYABLE.includes(a.kind) ? confirmAt(cmd('play', 'Try it', `Try it\nA new Claude in a terminal${a.kind === 'agent' ? ' started as this agent' : ` that runs /${a.name}`}.`, () => (hideHover(), vscode.postMessage({ type: 'tryAsset', id: a.id }))), 'try') : null
     ),

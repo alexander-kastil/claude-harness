@@ -34,5 +34,11 @@
 | 2026-10-27 | 0.35 | 19:54 | 20:15 | Version 0.7.0: right-click files and folders in the Explorer to add them to the active Claude terminal's context, installed locally |
 | 2026-10-27 | 0.57 | 20:05 | 20:50 | Plugin Hunter film: animated intro, two new cuts, LinkedIn repost |
 | 2026-10-28 | 0.50 | 07:16 | 07:46 | Instruction audit of the contributor branch cleanup command |
+| 2026-10-28 | 0.17 | 08:22 | 09:28 | Skill pages open with a diagram Claude draws instead of a text box, and the usage quota in the status bar works again |
+| 2026-10-28 | 0.93 | 08:28 | 09:24 | Version 0.9.0 in progress: build and check a harness from script files, with Tab completion and editor support, plus a shorter repository description |
+| 2026-10-28 | 0.68 | 10:30 | 11:11 | Version 0.9.0 release notes and docs with a worked example, one-click fixes for oversized skills, and a paintbrush icon for skill drawings |
+| 2026-10-28 | 0.32 | 10:49 | 11:30 | Story and storyboard for the version 0.9 release film: the hunter, his saluki and a media team built in the terminal |
+| 2026-10-28 | 1.85 | 11:51 | 13:42 | Version 0.9 release film rendered in three cuts, and harness scripts no longer flag the line being typed |
+| 2026-10-28 | 0.33 | 13:37 | 14:02 | Sixteen new harness commands, also usable from the Claude prompt |
 
-**Total: 25.40h**
+**Total: 29.68h**

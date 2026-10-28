@@ -133,6 +133,15 @@ Run **Claude Harness: Install 'harness' Command Line** once to put `harness` on 
 - `usage --session latest|previous|<id> [--week]`: a session's tokens and cost by model and by agent, and its share of the week.
 - `delegation --session latest|previous|<id>`: the agents a session launched, with their decisions, slips and findings.
 - `media doctor <dir>`: checks a film or images folder under `assets/films` or `assets/images`.
+- `marketplaces`: every marketplace with its plugins and their problems; `marketplaces rename --from <name> --to <name>` renames one.
+- `check [--repo <dir>]`: the harness checks of the known repos against the harness standard; `check fix` applies the fixes for settings and hooks.
+- `fleet`: one row per repo with its layout, standard check, CLAUDE.md lines, plugins and copies.
+- `sync [--repo <dir>]`: the repo copies that differ from Global; `sync apply` syncs them, `sync plugin --name <plugin@market>` updates a plugin from its marketplace.
+- `sessions [--repo <dir>]`: a repo's sessions in /resume order; `sessions rename --session <id> --title <t>` renames one.
+- `mods --session latest|previous|<id>`: the mods and guards that acted in a session, with what they denied or held.
+- `time [--repo <dir>] [--days <n>]`: the repo's time ledger by day, with the total.
+- `lessons [--repo <dir>] [--find <text>]`: the entries of the repo's `tasks/lessons.md`.
+- `sources`: the skills installed from a source; `sources check` finds newer versions, `sources update --name <skill>` installs one.
 
 Add `--dry-run` to a command that writes, to print each action without writing it. With `--json`, a command prints one object, and its last key is `applied`: `true` when it wrote something, `false` otherwise. Exit codes: 0 done, 1 error or problems found, 2 bad arguments.
 
@@ -153,7 +162,7 @@ Run `harness run harness/poems.harness --dry-run` to preview the changes first. 
 
 ### Install the harness plugin
 
-The harness plugin adds `@harness:` mentions to the Claude prompt box, with type-ahead, for the views above that only read. It needs Claude Harness 0.8.0 or later, and its version always matches the extension's. It ships from this repository as the `claude-harness` marketplace.
+The harness plugin adds `@harness:` mentions to the Claude prompt box, with type-ahead, for the views above that only read. It needs Claude Harness 0.9.0 or later, and its version always matches the extension's. It ships from this repository as the `claude-harness` marketplace.
 
 In Claude Code:
 

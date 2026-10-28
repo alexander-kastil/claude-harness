@@ -14,6 +14,7 @@ import { redrawCheckpoint, renderSession } from './session-page';
 import { renderSessionsPage, showSession } from './sessions';
 import { renderSidebar } from './sidebar';
 import { storeSlim } from './slim';
+import { storeDrawing } from './drawing';
 import { setModActivity, setRepoTrace } from './trace';
 import { askTotals, storeMore, storeTotals } from './usage-more';
 
@@ -230,6 +231,8 @@ onMessage(m => {
     }
   } else if (m.type === 'slim') {
     if (storeSlim(m) && state.detail && state.detail.asset.id === m.id && state.detailMode !== 'edit') keepMainScroll(renderMain);
+  } else if (m.type === 'drawing') {
+    if (storeDrawing(m) && state.detail && state.detail.asset.id === m.id && state.detailMode !== 'edit') keepMainScroll(renderMain);
   } else if (m.type === 'mcpInfo') {
     // A retry keeps the old banner, busy, until the new answer comes in.
     if (m.info === undefined && state.mcpBusy[m.id] === 'busy') return;

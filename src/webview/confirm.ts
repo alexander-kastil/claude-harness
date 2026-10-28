@@ -153,6 +153,18 @@ const CARDS = {
     action: 'Open in terminal',
     send: remember => vscode.postMessage({ type: 'resolveFinding', id: ask.id, finding: ask.finding, confirmed: true, remember }),
   }),
+  draw: ask => ({
+    mark: claudeMark(18),
+    title: `Draw ${ask.name} with Claude`,
+    sub: 'with Claude Sonnet, in the background',
+    facts: [
+      ['account', 'Runs claude -p on your own Claude login, so it counts against your plan.'],
+      ['files', `Claude gets SKILL.md (${ask.chars} characters) and nothing else: no tools, no other files.`],
+      ['symbol-color', 'The drawing is kept in the extension, not in the skill folder, and is dropped when SKILL.md changes.'],
+    ],
+    action: 'Draw',
+    send: remember => vscode.postMessage({ type: 'drawAsset', id: ask.id, confirmed: true, remember }),
+  }),
   // Consolidate a repo skill: destructive, so no Don't ask again switch. The place it goes to is chosen on the card, and
   // that place's state decides the facts and the buttons (`mount` redraws both when the choice changes).
   consolidate: ask => {

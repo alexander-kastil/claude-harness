@@ -2492,6 +2492,21 @@ mark {
   fill: #d97757;
 }
 
+/* A paintbrush, which the codicon font has no glyph for: a 16px outline drawn like the codicons, tinted by the text colour. */
+.codicon-brush {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  flex: none;
+  background-color: currentColor;
+  -webkit-mask: url('brush.svg') center / contain no-repeat;
+  mask: url('brush.svg') center / contain no-repeat;
+}
+
+.codicon-brush::before {
+  content: none;
+}
+
 /* The AI group: a box like the plan picker's (.dg-modes), the Claude mark at its left as a marker, then one button per action. */
 .ai-group {
   display: inline-flex;
@@ -6157,6 +6172,22 @@ body.vscode-high-contrast-light {
 .dv-hero:not(.std-card) {
   gap: 8px;
   padding: 10px 14px;
+}
+
+/* The drawing of what a skill does, above the info card: scaled to the width, never taller than 180px. */
+.dv-draw {
+  margin: 0;
+  padding: 6px 14px;
+  border: 1px solid var(--vscode-editorWidget-border, var(--vscode-panel-border));
+  border-radius: 4px;
+  color: var(--vscode-editor-foreground);
+}
+
+.dv-draw svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 180px;
 }
 
 .dv-cols {

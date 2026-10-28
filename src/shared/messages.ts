@@ -98,6 +98,7 @@ export type Confirm =
   | { kind: 'try'; id: string; name: string; as: 'agent' | 'skill' | 'command'; cwd: string }
   | { kind: 'slim'; id: string; name: string; file: string; cwd: string; files: number; findings: number }
   | { kind: 'resolve'; id: string; key: string; finding: 'description' | 'house' | 'body'; name: string; file: string; cwd: string }
+  | { kind: 'draw'; id: string; name: string; file: string; chars: number }
   | { kind: 'hunt'; prompt: string; items: number }
   | { kind: 'huntCreate'; id: string; key: string; name: string; market: string; location: string; problems: string[]; files: string[]; retired: string[]; kept: string[] }
   | ShareChoice
@@ -251,6 +252,10 @@ export type ToHost =
   | { type: 'slim'; id: string }
   /** Starts Claude on one finding of a skill's Size card; asks first like slimAsset. */
   | ({ type: 'resolveFinding'; id: string; finding: 'description' | 'house' | 'body' } & Answer)
+  /** Asks for the stored drawing of a skill; answered with `drawing`. */
+  | { type: 'drawing'; id: string }
+  /** Has Claude draw what a skill does (headless, `claude -p`); asks first like reviewAsset. */
+  | ({ type: 'drawAsset'; id: string } & Answer)
   /** Starts Claude with the agent, skill or command selected. */
   | ({ type: 'tryAsset'; id: string } & Answer)
   /** One finding of the repo's standard card, handed to a terminal Claude. */
@@ -321,6 +326,8 @@ export type ToWebview =
   | { type: 'usageTotals'; kind: string; totals?: Record<string, UsageTotal>; built?: false }
   /** For `slim`: the report, or none when the id is not a skill with a folder. */
   | { type: 'slim'; id: string; report?: SlimReport }
+  /** For `drawing` and `drawAsset`: the drawing of the skill's current SKILL.md, or none; `running` while Claude draws, `error` when the run failed. */
+  | { type: 'drawing'; id: string; svg?: string; running?: boolean; error?: string }
   | { type: 'hunt'; info: HuntInfo }
   /** For `huntRun`: running while Claude works, done once the card is in `hunt`. */
   | { type: 'huntRun'; state: 'running' | 'done' | 'error'; error?: string; /** The card the turn created or changed. */ card?: string }
