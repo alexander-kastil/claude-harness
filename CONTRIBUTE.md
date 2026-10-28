@@ -2,7 +2,7 @@
 
 Found a bug or missing a feature in Claude Harness? The nine steps below take your change from your fork to a pull request that merges cleanly. Most of them are routine git, but step 6 matters most: merging the latest upstream master right before you open the PR keeps conflicts out.
 
-![From your fork to a pull request that merges cleanly](assets/images/pr-fork-workflow.svg)
+![From your fork to a pull request that merges cleanly](assets/images/contribute/media/pr-fork-workflow.svg)
 
 ## Getting started with contribution
 

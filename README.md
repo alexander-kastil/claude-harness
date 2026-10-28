@@ -1,5 +1,7 @@
 # Claude Harness
 
+[![Claude Harness on the Visual Studio Marketplace](assets/images/marketplace/media/marketplace-header.png)](https://marketplace.visualstudio.com/items?itemName=integrations-at.claude-harness)
+
 **See what your harness does, then change it.**
 
 Claude Harness is a VS Code editor for your whole Claude Code harness: memory, rules, agents, skills, commands, output styles, workflows, hooks, MCP servers and plugins, globally and per repository. It reads the session transcripts Claude Code already writes, so every part of the harness shows what it did and what it cost.
@@ -116,6 +118,52 @@ Talk to Claude about the skills and agents you already have, and it proposes a p
 
 ![Plugin Hunter with a conversation and the card of a proposed plugin](docs/images/plugin-hunter.png)
 
+### Command line
+
+Run **Claude Harness: Install 'harness' Command Line** once to put `harness` on your PATH, with Tab completion in PowerShell and Git Bash; then run `harness <command>` in a terminal. Without it, run `node <extension folder>/out/src/cli.js <command>`. In Claude Code, with the [harness plugin](#install-the-harness-plugin) installed, type `@h` in a prompt to mention a view such as `@harness:usage` or `@harness:inventory`: when you send the prompt, the view runs and Claude reads its output as context. See [Command line](docs/command-line.md).
+
+- `inventory [--repo <dir>]`: the harness of Global, or of one repo.
+- `consolidate`: every skill, agent, rule, command or workflow that exists in more than one place.
+- `consolidate retire --name <n> --kind skill|agent --from <global|repo dir>`: retires one copy, backed up first.
+- `hunt catalog`: the skills and agents that a plugin can be made from.
+- `hunt plan --name <plugin> --category <c> --skills a,b --agents x,y`: the plugin that `hunt create` would write.
+- `hunt create` with the same options: writes the plugin and installs it; `--retire` retires the copies.
+- `agents list`: the agents of Global, the plugins and the repos, with their copies that differ and the gated ones.
+- `agents route "<prompt>"`: the agents that the subagent-delegation plugin would route a prompt to, and the ones it drops.
+- `usage --session latest|previous|<id> [--week]`: a session's tokens and cost by model and by agent, and its share of the week.
+- `delegation --session latest|previous|<id>`: the agents a session launched, with their decisions, slips and findings.
+- `media doctor <dir>`: checks a film or images folder under `assets/films` or `assets/images`.
+- `marketplaces`: every marketplace with its plugins and their problems; `marketplaces rename --from <name> --to <name>` renames one.
+- `check [--repo <dir>]`: the harness checks of the known repos against the harness standard; `check fix` applies the fixes for settings and hooks.
+- `fleet`: one row per repo with its layout, standard check, CLAUDE.md lines, plugins and copies.
+- `sync [--repo <dir>]`: the repo copies that differ from Global; `sync apply` syncs them, `sync plugin --name <plugin@market>` updates a plugin from its marketplace.
+- `sessions [--repo <dir>]`: a repo's sessions in /resume order; `sessions rename --session <id> --title <t>` renames one.
+- `mods --session latest|previous|<id>`: the mods and guards that acted in a session, with what they denied or held.
+- `time [--repo <dir>] [--days <n>]`: the repo's time ledger by day, with the total.
+- `lessons [--repo <dir>] [--find <text>]`: the entries of the repo's `tasks/lessons.md`.
+- `sources`: the skills installed from a source; `sources check` finds newer versions, `sources update --name <skill>` installs one.
+
+Add `--dry-run` to a command that writes, to print each action without writing it. With `--json`, a command prints one object, and its last key is `applied`: `true` when it wrote something, `false` otherwise. Exit codes: 0 done, 1 error or problems found, 2 bad arguments.
+
+### Install the harness plugin
+
+The harness plugin adds `@harness:` mentions to the Claude prompt box, with type-ahead, for the views above that only read. It needs Claude Harness 0.9.0 or later, and its version always matches the extension's. It ships from this repository as the `claude-harness` marketplace.
+
+In Claude Code:
+
+```text
+/plugin marketplace add alexander-kastil/claude-harness
+/plugin install harness-plugin@claude-harness
+/reload-plugins
+```
+
+Or from a shell:
+
+```bash
+claude plugin marketplace add alexander-kastil/claude-harness
+claude plugin install harness-plugin@claude-harness
+```
+
 ### Claude actions through your own CLI
 
 Review, Slim, Try it, Analyze, Continue and Merge with Claude start your `claude` CLI in a VS Code terminal with the prompt and the measured context filled in; Analyze works on a copy of the session. Each opens a confirm card first. The runs count against your Claude plan, and Claude Harness adds no charge.
@@ -159,6 +207,7 @@ Install Claude Harness: it opens on the `~/.claude` you already have.
 | [Skill sources](docs/skill-sources.md) | Adds skills from skills.sh or GitHub, checks them for a newer version, updates them in place, and links a global skill into a repo |
 | [Settings](docs/settings.md) | Sets the global harness folder, the repo lists, where Claude terminals open and which command starts them, the Claude usage item in the status bar and the list lengths, and edits the settings files |
 | [Commands](docs/commands.md) | Every Claude Harness command, what it does and where to find it |
+| [Command line](docs/command-line.md) | Runs inventory, consolidate, hunt, agents, usage, delegation and media checks from a terminal, with `--json` for scripts, and hands the views to Claude as `@harness:` mentions |
 
 Provider features appear when a harness standard provider plugin is installed.
 

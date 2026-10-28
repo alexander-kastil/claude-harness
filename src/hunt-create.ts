@@ -21,9 +21,13 @@ export interface CreateCtx {
   market: HuntMarket;
   backupRoot: string;
   keep?: KeepCopies;
+  /** Files that ride along into the plugin (a hooks.json, a hook script, an .mcp.json), `to` relative to the plugin folder; `drop` deletes the source after the install, backed up first. */
+  files?: { from: string; to: string; drop?: boolean }[];
 }
 
 export interface CreatePlan {
+  /** The ride-along files, resolved and checked. */
+  extra?: { from: string; to: string; drop: boolean }[];
   problems: string[];
   /** Every file written, relative to the marketplace folder. */
   files: string[];
@@ -47,7 +51,7 @@ export function planCreate(p: HuntProposal, ctx: CreateCtx): CreatePlan {
   if (p.category && !NAME.test(p.category)) problems.push('The category needs lowercase letters, digits, dots, dashes or underscores.');
   if (!/^[\w.@-]+$/.test(ctx.market.name)) problems.push('The marketplace name has characters the install command cannot take.');
   const included = p.assets.filter(a => a.include);
-  if (!included.length) problems.push('Tick at least one skill or agent.');
+  if (!included.length && !ctx.files?.length) problems.push('Tick at least one skill or agent.');
   if (problems.length && !ctx.market.owned) return plan;
   if (entries.some(e => e.name === p.name)) problems.push(`${ctx.market.name} already has a plugin called ${p.name}. Give this card another name.`);
   plan.source = sourceFor(entries, p.name, p.category);
@@ -87,6 +91,18 @@ export function planCreate(p: HuntProposal, ctx: CreateCtx): CreatePlan {
     if (a.global?.retire) retire(a.global.path, 'Global');
     for (const r of a.repos) if (r.retire) retire(r.path, r.repo);
   }
+  plan.extra = [];
+  for (const f of ctx.files ?? []) {
+    const from = path.resolve(f.from);
+    const to = f.to.replace(/\\/g, '/');
+    if (!fs.existsSync(from) || !fs.statSync(from).isFile()) problems.push(`The file ${f.from} is gone from disk.`);
+    else if (!to || to.startsWith('/') || to.split('/').includes('..')) problems.push(`${f.to} is not a path inside the plugin.`);
+    else {
+      plan.extra.push({ from, to, drop: !!f.drop });
+      plan.files.push(rel(...to.split('/')));
+      if (f.drop) plan.retired.push(`file ${from}`);
+    }
+  }
   plan.files.push(`${path.basename(ctx.market.location)}/.claude-plugin/marketplace.json (adds ${p.name})`);
   return plan;
 }
@@ -115,6 +131,10 @@ export async function writePlugin(p: HuntProposal, plan: CreatePlan, market: Hun
         await fs.promises.copyFile(c.from.file, dest);
       }
     }
+    for (const f of plan.extra ?? []) {
+      await fs.promises.mkdir(path.dirname(path.join(plan.dir, f.to)), { recursive: true });
+      await fs.promises.copyFile(f.from, path.join(plan.dir, f.to));
+    }
     const edits = modify(catalogText, ['plugins', entries.length], { name: p.name, source: plan.source, description: p.description }, { isArrayInsertion: true, formattingOptions: format(catalogText) });
     await fs.promises.writeFile(catalogFile, applyEdits(catalogText, edits));
   } catch (e) {
@@ -128,12 +148,31 @@ export interface CliResult {
   out: string;
 }
 
+/**
+ * The program and leading arguments that start claude, without a shell option: `claude` itself, `claude.exe` from the PATH on
+ * Windows, or `claude.cmd` (the npm install) through cmd.exe, which Node cannot start directly.
+ */
+export function claudeLauncher(env: NodeJS.ProcessEnv): string[] {
+  if (process.platform !== 'win32') return ['claude'];
+  // Windows variable names are case-insensitive, a copied environment is not.
+  const get = (name: string) => env[Object.keys(env).find(k => k.toLowerCase() === name.toLowerCase()) ?? name];
+  const dirs = (get('PATH') ?? '').split(path.delimiter).filter(Boolean);
+  for (const ext of ['.exe', '.cmd'])
+    for (const dir of dirs) {
+      const file = path.join(dir, `claude${ext}`);
+      if (!fs.existsSync(file)) continue;
+      return ext === '.exe' ? [file] : [get('ComSpec') ?? path.join(get('SystemRoot') ?? 'C:\\Windows', 'System32', 'cmd.exe'), '/d', '/s', '/c', file];
+    }
+  return ['claude'];
+}
+
 /** Runs the claude CLI against the root the extension reads, so the install lands where the pages look. */
 export function runClaude(args: string[], root: string, timeout = 180000): Promise<CliResult> {
   const env: NodeJS.ProcessEnv = { ...process.env };
   if (!samePath(root, path.join(os.homedir(), '.claude'))) env.CLAUDE_CONFIG_DIR = root;
+  const [file, ...lead] = claudeLauncher(env);
   return new Promise(resolve =>
-    execFile('claude', args, { env, windowsHide: true, timeout, shell: process.platform === 'win32', cwd: os.tmpdir(), maxBuffer: 4 * 1024 * 1024 }, (err, stdout, stderr) =>
+    execFile(file, [...lead, ...args], { env, windowsHide: true, timeout, cwd: os.tmpdir(), maxBuffer: 4 * 1024 * 1024 }, (err, stdout, stderr) =>
       resolve({ code: err ? (typeof (err as { code?: unknown }).code === 'number' ? (err as { code: number }).code : -1) : 0, out: `${stdout ?? ''}${stderr ?? ''}`.trim() })
     )
   );
@@ -146,12 +185,19 @@ export async function installPlugin(p: HuntProposal, market: HuntMarket, root: s
   await run(['plugin', 'marketplace', 'update', market.name], root);
   const key = `${p.name}@${market.name}`;
   const r = await run(['plugin', 'install', key, '--scope', 'user'], root);
-  if (r.code !== 0 || !isInstalled(root, key)) throw new Error(`claude plugin install ${key} failed: ${r.out.split('\n').filter(Boolean).slice(-1)[0] ?? `exit ${r.code}`}`);
+  if (r.code === 0 && !isInstalled(root, key)) throw new Error(`claude plugin install ${key} exited 0 but the plugin is not listed in ${path.join(root, 'plugins', 'installed_plugins.json')}.`);
+  if (r.code !== 0) throw new Error(`claude plugin install ${key} failed: ${r.out.split('\n').filter(Boolean).slice(-1)[0] ?? `exit ${r.code}`}`);
 }
 
 /** Step 5: the ticked copies, each backed up first. Returns the backup folder. */
 export function retireCopies(plan: CreatePlan, backupRoot: string, stamp: string): string {
   for (const r of plan.retires) retireAsset(r.asset, r.base, backupRoot, stamp);
+  for (const f of (plan.extra ?? []).filter(x => x.drop)) {
+    const target = path.join(backupRoot, stamp, 'files', path.relative(path.parse(f.from).root, f.from));
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    fs.copyFileSync(f.from, target);
+    fs.rmSync(f.from);
+  }
   return path.join(backupRoot, stamp);
 }
 

@@ -6135,6 +6135,22 @@ body.vscode-high-contrast-light {
   padding: 10px 14px;
 }
 
+/* The drawing of what a skill does, above the info card: scaled to the width, never taller than 180px. */
+.dv-draw {
+  margin: 0;
+  padding: 6px 14px;
+  border: 1px solid var(--vscode-editorWidget-border, var(--vscode-panel-border));
+  border-radius: 4px;
+  color: var(--vscode-editor-foreground);
+}
+
+.dv-draw svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 180px;
+}
+
 .dv-cols {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

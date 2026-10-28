@@ -77,6 +77,10 @@ export interface PanelHost {
   reviewAsset?(id: string, answer: Answer, ask: (c: Confirm) => void): Promise<void>;
   /** Opens a terminal in the skill's repo with Claude asked to slim it, given what its size report found; asks first like reviewAsset. */
   slimAsset?(id: string, answer: Answer, ask: (c: Confirm) => void): Promise<void>;
+  /** The stored drawing of a skill when it was made from the SKILL.md as it is now. */
+  drawing?(id: string): string | undefined;
+  /** Has the user's claude draw what the skill does and stores it; asks first, `started` fires once the run begins. */
+  drawAsset?(id: string, answer: Answer, ask: (c: Confirm) => void, started: () => void): Promise<{ svg: string } | { error: string } | undefined>;
   /** The size and spread of a skill, measured from its files. */
   slim?(id: string): SlimReport | undefined;
   /** Consolidates a repo skill into global or its plugin: always asks in the panel, then retires, moves, opens the diff editor or starts Claude on the merge. */
@@ -431,6 +435,21 @@ export class HarnessPanel {
       case 'slimAsset':
         await this.host.slimAsset?.(m.id, { confirmed: m.confirmed, remember: m.remember }, ask => this.post({ type: 'confirm', ask }));
         return;
+      case 'drawing': {
+        let svg: string | undefined;
+        try {
+          svg = this.host.drawing?.(m.id);
+        } catch {
+          svg = undefined;
+        }
+        this.post({ type: 'drawing', id: m.id, svg });
+        return;
+      }
+      case 'drawAsset': {
+        const result = await this.host.drawAsset?.(m.id, { confirmed: m.confirmed, remember: m.remember }, ask => this.post({ type: 'confirm', ask }), () => this.post({ type: 'drawing', id: m.id, running: true }));
+        if (result) this.post('svg' in result ? { type: 'drawing', id: m.id, svg: result.svg } : { type: 'drawing', id: m.id, error: result.error });
+        return;
+      }
       case 'slim': {
         let report: SlimReport | undefined;
         try {

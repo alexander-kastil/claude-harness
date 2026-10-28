@@ -2,7 +2,7 @@
   "name": "claude-harness",
   "displayName": "Claude Harness",
   "description": "Visualize and edit your Claude Code harness in VS Code: memory, rules, agents, skills, commands, output styles, workflows, hooks, MCP servers and plugins, globally and per repository.",
-  "version": "0.6.5",
+  "version": "0.9.0",
   "publisher": "integrations-at",
   "license": "SEE LICENSE IN LICENSE",
   "icon": "media/icon.png",
@@ -308,6 +308,14 @@
         "category": "Claude Harness"
       },
       {
+        "command": "claudeHarness.addToClaudeContext",
+        "title": "Add to Claude Context",
+        "icon": {
+          "light": "media/claude-mark-light.svg",
+          "dark": "media/claude-mark-dark.svg"
+        }
+      },
+      {
         "command": "claudeHarness.open",
         "title": "Open Claude Harness",
         "category": "Claude Harness",
@@ -425,6 +433,16 @@
         "title": "Uninstall Plugin...",
         "category": "Claude Harness",
         "icon": "$(trash)"
+      },
+      {
+        "command": "claudeHarness.installCommandLine",
+        "title": "Install 'harness' Command Line",
+        "category": "Claude Harness"
+      },
+      {
+        "command": "claudeHarness.uninstallCommandLine",
+        "title": "Uninstall 'harness' Command Line",
+        "category": "Claude Harness"
       },
       {
         "command": "claudeHarness.openSettings",
@@ -660,6 +678,12 @@
       }
     ],
     "menus": {
+      "explorer/context": [
+        {
+          "command": "claudeHarness.addToClaudeContext",
+          "group": "6_copypath@99"
+        }
+      ],
       "view/title": [
         {
           "command": "claudeHarness.open",
@@ -889,6 +913,10 @@
       ],
       "commandPalette": [
         {
+          "command": "claudeHarness.addToClaudeContext",
+          "when": "false"
+        },
+        {
           "command": "claudeHarness.configureTools",
           "when": "false"
         },
@@ -1005,7 +1033,8 @@
     "test": "npm run compile && node --test \"out/test/unit/**/*.test.js\"",
     "test:ui": "npm run compile && node --test --test-concurrency=1 \"test/ui/*.test.mjs\"",
     "vscode:prepublish": "npm run compile",
-    "package": "vsce package"
+    "package": "vsce package",
+    "version": "node scripts/sync-plugin-version.mjs"
   },
   "dependencies": {
     "@vscode/codicons": "^0.0.36",

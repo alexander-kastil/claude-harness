@@ -37,3 +37,8 @@ export function saveClipboardImage(now = new Date()): Promise<string | undefined
       (err, stdout) => resolve(!err && stdout.includes('saved') && fs.existsSync(file) ? file : undefined));
   });
 }
+
+/** The text typed into the terminal for selected explorer items: one Claude `@` mention each, quoted when the path holds a space, ending in a space, no Enter. */
+export function mentionText(files: string[]): string {
+  return files.map(f => (/\s/.test(f) ? `@"${f}"` : `@${f}`)).join(' ') + ' ';
+}
