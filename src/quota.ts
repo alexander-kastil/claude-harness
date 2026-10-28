@@ -16,7 +16,8 @@ type Usage = { limits?: Entry[]; five_hour?: Legacy; seven_day?: Legacy; seven_d
 const SESSION_MS = 5 * 3600_000;
 const WEEK_MS = 7 * 24 * 3600_000;
 const ENDPOINT = 'https://api.anthropic.com/api/oauth/usage';
-const HEADERS = { 'anthropic-beta': 'oauth-2025-04-20', Accept: 'application/json' };
+// The usage endpoint answers 429 (Retry-After 0) to any client whose User-Agent is not claude-code/*; curl, node and a browser all get it.
+const HEADERS = { 'anthropic-beta': 'oauth-2025-04-20', Accept: 'application/json', 'User-Agent': 'claude-code/2.1.0' };
 
 const periodOf = (kind: QuotaKind) => (kind === 'session' ? SESSION_MS : WEEK_MS);
 const when = (iso?: string) => {
@@ -60,6 +61,7 @@ export function statusText(windows: QuotaWindow[]): string {
   const parts = [pct('session') && `5h ${pct('session')}`, pct('weekly_all') && `wk ${pct('weekly_all')}`].filter(Boolean);
   return parts.length ? `$(dashboard) ${parts.join(' · ')}` : '';
 }
+
 
 type Thresholds = { warn: number; crit: number };
 const thresholds = (): Thresholds => {
@@ -146,17 +148,21 @@ export function hoverMarkdown(windows: QuotaWindow[], now: number, kind: vscode.
   return md;
 }
 
-type Deps = { root: () => string };
+type Deps = { root: () => string; state?: vscode.Memento };
+
+const SAVED = 'quota.lastReading';
 
 export function registerQuota(deps: Deps): vscode.Disposable[] {
   const item = vscode.window.createStatusBarItem('claudeHarness.quota', vscode.StatusBarAlignment.Right, 100);
   item.name = 'Claude usage quota';
   item.command = 'claudeHarness.open';
 
-  let windows: QuotaWindow[] = [];
-  let fetchedAt: number | undefined;
+  // The last reading survives a window reload, so the item is there before the first fetch and while the token is expired.
+  const saved = deps.state?.get<{ windows: QuotaWindow[]; fetchedAt: number }>(SAVED);
+  let windows: QuotaWindow[] = Array.isArray(saved?.windows) ? saved.windows : [];
+  let fetchedAt: number | undefined = windows.length ? saved?.fetchedAt : undefined;
   let failures = 0;
-  let stale = false;
+  let stale = windows.length > 0;
   let timer: NodeJS.Timeout | undefined;
   let disposed = false;
 
@@ -191,12 +197,13 @@ export function registerQuota(deps: Deps): vscode.Disposable[] {
       child.stdin?.end(headers);
     });
 
-  const request = async (bearer: string): Promise<{ status: number; body: string }> => {
+  const request = async (bearer: string): Promise<{ status: number; body: string; retryAfter?: number }> => {
     try {
       const res = await fetch(ENDPOINT, { headers: { ...HEADERS, Authorization: `Bearer ${bearer}` }, signal: AbortSignal.timeout(20_000) });
       const body = await res.text();
       if (res.status === 403 && /Request not allowed/i.test(body)) return viaCurl(bearer);
-      return { status: res.status, body };
+      const retryAfter = Number(res.headers.get('retry-after'));
+      return { status: res.status, body, retryAfter: Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter * 1000 : undefined };
     } catch {
       return { status: 0, body: '' };
     }
@@ -219,14 +226,16 @@ export function registerQuota(deps: Deps): vscode.Disposable[] {
     running = true;
     let delay = active() ? intSetting('quota.activeRefreshSeconds', 60, 10, 3600) * 1000 : intSetting('quota.idleRefreshSeconds', 120, 10, 3600) * 1000;
     const bearer = token();
+    let wait = 0;
     if (bearer) {
-      const { status, body } = await request(bearer);
+      const { status, body, retryAfter } = await request(bearer);
       if (status === 200) {
         try {
           const parsed = parseUsage(JSON.parse(body) as Usage);
           if (parsed.length) {
             windows = parsed;
             fetchedAt = Date.now();
+            void deps.state?.update(SAVED, { windows, fetchedAt });
             failures = 0;
             stale = false;
           }
@@ -237,12 +246,14 @@ export function registerQuota(deps: Deps): vscode.Disposable[] {
       } else {
         failures++;
         stale = windows.length > 0;
-        if (status === 429) delay = Math.max(delay, 60_000);
+        wait = retryAfter ?? 0;
       }
     } else if (windows.length) {
       stale = true;
     }
-    if (failures) delay = Math.min(3600_000, 60_000 * 2 ** (failures - 1));
+    // With no reading yet the first retries come quickly; once there is one, back off up to an hour. A Retry-After is a floor.
+    if (failures) delay = Math.min(3600_000, (windows.length ? 60_000 : 15_000) * 2 ** (failures - 1));
+    delay = Math.max(delay, wait);
     running = false;
     if (disposed || !enabled()) return;
     render();
@@ -252,6 +263,7 @@ export function registerQuota(deps: Deps): vscode.Disposable[] {
   // The item and the polling follow the quota.enabled setting without a reload.
   const apply = () => {
     if (enabled()) {
+      render();
       if (!running && !timer) void poll();
     } else {
       if (timer) clearTimeout(timer);

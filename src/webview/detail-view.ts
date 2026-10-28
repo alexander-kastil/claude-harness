@@ -7,6 +7,7 @@ import { isReference } from '../shared/slim';
 import { agentColorClass, command, editable, kindLabel, labelOf, mcpFailed, metaOf, openAt, persist, pluginOf, skillPluginOf, sourceName, state, std, tidyError, viewOf, vscode } from './core';
 import { cmd, cmdBox, renderRuleInfo } from './detail';
 import { distNotice, updateBanner } from './dist';
+import { askDrawing, drawingFigure } from './drawing';
 import { aiGroup, el, fmtAgo, icon, plural } from './dom';
 import { hideHover, placeCard } from './hover';
 import { mcpStatusWord } from './kind-page';
@@ -476,8 +477,12 @@ function markdownView(d: Detail, draft: Draft): Child[] {
   const slim = a.kind === 'skill' ? slimOf(a.id) : undefined;
   const slimNote = slimCard(a, slim);
   const flagged = slim ? slim.spread.orphan.length + slim.spread.nested.length + slim.spread.giant.length + (slim.spread.manyTiny ? 1 : 0) : 0;
+  askDrawing(a);
   return [
-    hero(a, v, draft, description, a.kind === 'skill' ? [distNotice(a), updateBanner(a)] : [], a.kind === 'agent' ? [weekAgentChip(a)] : [], kpisFor(a, draft, description, mentions, mentioned, tools)),
+    drawingFigure(a),
+    // A skill's page has no info card: the drawing says what it does; only the sync notices that card carried stay.
+    a.kind === 'skill' ? distNotice(a) : hero(a, v, draft, description, [], a.kind === 'agent' ? [weekAgentChip(a)] : [], kpisFor(a, draft, description, mentions, mentioned, tools)),
+    a.kind === 'skill' ? updateBanner(a) : null,
     tabbed(a, [
       {
         id: 'doc',

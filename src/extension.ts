@@ -74,6 +74,7 @@ import type { Progress } from './usage';
 import { hookRows, hookTarget } from './usage-hooks';
 import { registerQuota } from './quota';
 import { analyzeSkill, slimPrompt } from './slim';
+import { DRAW_SYSTEM, contentHash, drawPrompt, extractSvg, readDrawing, writeDrawing } from './drawing';
 import type { SlimReport } from './shared/slim';
 import { usageMore, usageRows, usageTarget, usageTotals } from './usage-rows';
 import type { UsageTarget } from './usage-rows';
@@ -123,6 +124,7 @@ export function activate(context: vscode.ExtensionContext): void {
   let watcher: vscode.FileSystemWatcher | undefined;
   let timer: NodeJS.Timeout | undefined;
   // Where each agent and skill was used, over the transcripts of every account; built the first time the Used in tab opens.
+  const drawingsDir = path.join(context.globalStorageUri.fsPath, 'drawings');
   const usageIndex = new UsageIndex(path.join(context.globalStorageUri.fsPath, 'usage-index.json'));
   // The target of an element for the pages that read beyond the session list; an output style is matched by its frontmatter name.
   const targetOf = (asset: Asset): UsageTarget | undefined => usageTarget(asset, views, asset.kind === 'outputStyle' ? String(readMarkdown(asset.file).data.name ?? '') || undefined : undefined);
@@ -591,6 +593,28 @@ export function activate(context: vscode.ExtensionContext): void {
         });
       return usageTotals(data, targets, kind === 'skill');
     },
+    drawing: id => {
+      const asset = find(id);
+      if (!asset || asset.kind !== 'skill' || !asset.file) return undefined;
+      return readDrawing(drawingsDir, id, contentHash(fs.readFileSync(asset.file, 'utf8')));
+    },
+    drawAsset: async (id, answer, ask, started) => {
+      const asset = find(id);
+      if (!asset || asset.kind !== 'skill' || !asset.file) return undefined;
+      const text = fs.readFileSync(asset.file, 'utf8');
+      if (!answer.confirmed && !context.globalState.get<boolean>('drawRemembered')) {
+        ask({ kind: 'draw', id, name: asset.name, file: asset.file, chars: Math.min(text.length, 30000) });
+        return undefined;
+      }
+      if (answer.remember) await context.globalState.update('drawRemembered', true);
+      started();
+      const result = await draftStyle(drawPrompt(asset.name, text), 'sonnet', os.tmpdir(), 300000, DRAW_SYSTEM);
+      if ('error' in result) return { error: result.error };
+      const svg = extractSvg(result.text);
+      if (!svg) return { error: 'Claude did not answer with an svg drawing.' };
+      writeDrawing(drawingsDir, id, contentHash(text), svg);
+      return { svg };
+    },
     slim: id => {
       const asset = find(id);
       if (!asset || asset.kind !== 'skill' || !asset.dir) return undefined;
@@ -891,7 +915,7 @@ export function activate(context: vscode.ExtensionContext): void {
   };
 
   context.subscriptions.push(
-    ...registerQuota({ root: () => global.root }),
+    ...registerQuota({ root: () => global.root, state: context.globalState }),
     ...registerShare({ root: () => global.root, scopes: () => scopes, assetOf, refresh, backupRoot }),
     ...registerDistributor({
       root: () => global.root,

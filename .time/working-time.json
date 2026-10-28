@@ -1901,6 +1901,124 @@
       "catalogue": {
         "action": "none"
       }
+    },
+    {
+      "date": "2026-10-28",
+      "from": "08:28",
+      "to": "09:24",
+      "sessionId": "56c00afa-2d64-4295-b374-36f10e9832c5",
+      "branch": "0.9.0",
+      "commits": [],
+      "surfaces": [
+        "claude-harness"
+      ],
+      "files": [
+        "src/cli-build.ts",
+        "src/harness-script.ts",
+        "src/harness-language.ts",
+        "syntaxes/harness.tmLanguage.json",
+        "src/cli-complete.ts"
+      ],
+      "mechanism": {
+        "takes": "a script of harness commands, one per line, or the same commands typed in a shell",
+        "does": "validates every line first, then makes sure each agent, rule, skill, command, hook, MCP server and plugin exists as described, writing only what differs after a backup, with shell Tab completion and editor completions, hovers and diagnostics from one command table",
+        "returns": "CREATE and UPDATE lines with sizes, Nothing to be done on a rerun, and a summary table of steps"
+      },
+      "portsAsIs": [
+        "idempotent ensure steps with backup and dry run",
+        "one command table feeding shell completion and editor completion",
+        "validate before apply with line-numbered problems"
+      ],
+      "perCustomer": [
+        "the repo's harness standard and its check script",
+        "the marketplaces a script points at"
+      ],
+      "evidence": [
+        "worktree .claude/worktrees/0.9.0",
+        "tests: 277 unit tests passing",
+        "editor support checked in an isolated VS Code",
+        "Tab completion checked in pwsh -NoProfile and bash --norc"
+      ],
+      "toolchain": {
+        "skills": [
+          "plugin-authoring",
+          "report",
+          "claude-learn",
+          "claude-learn-worktime",
+          "track-time"
+        ],
+        "mcpServers": [],
+        "agents": [
+          "vscode-ext-specialist",
+          "general-purpose",
+          "subagent-delegation-plugin:fact-gatherer",
+          "fork"
+        ]
+      },
+      "industry": "software tooling for developers",
+      "status": "Built and running in-house",
+      "catalogue": {
+        "action": "none"
+      }
+    },
+    {
+      "date": "2026-10-28",
+      "from": "08:22",
+      "to": "09:28",
+      "sessionId": "93fc1f46-2441-4a5e-b54b-ab99372827e6",
+      "branch": "0.7.0",
+      "commits": [],
+      "surfaces": [
+        "claude-harness"
+      ],
+      "files": [
+        "src/drawing.ts",
+        "src/webview/drawing.ts",
+        "src/webview/detail.ts",
+        "src/webview/detail-view.ts",
+        "src/quota.ts",
+        "test/unit/quota-item.test.ts",
+        "media/panel.css"
+      ],
+      "mechanism": {
+        "takes": "a skill's SKILL.md, and the owner's Claude sign-in for the plan usage reading",
+        "does": "on one button press has Claude draw an SVG of what the skill does for a newcomer, strips anything executable, themes it with the editor's colours and stores it per content hash so an edited skill asks to be redrawn; separately keeps the 5-hour and weekly usage item in the status bar by identifying as a claude-code client, saving the last reading across reloads and honouring Retry-After",
+        "returns": "a skill page that opens with a drawing instead of a text box, and a usage item that always shows real figures"
+      },
+      "portsAsIs": [
+        "model-drawn SVG summary per document, cached by content hash, sanitised and themed",
+        "status bar reading that survives reloads and backs off on a rate-limited endpoint"
+      ],
+      "perCustomer": [
+        "the documents a drawing summarises",
+        "the service a status reading comes from"
+      ],
+      "evidence": [
+        "tests: 261 unit tests passing",
+        "installed as 0.8.5 in the owner's VS Code",
+        "usage endpoint probed on the owner's token: none 429, claude-code/2.1.0 200"
+      ],
+      "toolchain": {
+        "skills": [
+          "ui-ux-pro-max",
+          "marketing-psychology",
+          "report",
+          "claude-learn",
+          "claude-learn-worktime",
+          "track-time",
+          "vscode-extension"
+        ],
+        "mcpServers": [],
+        "agents": [
+          "vscode-ext-specialist",
+          "fork"
+        ]
+      },
+      "industry": "software tooling for developers",
+      "status": "Built and running in-house",
+      "catalogue": {
+        "action": "none"
+      }
     }
   ]
 }

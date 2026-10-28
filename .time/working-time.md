@@ -34,5 +34,7 @@
 | 2026-10-27 | 0.35 | 19:54 | 20:15 | Version 0.7.0: right-click files and folders in the Explorer to add them to the active Claude terminal's context, installed locally |
 | 2026-10-27 | 0.57 | 20:05 | 20:50 | Plugin Hunter film: animated intro, two new cuts, LinkedIn repost |
 | 2026-10-28 | 0.50 | 07:16 | 07:46 | Instruction audit of the contributor branch cleanup command |
+| 2026-10-28 | 0.17 | 08:22 | 09:28 | Skill pages open with a diagram Claude draws instead of a text box, and the usage quota in the status bar works again |
+| 2026-10-28 | 0.93 | 08:28 | 09:24 | Version 0.9.0 in progress: build and check a harness from script files, with Tab completion and editor support, plus a shorter repository description |
 
-**Total: 25.40h**
+**Total: 26.50h**
