@@ -120,7 +120,7 @@ Talk to Claude about the skills and agents you already have, and it proposes a p
 
 ### Command line
 
-Run the harness from a terminal, or type `/harness <command>` in Claude Code with the harness plugin installed; as you type a word after `/harness`, its type-ahead offers the commands. From a terminal, run `node <extension folder>/out/src/cli.js <command>`.
+Run the harness from a terminal with `node <extension folder>/out/src/cli.js <command>`. In Claude Code, with the [harness plugin](#install-the-harness-plugin) installed, type `@h` in a prompt to mention a view such as `@harness:usage` or `@harness:inventory`: when you send the prompt, the view runs and Claude reads its output as context. See [Command line](docs/command-line.md).
 
 - `inventory [--repo <dir>]`: the harness of Global, or of one repo.
 - `consolidate`: every skill, agent, rule, command or workflow that exists in more than one place.
@@ -135,6 +135,25 @@ Run the harness from a terminal, or type `/harness <command>` in Claude Code wit
 - `media doctor <dir>`: checks a film or images folder under `assets/films` or `assets/images`.
 
 Add `--dry-run` to a command that writes, to print each action without writing it. With `--json`, a command prints one object, and its last key is `applied`: `true` when it wrote something, `false` otherwise. Exit codes: 0 done, 1 error or problems found, 2 bad arguments.
+
+### Install the harness plugin
+
+The harness plugin adds `@harness:` mentions to the Claude prompt box, with type-ahead, for the views above that only read. It needs Claude Harness 0.8.0 or later, and its version always matches the extension's. It ships from this repository as the `claude-harness` marketplace.
+
+In Claude Code:
+
+```text
+/plugin marketplace add alexander-kastil/claude-harness
+/plugin install harness-plugin@claude-harness
+/reload-plugins
+```
+
+Or from a shell:
+
+```bash
+claude plugin marketplace add alexander-kastil/claude-harness
+claude plugin install harness-plugin@claude-harness
+```
 
 ### Claude actions through your own CLI
 
@@ -179,7 +198,7 @@ Install Claude Harness: it opens on the `~/.claude` you already have.
 | [Skill sources](docs/skill-sources.md) | Adds skills from skills.sh or GitHub, checks them for a newer version, updates them in place, and links a global skill into a repo |
 | [Settings](docs/settings.md) | Sets the global harness folder, the repo lists, where Claude terminals open and which command starts them, the Claude usage item in the status bar and the list lengths, and edits the settings files |
 | [Commands](docs/commands.md) | Every Claude Harness command, what it does and where to find it |
-| [Command line](#command-line) | Runs inventory, consolidate, hunt, agents, usage, delegation and media checks from a terminal or with `/harness`, with `--json` for scripts |
+| [Command line](docs/command-line.md) | Runs inventory, consolidate, hunt, agents, usage, delegation and media checks from a terminal, with `--json` for scripts, and hands the views to Claude as `@harness:` mentions |
 
 Provider features appear when a harness standard provider plugin is installed.
 

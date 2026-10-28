@@ -2,6 +2,24 @@
 
 All notable changes to Claude Harness are listed here, newest first. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions with no version change in the package.json history (0.1.3, 0.1.5 to 0.1.18, 0.1.20 to 0.1.24, 0.1.27, 0.2.1 and 0.2.3 to 0.2.11) and development builds (0.2.14 to 0.2.22, 0.2.24 to 0.2.30, 0.2.32 to 0.2.34, 0.2.36 to 0.2.44, 0.3.0, 0.3.2, 0.4.1 to 0.4.3, 0.5.2 and 0.5.3) have no entry.
 
+## [0.8.2] - 2026-10-28
+
+### Added
+
+- `@harness:<view>` mentions in Claude Code (harness-plugin): type `@h` in a prompt to pick `inventory`, `consolidate`, `agents`, `usage`, `delegation` or `hunt`. When the prompt is sent, each view runs once and Claude reads its output as context.
+- The docs page [Command line](docs/command-line.md) lists the mentions, every command with its options, and the exit codes.
+
+### Removed
+
+- The `/harness` prompt command of the harness-plugin. Claude Code offered no type-ahead after `/harness `, so the mentions replace it.
+
+## [0.8.1] - 2026-10-28
+
+### Changed
+
+- The harness-plugin now ships from this repository as the `claude-harness` marketplace (`/plugin marketplace add alexander-kastil/claude-harness`), and its version is the extension's version.
+- The README explains how to install the harness plugin, in Claude Code and from a shell.
+
 ## [0.8.0] - 2026-10-27
 
 ### Added
@@ -12,7 +30,7 @@ All notable changes to Claude Harness are listed here, newest first. The format 
 - `delegation --session latest|previous|<id>`: the session's agents with their model, status, minutes, turns and cost, the decisions the delegation hooks made, the open and closed slips, and the findings.
 - `media doctor <dir>`: checks a film or images folder under `assets/films` or `assets/images`. It reports a misplaced file, a path a script or changelog names that does not exist, each output against its changelog's seconds, size and fps, and whether the media is stored in Git LFS, checked only for films Git tracks. Outputs with the wrong name are reported once per name, and a path is also tried from the repo root before it counts as missing. It never writes; it exits 1 when it finds problems.
 - `skills move | split | put | remove | repoint` reorganise skills from the command line: move a leaf or folder to another skill and repoint every mention of its path in skills, agents and `--market` plugins, split leaves off into a new skill, put new text in place, remove a leaf or skill, rewrite one skill name to another. Each backs every changed file up under `<root>/skill-sync-backups/` first; `--dry-run` prints `[dry-run]` lines and writes nothing. `hunt create --files <file>=<path in plugin>` adds a hooks.json, hook script or `.mcp.json` to the plugin (a plugin may consist of these alone), `--drop-files` retires the sources under the Claude folder, and `--market` also takes the marketplace folder.
-- `complete --line "<command line>" --position <n>`: the type-ahead candidates for the word at the cursor, one per line, or a JSON array with `--json`. It accepts lines that start with `/harness`, which Claude Code's `/harness` type-ahead sends (harness-plugin 0.2.0).
+- `complete --line "<command line>" --position <n>`: the type-ahead candidates for the word at the cursor, one per line, or a JSON array with `--json`. It accepts lines that start with `/harness`, which Claude Code's `/harness` type-ahead sends (harness-plugin 0.8.0).
 
 ### Changed
 

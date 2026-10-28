@@ -2,7 +2,7 @@
   "name": "claude-harness",
   "displayName": "Claude Harness",
   "description": "Visualize and edit your Claude Code harness in VS Code: memory, rules, agents, skills, commands, output styles, workflows, hooks, MCP servers and plugins, globally and per repository.",
-  "version": "0.8.0",
+  "version": "0.8.2",
   "publisher": "integrations-at",
   "license": "SEE LICENSE IN LICENSE",
   "icon": "media/icon.png",
@@ -1033,7 +1033,8 @@
     "test": "npm run compile && node --test \"out/test/unit/**/*.test.js\"",
     "test:ui": "npm run compile && node --test --test-concurrency=1 \"test/ui/*.test.mjs\"",
     "vscode:prepublish": "npm run compile",
-    "package": "vsce package"
+    "package": "vsce package",
+    "version": "node scripts/sync-plugin-version.mjs"
   },
   "dependencies": {
     "@vscode/codicons": "^0.0.36",

@@ -1,0 +1,13 @@
+{
+  "name": "integrations harness standard",
+  "check": "skills/fix-constitution/scripts/check-constitution.py",
+  "fix": "skills/fix-constitution/scripts/fix-settings.py",
+  "scaffold": "skills/init-product-repo/scripts/init-product-repo.py",
+  "standard": "skills/fix-constitution/references/standard.md",
+  "align": "/harness-plugin:fix-constitution",
+  "ownerPattern": "^\\s*-\\s*Owner agent:\\s*`([^`]+)`",
+  "keepCopies": {
+    "folders": ["demos", "labs"],
+    "claudeMdPattern": "\\bcop(?:y|ies)\\b[^\\n]*\\b(?:kept|keeps?)\\b|\\bkeeps?\\b[^\\n]*\\bcop(?:y|ies)\\b"
+  }
+}

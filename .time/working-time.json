@@ -1851,6 +1851,56 @@
       "catalogue": {
         "action": "none"
       }
+    },
+    {
+      "date": "2026-10-28",
+      "from": "07:16",
+      "to": "07:46",
+      "sessionId": "553c592d-b5e5-42ef-b3e2-4971342b76a0",
+      "branch": "0.7.0",
+      "commits": [],
+      "surfaces": [
+        "claude-harness"
+      ],
+      "files": [
+        ".claude/commands/git-contribute-cleanup.md",
+        "tasks/lessons.md"
+      ],
+      "mechanism": {
+        "takes": "one agent instruction file and the model that reads it",
+        "does": "checks every line for wording written for older models, facts the repository has outgrown and copies of the same command that disagree, then verifies each named path and command against the repository",
+        "returns": "findings with location, pattern and confidence, a proposed diff, and flags for decisions that reach outside the file"
+      },
+      "portsAsIs": [
+        "instruction audit scoped to a single named file",
+        "twin-command check between repository and personal configuration"
+      ],
+      "perCustomer": [
+        "the instruction files audited",
+        "the model the configuration targets"
+      ],
+      "evidence": [
+        "audit of git-contribute-cleanup.md: no findings, one flag for a same-named personal command that needs .claude/rules/git.md",
+        "Claude Code docs: a personal skill outranks a project skill of the same name"
+      ],
+      "toolchain": {
+        "skills": [
+          "claude-api",
+          "claude-learn",
+          "claude-learn-worktime",
+          "track-time"
+        ],
+        "mcpServers": [],
+        "agents": [
+          "fact-gatherer",
+          "fork"
+        ]
+      },
+      "industry": "software tooling for developers",
+      "status": "Built and running in-house",
+      "catalogue": {
+        "action": "none"
+      }
     }
   ]
 }

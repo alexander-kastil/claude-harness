@@ -4,7 +4,7 @@
 <tr>
 <td align="left"><a href="settings.md">← Back to Settings</a></td>
 <td align="center"></td>
-<td align="right"><a href="../README.md#features">↑ Back to Features</a></td>
+<td align="right"><a href="command-line.md">→ Next: Command line</a></td>
 </tr>
 </table>
 
@@ -108,6 +108,6 @@ Lists every `settings.json` and `settings.local.json`, global and per repo, and 
 <tr>
 <td align="left"><a href="settings.md">← Back to Settings</a></td>
 <td align="center"><a href="#commands">↑ Back to top</a></td>
-<td align="right"><a href="../README.md#features">↑ Back to Features</a></td>
+<td align="right"><a href="command-line.md">→ Next: Command line</a></td>
 </tr>
 </table>

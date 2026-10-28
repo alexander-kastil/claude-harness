@@ -33,5 +33,6 @@
 | 2026-10-27 | 0.08 | 19:50 | 20:16 | Marketplace header at the top of the README, the contribution guide image fixed and published, and a film folder renamed |
 | 2026-10-27 | 0.35 | 19:54 | 20:15 | Version 0.7.0: right-click files and folders in the Explorer to add them to the active Claude terminal's context, installed locally |
 | 2026-10-27 | 0.57 | 20:05 | 20:50 | Plugin Hunter film: animated intro, two new cuts, LinkedIn repost |
+| 2026-10-28 | 0.50 | 07:16 | 07:46 | Instruction audit of the contributor branch cleanup command |
 
-**Total: 24.90h**
+**Total: 25.40h**
