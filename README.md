@@ -1,6 +1,6 @@
 # Claude Harness
 
-[![Claude Harness on the Visual Studio Marketplace](assets/images/marketplace-header.png)](https://marketplace.visualstudio.com/items?itemName=integrations-at.claude-harness)
+[![Claude Harness on the Visual Studio Marketplace](assets/images/marketplace/media/marketplace-header.png)](https://marketplace.visualstudio.com/items?itemName=integrations-at.claude-harness)
 
 **See what your harness does, then change it.**
 
@@ -118,6 +118,24 @@ Talk to Claude about the skills and agents you already have, and it proposes a p
 
 ![Plugin Hunter with a conversation and the card of a proposed plugin](docs/images/plugin-hunter.png)
 
+### Command line
+
+Run the harness from a terminal, or type `/harness <command>` in Claude Code with the harness plugin installed; as you type a word after `/harness`, its type-ahead offers the commands. From a terminal, run `node <extension folder>/out/src/cli.js <command>`.
+
+- `inventory [--repo <dir>]`: the harness of Global, or of one repo.
+- `consolidate`: every skill, agent, rule, command or workflow that exists in more than one place.
+- `consolidate retire --name <n> --kind skill|agent --from <global|repo dir>`: retires one copy, backed up first.
+- `hunt catalog`: the skills and agents that a plugin can be made from.
+- `hunt plan --name <plugin> --category <c> --skills a,b --agents x,y`: the plugin that `hunt create` would write.
+- `hunt create` with the same options: writes the plugin and installs it; `--retire` retires the copies.
+- `agents list`: the agents of Global, the plugins and the repos, with their copies that differ and the gated ones.
+- `agents route "<prompt>"`: the agents that the subagent-delegation plugin would route a prompt to, and the ones it drops.
+- `usage --session latest|previous|<id> [--week]`: a session's tokens and cost by model and by agent, and its share of the week.
+- `delegation --session latest|previous|<id>`: the agents a session launched, with their decisions, slips and findings.
+- `media doctor <dir>`: checks a film or images folder under `assets/films` or `assets/images`.
+
+Add `--dry-run` to a command that writes, to print each action without writing it. With `--json`, a command prints one object, and its last key is `applied`: `true` when it wrote something, `false` otherwise. Exit codes: 0 done, 1 error or problems found, 2 bad arguments.
+
 ### Claude actions through your own CLI
 
 Review, Slim, Try it, Analyze, Continue and Merge with Claude start your `claude` CLI in a VS Code terminal with the prompt and the measured context filled in; Analyze works on a copy of the session. Each opens a confirm card first. The runs count against your Claude plan, and Claude Harness adds no charge.
@@ -161,6 +179,7 @@ Install Claude Harness: it opens on the `~/.claude` you already have.
 | [Skill sources](docs/skill-sources.md) | Adds skills from skills.sh or GitHub, checks them for a newer version, updates them in place, and links a global skill into a repo |
 | [Settings](docs/settings.md) | Sets the global harness folder, the repo lists, where Claude terminals open and which command starts them, the Claude usage item in the status bar and the list lengths, and edits the settings files |
 | [Commands](docs/commands.md) | Every Claude Harness command, what it does and where to find it |
+| [Command line](#command-line) | Runs inventory, consolidate, hunt, agents, usage, delegation and media checks from a terminal or with `/harness`, with `--json` for scripts |
 
 Provider features appear when a harness standard provider plugin is installed.
 

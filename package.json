@@ -2,7 +2,7 @@
   "name": "claude-harness",
   "displayName": "Claude Harness",
   "description": "Visualize and edit your Claude Code harness in VS Code: memory, rules, agents, skills, commands, output styles, workflows, hooks, MCP servers and plugins, globally and per repository.",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "publisher": "integrations-at",
   "license": "SEE LICENSE IN LICENSE",
   "icon": "media/icon.png",
@@ -433,6 +433,16 @@
         "title": "Uninstall Plugin...",
         "category": "Claude Harness",
         "icon": "$(trash)"
+      },
+      {
+        "command": "claudeHarness.installCommandLine",
+        "title": "Install 'harness' Command Line",
+        "category": "Claude Harness"
+      },
+      {
+        "command": "claudeHarness.uninstallCommandLine",
+        "title": "Uninstall 'harness' Command Line",
+        "category": "Claude Harness"
       },
       {
         "command": "claudeHarness.openSettings",

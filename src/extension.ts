@@ -1,9 +1,10 @@
-import { exec } from 'child_process';
+import { exec, execFile } from 'child_process';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { restoreFiles } from './checkpoints';
+import { Shell, addLine, hasLine, pathWith, pathWithout, profileLine, psProfileFiles, removeLine, shimDir, shimFiles } from './cli-install';
 import { Constitution } from './constitution';
 import { consolidateApply, consolidatePlan, mergePrompt, routesOf } from './consolidate';
 import type { ConsolidateRoute, ConsolidateTarget } from './shared/messages';
@@ -1209,6 +1210,9 @@ export function activate(context: vscode.ExtensionContext): void {
       terminal(`Uninstall ${asset.name}`, cwdOf(scope), claudeCli(`plugin uninstall ${asset.name} --scope ${scope.id === global.id ? 'user' : 'project'}`));
     }),
 
+    vscode.commands.registerCommand('claudeHarness.installCommandLine', () => installCommandLine(context)),
+    vscode.commands.registerCommand('claudeHarness.uninstallCommandLine', () => uninstallCommandLine(context)),
+
     vscode.commands.registerCommand('claudeHarness.openSettings', async () => {
       const items = views.flatMap(v =>
         (v.categories.find(c => c.kind === 'settings')?.items ?? []).map(a => ({ label: `$(settings-gear) ${a.name}`, description: v.label, detail: a.file, asset: a }))
@@ -1532,6 +1536,113 @@ export function activate(context: vscode.ExtensionContext): void {
     .map(doc => harnessFileOf(doc.uri.fsPath)?.path)
     .filter((dir): dir is string => !!dir);
   if (openRepos.length) constitution.ensure([...new Set(openRepos)]);
+}
+
+// The 'harness' command line: shims in a bin folder, that folder on the Windows user PATH, and optional profile lines for type-ahead.
+// The record of what was added lets uninstall remove exactly those, never a PATH entry or a profile line the user had before.
+interface CommandLineRecord {
+  bin: string;
+  path: boolean;
+  profiles: { file: string; line: string }[];
+}
+
+const COMMAND_LINE_KEY = 'commandLineRecord';
+
+const powerShell = (script: string, env: Record<string, string> = {}) =>
+  new Promise<string>((resolve, reject) =>
+    execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], { env: { ...process.env, ...env }, windowsHide: true }, (err, stdout) =>
+      err ? reject(err) : resolve(stdout.replace(/\r?\n$/, ''))
+    )
+  );
+
+const readText = (file: string) => (fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '');
+
+function writeText(file: string, text: string): void {
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, text);
+}
+
+async function installCommandLine(context: vscode.ExtensionContext): Promise<void> {
+  const win = process.platform === 'win32';
+  const previous = context.globalState.get<CommandLineRecord>(COMMAND_LINE_KEY);
+  const bin = shimDir(process.platform, process.env, os.homedir());
+  const record: CommandLineRecord = { bin, path: previous?.path ?? false, profiles: previous?.profiles ?? [] };
+  const notes: string[] = [];
+
+  fs.mkdirSync(bin, { recursive: true });
+  for (const shim of shimFiles(bin)) {
+    fs.writeFileSync(shim.file, shim.text);
+    if (!win) fs.chmodSync(shim.file, 0o755);
+  }
+  notes.push(`Wrote harness to ${bin}.`);
+
+  if (win) {
+    const next = pathWith(await powerShell("[Environment]::GetEnvironmentVariable('Path', 'User')"), bin);
+    if (next === undefined) notes.push('The folder was already on your user PATH.');
+    else {
+      await powerShell("[Environment]::SetEnvironmentVariable('Path', $env:HARNESS_PATH, 'User')", { HARNESS_PATH: next });
+      record.path = true;
+      notes.push('Added the folder to your user PATH.');
+    }
+  }
+
+  const targets: { shell: Shell; file: string }[] = [];
+  if (win) {
+    const documents = await powerShell("[Environment]::GetFolderPath('MyDocuments')");
+    targets.push(...psProfileFiles(documents, fs.existsSync).map(file => ({ shell: 'powershell' as const, file })));
+  }
+  targets.push({ shell: 'bash', file: path.join(os.homedir(), '.bashrc') });
+  const options: [string, Shell[]][] = win
+    ? [['PowerShell and Git Bash', ['powershell', 'bash']], ['PowerShell only', ['powershell']], ['Git Bash only', ['bash']]]
+    : [['Git Bash', ['bash']]];
+  const answer = await vscode.window.showInformationMessage(
+    "Turn on type-ahead for 'harness' in your shell profiles?",
+    { modal: true, detail: targets.map(t => `${t.file}: ${profileLine(t.shell)}`).join('\n') },
+    ...options.map(([label]) => label)
+  );
+  const chosen = options.find(([label]) => label === answer)?.[1] ?? [];
+
+  for (const target of targets.filter(t => chosen.includes(t.shell))) {
+    const line = profileLine(target.shell);
+    const text = readText(target.file);
+    if (hasLine(text, line)) continue;
+    writeText(target.file, addLine(text, line));
+    if (!record.profiles.some(p => p.file === target.file && p.line === line)) record.profiles.push({ file: target.file, line });
+    notes.push(`Added the type-ahead line to ${target.file}.`);
+  }
+
+  await context.globalState.update(COMMAND_LINE_KEY, record);
+  void vscode.window.showInformationMessage(`${notes.join(' ')} Open a new terminal to use 'harness'.`);
+}
+
+async function uninstallCommandLine(context: vscode.ExtensionContext): Promise<void> {
+  const record = context.globalState.get<CommandLineRecord>(COMMAND_LINE_KEY);
+  const bin = record?.bin ?? shimDir(process.platform, process.env, os.homedir());
+  const notes: string[] = [];
+
+  const shims = shimFiles(bin).filter(shim => fs.existsSync(shim.file));
+  for (const shim of shims) fs.unlinkSync(shim.file);
+  if (fs.existsSync(bin) && fs.readdirSync(bin).length === 0) fs.rmdirSync(bin);
+  if (shims.length) notes.push(`Removed the shims from ${bin}.`);
+
+  if (record?.path) {
+    const current = await powerShell("[Environment]::GetEnvironmentVariable('Path', 'User')");
+    const next = pathWithout(current, bin);
+    if (next !== current) {
+      await powerShell("[Environment]::SetEnvironmentVariable('Path', $env:HARNESS_PATH, 'User')", { HARNESS_PATH: next });
+      notes.push('Removed the folder from your user PATH.');
+    }
+  }
+
+  for (const { file, line } of record?.profiles ?? []) {
+    const text = readText(file);
+    if (!hasLine(text, line)) continue;
+    writeText(file, removeLine(text, line));
+    notes.push(`Removed the type-ahead line from ${file}.`);
+  }
+
+  await context.globalState.update(COMMAND_LINE_KEY, undefined);
+  void vscode.window.showInformationMessage(`${notes.join(' ') || "Nothing to remove for 'harness'."} Open a new terminal to see the change.`);
 }
 
 export function deactivate(): void {}

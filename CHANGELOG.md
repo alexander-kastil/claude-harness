@@ -2,6 +2,30 @@
 
 All notable changes to Claude Harness are listed here, newest first. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions with no version change in the package.json history (0.1.3, 0.1.5 to 0.1.18, 0.1.20 to 0.1.24, 0.1.27, 0.2.1 and 0.2.3 to 0.2.11) and development builds (0.2.14 to 0.2.22, 0.2.24 to 0.2.30, 0.2.32 to 0.2.34, 0.2.36 to 0.2.44, 0.3.0, 0.3.2, 0.4.1 to 0.4.3, 0.5.2 and 0.5.3) have no entry.
 
+## [0.8.0] - 2026-10-27
+
+### Added
+
+- `agents list` on the command line: every agent of Global, the plugins and the repos, with its model, whether it is gated, and whether each copy is identical, nearly identical or differs from the global one. `--json` gives the same rows for scripts.
+- `agents route "<prompt>"`: asks the subagent-delegation plugin which specialist owns a prompt, by running that plugin's `scripts/route.mjs`, taken from the marketplace folder Claude Code reads before any installed copy. It lists the owners with their scores, the gated agents it dropped, and the fallback. It exits 1 and names the missing script when no copy of the plugin has it.
+- `usage --session latest|previous|<id>`: one session's tokens and cost by model, and its cost by agent type. `--week` adds the cost of the week the session falls in and the session's share of it; `--week-used <pct>` adds the share of the weekly limit that the session used.
+- `delegation --session latest|previous|<id>`: the session's agents with their model, status, minutes, turns and cost, the decisions the delegation hooks made, the open and closed slips, and the findings.
+- `media doctor <dir>`: checks a film or images folder under `assets/films` or `assets/images`. It reports a misplaced file, a path a script or changelog names that does not exist, each output against its changelog's seconds, size and fps, and whether the media is stored in Git LFS, checked only for films Git tracks. Outputs with the wrong name are reported once per name, and a path is also tried from the repo root before it counts as missing. It never writes; it exits 1 when it finds problems.
+- `skills move | split | put | remove | repoint` reorganise skills from the command line: move a leaf or folder to another skill and repoint every mention of its path in skills, agents and `--market` plugins, split leaves off into a new skill, put new text in place, remove a leaf or skill, rewrite one skill name to another. Each backs every changed file up under `<root>/skill-sync-backups/` first; `--dry-run` prints `[dry-run]` lines and writes nothing. `hunt create --files <file>=<path in plugin>` adds a hooks.json, hook script or `.mcp.json` to the plugin (a plugin may consist of these alone), `--drop-files` retires the sources under the Claude folder, and `--market` also takes the marketplace folder.
+- `complete --line "<command line>" --position <n>`: the type-ahead candidates for the word at the cursor, one per line, or a JSON array with `--json`. It accepts lines that start with `/harness`, which Claude Code's `/harness` type-ahead sends (harness-plugin 0.2.0).
+
+### Changed
+
+- The README has a Command line section: `/harness <command>` in Claude Code with type-ahead, the `node <extension folder>/out/src/cli.js` form, and one line per command.
+
+## [0.7.1] - 2026-10-27
+
+### Added
+
+- A command line for the harness, in preview: `out/src/cli.js` in the installed extension, plain Node without VS Code: `inventory`, `consolidate` (with `consolidate retire`) and `hunt catalog|plan|create`, text by default and `--json` for scripts. A command that writes runs for real; `--dry-run` prints each action as `[dry-run] ...` and writes nothing. With `--json` every command ends in one object with `applied`, the same shape for both.
+- Create in Plugin Hunter, and `hunt create` on the command line, start the `claude` CLI for the install without a shell and with an argument array (`claude.exe` from the PATH, or `claude.cmd` through `cmd.exe`), so Node no longer prints the DEP0190 warning.
+- When `claude plugin install` exits 0 but the plugin is not in `installed_plugins.json`, Create now says exactly that and names the file, instead of "failed: exit 0". The rollback is unchanged.
+
 ## [0.7.0] - 2026-10-27
 
 ### Added

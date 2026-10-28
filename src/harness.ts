@@ -109,6 +109,7 @@ export interface AssetMeta {
   color?: string;
   paths?: string[];
   manual?: boolean;
+  gated?: boolean;
 }
 
 export interface Copy {
@@ -495,6 +496,7 @@ export function metaOf(data: Record<string, unknown>): AssetMeta | undefined {
     color: text(data.color),
     paths: list(data.paths),
     manual: data['disable-model-invocation'] === true || undefined,
+    gated: data.gated === true || undefined,
   };
   const set = Object.fromEntries(Object.entries(meta).filter(([, v]) => v !== undefined));
   return Object.keys(set).length ? set : undefined;

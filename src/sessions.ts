@@ -816,7 +816,7 @@ export function findSession(dir: string, root: string, id: string): SessionSumma
   return undefined;
 }
 
-async function readRecords(file: string): Promise<Rec[]> {
+export async function readRecords(file: string): Promise<Rec[]> {
   const text = await fs.promises.readFile(file, 'utf8');
   return text.split('\n').flatMap(parseLine);
 }

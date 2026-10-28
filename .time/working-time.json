@@ -1787,6 +1787,70 @@
       "catalogue": {
         "action": "none"
       }
+    },
+    {
+      "date": "2026-10-27",
+      "from": "20:05",
+      "to": "20:50",
+      "sessionId": "6b89513e-5d2e-4d92-9d5a-b7a2cbe1ed1f",
+      "branch": "0.7.0",
+      "commits": [],
+      "surfaces": [
+        "claude-harness"
+      ],
+      "files": [
+        "assets/film-plugin-hunter/scripts/intro.py",
+        "assets/film-plugin-hunter/assets/wan-hunter.mp4",
+        "assets/film-plugin-hunter/clips/first-frames/ff-hunter.jpg",
+        "assets/film-plugin-hunter/output/plugin-hunter-dotnet-v9.mp4",
+        "assets/film-plugin-hunter/output/plugin-hunter-dotnet-v10.mp4",
+        ".claude/rules/films.md"
+      ],
+      "mechanism": {
+        "takes": "a finished product film whose intro is a static illustration, plus the owner's feedback over several cuts",
+        "does": "animates the intro still into a short image-to-video clip grounded on that still as its first frame, slows the clip to fill the intro without freezes or loops, re-aims the push-in so the character stays in frame, keeps every earlier cut re-renderable through a version switch, re-encodes the film as a square feed video for a social post, and harvests the owner's past corrections from chat transcripts mapped to the cut each produced",
+        "returns": "new film cuts with a moving intro, a square social-feed version, and a per-version history of storyline, effects and corrections"
+      },
+      "portsAsIs": [
+        "still-to-motion intro grounded on the existing artwork",
+        "version switch that keeps every earlier cut reproducible",
+        "owner corrections harvested from chat transcripts per cut"
+      ],
+      "perCustomer": [
+        "the film, its artwork and its story",
+        "the social channel and post text"
+      ],
+      "evidence": [
+        "8 s Wan clip at 720P billed USD 0.80",
+        "v9 and v10 probed at 59.208 s, 1024x704, 24 fps",
+        "INTRO_BACK=v9 re-render matched v9 at five sampled frames",
+        "corrections-by-version.py reproduced the hand harvest: sessions=3 messages=52 mapped=16"
+      ],
+      "toolchain": {
+        "skills": [
+          "marketing-psychology",
+          "social",
+          "media-generation",
+          "video-creation",
+          "report",
+          "claude-learn",
+          "track-time"
+        ],
+        "mcpServers": [
+          "claude.ai Media Creator",
+          "claude-in-chrome"
+        ],
+        "agents": [
+          "motion-designer",
+          "fact-gatherer",
+          "general-purpose"
+        ]
+      },
+      "industry": "software tooling for developers",
+      "status": "Built and running in-house",
+      "catalogue": {
+        "action": "none"
+      }
     }
   ]
 }

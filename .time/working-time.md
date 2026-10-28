@@ -32,5 +32,6 @@
 | 2026-10-26 | 0.00 | 12:09 | 12:46 | Version 0.6.5: checkpoints on the session timeline, with side-by-side diffs and restoring files to an earlier prompt, plus docs and changelog (parallel, not billed) |
 | 2026-10-27 | 0.08 | 19:50 | 20:16 | Marketplace header at the top of the README, the contribution guide image fixed and published, and a film folder renamed |
 | 2026-10-27 | 0.35 | 19:54 | 20:15 | Version 0.7.0: right-click files and folders in the Explorer to add them to the active Claude terminal's context, installed locally |
+| 2026-10-27 | 0.57 | 20:05 | 20:50 | Plugin Hunter film: animated intro, two new cuts, LinkedIn repost |
 
-**Total: 24.33h**
+**Total: 24.90h**
