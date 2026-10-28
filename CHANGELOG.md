@@ -2,6 +2,20 @@
 
 All notable changes to Claude Harness are listed here, newest first. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions with no version change in the package.json history (0.1.3, 0.1.5 to 0.1.18, 0.1.20 to 0.1.24, 0.1.27, 0.2.1 and 0.2.3 to 0.2.11) and development builds (0.2.14 to 0.2.22, 0.2.24 to 0.2.30, 0.2.32 to 0.2.34, 0.2.36 to 0.2.44, 0.3.0, 0.3.2, 0.4.1 to 0.4.3, 0.5.2 and 0.5.3) have no entry.
 
+## [0.9.0] - 2026-10-28
+
+### Added
+
+- `marketplaces`: every marketplace with its plugins, how many are installed and enabled, and the problems the Marketplace Health view shows: an update available, or a plugin enabled without an install. `marketplaces rename --from <name> --to <name>` renames a directory marketplace in its catalog and in the settings that name it, and prints the `claude plugin marketplace` commands that register it again.
+- `check [--repo <dir>]`: the Check Harness view on the command line, the known repos against the harness standard with each failed check and whether a fix exists. `check fix` applies the fixes for settings and hooks, with each repo's settings and hooks backed up under `<root>/skill-sync-backups/` first.
+- `fleet`: the Fleet Overview on the command line, one row per repo with its layout, standard check, CLAUDE.md lines, plugins, hook copies and copies.
+- `sync [--repo <dir>]`: the repo copies of skills and agents that differ from Global, with the files a sync would replace, add and delete. `sync apply` syncs them from Global, backed up first, and `sync plugin --name <plugin@market>` updates an installed plugin from its marketplace.
+- `sessions [--repo <dir>] [--limit <n>]`: a repo's sessions in /resume order with their names, start, minutes and agents. `sessions rename --session latest|previous|<id> --title <t>` renames one the way /rename does.
+- `mods --session latest|previous|<id>`: the mods and guards that acted in a session, how often each one allowed, denied, held or added context, and the denials and holds with their reason.
+- `time [--repo <dir>] [--days <n>]`: the repo's time ledger by day for the last 14 days, with the total of those days and of the whole ledger. `lessons [--repo <dir>] [--find <text>]`: the entries of the repo's `tasks/lessons.md`, or only those that mention a text.
+- `sources`: the skills installed from a source, with their version, install date and linked repos. `sources check` asks each source for a newer version, and `sources update --name <skill>` installs it, backed up first.
+- Nine more `@harness:` mentions in Claude Code: `marketplaces`, `check`, `fleet`, `sync`, `sessions`, `mods`, `time`, `lessons` and `sources`. Tab completion knows the new commands and their options.
+
 ## [0.8.3] - 2026-10-28
 
 ### Added

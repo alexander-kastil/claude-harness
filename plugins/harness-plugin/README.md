@@ -34,7 +34,7 @@ claude plugin marketplace add alexander-kastil/claude-harness
 claude plugin install harness-plugin@claude-harness
 ```
 
-The `@harness:` mentions need the Claude Harness VS Code extension 0.8.0 or later. The plugin version follows the extension version.
+The `@harness:` mentions need the Claude Harness VS Code extension 0.9.0 or later. The plugin version follows the extension version.
 
 ## Manifest
 
@@ -277,8 +277,8 @@ The owner agent list shows the agents on disk. If an owner name is not on disk, 
 
 ## Mentions
 
-Type `@h` in a prompt to list the Claude Harness views: `@harness:inventory`, `@harness:consolidate`, `@harness:agents`, `@harness:usage`, `@harness:delegation` and `@harness:hunt`. `@harness:u` narrows the list. When you send the prompt, each mention runs the matching command of the Claude Harness command line once, and Claude reads its output as context; the prompt keeps the text you typed. `usage` and `delegation` read the latest session in the folder Claude Code runs in.
+Type `@h` in a prompt to list the Claude Harness views: `@harness:inventory`, `@harness:consolidate`, `@harness:agents`, `@harness:usage`, `@harness:delegation`, `@harness:hunt`, `@harness:marketplaces`, `@harness:check`, `@harness:fleet`, `@harness:sync`, `@harness:sessions`, `@harness:mods`, `@harness:time`, `@harness:lessons` and `@harness:sources`. `@harness:u` narrows the list. When you send the prompt, each mention runs the matching command of the Claude Harness command line once, and Claude reads its output as context; the prompt keeps the text you typed. `usage`, `delegation` and `mods` read the latest session in the folder Claude Code runs in, and `sessions`, `time` and `lessons` read that folder.
 
 The rows come after Claude Code's own rows for files, agents and MCP resources. Only views that read and need no arguments are mentions; the commands that write run from a terminal.
 
-Needs the Claude Harness extension 0.8.0 or later.
+Needs the Claude Harness extension 0.9.0 or later.

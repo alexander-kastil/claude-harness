@@ -11,6 +11,14 @@ import { mediaCommand } from './cli-media';
 import { delegationCommand, usageCommand } from './cli-insights';
 import { skillsCommand } from './cli-skills';
 import { completeCommand, completionCommand } from './cli-complete';
+import { marketplacesCommand } from './cli-markets';
+import { checkCommand } from './cli-check';
+import { fleetCommand } from './cli-fleet';
+import { syncCommand } from './cli-sync';
+import { sessionsCommand } from './cli-sessions';
+import { modsCommand } from './cli-mods';
+import { lessonsCommand, timeCommand } from './cli-learn';
+import { sourcesCommand } from './cli-sources';
 
 export { parse };
 
@@ -47,6 +55,31 @@ Usage: node cli.js <command> [options]
                                       Delete a skill or one leaf of it, backed up first, and list what still mentions it.
   skills repoint --from <skill> --to <skill> [--skills a,b] [--agents x,y] [--market <dir>] [--dry-run]
                                       Rewrite the mentions of one skill name to another in skills and agents.
+  marketplaces                        Every marketplace with its plugins and their health.
+  marketplaces rename --from <name> --to <name> [--dry-run]
+                                      Rename a marketplace in its catalog, the settings and the commands that name it.
+  check [--repo <dir>]                The harness checks of the known repos (or one) against the harness standard.
+  check fix [--repo <dir>] [--dry-run]
+                                      Apply the fixes the checks offer for settings and hooks.
+  fleet                               One row per repo: its harness, its checks and its CLAUDE.md.
+  sync [--repo <dir>]                 The repo copies of skills and agents that differ from Global.
+  sync apply [--repo <dir>] [--name <n>] [--dry-run]
+                                      Sync those copies from Global, backed up first.
+  sync plugin --name <plugin@market> [--dry-run]
+                                      Update an installed plugin from its marketplace.
+  sessions [--repo <dir>] [--limit <n>]
+                                      The sessions of a repo in /resume order, with their names, start, minutes and agents.
+  sessions rename --session latest|previous|<id> --title <t> [--repo <dir>] [--dry-run]
+                                      Rename a session the way /rename does.
+  mods --session latest|previous|<id> [--repo <dir>]
+                                      Which mods and guards acted in a session, how often and what they held.
+  time [--repo <dir>] [--days <n>]    The repo's time ledger (.time/working-time.md) by day, with the total.
+  lessons [--repo <dir>] [--find <text>]
+                                      The entries of the repo's tasks/lessons.md, optionally only those that mention a text.
+  sources                             The skills installed from a source, with their source and version.
+  sources check                       Which of those skills have an update at their source.
+  sources update --name <skill> [--dry-run]
+                                      Update one skill from its source, backed up first.
   complete --line "<command line>" [--position <n>]
                                       The candidates for the word at the cursor, one per line (--json for a list); the shell completers call it.
   completion powershell|bash          The script a shell profile evaluates to register Tab completion for harness.
@@ -290,6 +323,24 @@ export async function run(argv: string[], io: Io): Promise<number> {
       return await completeCommand(a, io);
     } else if (cmd === 'completion') {
       return await completionCommand(a, io);
+    } else if (cmd === 'marketplaces') {
+      return await marketplacesCommand(a, io);
+    } else if (cmd === 'check') {
+      return await checkCommand(a, io);
+    } else if (cmd === 'fleet') {
+      return await fleetCommand(a, io);
+    } else if (cmd === 'sync') {
+      return await syncCommand(a, io);
+    } else if (cmd === 'sessions') {
+      return await sessionsCommand(a, io);
+    } else if (cmd === 'mods') {
+      return await modsCommand(a, io);
+    } else if (cmd === 'time') {
+      return await timeCommand(a, io);
+    } else if (cmd === 'lessons') {
+      return await lessonsCommand(a, io);
+    } else if (cmd === 'sources') {
+      return await sourcesCommand(a, io);
     } else if (cmd === 'consolidate' && sub === 'retire') {
       const w = load(a);
       const stamp = backupStamp();
