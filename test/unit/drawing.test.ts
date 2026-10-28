@@ -3,7 +3,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { test } from 'node:test';
-import { contentHash, drawPrompt, drawSource, drawable, readDrawing, writeDrawing } from '../../src/drawing';
+import { DRAW_SYSTEM, contentHash, drawPrompt, drawSource, drawable, readDrawing, writeDrawing } from '../../src/drawing';
 import type { Asset } from '../../src/harness';
 
 const write = (file: string, text: string) => {
@@ -81,12 +81,18 @@ test('every drawable kind gets its own prompt, with the drawing rules and the so
   assert.match(skill, /## SKILL\.md\nBODY$/);
   const plugin = drawPrompt('plugin', 'team-tools@acme', 'PARTS');
   assert.match(plugin, /plugin "team-tools@acme"/);
-  assert.match(plugin, /skills, agents, commands, MCP servers and hooks/);
+  assert.match(plugin, /the parts it has \(skills, agents, commands, MCP servers, hooks\)/);
   assert.match(plugin, /## Plugin\nPARTS$/);
-  for (const kind of ['agent', 'command', 'workflow', 'mod', 'hook', 'mcp'] as const) {
+  for (const kind of ['skill', 'agent', 'command', 'workflow', 'plugin', 'mod', 'hook', 'mcp'] as const) {
     const p = drawPrompt(kind, 'x', 'S');
     assert.match(p, /viewBox of about 800 by 240/, kind);
     assert.match(p, /\nS$/, kind);
+    // Labels only, nothing for an absent part, and lines that neither cross nor run through a box.
+    assert.match(p, /No sentences, no captions, no notes/, kind);
+    assert.match(p, /no box, label or placeholder for a part that is absent/, kind);
+    assert.match(p, /No line crosses another line, and no line passes through or behind a box/, kind);
+    assert.match(p, /merge into one line/, kind);
   }
+  assert.match(DRAW_SYSTEM, /never a sentence\. No line crosses another line or passes through a box/);
   assert.match(drawPrompt('skill', 'big', 'y'.repeat(30001)), /\[cut\]$/);
 });

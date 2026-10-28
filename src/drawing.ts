@@ -8,7 +8,8 @@ import { Asset, Kind, jsonAt, readMarkdown } from './harness';
 // it was drawn from: an edited source no longer matches, so the drawing is gone. A skill's source is its SKILL.md as it is on
 // disk, so a skill drawn before stays valid.
 
-export const DRAW_SYSTEM = 'You draw SVG diagrams of the elements of a Claude Code harness: what one does and how its parts connect. Answer with one svg element only.';
+export const DRAW_SYSTEM =
+  'You draw SVG diagrams of the elements of a Claude Code harness: their named parts and actors and how they connect. Every text is a short label, never a sentence. No line crosses another line or passes through a box. Answer with one svg element only.';
 
 const MAX_CHARS = 30000;
 
@@ -41,7 +42,7 @@ const SUBJECTS: Record<DrawKind, (name: string) => { draw: string; show: string;
   }),
   plugin: name => ({
     draw: `Draw what the plugin "${name}" brings to Claude Code, from its manifest and contents below.`,
-    show: 'Show its skills, agents, commands, MCP servers and hooks, how they connect to each other, and where each meets a Claude Code session.',
+    show: 'Show the parts it has (skills, agents, commands, MCP servers, hooks), how they connect to each other, and where each meets a Claude Code session.',
     title: 'Plugin',
     from: "the plugin's manifest, its hook and server configs, and the names and descriptions of its skills, agents and commands",
   }),
@@ -73,8 +74,16 @@ export function drawPrompt(kind: DrawKind, name: string, source: string): string
     k.draw,
     k.show,
     'Answer with one complete <svg> element and nothing else: no markdown fence, no prose before or after.',
+    'Rules for the content:',
+    '- Every element is a named part or actor (a skill, agent, tool, file, event, step, decision, result) drawn as a box with a short label: a name or a noun phrase of at most four words.',
+    '- No sentences, no captions, no notes, no legends, no title and no free-standing text. A line may carry a label of one to three words.',
+    '- Draw only the parts that exist in the source: no box, label or placeholder for a part that is absent or none.',
+    'Rules for the layout:',
+    '- Place the boxes in columns so every line flows one way, left to right, from one column to the next; order the boxes inside each column so the lines between two columns do not cross.',
+    '- No line crosses another line, and no line passes through or behind a box: route every line in the gaps between boxes, with right-angle bends where it must turn.',
+    '- Lines that run from one box to the same target, or side by side between the same two columns, merge into one line.',
     'Rules for the svg:',
-    '- Use a viewBox of about 800 by 240 and no width or height attributes. Short labels, at least 13 px text, font-family inherit.',
+    '- Use a viewBox of about 800 by 240 and no width or height attributes. At least 13 px text, font-family inherit.',
     '- Draw only with the editor theme colours, set as presentation attributes (fill="...", stroke="..."), never style attributes and never a fixed colour such as #fff or red.',
     '- Text, lines and outlines: currentColor. Box fills: fill="none", or a theme variable with a low fill-opacity.',
     '- Allowed theme variables: var(--vscode-editor-foreground), var(--vscode-descriptionForeground), var(--vscode-textLink-foreground), var(--vscode-charts-blue), var(--vscode-charts-green), var(--vscode-charts-orange), var(--vscode-charts-purple), var(--vscode-editorWidget-background), var(--vscode-editorWidget-border).',

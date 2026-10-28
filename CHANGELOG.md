@@ -2,6 +2,26 @@
 
 All notable changes to Claude Harness are listed here, newest first. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions with no version change in the package.json history (0.1.3, 0.1.5 to 0.1.18, 0.1.20 to 0.1.24, 0.1.27, 0.2.1 and 0.2.3 to 0.2.11) and development builds (0.2.14 to 0.2.22, 0.2.24 to 0.2.30, 0.2.32 to 0.2.34, 0.2.36 to 0.2.44, 0.3.0, 0.3.2, 0.4.1 to 0.4.3, 0.5.2 and 0.5.3) have no entry.
 
+## [0.11.2] - 2026-10-28
+
+### Added
+
+- **Draw with Claude** on plugin, mod, agent, command, workflow, hook and MCP server pages, as on skills: the button sits in the page's Claude group and the drawing shows above the details. A plugin is drawn from its manifest and its skills, agents, commands, hooks and servers, a hook or MCP server from its own entry, and a drawing is dropped when its source changes. Rule, output style, memory and settings pages have no drawing.
+- **Review with Claude** on plugin, workflow and mod pages. A plugin is reviewed from its plugin folder.
+- Hovering or focusing a drawing opens it enlarged in a hover card, up to 1600 px wide.
+
+### Changed
+
+- Detail page headers keep their button labels on every page type. A bar switches to icons only when its labels would need more than two rows, instead of below a fixed width.
+- On detail pages the description and the document text run the full width of their area where nothing sits beside them, and a long description is split into paragraphs.
+- Drawings show only named parts with short labels: no sentences, notes or boxes for parts that are missing, and no line crosses another line or runs through a box. A drawing made before keeps its look until it is redrawn.
+
+### Fixed
+
+- Detail pages open quickly while repos are checked: each check result sent the whole harness to the panel again and redrew the left nav, so a click took up to 2.7 s on a large harness. It now takes under 0.1 s, and a rescan of `~/.claude` pauses the extension about half as long.
+- A row on a list page or in the left nav that was pressed while the panel redrew opened nothing. It now opens its detail page, also when the button is held down a while.
+- Hook script rows open their page.
+
 ## [0.10.0] - 2026-10-28
 
 ### Added

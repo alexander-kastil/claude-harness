@@ -1413,31 +1413,59 @@ test('Home opens the overview with the search cleared; Back from a result keeps 
 // The owner, 2026-10-28: "a click on here ... does not get me to details ... fix this defect for all harness items". A row
 // pressed while the host's answer to a refresh came in opened nothing: the repaint replaced the row between press and release,
 // and the browser sends no click then. The row is pressed, Refresh runs, and the button is released only once the new state
-// has arrived; no retry.
-const pressAcrossRefresh = async (selector, name) => {
+// has arrived, `hold` ms later: a slow hand, or a host slow to answer (a 2 s limit on holding back the repaint made this test
+// fail once in a loaded run); no retry.
+const pressAcrossRefresh = async (selector, name, hold = 0) => {
   const at = await s.where(selector, name);
+  // What lies under the pointer, for the failure message: the row itself, or something drawn over it.
+  const under = await s.ev(
+    (D, selector, name) => {
+      const row = [...D.querySelectorAll(selector)].find(e => e.getClientRects().length && e.textContent.includes(name));
+      const r = row.getBoundingClientRect();
+      const hit = D.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+      return row.contains(hit) ? 'the row' : `${hit?.tagName}.${String(hit?.className).slice(0, 40)}`;
+    },
+    selector,
+    name
+  );
   await s.page.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: at.x, y: at.y });
   await s.page.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: at.x, y: at.y, button: 'left', clickCount: 1 });
   await s.ev(D => {
     const w = D.defaultView;
     w.__statesSeen = 0;
+    w.__afterPress = [];
+    w.__events = [];
     if (!w.__countsStates) {
       w.__countsStates = true;
-      w.addEventListener('message', e => e.data?.type === 'state' && w.__statesSeen++);
+      w.addEventListener('message', e => {
+        if (e.data?.type === 'state') w.__statesSeen++;
+        w.__afterPress?.push(e.data?.type === 'detail' ? `detail:${e.data.detail ? e.data.detail.asset.name : 'none'}${e.data.external ? ':external' : ''}` : e.data?.type);
+      });
+      for (const t of ['pointerdown', 'pointerup', 'mousedown', 'mouseup', 'click'])
+        w.addEventListener(t, e => w.__events?.push(`${t}@${e.target?.tagName}.${String(e.target?.className).slice(0, 20)}${e.target?.isConnected ? '' : '(detached)'}`), true);
     }
     D.querySelector('.sidebar-head [aria-label="Refresh"]').click();
     return true;
   });
   await s.waitFor(D => D.defaultView.__statesSeen > 0);
+  await sleep(hold);
   await s.page.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: at.x, y: at.y, button: 'left', clickCount: 1 });
+  return under;
 };
-const opensDetail = async (what, name) => {
+const opensDetail = async (what, name, under) => {
   const keep = s.waitMs;
   s.waitMs = 5000;
   try {
     await s.waitFor((D, name) => D.querySelector('.detail-head .dh-name')?.textContent.startsWith(name), name);
   } catch {
-    assert.fail(`${what}: pressing ${name} while the panel repainted opened no detail page`);
+    const seen = await s.ev(D => ({
+      page: D.querySelector('.main-head')?.textContent.trim().slice(0, 40),
+      card: !!D.querySelector('.cf'),
+      hover: !!D.querySelector('.tl-hover.show'),
+      messages: (D.defaultView.__afterPress || []).join(','),
+      events: (D.defaultView.__events || []).join(' '),
+    }));
+    assert.fail(`${what}: pressing ${name} while the panel repainted opened no detail page; under the pointer: ${under}; ${JSON.stringify(seen)}`);
   } finally {
     s.waitMs = keep;
   }
@@ -1457,8 +1485,8 @@ test('a row pressed while the panel repaints opens its detail page, on the type 
         return true;
       });
     const name = await s.waitFor((D, row) => D.querySelector(`${row} .at-label`)?.textContent, row);
-    await pressAcrossRefresh(row, name);
-    await opensDetail(`${kind} type page`, name);
+    // The first kind keeps the button down 2.5 s after the repaint came in.
+    await opensDetail(`${kind} type page`, name, await pressAcrossRefresh(row, name, kind === kinds[0] ? 2500 : 0));
   }
   // The sidebar: the global Skills section unfolded (its head also opens the type page), then its first row.
   await home();
@@ -1468,6 +1496,5 @@ test('a row pressed while the panel repaints opens its detail page, on the type 
     return true;
   });
   const nav = await s.waitFor(D => D.querySelector('.sidebar .scope-block .row[data-nav*="|skill:"] .name')?.textContent);
-  await pressAcrossRefresh('.sidebar .scope-block .row[data-nav*="|skill:"]', nav);
-  await opensDetail('sidebar', nav);
+  await opensDetail('sidebar', nav, await pressAcrossRefresh('.sidebar .scope-block .row[data-nav*="|skill:"]', nav));
 });

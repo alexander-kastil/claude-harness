@@ -1,7 +1,7 @@
 {
   "$schema": "https://anthropic.com/claude-code/plugin.schema.json",
   "name": "harness-plugin",
-  "version": "0.11.1",
+  "version": "0.11.2",
   "description": "Keeps a repo's harness in shape: checks the root CLAUDE.md against the router layout and its src/ tree, keeps skill leaves small and routed, halts or steers a long run from a file at the project root, and on request holds the end of a session that changed source until a verification receipt exists",
   "author": {
     "name": "Alexander Kastil",
