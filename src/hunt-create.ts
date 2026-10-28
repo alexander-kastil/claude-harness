@@ -167,12 +167,12 @@ export function claudeLauncher(env: NodeJS.ProcessEnv): string[] {
 }
 
 /** Runs the claude CLI against the root the extension reads, so the install lands where the pages look. */
-export function runClaude(args: string[], root: string, timeout = 180000): Promise<CliResult> {
+export function runClaude(args: string[], root: string, timeout = 180000, cwd = os.tmpdir()): Promise<CliResult> {
   const env: NodeJS.ProcessEnv = { ...process.env };
   if (!samePath(root, path.join(os.homedir(), '.claude'))) env.CLAUDE_CONFIG_DIR = root;
   const [file, ...lead] = claudeLauncher(env);
   return new Promise(resolve =>
-    execFile(file, [...lead, ...args], { env, windowsHide: true, timeout, cwd: os.tmpdir(), maxBuffer: 4 * 1024 * 1024 }, (err, stdout, stderr) =>
+    execFile(file, [...lead, ...args], { env, windowsHide: true, timeout, cwd, maxBuffer: 4 * 1024 * 1024 }, (err, stdout, stderr) =>
       resolve({ code: err ? (typeof (err as { code?: unknown }).code === 'number' ? (err as { code: number }).code : -1) : 0, out: `${stdout ?? ''}${stderr ?? ''}`.trim() })
     )
   );

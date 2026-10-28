@@ -84,7 +84,7 @@ Loaded in for rules and CLAUDE.md, including path-scoped rules that never matche
 
 ### Skill size and context cost
 
-A Size card flags skill descriptions over 200 tokens or 1024 characters and SKILL.md files over 500 lines, ranked by the context they cost across sessions.
+A Size card flags skill descriptions over 200 tokens or 1024 characters and SKILL.md files over 500 lines, ranked by the context they cost across sessions. Each finding shows its title above its text, and its own **Resolve with Claude** button opens a confirm card, then a terminal where Claude fixes that one finding.
 
 ![The Size card of a skill with a long SKILL.md and its largest sections](docs/images/feature-skill-size.png)
 
@@ -120,7 +120,7 @@ Talk to Claude about the skills and agents you already have, and it proposes a p
 
 ### Command line
 
-Run **Claude Harness: Install 'harness' Command Line** once to put `harness` on your PATH, with Tab completion in PowerShell and Git Bash; then run `harness <command>` in a terminal. Without it, run `node <extension folder>/out/src/cli.js <command>`. In Claude Code, with the [harness plugin](#install-the-harness-plugin) installed, type `@h` in a prompt to mention a view such as `@harness:usage` or `@harness:inventory`: when you send the prompt, the view runs and Claude reads its output as context. See [Command line](docs/command-line.md).
+Run **Claude Harness: Install 'harness' Command Line** once to put `harness` on your PATH, with Tab completion in PowerShell and Git Bash; then run `harness <command>` in a terminal. Without it, run `node <extension folder>/out/src/cli.js <command>`. In Claude Code, with the [harness plugin](#install-the-harness-plugin) installed, type `@h` in a prompt for type-ahead on a view, such as `@harness:usage` or `@harness:inventory`: when you send the prompt, the view runs and Claude reads its output as context. See [Type-ahead](docs/type-ahead.md) for the mentions and [Command line](docs/command-line.md) for the commands.
 
 - `inventory [--repo <dir>]`: the harness of Global, or of one repo.
 - `consolidate`: every skill, agent, rule, command or workflow that exists in more than one place.
@@ -135,6 +135,21 @@ Run **Claude Harness: Install 'harness' Command Line** once to put `harness` on 
 - `media doctor <dir>`: checks a film or images folder under `assets/films` or `assets/images`.
 
 Add `--dry-run` to a command that writes, to print each action without writing it. With `--json`, a command prints one object, and its last key is `applied`: `true` when it wrote something, `false` otherwise. Exit codes: 0 done, 1 error or problems found, 2 bad arguments.
+
+### Build a harness from the command line
+
+`generate` (or `g`) makes sure that an agent, rule, skill, command, hook or MCP server exists, `add` installs a plugin, `new` scaffolds a repo and `update` brings plugins and the repo's copies up to date. A `.harness` script lists these commands, one per line, in a file you can keep in the repo and review. `harness validate` checks a script and writes nothing, and `harness run` applies it step by step. This script creates a poem writer and a poem reviewer agent, a style rule and a review command:
+
+```text
+# poems.harness: a poem writer and a poem reviewer
+repo D:/demo/poems
+generate agent poem-writer --model sonnet --tools Read,Write,Edit --description "Writes a short poem on a given theme into poems/"
+generate agent poem-reviewer --model haiku --tools Read,Grep --description "Reviews a poem for meter, rhyme and imagery"
+generate rule poem-style --paths poems/** --from templates/rules/poem-style.md
+generate command review-poem --description "Review the newest poem" --from templates/commands/review-poem.md
+```
+
+Run `harness run harness/poems.harness --dry-run` to preview the changes first. The [Command line](docs/command-line.md) page lists every command and option, and [Harness scripts](docs/harness-scripts.md) describes the script format.
 
 ### Install the harness plugin
 
@@ -157,7 +172,7 @@ claude plugin install harness-plugin@claude-harness
 
 ### Claude actions through your own CLI
 
-Review, Slim, Try it, Analyze, Continue and Merge with Claude start your `claude` CLI in a VS Code terminal with the prompt and the measured context filled in; Analyze works on a copy of the session. Each opens a confirm card first. The runs count against your Claude plan, and Claude Harness adds no charge.
+Review, Slim, Try it, Analyze, Continue and Merge with Claude start your `claude` CLI in a VS Code terminal with the prompt and the measured context filled in; Analyze works on a copy of the session. Each opens a confirm card first. Each finding on the Size card also has its own **Resolve with Claude** button, which asks Claude to fix only that finding. The runs count against your Claude plan, and Claude Harness adds no charge.
 
 ![The confirm card of Slim with Claude, shown before a terminal opens](docs/images/feature-claude-slim.png)
 
@@ -198,7 +213,9 @@ Install Claude Harness: it opens on the `~/.claude` you already have.
 | [Skill sources](docs/skill-sources.md) | Adds skills from skills.sh or GitHub, checks them for a newer version, updates them in place, and links a global skill into a repo |
 | [Settings](docs/settings.md) | Sets the global harness folder, the repo lists, where Claude terminals open and which command starts them, the Claude usage item in the status bar and the list lengths, and edits the settings files |
 | [Commands](docs/commands.md) | Every Claude Harness command, what it does and where to find it |
-| [Command line](docs/command-line.md) | Runs inventory, consolidate, hunt, agents, usage, delegation and media checks from a terminal, with `--json` for scripts, and hands the views to Claude as `@harness:` mentions |
+| [Command line](docs/command-line.md) | Runs inventory, consolidate, hunt, agents, usage, delegation and media checks from a terminal, with `--json` for scripts, builds a harness with `generate`, `add`, `new` and `update`, and hands the views to Claude as `@harness:` mentions |
+| [Harness scripts](docs/harness-scripts.md) | Runs a `.harness` file of build lines that adds agents, rules, skills, commands, hooks, MCP servers and plugins to a repo, checked by `validate` before `run` applies it |
+| [Type-ahead](docs/type-ahead.md) | Offers the next word for `@harness:` mentions in the Claude Code prompt, for `harness` commands in a terminal, and for `.harness` scripts in VS Code |
 
 Provider features appear when a harness standard provider plugin is installed.
 

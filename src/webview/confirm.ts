@@ -141,6 +141,18 @@ const CARDS = {
     action: 'Open in terminal',
     send: remember => vscode.postMessage({ type: 'slimAsset', id: ask.id, confirmed: true, remember }),
   }),
+  resolve: ask => ({
+    mark: claudeMark(18),
+    title: `Resolve this finding of ${ask.name}`,
+    sub: 'in a new Claude, in a terminal',
+    facts: [
+      ['terminal', el('span', {}, 'A terminal opens in ', el('code', {}, ask.cwd), '.')],
+      ['file', el('span', {}, 'Claude is told this one finding and asked to fix it in ', el('code', {}, ask.file), ' and the skill\'s files, and nothing else.')],
+      ['credit-card', 'The run counts against your plan.'],
+    ],
+    action: 'Open in terminal',
+    send: remember => vscode.postMessage({ type: 'resolveFinding', id: ask.id, finding: ask.finding, confirmed: true, remember }),
+  }),
   // Consolidate a repo skill: destructive, so no Don't ask again switch. The place it goes to is chosen on the card, and
   // that place's state decides the facts and the buttons (`mount` redraws both when the choice changes).
   consolidate: ask => {

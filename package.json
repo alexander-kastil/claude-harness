@@ -47,6 +47,25 @@
     "onStartupFinished"
   ],
   "contributes": {
+    "languages": [
+      {
+        "id": "harness",
+        "aliases": [
+          "Harness script"
+        ],
+        "extensions": [
+          ".harness"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "harness",
+        "scopeName": "source.harness",
+        "path": "./syntaxes/harness.tmLanguage.json"
+      }
+    ],
     "configurationDefaults": {
       "terminal.integrated.commandsToSkipShell": [
         "claudeHarness.pasteImage"

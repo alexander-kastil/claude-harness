@@ -2,6 +2,25 @@
 
 All notable changes to Claude Harness are listed here, newest first. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions with no version change in the package.json history (0.1.3, 0.1.5 to 0.1.18, 0.1.20 to 0.1.24, 0.1.27, 0.2.1 and 0.2.3 to 0.2.11) and development builds (0.2.14 to 0.2.22, 0.2.24 to 0.2.30, 0.2.32 to 0.2.34, 0.2.36 to 0.2.44, 0.3.0, 0.3.2, 0.4.1 to 0.4.3, 0.5.2 and 0.5.3) have no entry.
 
+## [0.9.0] - 2026-10-28
+
+### Added
+
+- `harness generate` (alias `g`) makes sure an agent, rule, skill, command, hook or MCP server exists as given, in the repo or in `~/.claude`; a rerun with nothing to change prints `Nothing to be done.`
+- `harness add <plugin>@<marketplace>` makes sure a plugin is installed through `claude plugin install` and enabled, and `harness new <repo>` scaffolds a repo's harness with the harness standard's scaffold script.
+- `harness update` brings installed plugins up to their marketplace version and the repo's skills and agents up to their Global copies.
+- `harness validate` checks a `.harness` script line by line and the harness of a repo, and `harness run <file>` validates a script, then applies it step by step, stops at the first failing step and ends with a summary table.
+- Each step that writes prints a `CREATE` or `UPDATE` line with its size and backs up the changed files first, and `--dry-run` ends with `NOTE: The "--dry-run" option means no changes were written.`
+- Exit codes are 0 for done, 1 for an error and 2 for bad arguments or a script error.
+- `harness generate mcp <name>` adds an MCP server through `claude mcp add`.
+- The docs page [Harness scripts](docs/harness-scripts.md) describes the `.harness` format: one command per line, `#` comments, `repo <dir>` to set the repo for the lines after it, and `--from` paths relative to the script.
+- VS Code editor support for `.harness` files: syntax colors, completions, hovers and `validate` problems as diagnostics, see [Type-ahead](docs/type-ahead.md).
+- Skill page: the Size card's findings (Description past the limit, More than an index entry, SKILL.md is long) each get a **Resolve with Claude** button that, after a confirm card, opens a terminal where Claude fixes that one finding.
+
+### Changed
+
+- Skill page: the Size card shows each finding as its title with its measure underneath, separated by dividers, so the text no longer wraps into a narrow column.
+
 ## [0.8.2] - 2026-10-28
 
 ### Added

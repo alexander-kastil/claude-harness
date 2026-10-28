@@ -6,7 +6,9 @@ import type { SlimReport } from '../shared/slim';
 import { SLIM, descCost, descriptionLevel, houseDescriptionFlags, tokensOf } from '../shared/slim';
 import { openAt, state, std, vscode } from './core';
 import { card } from './detail-view';
-import { el, fmtNum, icon, pressable, plural } from './dom';
+import { confirmAt } from './confirm';
+import { aiGroup, el, fmtNum, icon, iconBtn, pressable, plural } from './dom';
+import { hideHover } from './hover';
 import { fmtTokens } from './refs';
 import { NOT_COUNTED, NOT_COUNTED_TIP, askTotals, totalOf, totalsKnown } from './usage-more';
 
@@ -102,8 +104,24 @@ function barRow(r: BarRow): HTMLElement {
   );
 }
 
-const flagRow = (glyph: string, tone: Tone, head: string, text: string, tip?: string) =>
-  el('div', { className: `sl-row${tone ? ` ${tone}` : ''}`, title: tip }, icon(glyph), el('span', { className: 'sl-head' }, head), el('span', { className: 'sl-text' }, text));
+// A flag of the Size card; with `resolve`, Resolve with Claude sits at the row's end: a terminal Claude asked to fix this one finding.
+const flagRow = (glyph: string, tone: Tone, head: string, text: string, tip?: string, resolve?: { id: string; finding: 'description' | 'house' | 'body' }) =>
+  el(
+    'div',
+    { className: `sl-row${tone ? ` ${tone}` : ''}`, title: tip },
+    icon(glyph),
+    el('div', { className: 'sl-main' }, el('span', { className: 'sl-head' }, head), el('span', { className: 'sl-text' }, text)),
+    resolve
+      ? aiGroup(
+          'compact',
+          confirmAt(
+            iconBtn('wand', 'Resolve with Claude\nA new Claude in a terminal, asked to fix this one finding and nothing else.', () => (hideHover(), vscode.postMessage({ type: 'resolveFinding', id: resolve.id, finding: resolve.finding })), false),
+            'resolve',
+            `${resolve.id}/${resolve.finding}`
+          )
+        )
+      : null
+  );
 
 /** The flags on the description and SKILL.md, with the sections to move into reference files. Null when neither is flagged. */
 export function slimCard(a: Asset, r: SlimReport | undefined): HTMLElement | null {
@@ -118,13 +136,13 @@ export function slimCard(a: Asset, r: SlimReport | undefined): HTMLElement | nul
     'Size',
     count,
     r.description.level
-      ? flagRow('layers', 'warn', r.description.level === 'over' ? 'Description past the limit' : 'Long description', descLine(a, r), `A description is paid in every session\nAnthropic's guidance: at most ${SLIM.descChars} characters, what the skill does and when to use it.`)
+      ? flagRow('layers', 'warn', r.description.level === 'over' ? 'Description past the limit' : 'Long description', descLine(a, r), `A description is paid in every session\nAnthropic's guidance: at most ${SLIM.descChars} characters, what the skill does and when to use it.`, { id: a.id, finding: 'description' })
       : null,
     house.length
-      ? flagRow('list-flat', 'warn', 'More than an index entry', `${house.join(' · ')}. A description is routing plus trigger phrases; the detail goes to a file under references/.`, 'House rule\nA description is an index entry: routing plus trigger phrases, with the detail in references/<leaf>.md.')
+      ? flagRow('list-flat', 'warn', 'More than an index entry', `${house.join(' · ')}. A description is routing plus trigger phrases; the detail goes to a file under references/.`, 'House rule\nA description is an index entry: routing plus trigger phrases, with the detail in references/<leaf>.md.', { id: a.id, finding: 'house' })
       : null,
     r.body.long
-      ? flagRow('file', w && !w.uses ? 'quiet' : 'warn', 'SKILL.md is long', bodyLine(a, r), `Anthropic's guidance\nKeep the SKILL.md body under ${SLIM.bodyLines} lines and link reference files from it.`)
+      ? flagRow('file', w && !w.uses ? 'quiet' : 'warn', 'SKILL.md is long', bodyLine(a, r), `Anthropic's guidance\nKeep the SKILL.md body under ${SLIM.bodyLines} lines and link reference files from it.`, { id: a.id, finding: 'body' })
       : null,
     r.body.long && sections.length
       ? el(

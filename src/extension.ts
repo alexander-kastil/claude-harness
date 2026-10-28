@@ -15,6 +15,7 @@ import { registerDistributor } from './dist-host';
 import { registerShare } from './share-host';
 import { EventSource, eventLayers, findEventSources, transcriptLayers } from './events';
 import { registerLenses } from './lenses';
+import { registerHarnessLanguage } from './harness-language';
 import { NO_PROVIDER, Provider, ScaffoldForm, applyFix, findProvider, parseScaffoldOutput, previewFix, runScript, scaffoldArgs } from './standard';
 import {
   Asset,
@@ -73,7 +74,7 @@ import { UsageIndex } from './usage';
 import type { Progress } from './usage';
 import { hookRows, hookTarget } from './usage-hooks';
 import { registerQuota } from './quota';
-import { analyzeSkill, slimPrompt } from './slim';
+import { analyzeSkill, resolvePrompt, slimPrompt } from './slim';
 import type { SlimReport } from './shared/slim';
 import { usageMore, usageRows, usageTarget, usageTotals } from './usage-rows';
 import type { UsageTarget } from './usage-rows';
@@ -605,6 +606,18 @@ export function activate(context: vscode.ExtensionContext): void {
       if (!answer.confirmed && !context.globalState.get<boolean>('slimRemembered')) return ask({ kind: 'slim', id, name: asset.name, file: asset.file, cwd, files: files.length, findings: report.findings });
       if (answer.remember) await context.globalState.update('slimRemembered', true);
       terminal(`Slim: ${asset.name}`, cwd, claudeCommand(`"${promptText(slimPrompt(report, asset.file, files, !!provider))}"`));
+    },
+    resolveFinding: async (id, finding, answer, ask) => {
+      const asset = find(id);
+      if (!asset || asset.kind !== 'skill' || !asset.dir) return;
+      const report = skillReport(asset);
+      const files = asset.files ?? [];
+      const prompt = resolvePrompt(report, finding, asset.file, files, !!provider);
+      if (!prompt) return;
+      const cwd = cwdOf(scopeOf(asset));
+      if (!answer.confirmed && !context.globalState.get<boolean>('resolveRemembered')) return ask({ kind: 'resolve', id, key: `${id}/${finding}`, finding, name: asset.name, file: asset.file, cwd });
+      if (answer.remember) await context.globalState.update('resolveRemembered', true);
+      terminal(`Resolve: ${asset.name}`, cwd, claudeCommand(`"${promptText(prompt)}"`));
     },
   };
 
@@ -1526,6 +1539,8 @@ export function activate(context: vscode.ExtensionContext): void {
       return { dispose: () => (a.dispose(), b.dispose()) };
     },
   });
+
+  registerHarnessLanguage(context, () => global.root);
 
   loadScopes();
   watch();

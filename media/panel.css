@@ -4812,19 +4812,29 @@ button.std-finding:hover {
 }
 
 /* Slim: the flags on a skill's description and SKILL.md, and the spread of its reference files. */
+/* A flag is an icon, the finding over its measure, and its Resolve button at the end. The measure wraps under the head instead of in a narrow column. */
 .sl-row {
   display: grid;
-  grid-template-columns: 16px minmax(120px, 190px) minmax(0, 1fr);
-  align-items: baseline;
-  gap: 8px;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 4px 10px;
   font-size: 12px;
 }
 
-.sl-row.warn .codicon {
+.sl-row + .sl-row {
+  border-top: 1px solid var(--vscode-widget-border, var(--vscode-panel-border, transparent));
+  padding-top: 10px;
+}
+
+.sl-row > .codicon {
+  margin-top: 2px;
+}
+
+.sl-row.warn > .codicon {
   color: var(--warn-text);
 }
 
-.sl-row.bad .codicon {
+.sl-row.bad > .codicon {
   color: var(--vscode-editorError-foreground);
 }
 
@@ -4832,12 +4842,26 @@ button.std-finding:hover {
   opacity: 0.75;
 }
 
+.sl-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
 .sl-head {
+  font-size: 13px;
   font-weight: 600;
 }
 
 .sl-text {
   color: var(--vscode-descriptionForeground);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.sl-row > .ai-group {
+  align-self: start;
 }
 
 .sl-sections {
