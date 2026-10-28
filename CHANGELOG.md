@@ -2,7 +2,7 @@
 
 All notable changes to Claude Harness are listed here, newest first. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions with no version change in the package.json history (0.1.3, 0.1.5 to 0.1.18, 0.1.20 to 0.1.24, 0.1.27, 0.2.1 and 0.2.3 to 0.2.11) and development builds (0.2.14 to 0.2.22, 0.2.24 to 0.2.30, 0.2.32 to 0.2.34, 0.2.36 to 0.2.44, 0.3.0, 0.3.2, 0.4.1 to 0.4.3, 0.5.2 and 0.5.3) have no entry.
 
-## [0.9.0] - 2026-10-28
+## [0.10.0] - 2026-10-28
 
 ### Added
 
@@ -16,6 +16,15 @@ All notable changes to Claude Harness are listed here, newest first. The format 
 - The docs page [Harness scripts](docs/harness-scripts.md) describes the `.harness` format: one command per line, `#` comments, `repo <dir>` to set the repo for the lines after it, and `--from` paths relative to the script.
 - VS Code editor support for `.harness` files: syntax colors, completions, hovers and `validate` problems as diagnostics, see [Type-ahead](docs/type-ahead.md).
 - Skill page: the Size card's findings (Description past the limit, More than an index entry, SKILL.md is long) each get a **Resolve with Claude** button that, after a confirm card, opens a terminal where Claude fixes that one finding.
+
+### Changed
+
+- Skill page: the Size card shows each finding as its title with its measure underneath, separated by dividers, so the text no longer wraps into a narrow column.
+
+## [0.9.0] - 2026-10-28
+
+### Added
+
 - `marketplaces`: every marketplace with its plugins, how many are installed and enabled, and the problems the Marketplace Health view shows: an update available, or a plugin enabled without an install. `marketplaces rename --from <name> --to <name>` renames a directory marketplace in its catalog and in the settings that name it, and prints the `claude plugin marketplace` commands that register it again.
 - `check [--repo <dir>]`: the Check Harness view on the command line, the known repos against the harness standard with each failed check and whether a fix exists. `check fix` applies the fixes for settings and hooks, with each repo's settings and hooks backed up under `<root>/skill-sync-backups/` first.
 - `fleet`: the Fleet Overview on the command line, one row per repo with its layout, standard check, CLAUDE.md lines, plugins, hook copies and copies.
@@ -25,10 +34,6 @@ All notable changes to Claude Harness are listed here, newest first. The format 
 - `time [--repo <dir>] [--days <n>]`: the repo's time ledger by day for the last 14 days, with the total of those days and of the whole ledger. `lessons [--repo <dir>] [--find <text>]`: the entries of the repo's `tasks/lessons.md`, or only those that mention a text.
 - `sources`: the skills installed from a source, with their version, install date and linked repos. `sources check` asks each source for a newer version, and `sources update --name <skill>` installs it, backed up first.
 - Nine more `@harness:` mentions in Claude Code: `marketplaces`, `check`, `fleet`, `sync`, `sessions`, `mods`, `time`, `lessons` and `sources`. Tab completion knows the new commands and their options.
-
-### Changed
-
-- Skill page: the Size card shows each finding as its title with its measure underneath, separated by dividers, so the text no longer wraps into a narrow column.
 
 ## [0.8.3] - 2026-10-28
 
