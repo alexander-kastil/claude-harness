@@ -251,3 +251,22 @@ test('parseMcpList says a repeated error code once', () => {
   const [server] = parseMcpList('docs: http://x/mcp - ✗ Failed to connect: ECONNREFUSED: ECONNREFUSED: Unable to connect');
   assert.ok(!/ECONNREFUSED: ECONNREFUSED/.test(server.status), server.status);
 });
+
+test('linkCopies sees a copy that changed since the last refresh, though hashes are kept between refreshes', () => {
+  const global = fixture();
+  const repo = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-repo-'));
+  const traps = path.join(repo, '.claude', 'skills', 'hugo', 'references', 'traps.md');
+  fs.mkdirSync(path.dirname(traps), { recursive: true });
+  fs.writeFileSync(path.join(repo, '.claude', 'skills', 'hugo', 'SKILL.md'), '---\nname: hugo\ndescription: Hugo engine\n---\n\n# Hugo\n');
+  fs.writeFileSync(traps, '# Traps\n');
+  const same = () => {
+    const views = [global, repoScope(repo)].map(s => ({ id: s.id, label: s.label, path: s.base, categories: scan(s) }));
+    linkCopies(views);
+    return views[0].categories.find(c => c.kind === 'skill')!.items.find(a => a.name === 'hugo')!.copies!.map(c => c.same);
+  };
+  assert.deepEqual(same(), [true]);
+  fs.writeFileSync(traps, '# Traps\n\nOne more.\n');
+  assert.deepEqual(same(), [false]);
+  fs.writeFileSync(traps, '# Traps\n');
+  assert.deepEqual(same(), [true]);
+});

@@ -87,6 +87,23 @@ setInterval(() => {
   vscode.postMessage({ type: 'session', scope: s.scope, id: s.id });
 }, LIVE_MS);
 
+// New views or new check results: the sidebar, a repo page whose check finished and the fleet page follow; a type page shows
+// no check, so it is drawn again for new views only. The host sends check changes at most every 250 ms, so a quick check can
+// start and finish between two messages: the repo page asks again whenever its repo's summary changed and is no longer running.
+function repaintForChecks(before: typeof state.checks, views: boolean) {
+  const current = app.querySelector('.sidebar');
+  keepScroll(() => (current ? current.replaceWith(renderSidebar()) : render()));
+  const now = state.repo ? state.checks[state.repo] : undefined;
+  if (state.repo && before[state.repo] && now && JSON.stringify(before[state.repo]) !== JSON.stringify(now) && !['running', 'unchecked'].includes(now.state))
+    vscode.postMessage({ type: 'effective', scope: state.repo });
+  if (state.page === 'fleet' && !state.detail) {
+    clearTimeout(state.fleetTimer);
+    state.fleetTimer = setTimeout(() => vscode.postMessage({ type: 'fleet' }), 400);
+  }
+  if (current && !state.detail && (state.repo || state.page === 'fleet')) renderMain();
+  if (views && current && !state.detail && state.page === 'kind' && state.kindPage && state.kindPage.refresh) state.kindPage.refresh();
+}
+
 onMessage(m => {
   if (m.type === 'state') {
     state.views = m.views || (m.categories ? [{ id: 'global', label: 'Global', path: '', categories: m.categories }] : []);
@@ -94,16 +111,13 @@ onMessage(m => {
     state.checks = m.checks || {};
     state.standard = m.standard;
     if (m.lists) state.lists = m.lists;
-    const current = app.querySelector('.sidebar');
-    keepScroll(() => (current ? current.replaceWith(renderSidebar()) : render()));
-    if (state.repo && before[state.repo] && state.checks[state.repo] && before[state.repo].state !== state.checks[state.repo].state && !['running', 'unchecked'].includes(state.checks[state.repo].state))
-      vscode.postMessage({ type: 'effective', scope: state.repo });
-    if (state.page === 'fleet' && !state.detail) {
-      clearTimeout(state.fleetTimer);
-      state.fleetTimer = setTimeout(() => vscode.postMessage({ type: 'fleet' }), 400);
-    }
-    if (current && !state.detail && (state.repo || state.page === 'fleet')) renderMain();
-    if (current && !state.detail && state.page === 'kind' && state.kindPage && state.kindPage.refresh) state.kindPage.refresh();
+    repaintForChecks(before, true);
+  } else if (m.type === 'checks') {
+    // A check started or finished; the views are unchanged, and checks that read the same repaint nothing.
+    if (JSON.stringify(m.checks || {}) === JSON.stringify(state.checks)) return;
+    const before = state.checks;
+    state.checks = m.checks || {};
+    repaintForChecks(before, false);
   } else if (m.type === 'page') {
     if (m.page === 'session' && m.repo && m.session) showSession(m.repo, m.session);
     else if (m.repo) {

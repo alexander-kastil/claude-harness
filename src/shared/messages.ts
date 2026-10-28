@@ -98,7 +98,7 @@ export type Confirm =
   | { kind: 'try'; id: string; name: string; as: 'agent' | 'skill' | 'command'; cwd: string }
   | { kind: 'slim'; id: string; name: string; file: string; cwd: string; files: number; findings: number }
   | { kind: 'resolve'; id: string; key: string; finding: 'description' | 'house' | 'body'; name: string; file: string; cwd: string }
-  | { kind: 'draw'; id: string; name: string; file: string; chars: number }
+  | { kind: 'draw'; id: string; name: string; file: string; chars: number; /** What Claude gets, in words ("the agent file"); SKILL.md when missing. */ source?: string }
   | { kind: 'hunt'; prompt: string; items: number }
   | { kind: 'huntCreate'; id: string; key: string; name: string; market: string; location: string; problems: string[]; files: string[]; retired: string[]; kept: string[] }
   | ShareChoice
@@ -252,9 +252,9 @@ export type ToHost =
   | { type: 'slim'; id: string }
   /** Starts Claude on one finding of a skill's Size card; asks first like slimAsset. */
   | ({ type: 'resolveFinding'; id: string; finding: 'description' | 'house' | 'body' } & Answer)
-  /** Asks for the stored drawing of a skill; answered with `drawing`. */
+  /** Asks for the stored drawing of an element; answered with `drawing`. */
   | { type: 'drawing'; id: string }
-  /** Has Claude draw what a skill does (headless, `claude -p`); asks first like reviewAsset. */
+  /** Has Claude draw what an element is and how its parts connect (headless, `claude -p`); asks first like reviewAsset. */
   | ({ type: 'drawAsset'; id: string } & Answer)
   /** Starts Claude with the agent, skill or command selected. */
   | ({ type: 'tryAsset'; id: string } & Answer)
@@ -299,6 +299,8 @@ export type ToHost =
 /** Host to webview. Payloads the host passes through from a reader stay `unknown` here. */
 export type ToWebview =
   | { type: 'state'; views: ScopeView[]; checks: Record<string, CheckSummary>; standard?: Standard; /** From the settings; absent from hosts older than the list settings. */ lists?: ListLimits; /** From hosts older than the repo list. */ categories?: Category[] }
+  /** The standard checks alone, when a check starts or finishes: the views stay as the last `state` sent them. */
+  | { type: 'checks'; checks: Record<string, CheckSummary> }
   | { type: 'detail'; detail?: Detail; external?: boolean; /** Sent after a save was written: the page returns to view mode. */ saved?: boolean }
   | ({ type: 'page' } & Page)
   | { type: 'mcpInfo'; id: string; info?: McpInfo }
@@ -326,7 +328,7 @@ export type ToWebview =
   | { type: 'usageTotals'; kind: string; totals?: Record<string, UsageTotal>; built?: false }
   /** For `slim`: the report, or none when the id is not a skill with a folder. */
   | { type: 'slim'; id: string; report?: SlimReport }
-  /** For `drawing` and `drawAsset`: the drawing of the skill's current SKILL.md, or none; `running` while Claude draws, `error` when the run failed. */
+  /** For `drawing` and `drawAsset`: the drawing of the element's current source (a skill's SKILL.md), or none; `running` while Claude draws, `error` when the run failed. */
   | { type: 'drawing'; id: string; svg?: string; running?: boolean; error?: string }
   | { type: 'hunt'; info: HuntInfo }
   /** For `huntRun`: running while Claude works, done once the card is in `hunt`. */

@@ -17,6 +17,7 @@
 | 2026-10-20 | 0.07 | 23:55 | 23:59 | Versions 0.2.7 and 0.2.8: delegation map switch between a summary by agent type and every run |
 | 2026-10-21 | 0.30 | 00:00 | 00:18 | Versions 0.2.9 to 0.2.12: delegation map as a top-to-bottom process with the same facts on every agent, and a full-width summary |
 | 2026-10-21 | 1.08 | 08:48 | 09:53 | Versions 0.2.14 to 0.2.23: session cost as a share of each Claude plan's weekly limit, output style drafts with Claude, session export and import, and one tooltip style |
+| 2026-10-22 | 3.52 | 18:58 | 22:29 | Pages for each asset type and plan-based billing estimates |
 | 2026-10-23 | 1.37 | 12:00 | 13:22 | Contributor guide with an animated fork-to-pull-request diagram and Claude Code commands for every contribution step |
 | 2026-10-23 | 1.48 | 13:28 | 14:57 | Version 0.2.36: prompts on the delegation map and a hover layer showing what installed mods did, fed by a new per-session mod log |
 | 2026-10-23 | 0.40 | 14:43 | 15:21 | Version 0.2.37: one Mods switch for all installed mods, including mods that keep no log of their own |
@@ -25,6 +26,7 @@
 | 2026-10-23 | 0.32 | 18:06 | 18:40 | Version 0.2.44: every list grouped by where each item comes from, green mod markers and denials shown as stop signs |
 | 2026-10-23 | 1.17 | 18:23 | 19:50 | Versions 0.3.0 and 0.3.1: each agent and skill shows the sessions it was used in, sidebar sections fold on click, and agent colours get a picker with your own colours and colour codes |
 | 2026-10-23 | 0.08 | 18:39 | 19:55 | Version 0.3.1 published to the Marketplace, with up-to-date docs and screenshots, a complete changelog and a new repository description |
+| 2026-10-24 | 4.10 | 19:53 | 23:59 | Sidebar headers open full views, token usage and actionable findings |
 | 2026-10-25 | 3.70 | 09:08 | 13:50 | Version 0.5.0: a plugin builder you talk to, sharing and import, sync commands and a denser, calmer interface, published to the Marketplace |
 | 2026-10-25 | 1.00 | 09:20 | 10:20 | Install, link, check and update skills from skills.sh and GitHub, with usability fixes and docs |
 | 2026-10-25 | 1.33 | 13:50 | 15:10 | Version 0.6.0 published with reset countdowns in the usage hover and image paste into Claude terminals, then six interface fixes and correct plural wording on a new branch |
@@ -41,4 +43,4 @@
 | 2026-10-28 | 1.85 | 11:51 | 13:42 | Version 0.9 release film rendered in three cuts, and harness scripts no longer flag the line being typed |
 | 2026-10-28 | 0.33 | 13:37 | 14:02 | Sixteen new harness commands, also usable from the Claude prompt |
 
-**Total: 29.68h**
+**Total: 37.30h**

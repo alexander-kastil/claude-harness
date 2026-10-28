@@ -36,4 +36,42 @@ declare function acquireVsCodeApi(): VsCodeApi;
 
 export const vscode = acquireVsCodeApi();
 export const saved: Saved = vscode.getState() || {};
-export const onMessage = (handle: (m: ToWebview) => void) => window.addEventListener('message', e => handle(e.data as ToWebview));
+
+// A message that arrives while the mouse button is down waits for the release. Its repaint replaces the row under the
+// pointer, and the browser sends no click when the press and the release land on different elements: a list row or nav
+// row pressed while checks or usage counts came in opened nothing. Held messages keep their order. The press ends on the
+// release, a cancel, or the panel losing focus or sight; only a release never seen lets them through, after 30 s. A 2 s
+// limit let a slow press, or a press while the host was slow to answer, lose its click again.
+let pressed = false;
+let pressTimer: ReturnType<typeof setTimeout> | undefined;
+const PRESS_LIMIT_MS = 30000;
+const held: ToWebview[] = [];
+let deliver: ((m: ToWebview) => void) | undefined;
+const drain = () => {
+  while (!pressed && held.length) deliver?.(held.shift() as ToWebview);
+};
+const release = () => {
+  if (!pressed) return;
+  pressed = false;
+  clearTimeout(pressTimer);
+  // After the click, which the browser sends right after the release.
+  setTimeout(drain);
+};
+window.addEventListener('pointerdown', e => {
+  if (e.button !== 0) return;
+  pressed = true;
+  clearTimeout(pressTimer);
+  pressTimer = setTimeout(release, PRESS_LIMIT_MS);
+}, true);
+window.addEventListener('pointerup', release, true);
+window.addEventListener('pointercancel', release, true);
+window.addEventListener('blur', release);
+document.addEventListener('visibilitychange', () => document.hidden && release());
+
+export const onMessage = (handle: (m: ToWebview) => void) => {
+  deliver = handle;
+  window.addEventListener('message', e => {
+    if (pressed || held.length) held.push(e.data as ToWebview);
+    else handle(e.data as ToWebview);
+  });
+};

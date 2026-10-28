@@ -3628,6 +3628,15 @@ mark {
   overflow: hidden;
 }
 
+/* A long description in paragraphs of a few sentences each. */
+.dv-desc > p {
+  margin: 0;
+}
+
+.dv-desc > p + p {
+  margin-top: 0.5em;
+}
+
 .dv-desc.muted {
   color: var(--vscode-descriptionForeground);
 }
@@ -3943,6 +3952,14 @@ mark {
   max-width: 100ch;
   margin: 0 0 0.75em;
   padding-left: 1.4em;
+}
+
+/* On a detail page, text with nothing on its right runs the full width of its area: the description, and the document's
+   paragraphs and lists up to the outline. */
+.dv .dv-desc,
+.dv .md-p,
+.dv .md-list {
+  max-width: none;
 }
 
 .md-list li {
@@ -5159,24 +5176,19 @@ body.vscode-high-contrast-light {
   color: var(--vscode-foreground);
 }
 
-/* A narrow detail page: the command bar keeps its groups and drops the labels, which the hover cards say. */
-.main-head.detail-head {
-  container: dhead / inline-size;
+/* A command bar that needs more than two rows with its labels keeps its groups and drops the labels, which the hover cards
+   say (fitBar in src/webview/detail.ts). A short bar keeps them at any width. */
+.cmd-bar.icons {
+  gap: 6px;
 }
 
-@container dhead (max-width: 760px) {
-  .cmd-bar {
-    gap: 6px;
-  }
+.cmd-bar.icons .view-tab.dg-mode > span:last-child {
+  display: none;
+}
 
-  .cmd-bar .view-tab.dg-mode > span:last-child {
-    display: none;
-  }
-
-  .cmd-bar .view-tab.dg-mode {
-    padding-left: 8px;
-    padding-right: 8px;
-  }
+.cmd-bar.icons .view-tab.dg-mode {
+  padding-left: 8px;
+  padding-right: 8px;
 }
 
 /* Secondary lines and chart labels keep 4.5:1: the theme's secondary color in place of a faded text color, and no fade on a
@@ -6174,7 +6186,7 @@ body.vscode-high-contrast-light {
   padding: 10px 14px;
 }
 
-/* The drawing of what a skill does, above the info card: scaled to the width, never taller than 180px. */
+/* The drawing of what an element does, above the info card: scaled to the width, never taller than 180px. */
 .dv-draw {
   margin: 0;
   padding: 6px 14px;
@@ -6188,6 +6200,19 @@ body.vscode-high-contrast-light {
   width: 100%;
   height: auto;
   max-height: 180px;
+}
+
+/* The drawing enlarged in the house hover card, as wide as the panel allows and at most three quarters of its height. */
+.tl-hover:has(.hc-draw) {
+  width: min(1600px, calc(100vw - 16px));
+}
+
+.hc-draw > svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 75vh;
+  color: var(--vscode-editor-foreground);
 }
 
 .dv-cols {

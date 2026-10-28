@@ -9,11 +9,11 @@ import { hideHover } from './hover';
 import { renderMain } from './main';
 import { goBack, historyLabel } from './refs';
 import { slimOf } from './slim';
-import { drawingOf } from './drawing';
+import { canDraw, drawingOf, drawsWhat } from './drawing';
 import { syncableFromGlobal, syncableMcp } from './sync';
 
 // The kinds Review with Claude and Try it apply to.
-const REVIEWABLE = ['skill', 'agent', 'command', 'rule', 'outputStyle'];
+const REVIEWABLE = ['skill', 'agent', 'command', 'rule', 'outputStyle', 'workflow', 'plugin'];
 const TRYABLE = ['agent', 'skill', 'command'];
 
 export function renderRuleInfo(a, withLabel = true) {
@@ -314,11 +314,13 @@ function commandBar(d, dirty) {
     cmdBox('File', '', cmd('go-to-file', 'Open in editor', 'Open in editor\nThe file in a VS Code editor tab.', () => command('openFile', { id: a.id })), cmd('folder-opened', 'Reveal', 'Reveal in File Explorer\nThe folder that holds the file.', () => command('reveal', { id: a.id }))),
     aiGroup(
       '',
-      REVIEWABLE.includes(a.kind) ? claude('lightbulb-sparkle', 'Review with Claude', 'Review with Claude\nA new Claude in a terminal reads this file and says what to improve.', 'review', 'reviewAsset') : null,
+      REVIEWABLE.includes(a.kind)
+        ? claude('lightbulb-sparkle', 'Review with Claude', `Review with Claude\nA new Claude in a terminal reads ${a.kind === 'plugin' ? "the plugin's manifest and its skills, agents, commands, hooks and servers" : 'this file'} and says what to improve.`, 'review', 'reviewAsset')
+        : null,
       a.kind === 'skill' && slimOf(a.id)?.findings
         ? claude('fold', 'Slim with Claude', "Slim with Claude\nA new Claude in a terminal gets the skill's files and what is flagged on this page, and says what to move and cut.", 'slim', 'slimAsset')
         : null,
-      a.kind === 'skill'
+      canDraw(a)
         ? (() => {
             const drawn = drawingOf(a.id);
             const running = !!drawn?.running;
@@ -326,7 +328,7 @@ function commandBar(d, dirty) {
               cmd(
                 'brush',
                 running ? 'Drawing...' : drawn?.svg ? 'Redraw with Claude' : 'Draw with Claude',
-                `${drawn?.svg ? 'Redraw' : 'Draw'} with Claude\nClaude draws what this skill does, from its SKILL.md, and the drawing shows above the details. It runs in the background and counts against your plan.${drawn?.error ? `\nLast try failed: ${drawn.error}` : ''}`,
+                `${drawn?.svg ? 'Redraw' : 'Draw'} with Claude\nClaude draws ${drawsWhat(a.kind)}, and the drawing shows above the details. It runs in the background and counts against your plan.${drawn?.error ? `\nLast try failed: ${drawn.error}` : ''}`,
                 () => (hideHover(), vscode.postMessage({ type: 'drawAsset', id: a.id })),
                 { disabled: running }
               ),
@@ -404,7 +406,22 @@ export function refreshHead() {
   const next = renderHead();
   headNode.replaceWith(next);
   headNode = next;
+  fitBar(next);
 }
+
+// The command bar keeps its labels while it fits in two rows; a bar that needs more drops every label and shows the icons,
+// each named by its hover card. Measured with the labels on, again at every width the page takes.
+function fitBar(head) {
+  const bar = head && head.isConnected ? head.querySelector('.cmd-bar') : null;
+  if (!bar) return;
+  bar.classList.remove('icons');
+  const tops = [...bar.querySelectorAll('.view-tab')].map(b => b.getBoundingClientRect().top).sort((x, y) => x - y);
+  const rows = tops.filter((top, i) => !i || top - tops[i - 1] > 8).length;
+  bar.classList.toggle('icons', rows > 2);
+}
+
+// Watches the page of the detail on screen; the page's size follows the panel, never the header, so a refit cannot loop.
+let barWatch;
 
 export function renderDetail() {
   const d = state.detail;
@@ -463,7 +480,11 @@ export function renderDetail() {
     body.append(el('pre', { className: 'json' }, d.body));
   }
   headNode = renderHead();
-  return el('section', { className: 'main' }, headNode, body);
+  const page = el('section', { className: 'main' }, headNode, body);
+  barWatch?.disconnect();
+  barWatch = new ResizeObserver(() => fitBar(headNode));
+  barWatch.observe(page);
+  return page;
 }
 
 export function renderMcp(d) {

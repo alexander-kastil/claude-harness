@@ -113,18 +113,45 @@ const lines = (text: string) => (text ? text.split('\n').length : 0);
 const words = (text: string) => (text.match(/\S+/g) || []).length;
 const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+// A description in paragraphs of a few sentences each, for reading at full width: a paragraph closes once it reaches
+// PARA_CHARS, a short rest joins the paragraph before it, and a blank line in the text starts a new one.
+const PARA_CHARS = 180;
+function paragraphs(text: string): string[] {
+  const out: string[] = [];
+  for (const block of text.split(/\n\s*\n/)) {
+    const sentences = block.replace(/\s+/g, ' ').trim().split(/(?<=[.!?])\s+(?=["“(]?[A-Z0-9])/).filter(Boolean);
+    const paras: string[] = [];
+    let cur = '';
+    for (const s of sentences) {
+      cur = cur ? `${cur} ${s}` : s;
+      if (cur.length >= PARA_CHARS) {
+        paras.push(cur);
+        cur = '';
+      }
+    }
+    if (cur && paras.length && cur.length < 60) paras[paras.length - 1] += ` ${cur}`;
+    else if (cur) paras.push(cur);
+    out.push(...paras);
+  }
+  return out;
+}
+
 // The description, clamped when long, with a toggle that keeps the layout from jumping.
 function descBlock(text: string): HTMLElement {
-  const p = el('p', { className: 'dv-desc' }, text);
-  if (text.length < 360) return p;
-  p.classList.add('clamped');
+  const box = el('div', { className: 'dv-desc' }, paragraphs(text).map(t => el('p', {}, t)));
+  if (text.length < 360) return box;
+  box.classList.add('clamped');
   const toggle = el('button', { type: 'button', className: 'link dv-more', 'aria-expanded': 'false' }, 'Show more');
   toggle.addEventListener('click', () => {
-    const open = p.classList.toggle('clamped') === false;
+    const open = box.classList.toggle('clamped') === false;
     toggle.textContent = open ? 'Show less' : 'Show more';
     toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
   });
-  return el('div', {}, p, toggle);
+  // At full width a long description can fit inside the clamp: the toggle shows only while the clamp cuts something.
+  new ResizeObserver(() => {
+    if (box.classList.contains('clamped')) toggle.hidden = box.scrollHeight <= box.clientHeight + 1;
+  }).observe(box);
+  return el('div', {}, box, toggle);
 }
 
 // Trigger phrases and example tasks as chips; past twelve, a "+N more" chip opens the rest.
@@ -643,7 +670,9 @@ ${a.target}`) : null,
           : el('div', { className: 'dv-tool-cards' }, toolList.map(t => el('div', { className: 'dv-tool-card' }, el('div', { className: 'dv-tool-head' }, el('span', { className: 'dv-tool-name' }, t.name), callsChip(callsOf(t.name))), t.description ? el('span', { className: 'dv-tool-desc', title: t.description }, t.description) : null)))
     );
   const instructions = info && info.instructions ? info.instructions : '';
+  askDrawing(a);
   return [
+    drawingFigure(a),
     heroCard,
     tabbed(a, [
       { id: 'tools', label: 'Tools', glyph: 'tools', about: 'Every tool the server offers, with the description Claude reads.', count: info && !info.error ? toolList.length : undefined, body: tools },
@@ -716,7 +745,9 @@ function pluginView(d: Detail): Child[] {
     [market ? fact('Marketplace', market, 'extensions') : null, version ? fact('Version', `v${version}`, 'tag') : null, fact('Enabled', toggle, 'check')].filter((c): c is HTMLElement => !!c),
     stats('Contains', [tile(String(skills.length), 'Skills', 'mortar-board', 'in every session'), tile(String(agents.length), 'Agents', 'hubot', 'Claude can delegate to'), tile(String(servers.length), 'MCP servers', 'server', 'started with Claude Code')])
   );
+  askDrawing(a);
   return [
+    drawingFigure(a),
     heroCard,
     tabbed(a, [
       { id: 'skills', label: 'Skills', glyph: 'mortar-board', about: 'The skills the plugin adds to every session, with how often each was used.', count: skills.length, live: true, body: () => card('Skills', skills.length, usedRefList(a, skills, a.enabled ? 'No skills.' : 'Enable the plugin to list them.', 'use', refRow)) },
@@ -734,7 +765,9 @@ function codeView(d: Detail, body: string): Child[] {
   const fired = hasFiredTab(a) ? firedTab(a) : null;
   if (fired) askFired(a, state.detailTabs[a.kind] === 'fired');
   const label = d.mode === 'settings' ? 'JSON' : d.mode === 'json' ? 'Config' : 'Script';
+  askDrawing(a);
   return [
+    drawingFigure(a),
     // The header badges already name the kind and the scope; the card appears when there is a description or an origin to add.
     hero(a, viewOf(a.scope) || undefined, undefined, a.description || ''),
     tabbed(a, [
