@@ -324,7 +324,7 @@ function commandBar(d, dirty) {
             const running = !!drawn?.running;
             return confirmAt(
               cmd(
-                'graph',
+                'brush',
                 running ? 'Drawing...' : drawn?.svg ? 'Redraw with Claude' : 'Draw with Claude',
                 `${drawn?.svg ? 'Redraw' : 'Draw'} with Claude\nClaude draws what this skill does, from its SKILL.md, and the drawing shows above the details. It runs in the background and counts against your plan.${drawn?.error ? `\nLast try failed: ${drawn.error}` : ''}`,
                 () => (hideHover(), vscode.postMessage({ type: 'drawAsset', id: a.id })),

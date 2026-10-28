@@ -2019,6 +2019,270 @@
       "catalogue": {
         "action": "none"
       }
+    },
+    {
+      "date": "2026-10-28",
+      "from": "10:30",
+      "to": "11:11",
+      "sessionId": "56c00afa-2d64-4295-b374-36f10e9832c5",
+      "branch": "0.9.0",
+      "commits": [],
+      "surfaces": [
+        "claude-harness"
+      ],
+      "files": [
+        "src/slim.ts",
+        "src/webview/slim.ts",
+        "src/webview/confirm.ts",
+        "src/extension.ts",
+        "media/panel.css",
+        "CHANGELOG.md",
+        "README.md",
+        "docs/command-line.md",
+        "docs/harness-scripts.md",
+        "docs/type-ahead.md",
+        "docs/editing.md",
+        "docs/images/command-bar-narrow.png",
+        "media/brush.svg"
+      ],
+      "mechanism": {
+        "takes": "a skill's size findings, the command line's own runs on a demo repo, and the extension's docs screenshots",
+        "does": "adds a per-finding button that, after a confirm card, starts Claude in a terminal with a prompt scoped to that one finding; lays the findings out as title over measure; captures validate, run, rerun and type-ahead output from a real run into one samples file that parallel doc writers paste verbatim; retakes screenshots with the file tree closed",
+        "returns": "one-click fixes for oversized skills, release notes and docs whose examples are real output, and screenshots that show only the feature"
+      },
+      "portsAsIs": [
+        "a per-finding fix button that hands one finding to an AI agent in a terminal",
+        "doc samples captured from one real run and shared by every doc writer"
+      ],
+      "perCustomer": [
+        "the findings a tool reports",
+        "the demo project the samples run on"
+      ],
+      "evidence": [
+        "tests: 278 unit tests passing in the 0.9.0 worktree",
+        "samples from real runs: validate exit 0 and 2, dry run, run, rerun with Nothing to be done.",
+        "62 docs images checked, 2 retaken without the Explorer"
+      ],
+      "toolchain": {
+        "skills": [
+          "ui-ux-pro-max",
+          "humanizer",
+          "report",
+          "create-issue",
+          "claude-learn",
+          "claude-learn-harvest",
+          "claude-learn-worktime",
+          "track-time",
+          "vscode-extension"
+        ],
+        "mcpServers": [],
+        "agents": [
+          "vscode-ext-specialist",
+          "subagent-delegation-plugin:fact-gatherer",
+          "general-purpose",
+          "fork"
+        ]
+      },
+      "industry": "software tooling for developers",
+      "status": "Built and running in-house",
+      "catalogue": {
+        "action": "none"
+      }
+    },
+    {
+      "date": "2026-10-28",
+      "from": "10:49",
+      "to": "11:30",
+      "sessionId": "9c56e498-96cf-4c7c-9d1c-cbac2a925a93",
+      "branch": "0.7.0",
+      "commits": [],
+      "surfaces": [
+        "claude-harness"
+      ],
+      "files": [
+        "assets/films/plugin-hunter/story/v11-terminal-story.md"
+      ],
+      "mechanism": {
+        "takes": "an owner's loose film brief (characters, opening and closing scenes, a reference diagram of an agent team, a runtime and a budget ceiling) plus the series' earlier cuts, rig and closing",
+        "does": "gathers the series facts with a cheap read-only agent, has a film agent turn the brief into a timed beat table with generated-clip prompts, exact terminal keystrokes, a reduced three-agent team and a priced shot list, restores every quoted owner phrase to its exact wording, and publishes the result as a to-scale storyboard page",
+        "returns": "a story file with beats, timings, on-screen text, typed input, clip prompts and a cost estimate under the ceiling, and a storyboard page for approval before any paid generation"
+      },
+      "portsAsIs": [
+        "brief to timed storyboard with a priced shot list before any spend",
+        "to-scale storyboard page with beats grouped by act",
+        "quoted-phrase check of on-screen copy against the brief"
+      ],
+      "perCustomer": [
+        "the film's characters and series look",
+        "the product features the terminal acts show"
+      ],
+      "evidence": [
+        "story file written, nothing generated or rendered",
+        "estimate USD 3.14 committed, USD 6.42 worst case against EUR 15",
+        "storyboard published as a private artifact"
+      ],
+      "toolchain": {
+        "skills": [
+          "present-result",
+          "report-plugin:report",
+          "film-producer:video-creation",
+          "brand",
+          "humanizer",
+          "marketing-psychology",
+          "artifact-design",
+          "learn-loop-plugin:claude-learn",
+          "learn-loop-worktime-plugin:claude-learn-worktime",
+          "learn-loop-worktime-plugin:track-time"
+        ],
+        "mcpServers": [
+          "claude_ai_Media_Creator"
+        ],
+        "agents": [
+          "subagent-delegation-plugin:fact-gatherer",
+          "film-producer:motion-designer",
+          "fork"
+        ]
+      },
+      "industry": "software product marketing",
+      "status": "Designed, not built",
+      "catalogue": {
+        "action": "none"
+      }
+    },
+    {
+      "date": "2026-10-28",
+      "from": "11:51",
+      "to": "13:42",
+      "sessionId": "9c56e498-96cf-4c7c-9d1c-cbac2a925a93",
+      "branch": "0.7.0",
+      "commits": [],
+      "surfaces": [
+        "claude-harness",
+        "integrations-marketplace"
+      ],
+      "files": [
+        "assets/films/harness-terminal/story/story.md",
+        "assets/films/harness-terminal/changelog/v1.md",
+        "assets/films/harness-terminal/changelog/v2.md",
+        "assets/films/harness-terminal/changelog/v3.md",
+        "assets/films/harness-terminal/story/paid-requests.json",
+        "assets/films/harness-terminal/scripts/film.py",
+        "assets/films/harness-terminal/rig/start.mjs",
+        ".claude/worktrees/0.9.0/src/harness-language.ts",
+        ".claude/worktrees/0.9.0/src/cli-build.ts",
+        ".claude/rules/films.md",
+        "tasks/lessons.md",
+        "tasks/todo.md"
+      ],
+      "mechanism": {
+        "takes": "an approved film storyboard plus the owner's running corrections (characters, title, scene order, start screen, on-screen wording), the earlier film's start screen as image grounding, and the next version's build in a worktree",
+        "does": "renders grounded stills and image-to-video clips with the coordinator running every paid call and checking contact sheets for morphs, records scripted terminal and Claude Code takes in an isolated editor on the second monitor, fixes the editor bug the take exposed and proves it by typing live, assembles and mixes the cut, and versions each cut with a changelog and restore switch",
+        "returns": "a 99 s release film in three versions with sound, a cost log of every paid call under the budget, and a fixed script editor that checks a line only after the cursor leaves it"
+      },
+      "portsAsIs": [
+        "release film from an approved storyboard with coordinator-run paid clips and contact-sheet checks",
+        "scripted editor and Claude Code takes in an isolated VS Code",
+        "versioned cuts with changelog and restore switches"
+      ],
+      "perCustomer": [
+        "the film's characters, series look and start screen",
+        "the product features the takes show"
+      ],
+      "evidence": [
+        "harness-terminal v3 rendered, 99.33 s, 1024x704, -14 LUFS",
+        "paid generation USD 3.87 of a EUR 15 ceiling",
+        "script take re-recorded with 0 of 739 frames showing the red underline"
+      ],
+      "toolchain": {
+        "skills": [
+          "film-producer:video-creation",
+          "marketing-psychology",
+          "report-plugin:report",
+          "learn-loop-plugin:claude-learn",
+          "learn-loop-worktime-plugin:claude-learn-worktime",
+          "learn-loop-worktime-plugin:track-time"
+        ],
+        "mcpServers": [
+          "claude_ai_Media_Creator"
+        ],
+        "agents": [
+          "film-producer:motion-designer",
+          "vscode-ext-specialist",
+          "fork"
+        ]
+      },
+      "industry": "software product marketing",
+      "status": "Built and running in-house",
+      "catalogue": {
+        "action": "none"
+      }
+    },
+    {
+      "date": "2026-10-28",
+      "from": "13:37",
+      "to": "14:02",
+      "sessionId": "8658d7d5-cb12-49ec-b84d-28e36326b791",
+      "branch": "0.7.0",
+      "commits": [],
+      "surfaces": [
+        "claude-harness",
+        "integrations-marketplace"
+      ],
+      "files": [
+        "src/cli.ts",
+        "src/cli-complete.ts",
+        "src/cli-markets.ts",
+        "src/cli-check.ts",
+        "src/cli-fleet.ts",
+        "src/cli-sync.ts",
+        "src/cli-sessions.ts",
+        "src/cli-mods.ts",
+        "src/cli-learn.ts",
+        "src/cli-sources.ts",
+        "plugins/harness-plugin/hooks/harness-command.mjs",
+        "plugins/harness-plugin/skills/harness-cli/SKILL.md",
+        "docs/command-line.md",
+        "CHANGELOG.md"
+      ],
+      "mechanism": {
+        "takes": "the extension's own views and actions (marketplace health, harness checks and fixes, fleet overview, sync from global, sessions, mod activity, skill sources) and a repo's time ledger and lessons file",
+        "does": "exposes each as a headless command-line command with table text and one JSON result, writing commands real by default with a dry run, and the read-only ones as prompt mentions that run on send and hand their output to Claude as context; built by eight parallel builders on shared wiring and stubs the coordinator wrote first",
+        "returns": "sixteen commands with Tab completion, nine prompt mentions, unit tests per module and the docs and changelog of the release"
+      },
+      "portsAsIs": [
+        "a VS Code extension's views as a headless command line with table and JSON output",
+        "read-only views as prompt mentions that feed Claude context on send",
+        "parallel module builders on coordinator-written wiring and throwing stubs"
+      ],
+      "perCustomer": [
+        "the views and actions the extension has",
+        "the repos, marketplaces and ledgers the commands read"
+      ],
+      "evidence": [
+        "tests: 322 unit tests pass",
+        "9 new mentions run against the built command line, exit 0, 0.1 to 3.3 s each",
+        "writing commands proven by dry runs on the owner's data"
+      ],
+      "toolchain": {
+        "skills": [
+          "report-plugin:report",
+          "learn-loop-plugin:claude-learn",
+          "learn-loop-harvest-plugin:claude-learn-harvest",
+          "learn-loop-worktime-plugin:claude-learn-worktime",
+          "learn-loop-worktime-plugin:track-time"
+        ],
+        "mcpServers": [],
+        "agents": [
+          "subagent-delegation-plugin:fact-gatherer",
+          "vscode-ext-specialist",
+          "fork"
+        ]
+      },
+      "industry": "software developer tooling",
+      "status": "Built and running in-house",
+      "catalogue": {
+        "action": "none"
+      }
     }
   ]
 }

@@ -2,7 +2,8 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { Args, Io, Stop, one } from './cli-core';
-import { pluginDirs } from './harness';
+import { marketplacePlugins, pluginDirs } from './harness';
+import { HOOK_EVENTS, KNOWN_MODELS, KNOWN_TOOLS } from './cli-build';
 import { projectSlug } from './fleet';
 import { readMarkets } from './hunt-market';
 import { isPrompt, promptText } from './sessions';
@@ -10,7 +11,7 @@ import { isPrompt, promptText } from './sessions';
 // `complete`: the candidates for the word at the cursor. The shell completers that `completion` prints call it per Tab with the line.
 
 /** Where a value comes from: a fixed list, or a lookup that the line's own flags narrow. `[]` is a value with no candidates. */
-type Values = string[] | 'names' | 'skills' | 'agents' | 'session' | 'markets' | 'media';
+type Values = string[] | 'names' | 'skills' | 'agents' | 'session' | 'markets' | 'media' | 'plugins' | 'scripts' | 'tools';
 
 export interface FlagSpec {
   name: string;
@@ -34,6 +35,15 @@ export interface Candidate {
 
 const REPO: FlagSpec = { name: 'repo', takes: [] };
 const DRY: FlagSpec = { name: 'dry-run' };
+const SCOPE: FlagSpec = { name: 'scope', takes: ['repo', 'user'] };
+
+/** The .harness scripts of the current folder and its harness folder. */
+function scriptItems(): Item[] {
+  return ['.', 'harness'].flatMap(dir => {
+    const abs = path.resolve(dir);
+    return fs.existsSync(abs) ? fs.readdirSync(abs).filter(f => f.endsWith('.harness')).map(f => ({ text: dir === '.' ? f : `${dir}/${f}`, description: 'script' })) : [];
+  });
+}
 const HUNT: FlagSpec[] = [
   { name: 'name', takes: [] },
   { name: 'category', takes: [] },
@@ -47,7 +57,7 @@ const HUNT: FlagSpec[] = [
 ];
 const GLOBAL: FlagSpec[] = [{ name: 'root', takes: [] }, REPO, { name: 'repos', takes: [] }, { name: 'json' }, { name: 'help' }];
 /** Flags that may repeat on one line; they are offered again after use. */
-const REPEATABLE = new Set(['repo', 'repos']);
+const REPEATABLE = new Set(['repo', 'repos', 'area', 'rule']);
 
 /** Every command HELP names. A test keeps this table and HELP in step. */
 export const COMMANDS: CommandSpec[] = [
@@ -67,6 +77,17 @@ export const COMMANDS: CommandSpec[] = [
   { path: 'skills put', flags: [{ name: 'file', takes: [] }, { name: 'to', takes: [] }, DRY] },
   { path: 'skills remove', flags: [{ name: 'name', takes: 'skills' }, { name: 'leaf', takes: [] }, { name: 'leaf', takes: [] },{ name: 'market', takes: [] }, DRY] },
   { path: 'skills repoint', flags: [{ name: 'from', takes: 'skills' }, { name: 'to', takes: 'skills' }, { name: 'skills', takes: 'skills' }, { name: 'agents', takes: 'agents' }, { name: 'market', takes: [] }, DRY] },
+  { path: 'generate agent', flags: [SCOPE, { name: 'model', takes: KNOWN_MODELS }, { name: 'tools', takes: 'tools' }, { name: 'description', takes: [] }, { name: 'from', takes: [] }, DRY] },
+  { path: 'generate rule', flags: [SCOPE, { name: 'paths', takes: [] }, { name: 'from', takes: [] }, DRY] },
+  { path: 'generate skill', flags: [SCOPE, { name: 'description', takes: [] }, { name: 'from', takes: [] }, DRY] },
+  { path: 'generate command', flags: [SCOPE, { name: 'description', takes: [] }, { name: 'from', takes: [] }, DRY] },
+  { path: 'generate hook', flags: [SCOPE, { name: 'matcher', takes: [] }, { name: 'command', takes: [] }, DRY], positional: HOOK_EVENTS },
+  { path: 'new', flags: [{ name: 'summary', takes: [] }, { name: 'area', takes: [] }, { name: 'rule', takes: [] }, DRY] },
+  { path: 'update', flags: [REPO, DRY] },
+  { path: 'generate mcp', flags: [SCOPE, { name: 'url', takes: [] }, { name: 'command', takes: [] }, { name: 'args', takes: [] }, { name: 'transport', takes: ['http', 'sse'] }, DRY] },
+  { path: 'add', flags: [SCOPE, DRY], positional: 'plugins' },
+  { path: 'validate', flags: [REPO], positional: 'scripts' },
+  { path: 'run', flags: [DRY], positional: 'scripts' },
   { path: 'marketplaces', flags: [] },
   { path: 'marketplaces rename', flags: [{ name: 'from', takes: 'markets' }, { name: 'to', takes: [] }, DRY] },
   { path: 'check', flags: [REPO] },
@@ -189,13 +210,16 @@ function itemsOf(source: Exclude<Values, string[]>, a: Args): Item[] {
   if (source === 'skills') return assetItems(a, ['skill']);
   if (source === 'agents') return assetItems(a, ['agent']);
   if (source === 'session') return sessionItems(a);
+  if (source === 'plugins') return marketplacePlugins(claudeRoot(a)).map(p => ({ text: p.key, description: p.description.slice(0, 100) }));
+  if (source === 'scripts') return scriptItems();
+  if (source === 'tools') return KNOWN_TOOLS.map(text => ({ text, description: '' }));
   if (source === 'markets') return readMarkets(claudeRoot(a)).filter(m => m.owned).map(m => ({ text: m.name, description: m.location }));
   return mediaItems(a);
 }
 
 /** A comma list completes the item after its last comma and leaves the ones already typed alone. */
 function valuesFor(source: Values, typed: string, a: Args): Candidate[] {
-  const list = source === 'skills' || source === 'agents';
+  const list = source === 'skills' || source === 'agents' || source === 'tools';
   const cut = list ? typed.lastIndexOf(',') + 1 : 0;
   const base = typed.slice(0, cut);
   const prefix = typed.slice(cut);
@@ -283,7 +307,9 @@ export function candidates(line: string, position = line.length): Candidate[] {
     const typed = tokens.pop() ?? '';
     // The first word is the command itself, `harness`; its own candidates are not ours to give.
     if (!tokens.length) return [];
-    return candidatesFor(tokens.slice(1), typed);
+    const rest = tokens.slice(1);
+    if (rest[0] === 'g') rest[0] = 'generate';
+    return candidatesFor(rest, typed);
   } catch {
     return [];
   }

@@ -1,0 +1,14 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Harness script",
+  "scopeName": "source.harness",
+  "patterns": [
+    { "name": "comment.line.number-sign.harness", "match": "^\\s*#.*$" },
+    { "match": "^\\s*(generate|g)\\s+(agent|rule|skill|command|hook|mcp)\\b", "captures": { "1": { "name": "keyword.control.harness" }, "2": { "name": "storage.type.harness" } } },
+    { "match": "^\\s*(repo|add|new|update)\\b", "captures": { "1": { "name": "keyword.control.harness" } } },
+    { "name": "variable.parameter.harness", "match": "(?<![\\w-])--[A-Za-z][\\w-]*" },
+    { "name": "entity.name.type.harness", "match": "(?<![\\w@-])[\\w.-]+@[\\w.-]+" },
+    { "name": "string.quoted.double.harness", "begin": "\"", "end": "\"|$" },
+    { "name": "string.quoted.single.harness", "begin": "'", "end": "'|$" }
+  ]
+}

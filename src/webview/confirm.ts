@@ -141,6 +141,18 @@ const CARDS = {
     action: 'Open in terminal',
     send: remember => vscode.postMessage({ type: 'slimAsset', id: ask.id, confirmed: true, remember }),
   }),
+  resolve: ask => ({
+    mark: claudeMark(18),
+    title: `Resolve this finding of ${ask.name}`,
+    sub: 'in a new Claude, in a terminal',
+    facts: [
+      ['terminal', el('span', {}, 'A terminal opens in ', el('code', {}, ask.cwd), '.')],
+      ['file', el('span', {}, 'Claude is told this one finding and asked to fix it in ', el('code', {}, ask.file), ' and the skill\'s files, and nothing else.')],
+      ['credit-card', 'The run counts against your plan.'],
+    ],
+    action: 'Open in terminal',
+    send: remember => vscode.postMessage({ type: 'resolveFinding', id: ask.id, finding: ask.finding, confirmed: true, remember }),
+  }),
   draw: ask => ({
     mark: claudeMark(18),
     title: `Draw ${ask.name} with Claude`,

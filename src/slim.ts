@@ -94,21 +94,44 @@ export function analyzeSkill(s: SkillText): SlimReport {
   };
 }
 
+/** The findings of the Size card, each with its own Resolve with Claude button. */
+export type SizeFinding = 'description' | 'house' | 'body';
+
+const descriptionLine = (r: SlimReport) => `The description is ${r.description.tokens} tokens (${r.description.chars} characters) and is paid in every session; ${r.description.level === 'over' ? `it is past the ${SLIM.descChars} character limit` : `aim for under ${SLIM.descLong} tokens`}.`;
+const houseLine = (r: SlimReport) => `The description carries more than routing and trigger phrases (${(r.description.house ?? []).join('; ')}); move the detail into a references file and keep the routing and the trigger phrases.`;
+const bodyFindingLines = (r: SlimReport) => [
+  `SKILL.md has ${r.body.lines} lines (${r.body.tokens} tokens); the guidance is under ${SLIM.bodyLines} lines.`,
+  ...(r.body.sections.length ? [`Largest sections to move into reference files: ${r.body.sections.map(s => `"${s.title}" (${s.tokens} tokens, from line ${s.line})`).join(', ')}.`] : []),
+];
+
 /** What the slimming prompt says about the findings, one line each; empty when nothing is flagged. */
 export function findingLines(r: SlimReport): string[] {
   const out: string[] = [];
   const d = r.description;
-  if (d.level) out.push(`The description is ${d.tokens} tokens (${d.chars} characters) and is paid in every session; ${d.level === 'over' ? `it is past the ${SLIM.descChars} character limit` : `aim for under ${SLIM.descLong} tokens`}.`);
-  if (d.house?.length) out.push(`The description carries more than routing and trigger phrases (${d.house.join('; ')}); move the detail into a references file and keep the routing and the trigger phrases.`);
-  if (r.body.long) {
-    out.push(`SKILL.md has ${r.body.lines} lines (${r.body.tokens} tokens); the guidance is under ${SLIM.bodyLines} lines.`);
-    if (r.body.sections.length) out.push(`Largest sections to move into reference files: ${r.body.sections.map(s => `"${s.title}" (${s.tokens} tokens, from line ${s.line})`).join(', ')}.`);
-  }
+  if (d.level) out.push(descriptionLine(r));
+  if (d.house?.length) out.push(houseLine(r));
+  if (r.body.long) out.push(...bodyFindingLines(r));
   if (r.spread.giant.length) out.push(`Giant reference files, split them by topic: ${r.spread.giant.map(g => `${g} (${r.refs.find(x => x.rel === g)?.tokens} tokens)`).join(', ')}.`);
   if (r.spread.manyTiny) out.push(`Many tiny reference files, merge those that belong together: ${r.spread.tiny.join(', ')}.`);
   if (r.spread.orphan.length) out.push(`SKILL.md does not point to ${r.spread.orphan.join(', ')}, so Claude never reads it: link it from SKILL.md, or remove it.`);
   if (r.spread.nested.length) out.push(`Only another reference file points to ${r.spread.nested.join(', ')}; link it from SKILL.md directly, one level deep.`);
   return out;
+}
+
+/** The prompt of Resolve with Claude on one finding of the Size card: the finding alone, and the order to fix only it. Empty when the report no longer holds it. */
+export function resolvePrompt(r: SlimReport, finding: SizeFinding, file: string, files: string[], house: boolean): string {
+  const lines = finding === 'description' ? (r.description.level ? [descriptionLine(r)] : []) : finding === 'house' ? (r.description.house?.length ? [houseLine(r)] : []) : r.body.long ? bodyFindingLines(r) : [];
+  if (!lines.length) return '';
+  const list = files.slice(0, 40).join(', ') + (files.length > 40 ? `, and ${files.length - 40} more` : '');
+  return [
+    `Resolve one finding on the skill ${r.name} at ${file}. Its files: ${list}.`,
+    `Measuring found: ${lines.join(' ')}`,
+    `Follow Anthropic's guidance: the description says what the skill does and when to use it, SKILL.md stays under ${SLIM.bodyLines} lines, and detail lives in reference files that SKILL.md links to directly, one level deep.`,
+    house ? 'A description is an index entry: routing plus trigger phrases, with the detail in a file under references/.' : '',
+    'Fix this one finding and nothing else. Keep the meaning, and tell me what moved where.',
+  ]
+    .filter(Boolean)
+    .join(' ');
 }
 
 /** The prompt of Slim with Claude: names the skill's files and what the measuring found. */

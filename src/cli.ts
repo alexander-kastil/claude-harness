@@ -11,6 +11,7 @@ import { mediaCommand } from './cli-media';
 import { delegationCommand, usageCommand } from './cli-insights';
 import { skillsCommand } from './cli-skills';
 import { completeCommand, completionCommand } from './cli-complete';
+import { buildCommand } from './cli-build';
 import { marketplacesCommand } from './cli-markets';
 import { checkCommand } from './cli-check';
 import { fleetCommand } from './cli-fleet';
@@ -24,7 +25,7 @@ export { parse };
 
 // The harness features of the extension without VS Code: plain Node, no `vscode` import, directly or through a module.
 
-const HELP = `claude-harness (preview): the Claude Harness features from a terminal or a skill.
+export const HELP = `claude-harness (preview): the Claude Harness features from a terminal or a skill.
 
 Usage: node cli.js <command> [options]
 
@@ -55,6 +56,25 @@ Usage: node cli.js <command> [options]
                                       Delete a skill or one leaf of it, backed up first, and list what still mentions it.
   skills repoint --from <skill> --to <skill> [--skills a,b] [--agents x,y] [--market <dir>] [--dry-run]
                                       Rewrite the mentions of one skill name to another in skills and agents.
+  generate agent <name> [--scope repo|user] [--model <m>] [--tools a,b] [--description <t>] [--from <file>] [--dry-run]
+                                      Make sure an agent exists as given in the repo (or ~/.claude); a rerun with nothing changed writes nothing. Alias g.
+  generate rule <name> [--scope repo|user] [--paths a,b] [--from <file>] [--dry-run]
+                                      Make sure a rule exists; --from takes the text of a template file.
+  generate skill <name> [--scope repo|user] [--description <t>] [--from <file>] [--dry-run]
+                                      Make sure a skill exists (a SKILL.md); --from takes the text of a template file.
+  generate command <name> [--scope repo|user] [--description <t>] [--from <file>] [--dry-run]
+                                      Make sure a slash command exists; a name with : goes into folders.
+  generate hook <event> --command <c> [--matcher <m>] [--scope repo|user] [--dry-run]
+                                      Make sure settings.json has a hook for the event (PreToolUse, PostToolUse, Stop ...) that runs the command.
+  generate mcp <name> --url <u>|--command <c> [--args a,b] [--transport http|sse] [--scope repo|user] [--dry-run]
+                                      Make sure an MCP server is configured, through claude mcp add.
+  add <plugin>@<marketplace> [--scope repo|user] [--dry-run]
+                                      Make sure a plugin is installed (claude plugin install) and enabled.
+  new <repo> --summary <t> [--area name=glob[,glob]:owner]... [--rule <t>]... [--dry-run]
+                                      Scaffold a repo's harness with the harness standard's scaffold script; files that exist are skipped.
+  update [--repo <dir>] [--dry-run]   Bring installed plugins up to their marketplace version and the repo's skills and agents up to their Global copy.
+  validate [<file>] [--repo <dir>]   Checks a .harness script line by line, and the harness of --repo (the standard's check and the CLAUDE.md pointers); writes nothing. Exit 2 script error, 1 harness problem.
+  run <file> [--dry-run]              Validates a .harness script, then applies it step by step; stops at the first failing step and ends with a summary table.
   marketplaces                        Every marketplace with its plugins and their health.
   marketplaces rename --from <name> --to <name> [--dry-run]
                                       Rename a marketplace in its catalog, the settings and the commands that name it.
@@ -319,6 +339,8 @@ export async function run(argv: string[], io: Io): Promise<number> {
       return await mediaCommand(a, io);
     } else if (cmd === 'skills') {
       return await skillsCommand(a, io);
+    } else if (cmd === 'generate' || cmd === 'g' || cmd === 'add' || cmd === 'new' || cmd === 'update' || cmd === 'validate' || cmd === 'run') {
+      return await buildCommand(a, io);
     } else if (cmd === 'complete') {
       return await completeCommand(a, io);
     } else if (cmd === 'completion') {

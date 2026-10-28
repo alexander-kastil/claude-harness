@@ -1,7 +1,7 @@
 import * as assert from 'node:assert/strict';
 import * as path from 'node:path';
 import { test } from 'node:test';
-import { analyzeSkill, findingLines, pointedFiles, pointedPaths, slimPrompt } from '../../src/slim';
+import { analyzeSkill, findingLines, pointedFiles, pointedPaths, resolvePrompt, slimPrompt } from '../../src/slim';
 import { SLIM, bodyIsLong, descCost, descriptionLevel, houseDescriptionFlags, isReference, largestSections, sectionsOf, tokensOf } from '../../src/shared/slim';
 import { USAGE_VERSION } from '../../src/usage';
 import type { FileEntry, IndexData } from '../../src/usage';
@@ -195,6 +195,19 @@ test('the slimming prompt names the skill, its files and what was found, and cha
   assert.ok(prompt.includes('Do not change any file until I agree'));
   assert.ok(!prompt.includes('index entry'));
   assert.ok(slimPrompt(r, 'C:/x/SKILL.md', [], true).includes('index entry'));
+  assert.ok(!/[`"$%^&|<>]/.test(prompt.replace(/"/g, '')), 'nothing a shell would read except the quotes the caller strips');
+});
+
+test('the resolve prompt carries one finding and orders a fix of only that', () => {
+  const long = `Does a thing. ${'word '.repeat(700)}Triggers on: "x".`;
+  const r = skill({ description: long, body: Array.from({ length: 600 }, () => 'line').join('\n') });
+  const prompt = resolvePrompt(r, 'description', 'C:/x/SKILL.md', ['SKILL.md'], false);
+  assert.ok(prompt.includes('Resolve one finding on the skill scratch at C:/x/SKILL.md'));
+  assert.ok(prompt.includes('character limit'));
+  assert.ok(!prompt.includes('600 lines'));
+  assert.ok(prompt.includes('Fix this one finding and nothing else'));
+  assert.ok(resolvePrompt(r, 'body', 'C:/x/SKILL.md', [], false).includes('600 lines'));
+  assert.equal(resolvePrompt(r, 'house', 'C:/x/SKILL.md', [], true), '');
   assert.ok(!/[`"$%^&|<>]/.test(prompt.replace(/"/g, '')), 'nothing a shell would read except the quotes the caller strips');
 });
 
