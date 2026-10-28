@@ -159,8 +159,8 @@ const CARDS = {
     sub: 'with Claude Sonnet, in the background',
     facts: [
       ['account', 'Runs claude -p on your own Claude login, so it counts against your plan.'],
-      ['files', `Claude gets SKILL.md (${ask.chars} characters) and nothing else: no tools, no other files.`],
-      ['symbol-color', 'The drawing is kept in the extension, not in the skill folder, and is dropped when SKILL.md changes.'],
+      ['files', `Claude gets ${ask.source || 'SKILL.md'} (${ask.chars} characters) and nothing else: no tools, no other files.`],
+      ['symbol-color', `The drawing is kept in the extension, not beside your files, and is dropped when ${ask.source ? 'any of that' : 'SKILL.md'} changes.`],
     ],
     action: 'Draw',
     send: remember => vscode.postMessage({ type: 'drawAsset', id: ask.id, confirmed: true, remember }),

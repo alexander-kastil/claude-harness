@@ -515,7 +515,39 @@ const COPYABLE = new Set<Kind>(['rule', 'agent', 'skill', 'command', 'outputStyl
 
 const loose = (text: string) => text.replace(/^\s*version\s*:.*$/gm, '').replace(/\s+/g, '');
 
+// Each hash is kept with the size and modification time of every file it read: a refresh stats the files of each copy and
+// reads only the ones that changed, instead of reading and hashing every copy again (0.6 s of a 1 s refresh with 46 repos).
+// A file changed in the last 2 s keeps nothing: a rewrite of the same length within one tick of the clock has the same size
+// and time, so its hash would read as unchanged (the racy-entry rule of git's index).
+const hashCache = new Map<string, { sig: string; hash: string }>();
+const MAX_HASHES = 5000;
+const RACY_MS = 2000;
+
 export function contentHash(asset: Asset, near = false): string {
+  const rels = asset.dir ? [...(asset.files ?? [])].sort() : [];
+  const key = `${near ? 'near' : 'same'}|${asset.dir ?? asset.file}`;
+  let sig: string | undefined;
+  let newest = 0;
+  try {
+    const files = asset.dir ? rels.map(rel => path.join(asset.dir!, ...rel.split('/'))) : [asset.file];
+    const stats = files.map(f => fs.statSync(f));
+    newest = Math.max(0, ...stats.map(st => st.mtimeMs));
+    sig = `${rels.join('\0')}\n${stats.map(st => `${st.size}:${st.mtimeMs}`).join('|')}`;
+  } catch {
+    // A file that cannot be read is hashed below as before, and nothing is kept.
+    sig = undefined;
+  }
+  const kept = sig === undefined ? undefined : hashCache.get(key);
+  if (kept && kept.sig === sig) return kept.hash;
+  const digest = hashOf(asset, near);
+  if (sig !== undefined && Date.now() - newest >= RACY_MS) {
+    if (hashCache.size >= MAX_HASHES) hashCache.clear();
+    hashCache.set(key, { sig, hash: digest });
+  } else hashCache.delete(key);
+  return digest;
+}
+
+function hashOf(asset: Asset, near: boolean): string {
   const hash = crypto.createHash('sha256');
   const add = (file: string) => {
     const text = fs.readFileSync(file).toString('latin1').replace(/\r\n/g, '\n');

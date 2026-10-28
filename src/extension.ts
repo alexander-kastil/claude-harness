@@ -75,7 +75,7 @@ import type { Progress } from './usage';
 import { hookRows, hookTarget } from './usage-hooks';
 import { registerQuota } from './quota';
 import { analyzeSkill, resolvePrompt, slimPrompt } from './slim';
-import { DRAW_SYSTEM, contentHash, drawPrompt, extractSvg, readDrawing, writeDrawing } from './drawing';
+import { DRAW_SYSTEM, contentHash, drawPrompt, drawSource, drawable, extractSvg, readDrawing, writeDrawing } from './drawing';
 import type { SlimReport } from './shared/slim';
 import { usageMore, usageRows, usageTarget, usageTotals } from './usage-rows';
 import type { UsageTarget } from './usage-rows';
@@ -126,6 +126,8 @@ export function activate(context: vscode.ExtensionContext): void {
   let timer: NodeJS.Timeout | undefined;
   // Where each agent and skill was used, over the transcripts of every account; built the first time the Used in tab opens.
   const drawingsDir = path.join(context.globalStorageUri.fsPath, 'drawings');
+  // A plugin is drawn from its folder: the installed copy, or the source folder of a directory marketplace.
+  const pluginDirOf = (asset: Asset) => (asset.kind === 'plugin' ? pluginDirs(global.root).find(p => p.key === asset.name)?.dir : undefined);
   const usageIndex = new UsageIndex(path.join(context.globalStorageUri.fsPath, 'usage-index.json'));
   // The target of an element for the pages that read beyond the session list; an output style is matched by its frontmatter name.
   const targetOf = (asset: Asset): UsageTarget | undefined => usageTarget(asset, views, asset.kind === 'outputStyle' ? String(readMarkdown(asset.file).data.name ?? '') || undefined : undefined);
@@ -250,10 +252,28 @@ export function activate(context: vscode.ExtensionContext): void {
     return rel === 'CLAUDE.md' || rel === 'CLAUDE.local.md' || rel.startsWith('.claude/') ? repo : undefined;
   };
   const checksChanged = new vscode.EventEmitter<void>();
-  constitution.changed(() => {
+  // A check fires when it starts and when it ends, so checking every repo fires twice per repo within seconds. The first
+  // change shows at once, later ones at most every 250 ms and once more after the last, and the panel gets the checks only:
+  // a full state per event was 72 messages of 1.6 MB for 36 repos, each repainting the sidebar while a click waited.
+  const showChecks = () => {
     tree.setCategories(views[0]?.categories ?? [], repoViews());
-    HarnessPanel.update();
+    HarnessPanel.updateChecks();
     checksChanged.fire();
+  };
+  let checksTimer: NodeJS.Timeout | undefined;
+  let checksMissed = false;
+  const checksLater = (): void => {
+    checksTimer = setTimeout(() => {
+      if (!checksMissed) return void (checksTimer = undefined);
+      checksMissed = false;
+      showChecks();
+      checksLater();
+    }, 250);
+  };
+  constitution.changed(() => {
+    if (checksTimer) return void (checksMissed = true);
+    showChecks();
+    checksLater();
   });
 
   // The checkpoint's copy of a file for the diff editor: the saved backup named in the query, empty when the file did not exist then.
@@ -477,11 +497,16 @@ export function activate(context: vscode.ExtensionContext): void {
     reviewAsset: async (id, answer, ask) => {
       const asset = find(id);
       if (!asset || !asset.file) return;
+      // A plugin is reviewed from its folder, the parts its drawing is made of; its file is only the settings that enable it.
+      const dir = pluginDirOf(asset);
+      if (asset.kind === 'plugin' && !dir) return;
       const cwd = cwdOf(scopeOf(asset));
-      if (!answer.confirmed && !context.globalState.get<boolean>('reviewRemembered')) return ask({ kind: 'review', id, name: asset.name, file: asset.file, cwd });
+      if (!answer.confirmed && !context.globalState.get<boolean>('reviewRemembered')) return ask({ kind: 'review', id, name: asset.name, file: dir ?? asset.file, cwd });
       if (answer.remember) await context.globalState.update('reviewRemembered', true);
       const what = (KINDS.find(k => k.kind === asset.kind)?.label ?? asset.kind).replace(/s$/, '').toLowerCase();
-      const prompt = `Review the ${what} at ${asset.file}. Read it, check that it is clear, specific and consistent with the rest of the harness, and list what you would improve and why. Do not change the file until I agree.`;
+      const prompt = dir
+        ? `Review the plugin ${asset.name} in ${dir}. Read its manifest (.claude-plugin/plugin.json) and its skills, agents, commands, hooks and MCP servers, check that each part is clear, specific and consistent with the others and with the rest of the harness, and list what you would improve and why. Do not change any file until I agree.`
+        : `Review the ${what} at ${asset.file}. Read it, check that it is clear, specific and consistent with the rest of the harness, and list what you would improve and why. Do not change the file until I agree.`;
       terminal(`Review: ${asset.name}`, cwd, claudeCommand(`"${promptText(prompt)}"`));
     },
     consolidateAsset: async (id, answer, ask) => {
@@ -596,24 +621,25 @@ export function activate(context: vscode.ExtensionContext): void {
     },
     drawing: id => {
       const asset = find(id);
-      if (!asset || asset.kind !== 'skill' || !asset.file) return undefined;
-      return readDrawing(drawingsDir, id, contentHash(fs.readFileSync(asset.file, 'utf8')));
+      const source = asset && drawSource(asset, pluginDirOf(asset));
+      return source ? readDrawing(drawingsDir, id, contentHash(source.text)) : undefined;
     },
     drawAsset: async (id, answer, ask, started) => {
       const asset = find(id);
-      if (!asset || asset.kind !== 'skill' || !asset.file) return undefined;
-      const text = fs.readFileSync(asset.file, 'utf8');
+      if (!asset || !drawable(asset.kind)) return undefined;
+      const source = drawSource(asset, pluginDirOf(asset));
+      if (!source) return { error: 'Nothing on disk to draw from.' };
       if (!answer.confirmed && !context.globalState.get<boolean>('drawRemembered')) {
-        ask({ kind: 'draw', id, name: asset.name, file: asset.file, chars: Math.min(text.length, 30000) });
+        ask({ kind: 'draw', id, name: asset.name, file: asset.file, chars: Math.min(source.text.length, 30000), source: source.from });
         return undefined;
       }
       if (answer.remember) await context.globalState.update('drawRemembered', true);
       started();
-      const result = await draftStyle(drawPrompt(asset.name, text), 'sonnet', os.tmpdir(), 300000, DRAW_SYSTEM);
+      const result = await draftStyle(drawPrompt(asset.kind, asset.name, source.text), 'sonnet', os.tmpdir(), 300000, DRAW_SYSTEM);
       if ('error' in result) return { error: result.error };
       const svg = extractSvg(result.text);
       if (!svg) return { error: 'Claude did not answer with an svg drawing.' };
-      writeDrawing(drawingsDir, id, contentHash(text), svg);
+      writeDrawing(drawingsDir, id, contentHash(source.text), svg);
       return { svg };
     },
     slim: id => {

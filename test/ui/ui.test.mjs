@@ -5,8 +5,10 @@
 // as todo, and never fails the run until the bug is fixed (then remove the mark).
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import { createRequire } from 'node:module';
 import path from 'node:path';
 import { after, afterEach, before, test } from 'node:test';
+import { repoRoot } from './fixture.mjs';
 import { Session, sleep } from './harness.mjs';
 import { contrast, unfocusable } from './probes.mjs';
 
@@ -713,6 +715,7 @@ test('the command bar stays within two rows at a 640 px page, with every group a
     const w = await s.ev(D => D.querySelector('.main').clientWidth);
     assert.ok(w >= 620 && w <= 680, `the page is about 640 px wide, got ${w}`);
     assert.ok((await barRows()) <= 2, 'two rows at most');
+    assert.ok(await s.ev(D => D.querySelector('.main .cmd-bar').classList.contains('icons')), 'a bar that would take more than two rows with its labels shows icons');
     assert.deepEqual(await labels('.main .cmd-bar .dg-modes').then(l => l.length), 5, 'Page, File, Claude, Item and Draft boxes');
     assert.ok(await s.ev(D => [...D.querySelectorAll('.cmd-bar .view-tab')].every(b => b.getAttribute('aria-label'))), 'icon-only buttons keep a name');
     await s.mouse('.main .cmd-bar button', 'Revert');
@@ -721,6 +724,151 @@ test('the command bar stays within two rows at a 640 px page, with every group a
     await s.mouse('.main .cmd-bar button', 'View');
   } finally {
     await dropDraft();
+    await s.resize();
+  }
+});
+
+// The command bar's groups as the names of their buttons, whether its labels show, and the Claude mark of the Claude group.
+const barGroups = () =>
+  s.ev(D => {
+    const bar = D.querySelector('.main .cmd-bar');
+    return {
+      groups: [...bar.children].map(g => [...g.querySelectorAll('.view-tab')].map(b => b.getAttribute('aria-label'))),
+      labels: [...bar.querySelectorAll('.view-tab > span:last-child')].filter(l => getComputedStyle(l).display !== 'none').length,
+      buttons: bar.querySelectorAll('.view-tab').length,
+      icons: bar.classList.contains('icons'),
+      claude: [...(bar.querySelector('.ai-group')?.querySelectorAll('.view-tab') || [])].map(b => b.getAttribute('aria-label')),
+      mark: !!bar.querySelector('.ai-group > .ai-mark'),
+    };
+  });
+
+test('a plugin page has the labelled command bar in the skill page groups, wide and at a 640 px page', T, async () => {
+  try {
+    for (const width of [undefined, 1300]) {
+      await s.resize(width);
+      await openRow('Plugins', 'team-tools');
+      await notBlank('plugin page');
+      const bar = await barGroups();
+      assert.deepEqual(bar.groups, [['Back'], ['Open in editor', 'Reveal'], ['Review with Claude', 'Draw with Claude'], ['Disable', 'Uninstall']], `${width || 'wide'}: Page, File, Claude and Item boxes`);
+      assert.ok(!bar.icons && bar.labels === bar.buttons, `${width || 'wide'}: every button shows its label: ${JSON.stringify(bar)}`);
+      assert.ok(bar.mark, 'the Claude actions sit in the Claude group');
+    }
+  } finally {
+    await s.resize();
+  }
+});
+
+// A drawing stored in the extension's storage the way Draw with Claude stores it, keyed by the element's source.
+const storeDrawing = (a, svg, pluginDir) => {
+  const { contentHash, drawSource, writeDrawing } = createRequire(import.meta.url)(path.join(repoRoot, 'out', 'src', 'drawing.js'));
+  writeDrawing(path.join(s.ud, 'User', 'globalStorage', 'integrations-at.claude-harness', 'drawings'), a.id, contentHash(drawSource(a, pluginDir).text), svg);
+};
+const SVG = name => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 240"><rect x="20" y="20" width="240" height="60" fill="none" stroke="currentColor"/><text x="36" y="56" fill="currentColor">${name}</text></svg>`;
+
+test('agents, commands, workflows, mods, plugins, hooks and MCP servers have Draw with Claude in their Claude group, and a stored drawing of an agent or a plugin shows above its details', T, async () => {
+  const both = ['Review with Claude', 'Draw with Claude'];
+  for (const [kind, name, claudeActions] of [['Agents', 'code-reviewer', [...both, 'Try it']], ['Commands', 'review', [...both, 'Try it']], ['Workflows', 'fan-out', both], ['Mods', 'delegation-mod', both], ['Plugins', 'old-helper', both], ['Hooks', 'Stop', ['Draw with Claude']], ['MCP Servers', 'filesystem', ['Draw with Claude']]]) {
+    await openRow(kind, name);
+    const bar = await barGroups();
+    assert.deepEqual(bar.claude, claudeActions, `${kind} ${name}: the Claude group`);
+    assert.ok(bar.mark, `${kind} ${name}: the Claude mark leads the group`);
+  }
+  // Where a drawing does not help there is no Draw, and no Claude group where it would have been the only action.
+  for (const [kind, name, claudeActions] of [['Memory', 'CLAUDE.md', []], ['Rules', 'style', ['Review with Claude']], ['Output Styles', 'terse', ['Review with Claude']], ['Settings', 'settings.json', []]]) {
+    await openRow(kind, name);
+    const bar = await barGroups();
+    assert.deepEqual(bar.claude, claudeActions, `${kind} ${name}: the Claude actions it had before`);
+    assert.equal(bar.mark, claudeActions.length > 0, `${kind} ${name}: a Claude group only with an action in it`);
+    assert.ok(await s.ev(D => !D.querySelector('.main .dv-draw')), `${kind} ${name}: no drawing`);
+  }
+  const team = path.join(claude(), 'plugins', 'cache', 'acme-market', 'team-tools', '1.2.0');
+  storeDrawing({ id: 'global|agent:code-reviewer', kind: 'agent', name: 'code-reviewer', file: path.join(claude(), 'agents', 'code-reviewer.md') }, SVG('code-reviewer'));
+  storeDrawing({ id: 'global|plugin:team-tools@acme-market', kind: 'plugin', name: 'team-tools@acme-market', file: path.join(claude(), 'settings.json') }, SVG('team-tools'), team);
+  for (const [kind, name] of [['Agents', 'code-reviewer'], ['Plugins', 'team-tools']]) {
+    await openRow(kind, name);
+    const fig = await s.waitFor(D => {
+      const f = D.querySelector('.main .dv > figure.dv-draw');
+      return f && { first: f === f.parentElement.firstElementChild, text: f.textContent, label: f.querySelector('svg').getAttribute('aria-label') };
+    });
+    assert.ok(fig.first, `${name}: the drawing sits above the details`);
+    assert.equal(fig.text, name);
+    assert.match(fig.label, new RegExp(name));
+    assert.ok((await barGroups()).claude.includes('Redraw with Claude'), `${name}: the button says Redraw`);
+  }
+  // The card names what Claude gets for a plugin; Cancel starts nothing.
+  await s.mouse('.main .cmd-bar button', 'Redraw with Claude');
+  const c = await s.waitFor(D => !!D.querySelector('.cf')).then(card);
+  assert.match(c.text, /Draw team-tools@acme-market with Claude/);
+  assert.match(c.text, /manifest/);
+  await closeCard();
+  // Review reads the plugin's folder, the parts the drawing is made of, not the settings file that enables it.
+  await s.mouse('.main .cmd-bar button', 'Review with Claude');
+  const r = await s.waitFor(D => !!D.querySelector('.cf')).then(card);
+  assert.match(r.text, /Review team-tools@acme-market with Claude/);
+  assert.match(r.text, /team-tools[\\/]1\.2\.0/);
+  assert.doesNotMatch(r.text, /settings\.json/);
+  await closeCard();
+});
+
+test('hovering or focusing a drawing opens it large in the house hover card, and leaving closes it', T, async () => {
+  const team = path.join(claude(), 'plugins', 'cache', 'acme-market', 'team-tools', '1.2.0');
+  storeDrawing({ id: 'global|plugin:team-tools@acme-market', kind: 'plugin', name: 'team-tools@acme-market', file: path.join(claude(), 'settings.json') }, SVG('team-tools'), team);
+  await openRow('Plugins', 'team-tools');
+  await s.waitFor(D => D.querySelector('.main .dv-draw svg'));
+  // The page repaints once more when the usage counts arrive; the pointer comes from the title, the way a hand reaches it.
+  await sleep(1500);
+  await s.move('.main-head h1');
+  await s.move('.main .dv-draw');
+  const big = await s.waitFor(D => {
+    const card = D.querySelector('.tl-hover.show .hc.hc-draw');
+    if (!card) return false;
+    const small = D.querySelector('.main .dv-draw svg').getBoundingClientRect();
+    const large = card.querySelector('svg').getBoundingClientRect();
+    const box = D.querySelector('.tl-hover').getBoundingClientRect();
+    const fig = D.querySelector('.main .dv-draw').getBoundingClientRect();
+    // The figure's svg spans its width and draws the picture at most 180 px high, so the height says how large it is drawn.
+    return { head: card.querySelector('.hc-head').textContent.trim(), text: card.querySelector('svg').textContent, ratio: large.height / small.height, under: box.top >= fig.bottom, inside: box.left >= 0 && box.right <= D.defaultView.innerWidth && box.top >= 0 && box.bottom <= D.defaultView.innerHeight };
+  });
+  assert.equal(big.head, 'What team-tools@acme-market does');
+  assert.equal(big.text, 'team-tools', 'the card shows the same drawing');
+  assert.ok(big.ratio > 1.4, `the drawing is larger in the card: ${JSON.stringify(big)}`);
+  assert.ok(big.under, `the card opens under the figure: ${JSON.stringify(big)}`);
+  assert.ok(big.inside, 'the card stays inside the panel');
+  await s.move('.main-head h1');
+  await s.waitFor(D => !D.querySelector('.tl-hover.show'));
+  // The keyboard reaches it too: focus opens the card, Escape closes it.
+  await s.ev(D => (D.defaultView.focus(), D.querySelector('.main .dv-draw').focus()));
+  await s.waitFor(D => D.querySelector('.tl-hover.show .hc-draw'));
+  await s.chord('Escape');
+  await s.waitFor(D => !D.querySelector('.tl-hover.show'));
+});
+
+test('a detail page runs its text the full width: the description in paragraphs, the document up to the outline', T, async () => {
+  const rel = 'agents/release-manager.md';
+  const before = read(rel);
+  const long = 'Prepares tags, notes and the publish run for every release of the product. It reads the merged pull requests since the last tag and groups them by area. Then it writes the changelog entry in the house voice and asks before it pushes anything. When a pipeline fails after the tag it rolls the tag back and says which step broke and why.';
+  const body = '# Release manager\n\nYou prepare releases from the first version bump to the published notes, one step at a time, and report what you did after each step so the owner can stop you.\n\n## Tags\n\nTag only a green build.\n\n## Notes\n\nWrite the notes in the house voice.\n';
+  fs.writeFileSync(path.join(claude(), rel), `${before.split(/\n---\n/)[0].replace(/^description: .*$/m, `description: ${long}`)}\n---\n\n${body}`);
+  // Wide enough that the document column passes the old 100ch cap.
+  await s.resize(2400, 1000);
+  try {
+    await openRow('Agents', 'release-manager');
+    await s.mouse('.main .view-tab', 'System prompt');
+    const r = await s.waitFor(D => {
+      const desc = D.querySelector('.main .dv-hero .dv-desc');
+      const cols = D.querySelector('.main .dv-hero .dv-cols');
+      const p = D.querySelector('.main .dv-main .md-p');
+      const side = D.querySelector('.main .dv-side');
+      if (!desc || !cols || !p || !side || !/^Prepares tags/.test(desc.textContent)) return false;
+      const box = e => e.getBoundingClientRect();
+      const card = p.closest('.dv-doc');
+      return { paras: desc.querySelectorAll(':scope > p').length, descW: Math.round(box(desc).width), descGap: Math.round(box(cols).right - box(desc).right), pW: Math.round(box(p).width), pGap: Math.round(box(card).right - box(p).right), beforeSide: box(p).right <= box(side).left };
+    });
+    assert.ok(r.paras >= 2, `the long description reads in paragraphs: ${JSON.stringify(r)}`);
+    assert.ok(r.descW > 1200 && Math.abs(r.descGap) <= 2, `the description runs to the right edge of the info card: ${JSON.stringify(r)}`);
+    assert.ok(r.pW > 1000 && r.pGap <= 20 && r.beforeSide, `the document's paragraphs run to the card's edge, up to the outline: ${JSON.stringify(r)}`);
+  } finally {
+    fs.writeFileSync(path.join(claude(), rel), before);
     await s.resize();
   }
 });
@@ -1260,4 +1408,66 @@ test('Home opens the overview with the search cleared; Back from a result keeps 
   assert.ok(await s.ev(D => D.querySelector('.recent .row')?.getClientRects().length > 0), 'the results are still listed');
   await s.mouse('.sidebar-head [aria-label="Overview"]');
   await s.waitFor(D => D.querySelector('.overview-search input')?.value === '' && D.querySelector('.overview-tabs')?.getClientRects().length > 0);
+});
+
+// The owner, 2026-10-28: "a click on here ... does not get me to details ... fix this defect for all harness items". A row
+// pressed while the host's answer to a refresh came in opened nothing: the repaint replaced the row between press and release,
+// and the browser sends no click then. The row is pressed, Refresh runs, and the button is released only once the new state
+// has arrived; no retry.
+const pressAcrossRefresh = async (selector, name) => {
+  const at = await s.where(selector, name);
+  await s.page.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: at.x, y: at.y });
+  await s.page.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: at.x, y: at.y, button: 'left', clickCount: 1 });
+  await s.ev(D => {
+    const w = D.defaultView;
+    w.__statesSeen = 0;
+    if (!w.__countsStates) {
+      w.__countsStates = true;
+      w.addEventListener('message', e => e.data?.type === 'state' && w.__statesSeen++);
+    }
+    D.querySelector('.sidebar-head [aria-label="Refresh"]').click();
+    return true;
+  });
+  await s.waitFor(D => D.defaultView.__statesSeen > 0);
+  await s.page.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: at.x, y: at.y, button: 'left', clickCount: 1 });
+};
+const opensDetail = async (what, name) => {
+  const keep = s.waitMs;
+  s.waitMs = 5000;
+  try {
+    await s.waitFor((D, name) => D.querySelector('.detail-head .dh-name')?.textContent.startsWith(name), name);
+  } catch {
+    assert.fail(`${what}: pressing ${name} while the panel repainted opened no detail page`);
+  } finally {
+    s.waitMs = keep;
+  }
+};
+
+test('a row pressed while the panel repaints opens its detail page, on the type page of every kind and in the sidebar', T, async () => {
+  const kinds = ['Memory', 'Rules', 'Agents', 'Skills', 'Commands', 'Output Styles', 'Workflows', 'Hooks', 'Mods', 'MCP Servers', 'Plugins', 'Settings'];
+  const row = '.kind-results [role=row]:not(.at-head)';
+  for (const kind of kinds) {
+    await tile(kind);
+    // A kind with nothing in Global lists every scope: Escape in the empty search clears the Scope filter.
+    if (!(await s.ev((D, row) => !!D.querySelector(row), row)))
+      await s.ev(D => {
+        const input = D.querySelector('#kind-search');
+        input.focus();
+        input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+        return true;
+      });
+    const name = await s.waitFor((D, row) => D.querySelector(`${row} .at-label`)?.textContent, row);
+    await pressAcrossRefresh(row, name);
+    await opensDetail(`${kind} type page`, name);
+  }
+  // The sidebar: the global Skills section unfolded (its head also opens the type page), then its first row.
+  await home();
+  await s.ev(D => {
+    const head = [...D.querySelectorAll('.sidebar .scope-block .section-head')].find(h => h.querySelector('.label')?.textContent === 'Skills');
+    if (head.getAttribute('aria-expanded') === 'false') head.click();
+    return true;
+  });
+  const nav = await s.waitFor(D => D.querySelector('.sidebar .scope-block .row[data-nav*="|skill:"] .name')?.textContent);
+  await pressAcrossRefresh('.sidebar .scope-block .row[data-nav*="|skill:"]', nav);
+  await opensDetail('sidebar', nav);
 });

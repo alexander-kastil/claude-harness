@@ -1,8 +1,10 @@
-// The drawing of what a skill does, above its info card. The host stores it (src/drawing.ts) and answers `drawing` with the one
-// made from the current SKILL.md; this keeps the answers, draws the figure, and cleans the svg of everything executable first.
+// The drawing of what a skill, agent, command, workflow, plugin, hook or MCP server does and how its parts connect, above its
+// info card. The host stores it (src/drawing.ts) and answers `drawing` with the one made from the element's current source (a
+// skill's SKILL.md, a plugin's folder); this keeps the answers, draws the figure, and cleans the svg of everything executable first.
 import type { Asset } from '../harness';
 import { state, vscode } from './core';
-import { el } from './dom';
+import { el, icon } from './dom';
+import { hideHover, placeCard } from './hover';
 
 interface Drawing {
   svg?: string;
@@ -13,18 +15,35 @@ interface Drawing {
 const drawings = new Map<string, Drawing>();
 const asked = new WeakSet<object>();
 
-/** What the host last said about a skill's drawing; undefined before it answered. */
+/** What the host last said about an element's drawing; undefined before it answered. */
 export const drawingOf = (id: string): Drawing | undefined => drawings.get(id);
+
+// The kinds a drawing helps with (a mod is a plugin, a hook is an entry in a settings file), each with what Claude draws and
+// from what: the Draw button's hover card.
+// The other kinds have no Draw with Claude and no drawing.
+const DRAWS: Record<string, string> = {
+  skill: 'what this skill does, from its SKILL.md',
+  agent: 'what this agent does and what it works with, from its file',
+  command: 'what this command does, from its file',
+  workflow: 'the steps of this workflow, from its script',
+  plugin: 'what this plugin brings and how its skills, agents, servers and hooks connect, from its manifest and contents',
+  hook: 'when this hook runs and what it does, from its entry in the settings file',
+  mcp: 'what this server is and what it connects to, from its entry',
+};
+
+export const canDraw = (a: Asset): boolean => a.kind in DRAWS;
+
+export const drawsWhat = (kind: string): string => DRAWS[kind];
 
 /** Asks for the stored drawing once per loaded detail; the page repaints when the answer differs. */
 export function askDrawing(a: Asset): void {
   const d = state.detail;
-  if (a.kind !== 'skill' || !d || asked.has(d)) return;
+  if (!canDraw(a) || !d || asked.has(d)) return;
   asked.add(d);
   vscode.postMessage({ type: 'drawing', id: a.id });
 }
 
-/** Stores the host's answer; true when the page showing the skill has something new to draw. */
+/** Stores the host's answer; true when the page showing the element has something new to draw. */
 export function storeDrawing(m: { id: string; svg?: string; running?: boolean; error?: string }): boolean {
   const before = JSON.stringify(drawings.get(m.id));
   const old = drawings.get(m.id);
@@ -75,12 +94,34 @@ export function cleanSvg(text: string): SVGSVGElement | undefined {
   return out;
 }
 
-/** The figure above the info card: the drawing, or nothing at all. */
+// The drawing enlarged in the house hover card, as wide as the panel allows.
+const bigCard = (title: string, svg: SVGSVGElement) => el('div', { className: 'hc hc-draw' }, el('div', { className: 'hc-head' }, icon('brush'), el('span', { className: 'hc-type' }, title)), svg);
+
+/** The figure above the info card: the drawing, or nothing at all. Hovered or focused, it opens the drawing large. */
 export function drawingFigure(a: Asset): HTMLElement | null {
   const svg = drawingOf(a.id)?.svg;
-  if (a.kind !== 'skill' || !svg) return null;
+  if (!canDraw(a) || !svg) return null;
   const clean = cleanSvg(svg);
   if (!clean) return null;
-  clean.setAttribute('aria-label', `What ${a.name} does`);
-  return el('figure', { className: 'dv-draw' }, clean);
+  const title = `What ${a.name} does`;
+  clean.setAttribute('aria-label', title);
+  const fig = el('figure', { className: 'dv-draw', tabindex: '0' }, clean);
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const open = (delay: number) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      if (!fig.isConnected) return;
+      const r = fig.getBoundingClientRect();
+      placeCard(`draw:${a.id}:${svg.length}`, () => bigCard(title, cleanSvg(svg) as SVGSVGElement), { x: r.left - 14, y: r.bottom - 6, above: r.top - 6, anchor: fig });
+    }, delay);
+  };
+  const close = () => {
+    clearTimeout(timer);
+    hideHover();
+  };
+  fig.addEventListener('mouseenter', () => open(250));
+  fig.addEventListener('focus', () => open(0));
+  fig.addEventListener('mouseleave', close);
+  fig.addEventListener('blur', close);
+  return fig;
 }

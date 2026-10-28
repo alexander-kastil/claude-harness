@@ -3,7 +3,7 @@ import * as os from 'os';
 import { openTerminal, claudeCommand } from './terminals';
 import { listLimits } from './settings';
 import * as vscode from 'vscode';
-import { Asset, Field, ScopeView, fromFields, globalScope, isPluginCopy, kindInfo, mcpToken, readMarkdown, readText, toFields, writeMarkdown, writeText } from './harness';
+import { Asset, Field, KindInfo, ScopeView, fromFields, globalScope, isPluginCopy, kindInfo, mcpToken, readMarkdown, readText, toFields, writeMarkdown, writeText } from './harness';
 import { McpInfo, StdioConfig, probeHttp, probeStdio } from './probe';
 import type { CheckSummary } from './constitution';
 import type { ScaffoldForm } from './standard';
@@ -79,9 +79,9 @@ export interface PanelHost {
   slimAsset?(id: string, answer: Answer, ask: (c: Confirm) => void): Promise<void>;
   /** Opens a terminal in the skill's repo with Claude asked to resolve one finding of the Size card; asks first like slimAsset. */
   resolveFinding?(id: string, finding: 'description' | 'house' | 'body', answer: Answer, ask: (c: Confirm) => void): Promise<void>;
-  /** The stored drawing of a skill when it was made from the SKILL.md as it is now. */
+  /** The stored drawing of an element when it was made from its source as it is now (a skill's SKILL.md, a plugin's folder). */
   drawing?(id: string): string | undefined;
-  /** Has the user's claude draw what the skill does and stores it; asks first, `started` fires once the run begins. */
+  /** Has the user's claude draw what the element is and stores it; asks first, `started` fires once the run begins. */
   drawAsset?(id: string, answer: Answer, ask: (c: Confirm) => void, started: () => void): Promise<{ svg: string } | { error: string } | undefined>;
   /** The size and spread of a skill, measured from its files. */
   slim?(id: string): SlimReport | undefined;
@@ -129,6 +129,12 @@ export class HarnessPanel {
 
   static update(): void {
     HarnessPanel.current?.postState();
+  }
+
+  /** A check started or finished: the panel gets the checks alone, not every view of the harness again. */
+  static updateChecks(): void {
+    const panel = HarnessPanel.current;
+    panel?.post({ type: 'checks', checks: panel.host.checks?.() ?? {} });
   }
 
   static showPage(context: vscode.ExtensionContext, host: PanelHost, page: Page): void {
@@ -217,8 +223,9 @@ export class HarnessPanel {
   private detail(id: string): Detail | undefined {
     const asset = this.host.find(id);
     if (!asset) return undefined;
-    const info = kindInfo(asset.kind);
-    if (info.markdown) {
+    // A hook script has no entry in KINDS: reading `markdown` off nothing threw, no page came back, and its row opened nothing.
+    const info = kindInfo(asset.kind) as KindInfo | undefined;
+    if (info?.markdown) {
       const doc = readMarkdown(asset.file);
       return { asset, mode: 'markdown', fields: colorBelowTools(toFields(doc.data)), knownFields: info.fields, body: doc.body };
     }
