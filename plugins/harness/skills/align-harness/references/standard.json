@@ -15,7 +15,7 @@
   "boilerplate": ["Workflow Orchestration", "Subagent Strategy", "Self-Improvement Loop", "Task Management", "Core Principles", "Token Efficiency", "Delegation", "Agent Delegation", "Skill Routing"],
   "replacedHooks": {
     "harness": ["claude-md-guard.sh", "skill-leaf-guard.sh", "kill-switch.sh", "steer.sh", "verification-gate.sh"],
-    "orchestration-plugin": ["delegation-reminder.sh", "skill-reference-guard.sh"]
+    "agent-control-plugin": ["delegation-reminder.sh", "skill-reference-guard.sh"]
   },
   "marketplaceRenames": { "claude-mods": "integrations-marketplace" },
   "plugin": {
