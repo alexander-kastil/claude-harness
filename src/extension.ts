@@ -64,7 +64,7 @@ import {
 import { HarnessPanel, PanelHost } from './panel';
 import { mentionText, pathText, saveClipboardImage } from './image-paste';
 import { claudeCli, claudeCommand, claudeExecutable, defaultCwd, openTerminal, uniqueTerminalName } from './terminals';
-import { Account, accountWeek, checkpointFiles, findAccountSession, importTranscript, listAccountSessions, parseAccounts, readSession, renameSession } from './sessions';
+import { Account, accountWeek, checkpointFiles, findAccountSession, importTranscript, listAccountSessions, listAccountSessionsAsync, parseAccounts, readSession, renameSession } from './sessions';
 import { STYLE_MODELS, StyleModel, draftStyle, stylePrompt, writeStyleDraft } from './style';
 import { Specialist, fitGeneralFindings } from './findings';
 import { pickTools, splitTools, TOOL_FIELDS } from './tools';
@@ -355,9 +355,9 @@ export function activate(context: vscode.ExtensionContext): void {
       }
       return parseScaffoldOutput(r.stdout);
     },
-    sessions: id => {
+    sessions: async id => {
       const view = viewOfScope(id);
-      return view && view.id !== global.id ? listAccountSessions(view.path, accounts()) : [];
+      return view && view.id !== global.id ? listAccountSessionsAsync(view.path, accounts()) : [];
     },
     weekly: () => Promise.all(accounts().map(a => accountWeek(a))),
     session: async (id, sessionId) => {
@@ -579,15 +579,21 @@ export function activate(context: vscode.ExtensionContext): void {
       const repos = repoViews().map(v => ({ id: v.id, label: v.label, path: v.path }));
       return { sessions: fired ? hookRows(data, fired, repos, list) : usageRows(data, target!, repos, list) };
     },
-    repoTrace: id => {
+    repoTrace: async id => {
       const view = viewOfScope(id);
-      return repoTrace(view && view.id !== global.id ? listAccountSessions(view.path, accounts()) : []);
+      return repoTrace(view && view.id !== global.id ? await listAccountSessionsAsync(view.path, accounts()) : []);
     },
-    modActivity: id => {
+    modActivity: async id => {
       const asset = find(id);
       const short = asset?.kind === 'plugin' ? asset.name.split('@')[0] : '';
-      const sessions = repoViews().flatMap(v => listAccountSessions(v.path, accounts()));
-      return modActivity(eventSources.find(s => s.plugin === short), eventSources, sessions);
+      const source = eventSources.find(s => s.plugin === short);
+      // Most plugins are no mod: they have nothing to list, so no transcript of any repo is read for them.
+      if (!source) return { sessions: 0, groups: [] };
+      const sessions: ReturnType<typeof listAccountSessions> = [];
+      for (const v of repoViews()) {
+        sessions.push(...(await listAccountSessionsAsync(v.path, accounts())));
+      }
+      return modActivity(source, eventSources, sessions);
     },
     usageMore: async (id, build, progress) => {
       const asset = find(id);

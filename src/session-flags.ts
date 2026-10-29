@@ -8,6 +8,8 @@ export interface SessionFlags {
 }
 
 const CHUNK = 1024 * 1024;
+/** A scan checks its time budget between reads of this size: a read and its line checks of 1 MB took over 100 ms, a pause no click should wait out. */
+const SCAN_CHUNK = 128 * 1024;
 const HOOK_FAILURE = /"type":\s*"hook_(?:non_)?blocking_error"/;
 const DENIAL = /hook error: |<tool_use_error>[a-z0-9][a-z0-9._-]*: /;
 
@@ -31,9 +33,9 @@ const scanned = new Map<string, Scanned>();
  * A list of sessions may spend this long reading transcripts; what it leaves unread is read in the background, so the
  * list comes up at once and its flags are complete from the next read on. 2.4 GB of transcripts took 7 s cold.
  */
-const LIST_BUDGET_MS = 250;
+const LIST_BUDGET_MS = 50;
 const LIST_WINDOW_MS = 1000;
-const SLICE_MS = 80;
+const SLICE_MS = 15;
 let windowAt = 0;
 const pending = new Set<string>();
 let timer: NodeJS.Timeout | undefined;
@@ -73,14 +75,14 @@ function scanFile(file: string, over: () => boolean = () => false): SessionFlags
     let fd: number | undefined;
     try {
       fd = fs.openSync(file, 'r');
-      const buf = Buffer.alloc(CHUNK);
+      const buf = Buffer.alloc(SCAN_CHUNK);
       while (s.offset < size) {
         if (over()) {
           pending.add(file);
           schedule();
           break;
         }
-        const n = fs.readSync(fd, buf, 0, Math.min(CHUNK, size - s.offset), s.offset);
+        const n = fs.readSync(fd, buf, 0, Math.min(SCAN_CHUNK, size - s.offset), s.offset);
         if (n <= 0) break;
         s.offset += n;
         // latin1 keeps the bytes of a multibyte character that a chunk splits; the markers are ASCII.
