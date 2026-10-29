@@ -1,0 +1,13 @@
+{
+  "name": "integrations harness standard",
+  "check": "skills/align-harness/scripts/check-constitution.py",
+  "fix": "skills/align-harness/scripts/fix-settings.py",
+  "scaffold": "skills/scaffold-repo-harness/scripts/init-product-repo.py",
+  "standard": "skills/align-harness/references/standard.md",
+  "align": "/harness:align-harness",
+  "ownerPattern": "^\\s*-\\s*Owner agent:\\s*`([^`]+)`",
+  "keepCopies": {
+    "folders": ["demos", "labs"],
+    "claudeMdPattern": "\\bcop(?:y|ies)\\b[^\\n]*\\b(?:kept|keeps?)\\b|\\bkeeps?\\b[^\\n]*\\bcop(?:y|ies)\\b"
+  }
+}

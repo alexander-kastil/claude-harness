@@ -67,11 +67,11 @@ const SETTINGS = JSON.stringify({ hooks: { PreToolUse: [{ hooks: [{ type: 'comma
 /** A root with the harness standard installed, and three repos: alpha fails twice (one fixable), beta passes, broken has a check that crashes. */
 function fixture() {
   const root = tmp('root');
-  const plugin = path.join(tmp('plugin'), 'harness-plugin');
+  const plugin = path.join(tmp('plugin'), 'harness');
   write(plugin, '.claude-plugin/harness-standard.json', JSON.stringify({ name: 'test standard', check: 'check.py', fix: 'fix.py' }));
   write(plugin, 'check.py', CHECK);
   write(plugin, 'fix.py', FIX);
-  write(root, 'plugins/installed_plugins.json', JSON.stringify({ plugins: { 'harness-plugin@claude-harness': [{ installPath: plugin, lastUpdated: '2026-10-28' }] } }));
+  write(root, 'plugins/installed_plugins.json', JSON.stringify({ plugins: { 'harness@claude-harness': [{ installPath: plugin, lastUpdated: '2026-10-28' }] } }));
   const repos = tmp('repos');
   const alpha = path.join(repos, 'alpha');
   const beta = path.join(repos, 'beta');
@@ -144,7 +144,7 @@ test('check fix --dry-run names each change and writes nothing', async () => {
   assert.deepEqual(data.repos[0].changes, ['.claude/settings.json: unwire hooks']);
   assert.equal(data.repos[0].backup, null);
   assert.equal(read(alpha, '.claude/settings.json'), before);
-  assert.equal(fs.existsSync(path.join(root, 'skill-sync-backups')), false);
+  assert.equal(fs.existsSync(path.join(root, 'repo-sync-backups')), false);
   const text = (await cli(['check', 'fix', '--root', root, '--repo', alpha, '--dry-run'])).out;
   assert.match(text, /\*\*Check fix \(dry run\) · 1 repo · 1 change\*\*/);
   assert.match(text, /\[dry-run\] alpha: \.claude\/settings\.json: unwire hooks/);
@@ -157,7 +157,8 @@ test('check fix applies the fix after backing up the settings, and the backup ke
   const data = JSON.parse(r.out);
   assert.equal(data.applied, true);
   const backup = data.repos[0].backup as string;
-  assert.ok(backup.startsWith(path.join(root, 'skill-sync-backups')), backup);
+  assert.match(path.relative(path.join(root, 'repo-sync-backups'), backup).split(path.sep)[0], /^\d{8}-\d{6}$/, backup);
+  assert.equal(fs.existsSync(path.join(root, 'skill-sync-backups')), false);
   assert.equal(fs.readFileSync(path.join(backup, '.claude', 'settings.json'), 'utf8'), SETTINGS);
   const after = JSON.parse(read(alpha, '.claude/settings.json'));
   assert.equal(after.hooks, undefined);
@@ -172,7 +173,7 @@ test('check fix on a repo with nothing fixable does not touch it', async () => {
   const data = JSON.parse(r.out);
   assert.deepEqual(data.repos, []);
   assert.equal(data.applied, false);
-  assert.equal(fs.existsSync(path.join(root, 'skill-sync-backups')), false);
+  assert.equal(fs.existsSync(path.join(root, 'repo-sync-backups')), false);
 });
 
 test('check with an unknown word stops with a bad-arguments code', async () => {

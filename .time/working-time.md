@@ -42,5 +42,7 @@
 | 2026-10-28 | 0.32 | 10:49 | 11:30 | Story and storyboard for the version 0.9 release film: the hunter, his saluki and a media team built in the terminal |
 | 2026-10-28 | 1.85 | 11:51 | 13:42 | Version 0.9 release film rendered in three cuts, and harness scripts no longer flag the line being typed |
 | 2026-10-28 | 0.33 | 13:37 | 14:02 | Sixteen new harness commands, also usable from the Claude prompt |
+| 2026-10-28 | 3.05 | 19:37 | 22:40 | Version 0.11.2 released: Claude-drawn diagrams for plugins, agents and more, labeled page headers, full-width text and faster detail pages |
+| 2026-10-28 | 1.10 | 22:51 | 23:57 | Harness plugin reviewed and renamed, its guards and checks fixed, backups kept in one folder, and 27 repositories realigned |
 
-**Total: 37.30h**
+**Total: 41.45h**

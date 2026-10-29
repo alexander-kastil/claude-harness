@@ -55,7 +55,7 @@ Each command follows `harness ` (or `node <extension folder>/out/src/cli.js `).
 | `hunt plan --name <plugin> --category <c> --skills a,b --agents x,y [--files <file>=<path in plugin>,...] [--drop-files] [--market <m>] [--description <t>] [--retire]` | The plugin that `hunt create` would write, the same as `hunt create --dry-run`. `--files` adds a hooks.json, a hook script or an `.mcp.json` to the plugin; `--drop-files` retires them too. |
 | `hunt create <hunt plan options> [--dry-run]` | Writes the plugin and installs it; `--retire` retires the copies. Rolls back if the install fails. |
 | `agents list` | The agents of Global, the plugins and the repos, with the copies that differ and the gated ones. |
-| `agents route "<prompt>" [--repo <dir>]` | The agents the subagent-delegation plugin would route a prompt to, and the ones it drops. |
+| `agents route "<prompt>" [--repo <dir>]` | The agents the orchestration plugin would route a prompt to, and the ones it drops. |
 | `usage --session latest\|previous\|<id> [--repo <dir>] [--week] [--week-used <pct>]` | A session's tokens and cost by model and by agent; `--week` adds its share of the week. |
 | `delegation --session latest\|previous\|<id> [--repo <dir>]` | The agents a session launched, with their decisions, slips and findings. |
 | `media doctor <dir>` | Checks a film or images folder under `assets/films` or `assets/images`. |

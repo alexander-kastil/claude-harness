@@ -4,7 +4,8 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { test } from 'node:test';
 import { run } from '../../src/cli';
-import { linkToRepo } from '../../src/distributor';
+import { install, linkToRepo } from '../../src/distributor';
+import { updateBackupDir } from '../../src/cli-sources';
 
 // The fixture is a Claude folder of its own under a temp folder: no network, and the owner's ~/.claude is never named.
 
@@ -129,6 +130,18 @@ test('sources update of a skill with no source stops before any download', async
   const r = await cli(['sources', 'update', '--name', 'plain', '--root', root, '--user-config', userConfig, '--dry-run']);
   assert.equal(r.code, 1);
   assert.match(r.err, /plain is not installed from a source/);
+});
+
+test('sources update backs the old skill up under repo-sync-backups/<stamp>/skills', () => {
+  const { root } = fixture();
+  const dir = updateBackupDir(root, '20261028-120000');
+  assert.equal(dir, path.join(root, 'repo-sync-backups', '20261028-120000', 'skills'));
+  const staged = path.join(root, 'staged');
+  write(staged, 'SKILL.md', '---\nname: media\ndescription: new\nversion: 1.3.0\n---\n');
+  const r = install(root, { name: 'media', dir: staged, source: 'owner/tools', url: '', path: 'skills/media/SKILL.md', hash: 'new', ref: 'main' } as Parameters<typeof install>[1], dir);
+  assert.equal(r.backup, path.join(dir, 'media'));
+  assert.ok(fs.existsSync(path.join(dir, 'media', 'SKILL.md')));
+  assert.ok(!fs.existsSync(path.join(root, 'skill-sync-backups')));
 });
 
 test('sources takes only check and update after its name', async () => {

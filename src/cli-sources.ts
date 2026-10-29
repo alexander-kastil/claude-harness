@@ -114,6 +114,9 @@ async function checkSources(a: Args, io: Io, root: string): Promise<number> {
   return 0;
 }
 
+/** Where `sources update` backs the old skill folder up: the same `repo-sync-backups/<stamp>/skills` the Skills page uses. */
+export const updateBackupDir = (root: string, stamp = backupStamp()) => path.join(root, 'repo-sync-backups', stamp, 'skills');
+
 async function updateSource(a: Args, io: Io, root: string): Promise<number> {
   const name = one(a, 'name');
   if (!name || !/^[\w][\w.-]*$/.test(name)) throw new Stop('sources update needs --name <skill>, a skill installed from a source, e.g. --name media-generation --dry-run.', 2);
@@ -128,7 +131,7 @@ async function updateSource(a: Args, io: Io, root: string): Promise<number> {
     staged.name = name;
     const current = staged.hash === origin.hash;
     const diff = current ? { changed: [], added: [], removed: [] } : diffFolders(folder, staged.dir);
-    const backupDir = path.join(root, 'skill-sync-backups', `${backupStamp()}-sources-update`);
+    const backupDir = updateBackupDir(root);
     const backup = dry || current ? null : (install(root, staged, backupDir).backup ?? null);
     const status = current ? 'already up to date, nothing written' : dry ? 'dry run, nothing written' : 'updated';
     const result = {

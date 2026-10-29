@@ -7,9 +7,9 @@
   "description": "The Claude Harness family: Claude Code plugins that ship with the Claude Harness VS Code extension",
   "plugins": [
     {
-      "name": "harness-plugin",
-      "source": "./plugins/harness-plugin",
-      "description": "Offers the Claude Harness views as @harness: mentions with type-ahead, whose output Claude reads as context, and keeps a repo's harness in shape: checks the root CLAUDE.md against the router layout, keeps skill leaves small and routed, halts or steers a long run from a file at the project root, and on request holds a session end until a verification receipt exists"
+      "name": "harness",
+      "source": "./plugins/harness",
+      "description": "The Claude Code side of Claude Harness: guards a repo's root CLAUDE.md and skill leaves on every edit, halts or steers a long run from a file at the project root, holds the end of a session that changed source until a verification receipt exists (opt-in), offers the extension's views as @harness: mentions, and ships the harness standard with its check, fix and scaffold scripts and the align-harness, scaffold-repo-harness and cli skills"
     }
   ]
 }

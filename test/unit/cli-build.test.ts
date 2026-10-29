@@ -262,11 +262,11 @@ test('generate skill, command and hook are idempotent and change only what diffe
   assert.match((await cli(['validate', (() => { const s = path.join(f.tmp, 'h.harness'); write(s, 'generate hook PreToolUsee --command x\ngenerate hook Stop\n'); return s; })(), ...f.base.slice(0, 2)])).out, /did you mean PreToolUse/);
 });
 
-/** A scratch Claude folder whose marketplace points at this repo's harness-plugin, so the real standard scripts run; nothing is installed. */
+/** A scratch Claude folder whose marketplace points at this repo's harness plugin, so the real standard scripts run; nothing is installed. */
 function providerRoot(f: ReturnType<typeof fixture>) {
-  const pluginDir = path.resolve(__dirname, '../../../plugins/harness-plugin');
+  const pluginDir = path.resolve(__dirname, '../../../plugins/harness');
   const mk = path.join(f.tmp, 'std-mk');
-  write(path.join(mk, '.claude-plugin/marketplace.json'), JSON.stringify({ name: 'std', plugins: [{ name: 'harness-plugin', source: pluginDir }] }));
+  write(path.join(mk, '.claude-plugin/marketplace.json'), JSON.stringify({ name: 'std', plugins: [{ name: 'harness', source: pluginDir }] }));
   write(path.join(f.root, 'plugins/known_marketplaces.json'), JSON.stringify({ mk: { installLocation: path.join(f.tmp, 'mk') }, std: { source: { source: 'directory' }, installLocation: mk } }));
 }
 

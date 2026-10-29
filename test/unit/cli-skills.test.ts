@@ -46,7 +46,7 @@ function fixture() {
   return { root, market, base };
 }
 
-const backups = (root: string) => (has(root, 'skill-sync-backups') ? fs.readdirSync(path.join(root, 'skill-sync-backups')) : []);
+const backups = (root: string) => (has(root, 'repo-sync-backups') ? fs.readdirSync(path.join(root, 'repo-sync-backups')) : []);
 
 test('skills move moves a leaf, repoints every reference to it, and backs the original up', async () => {
   const f = fixture();
@@ -64,6 +64,9 @@ test('skills move moves a leaf, repoints every reference to it, and backs the or
   assert.ok(o.changes.some(c => c.action === 'check' && c.file === 'skills/media/SKILL.md'));
   assert.ok(o.backup && fs.existsSync(path.join(o.backup, 'skills/media/references/clips.md')));
   assert.ok(fs.existsSync(path.join(o.backup, 'agents/maker.md')));
+  assert.match(path.basename(o.backup), /^\d{8}-\d{6}$/);
+  assert.equal(path.dirname(o.backup), path.join(f.root, 'repo-sync-backups'));
+  assert.ok(!has(f.root, 'skill-sync-backups'));
 });
 
 test('skills move keeps the leaf path when --to names only the skill, and moves a folder', async () => {

@@ -165,7 +165,7 @@ test('linkCopies marks hook scripts and plugin copies; Retire backs up a clean r
   w('.claude/hooks/guard.sh', 'echo hi\n');
   const other = tmp('harness-other-');
   writer(other)('.claude/hooks/guard.sh', 'echo bye\n');
-  const plugin = tmp('harness-plugin-');
+  const plugin = tmp('harness-');
   writer(plugin)('agents/writer.md', '---\nname: writer\nversion: 3\n---\nWrite well.\n');
   const views = [globalScope(home), repoScope(repo), repoScope(other)].map(s => ({ id: s.id, label: s.label, path: s.base, categories: scan(s) }));
   const pluginView = { id: 'plugin:p@m', label: 'plugin p@m', path: plugin, categories: [{ ...scan(globalScope(plugin))[2], items: scan({ ...globalScope(plugin), id: 'plugin:p@m' }).find(c => c.kind === 'agent')!.items }] };

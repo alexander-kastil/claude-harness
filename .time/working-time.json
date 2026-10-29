@@ -2283,6 +2283,138 @@
       "catalogue": {
         "action": "none"
       }
+    },
+    {
+      "date": "2026-10-28",
+      "from": "19:37",
+      "to": "22:40",
+      "sessionId": "8d9ee9c1-fadc-48af-a593-7f286962c0be",
+      "branch": "master",
+      "commits": [
+        "5ca8686",
+        "52f0ef3"
+      ],
+      "surfaces": [
+        "claude-harness"
+      ],
+      "files": [
+        "src/drawing.ts",
+        "src/webview/drawing.ts",
+        "src/webview/detail.ts",
+        "src/webview/bridge.ts",
+        "src/extension.ts",
+        "media/panel.css"
+      ],
+      "mechanism": {
+        "takes": "a configuration item of an AI coding setup (plugin, agent, command, workflow, mod, hook or tool server) as its source text",
+        "does": "asks a model for an SVG diagram of the item's named parts under fixed layout rules (short labels only, no crossing lines), stores it keyed to a hash of the source so an edit drops it, shows it above the item's details with an enlarged hover, and holds back background state pushes while a click is in progress so detail pages open without waiting on repaints",
+        "returns": "one stored, theme-aware diagram per item and detail pages that open in under 0.1 s while background checks run"
+      },
+      "portsAsIs": [
+        "model-drawn SVG diagrams of a structured definition, invalidated by a content hash",
+        "layout rules in the drawing prompt that forbid prose and crossing lines",
+        "a webview message gate that defers state updates during a pointer press",
+        "a command bar that drops to icons only when its labels would wrap past two rows"
+      ],
+      "perCustomer": [
+        "the item kinds and what each is drawn from",
+        "which kinds get a diagram and which get a review action"
+      ],
+      "evidence": [
+        "tests: 350 unit tests pass, UI suite 73/73 on the combined tree",
+        "click during a 36-repo check: 2660 ms before, 39-78 ms after",
+        "real redraws of two items before and after the prompt rules",
+        "published to the Visual Studio Marketplace as 0.11.2, pipeline run 328"
+      ],
+      "toolchain": {
+        "skills": [
+          "report-plugin:report",
+          "vscode-extension",
+          "publish-vscode-ext",
+          "plugin-authoring",
+          "subagent-delegation-plugin:claude-orchestration",
+          "learn-loop-plugin:claude-learn",
+          "learn-loop-harvest-plugin:claude-learn-harvest",
+          "learn-loop-worktime-plugin:claude-learn-worktime",
+          "learn-loop-worktime-plugin:track-time"
+        ],
+        "mcpServers": [],
+        "agents": [
+          "subagent-delegation-plugin:fact-gatherer",
+          "vscode-ext-specialist",
+          "general-purpose",
+          "fork"
+        ]
+      },
+      "industry": "software developer tooling",
+      "status": "Live",
+      "catalogue": {
+        "action": "none"
+      }
+    },
+    {
+      "date": "2026-10-28",
+      "from": "22:51",
+      "to": "23:57",
+      "sessionId": "19601023-0217-499d-8431-326d17ee11af",
+      "branch": "master",
+      "commits": [],
+      "surfaces": [
+        "claude-harness"
+      ],
+      "files": [
+        "plugins/harness/hooks/harness-guard.mjs",
+        "plugins/harness/agents/verification-reviewer.md",
+        "plugins/harness/skills/align-harness/references/standard.json",
+        "plugins/harness/skills/align-harness/scripts/check-constitution.py",
+        "plugins/harness/skills/align-harness/scripts/fix-settings.py",
+        "plugins/harness/skills/align-harness/scripts/sync-harness-block.py",
+        "src/cli-check.ts",
+        "src/cli-sources.ts"
+      ],
+      "mechanism": {
+        "takes": "the instruction files and settings of every repository an AI coding setup works in, and the shared rules they must follow",
+        "does": "keeps one machine-readable rules file that both an in-session edit guard and a standalone checker read, flags drift, restated rules and stale plugin entries, repairs settings with a dry-run preview that matches the real run, writes a changed shared block into every repository in one pass, and holds a session's end until a reviewer agent has recorded the checks it ran",
+        "returns": "per-repository pass, review and fail findings with file and line, a list of settings changes, and a verification receipt per session that changed source"
+      },
+      "portsAsIs": [
+        "one rules file read by both a write-time guard and a batch checker",
+        "a stop gate that accepts only a reviewer agent's own receipt",
+        "a kill switch and a one-shot steering file read at the project root",
+        "a block sync that keeps each file's line endings and skips repositories without the block"
+      ],
+      "perCustomer": [
+        "the required sections and the line cap of the instruction file",
+        "which plugins and hooks a repository may carry",
+        "the source folders that arm the verification gate"
+      ],
+      "evidence": [
+        "tests: plugin hooks 48 pass (claude plugin test), extension unit tests 351 pass",
+        "claude plugin validate passes for the plugin and the claude-harness marketplace",
+        "check over 27 repositories: fail=0 except two repositories with known settings or hook findings"
+      ],
+      "toolchain": {
+        "skills": [
+          "list-peer-sessions",
+          "vscode-extension",
+          "plugin-authoring",
+          "claude-learn",
+          "harvest",
+          "log-session",
+          "track-time"
+        ],
+        "mcpServers": [],
+        "agents": [
+          "orchestration-plugin:fact-gatherer",
+          "general-purpose",
+          "vscode-ext-specialist"
+        ]
+      },
+      "industry": "software teams using AI coding agents",
+      "status": "Built and running in-house",
+      "catalogue": {
+        "action": "none"
+      }
     }
   ]
 }

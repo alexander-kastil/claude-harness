@@ -12,7 +12,7 @@ export interface ShimFile {
 
 const ID = 'integrations-at.claude-harness';
 
-// The locator is the logic of harness-plugin's harness.mjs, copied (no shared package): the registered extension first, then the newest folder on disk.
+// The locator is the logic of the harness plugin's cli skill (scripts/harness.mjs), copied (no shared package): the registered extension first, then the newest folder on disk.
 const LOCATOR = `#!/usr/bin/env node
 // Runs the Claude Harness command line from the VS Code extension the user has installed.
 // Usage: harness <command> [options]   (all arguments are passed through to cli.js)

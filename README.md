@@ -129,7 +129,7 @@ Run **Claude Harness: Install 'harness' Command Line** once to put `harness` on 
 - `hunt plan --name <plugin> --category <c> --skills a,b --agents x,y`: the plugin that `hunt create` would write.
 - `hunt create` with the same options: writes the plugin and installs it; `--retire` retires the copies.
 - `agents list`: the agents of Global, the plugins and the repos, with their copies that differ and the gated ones.
-- `agents route "<prompt>"`: the agents that the subagent-delegation plugin would route a prompt to, and the ones it drops.
+- `agents route "<prompt>"`: the agents that the orchestration plugin would route a prompt to, and the ones it drops.
 - `usage --session latest|previous|<id> [--week]`: a session's tokens and cost by model and by agent, and its share of the week.
 - `delegation --session latest|previous|<id>`: the agents a session launched, with their decisions, slips and findings.
 - `media doctor <dir>`: checks a film or images folder under `assets/films` or `assets/images`.
@@ -168,7 +168,7 @@ In Claude Code:
 
 ```text
 /plugin marketplace add alexander-kastil/claude-harness
-/plugin install harness-plugin@claude-harness
+/plugin install harness@claude-harness
 /reload-plugins
 ```
 
@@ -176,7 +176,7 @@ Or from a shell:
 
 ```bash
 claude plugin marketplace add alexander-kastil/claude-harness
-claude plugin install harness-plugin@claude-harness
+claude plugin install harness@claude-harness
 ```
 
 ### Claude actions through your own CLI

@@ -1,0 +1,25 @@
+{
+  "lineCap": 120,
+  "sections": {
+    "product": ["Project", "Where the detail lives", "Harness", "Hard Rules", "Working Method"],
+    "class": ["Layout", "Hard Rules", "Working Method"],
+    "classAnywhere": ["Harness"],
+    "classMarkers": ["demos", "labs"]
+  },
+  "leaf": { "lines": 275, "sections": 12, "playbookLines": 400 },
+  "inventory": {
+    "agentTable": { "pattern": "^\\| *`?[a-z-]+`? *\\| *(Read|Write|Edit|Bash|Glob)", "flags": "m" },
+    "mcpList": { "pattern": "^- \\*\\*(chrome-devtools|playwright|angular-cli|azure-deploy|github|microsoft-learn|ssh-mcp)\\*\\*", "flags": "im" },
+    "devCommands": { "pattern": "(npm start|npm run e2e|ng serve|hugo server|dotnet watch run|dotnet test)", "flags": "" }
+  },
+  "boilerplate": ["Workflow Orchestration", "Subagent Strategy", "Self-Improvement Loop", "Task Management", "Core Principles", "Token Efficiency", "Delegation", "Agent Delegation", "Skill Routing"],
+  "replacedHooks": {
+    "harness": ["claude-md-guard.sh", "skill-leaf-guard.sh", "kill-switch.sh", "steer.sh", "verification-gate.sh"],
+    "orchestration-plugin": ["delegation-reminder.sh", "skill-reference-guard.sh"]
+  },
+  "marketplaceRenames": { "claude-mods": "integrations-marketplace" },
+  "plugin": {
+    "id": "harness@claude-harness",
+    "oldIds": ["harness-plugin@claude-harness", "harness-plugin@integrations-marketplace", "harness-plugin@claude-mods"]
+  }
+}

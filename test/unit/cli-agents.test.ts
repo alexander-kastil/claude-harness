@@ -38,7 +38,7 @@ function fixture(withRouter = true) {
   const userConfig = path.join(tmp('cfg'), '.claude.json');
   const market = tmp('market');
   const router = path.join(root, 'plugins', 'cache', 'router');
-  const source = path.join(market, 'plugins', 'subagent-delegation-plugin');
+  const source = path.join(market, 'plugins', 'orchestration-plugin');
   const helpers = path.join(root, 'plugins', 'cache', 'helpers');
   // The cache copy predates scripts/route.mjs; the directory source has both files.
   if (withRouter) write(router, 'hooks/route.mjs', GATED_JS);
@@ -47,9 +47,9 @@ function fixture(withRouter = true) {
     write(source, 'hooks/route.mjs', GATED_JS);
     write(source, 'scripts/route.mjs', ROUTE_JS);
   }
-  write(market, '.claude-plugin/marketplace.json', JSON.stringify({ name: 'own', plugins: [{ name: 'subagent-delegation-plugin', source: './plugins/subagent-delegation-plugin' }] }));
+  write(market, '.claude-plugin/marketplace.json', JSON.stringify({ name: 'own', plugins: [{ name: 'orchestration-plugin', source: './plugins/orchestration-plugin' }] }));
   write(root, 'plugins/known_marketplaces.json', JSON.stringify({ own: { source: { source: 'directory', path: market }, installLocation: market } }));
-  write(root, 'plugins/installed_plugins.json', JSON.stringify({ plugins: { 'subagent-delegation-plugin@own': [{ installPath: router }], 'helpers@own': [{ installPath: helpers }] } }));
+  write(root, 'plugins/installed_plugins.json', JSON.stringify({ plugins: { 'orchestration-plugin@own': [{ installPath: router }], 'helpers@own': [{ installPath: helpers }] } }));
   write(helpers, 'agents/plugged.md', agent('plugged', 'Runs on manual-only requests. Second sentence.'));
   write(root, 'agents/helper.md', agent('helper', 'Helps with things. Second sentence here.', 'Hi', 'model: haiku\ntools: Read, Grep\n'));
   write(root, 'agents/shared.md', agent('shared', 'Shared agent.'));
@@ -169,7 +169,7 @@ test('agents route without an installed router exits 1 and names it', async () =
   fs.rmSync(path.join(f.root, 'plugins', 'known_marketplaces.json'));
   const r = await cli(['agents', 'route', 'docs', ...f.base]);
   assert.equal(r.code, 1);
-  assert.match(r.err, /subagent-delegation-plugin is not installed/);
+  assert.match(r.err, /orchestration-plugin is not installed/);
 });
 
 test('agents route with a router that has no scripts/route.mjs exits 1 and names the file', async () => {

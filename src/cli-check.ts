@@ -102,9 +102,9 @@ function failuresOf(provider: Provider, runs: RepoRun[]): Failure[] {
   );
 }
 
-/** Copies the settings files and the hooks a fix may change into the root's skill-sync-backups folder, under the repo's path; null when there is nothing to copy. */
+/** Copies the settings files and the hooks a fix may change into the root's repo-sync-backups folder, under the repo's path; null when there is nothing to copy. */
 function backupOf(root: string, repo: string, stamp: string): string | null {
-  const dir = path.join(root, 'skill-sync-backups', stamp, repo.replace(/^[a-zA-Z]:/, '').replace(/^[\\/]+/, ''));
+  const dir = path.join(root, 'repo-sync-backups', stamp, repo.replace(/^[a-zA-Z]:/, '').replace(/^[\\/]+/, ''));
   let made = false;
   for (const name of [...SETTINGS, 'hooks']) {
     const src = path.join(repo, '.claude', name);
@@ -149,7 +149,7 @@ async function fixCommand(a: Args, io: Io): Promise<number> {
   const provider = providerOf(a);
   if (!provider.fix) throw new Stop(`${provider.name} has no fix.`);
   const settings = path.join(root, 'settings.json');
-  const stamp = `${backupStamp()}-check-fix`;
+  const stamp = backupStamp();
   const py = await pythonOf(provider);
   const repos = reposOf(a);
   const label = labeler(repos);

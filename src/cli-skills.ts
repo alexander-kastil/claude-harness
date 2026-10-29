@@ -60,7 +60,7 @@ class Session {
   private readonly dir: string;
   private made = false;
   constructor(readonly a: Args, readonly root: string, readonly op: SkillsOut['op']) {
-    this.dir = path.join(root, 'skill-sync-backups', `${backupStamp()}-${op}`);
+    this.dir = path.join(root, 'repo-sync-backups', backupStamp());
   }
   get dry() {
     return !!one(this.a, 'dry-run');
