@@ -1498,3 +1498,57 @@ test('a row pressed while the panel repaints opens its detail page, on the type 
   const nav = await s.waitFor(D => D.querySelector('.sidebar .scope-block .row[data-nav*="|skill:"] .name')?.textContent);
   await opensDetail('sidebar', nav, await pressAcrossRefresh('.sidebar .scope-block .row[data-nav*="|skill:"]', nav));
 });
+
+// The owner, 2026-10-29: "when clicking in left nav for example on plugins sometimes the webview details do not respond ... if
+// users load this extension and then a details click does not work they dont wait". The overview asks for the sessions of every
+// repo the moment the panel opens, and the host read them one after the other on the thread that also answers a click: a click
+// right after the panel opened waited behind all of them (seconds on a harness with many transcripts). The repos get a few
+// hundred transcripts each, the panel is closed and opened again (a cold read), and a nav row is pressed at once.
+test('a nav row pressed right after the panel opens shows its details promptly while the host reads every repo\'s sessions', T, async t => {
+  const projects = path.join(claude(), 'projects');
+  const { projectSlug } = createRequire(import.meta.url)(path.join(repoRoot, 'out', 'src', 'fleet.js'));
+  const filler = JSON.stringify({ type: 'assistant', timestamp: new Date().toISOString(), message: { role: 'assistant', content: [{ type: 'text', text: 'x'.repeat(900) }] } });
+  const made = [];
+  for (const dir of s.fixture.repos) {
+    const folder = path.join(projects, projectSlug(dir));
+    fs.mkdirSync(folder, { recursive: true });
+    for (let i = 0; i < 150; i++) {
+      const id = `99999999-0000-4000-8000-${String(made.length).padStart(12, '0')}`;
+      const first = JSON.stringify({ type: 'user', uuid: id, timestamp: new Date(Date.now() - 3600000 - i * 1000).toISOString(), cwd: dir, sessionId: id, message: { role: 'user', content: `Heavy transcript ${i}` } });
+      const file = path.join(folder, `${id}.jsonl`);
+      fs.writeFileSync(file, `${first}\n${Array(300).fill(filler).join('\n')}\n`);
+      made.push(file);
+    }
+  }
+  try {
+    await s.pageEv(() => {
+      const tab = [...document.querySelectorAll('.tab')].find(t => (t.getAttribute('aria-label') || '').includes('Claude Harness'));
+      tab?.querySelector('.codicon-close, .action-label')?.click();
+    });
+    await sleep(800);
+    await s.openPanel();
+    // Unfold Skills, which is local to the panel, then press a row the way a hand does and time the details.
+    await s.waitFor(D => [...D.querySelectorAll('.sidebar .scope-block .section-head')].find(h => h.querySelector('.label')?.textContent === 'Skills'));
+    await s.mouse('.sidebar .scope-block .section-head', 'Skills');
+    const waits = [];
+    for (let i = 0; i < 3; i++) {
+      const name = await s.waitFor((D, i) => [...D.querySelectorAll('.sidebar .scope-block .row[data-nav*="|skill:"] .name')][i]?.textContent, i);
+      const at = await s.where('.sidebar .scope-block .row[data-nav*="|skill:"]', name);
+      const t = Date.now();
+      await s.page.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: at.x, y: at.y });
+      await s.page.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: at.x, y: at.y, button: 'left', clickCount: 1 });
+      await s.page.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: at.x, y: at.y, button: 'left', clickCount: 1 });
+      // Polled every 20 ms, so the figure is the wait and not the poll.
+      while (!(await s.ev((D, name) => D.querySelector('.detail-head .dh-name')?.textContent.startsWith(name), name))) {
+        assert.ok(Date.now() - t < 30000, `${name} never showed its details`);
+        await sleep(20);
+      }
+      waits.push(Date.now() - t);
+    }
+    t.diagnostic(`details after the press: ${waits.join(', ')} ms`);
+    assert.ok(Math.max(...waits) < 1200, `the details of a row pressed after the panel opened took ${waits.join(', ')} ms`);
+  } finally {
+    s.waitMs = 20000;
+    for (const file of made) fs.rmSync(file, { force: true });
+  }
+});

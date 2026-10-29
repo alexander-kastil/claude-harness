@@ -475,19 +475,49 @@ const sessionFiles = (folder: string) =>
  * session id) are attached to that session as children.
  */
 export function listSessions(dir: string, root: string): SessionSummary[] {
+  const steps = listing(dir, root);
+  for (;;) {
+    const step = steps.next();
+    if (step.done) return step.value;
+  }
+}
+
+/** Like `listSessions`, giving the event loop a turn every few milliseconds, so a cold list of a big repo blocks nothing for long. */
+export async function listSessionsAsync(dir: string, root: string): Promise<SessionSummary[]> {
+  const steps = listing(dir, root);
+  let since = Date.now();
+  for (;;) {
+    const step = steps.next();
+    if (step.done) return step.value;
+    if (Date.now() - since > 8) {
+      await new Promise(resolve => setImmediate(resolve));
+      since = Date.now();
+    }
+  }
+}
+
+/** The work of `listSessions`, yielding after each transcript it reads. */
+function* listing(dir: string, root: string): Generator<void, SessionSummary[]> {
   const projects = path.join(root, 'projects');
   const slug = projectSlug(dir).toLowerCase();
   const live = liveSessions(root);
-  const own = sessionFiles(path.join(projects, projectSlug(dir)))
-    .map(f => summaryOf(f, live))
-    .filter((s): s is SessionSummary => !!s);
+  const summarize = function* (files: string[]) {
+    const out: SessionSummary[] = [];
+    for (const f of files) {
+      const s = summaryOf(f, live);
+      if (s) out.push(s);
+      yield;
+    }
+    return out;
+  };
+  const own: SessionSummary[] = yield* summarize(sessionFiles(path.join(projects, projectSlug(dir))));
   const byId = new Map(own.map(s => [s.id, s]));
   for (const name of readdir(projects)) {
     if (name.toLowerCase() === slug) continue;
     const id = UUID.exec(name)?.[0];
     const parent = id ? byId.get(id) : undefined;
     if (!parent) continue;
-    parent.children.push(...sessionFiles(path.join(projects, name)).map(f => summaryOf(f, live)).filter((s): s is SessionSummary => !!s));
+    parent.children.push(...(yield* summarize(sessionFiles(path.join(projects, name)))));
   }
   for (const s of own) s.children.sort((a, b) => (a.start ?? 0) - (b.start ?? 0));
   return own.sort((a, b) => b.end - a.end);
@@ -560,6 +590,15 @@ export function listAccountSessions(dir: string, accounts: Account[]): SessionSu
   if (accounts.length === 1) return listSessions(dir, accounts[0].root);
   const tag = (s: SessionSummary, a: Account): SessionSummary => ({ ...s, account: a.label, accountRoot: a.root, children: s.children.map(c => tag(c, a)) });
   return accounts.flatMap(a => listSessions(dir, a.root).map(s => tag(s, a))).sort((x, y) => y.end - x.end);
+}
+
+/** `listAccountSessions` for a reply that is not needed this instant: it yields to the event loop while it reads. */
+export async function listAccountSessionsAsync(dir: string, accounts: Account[]): Promise<SessionSummary[]> {
+  if (accounts.length === 1) return listSessionsAsync(dir, accounts[0].root);
+  const tag = (s: SessionSummary, a: Account): SessionSummary => ({ ...s, account: a.label, accountRoot: a.root, children: s.children.map(c => tag(c, a)) });
+  const lists: SessionSummary[] = [];
+  for (const a of accounts) lists.push(...(await listSessionsAsync(dir, a.root)).map(s => tag(s, a)));
+  return lists.sort((x, y) => y.end - x.end);
 }
 
 export const WEEK_MS = 7 * 24 * 60 * 60 * 1000;

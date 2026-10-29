@@ -65,6 +65,8 @@ window.addEventListener('pointerdown', e => {
 }, true);
 window.addEventListener('pointerup', release, true);
 window.addEventListener('pointercancel', release, true);
+// A release that happened outside the panel is never seen; the next move without a button ends the press, not the 30 s limit.
+window.addEventListener('pointermove', e => e.buttons === 0 && release(), true);
 window.addEventListener('blur', release);
 document.addEventListener('visibilitychange', () => document.hidden && release());
 

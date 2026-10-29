@@ -15,6 +15,9 @@ import { pickTools, splitTools } from './tools';
 
 export type { Detail, Page } from './shared/messages';
 
+/** Requests a page makes for its own data; none of them is an action the owner is waiting on. */
+const BACKGROUND = new Set<ToHost['type']>(['sessions', 'weekly', 'usage', 'usageMore', 'usageTotals', 'repoTrace', 'modActivity', 'slim', 'drawing', 'ruleInfo', 'effective', 'fleet']);
+
 /** What a `panel` card answered: the button, and the text and the picked ids when the card had an input or choices. */
 export interface PanelAnswer {
   choice: 'ok' | 'alt' | 'cancel';
@@ -55,7 +58,7 @@ export interface PanelHost {
   marketplaces?(): unknown;
   initForm?(dir: string): Promise<unknown>;
   initRun?(dir: string, form: ScaffoldForm, apply: boolean): Promise<unknown>;
-  sessions?(scopeId: string): SessionSummary[];
+  sessions?(scopeId: string): Promise<SessionSummary[]>;
   session?(scopeId: string, id: string): Promise<unknown>;
   /** The last 7 days of every account by model, over all repos. */
   weekly?(): Promise<unknown>;
@@ -203,7 +206,40 @@ export class HarnessPanel {
       [...this.asks.values()].forEach(answer => answer({ choice: 'cancel' }));
     });
     panel.onDidChangeViewState(e => e.webviewPanel.visible && host.refresh());
-    panel.webview.onDidReceiveMessage((m: ToHost) => this.receive(m));
+    panel.webview.onDidReceiveMessage((m: ToHost) => this.dispatch(m));
+  }
+
+  private background: { key: string; urgent: boolean; m: ToHost }[] = [];
+  private draining = false;
+
+  /**
+   * An owner's action (a click on a row, a save, a command) is answered at once. What a page asks for around it (sessions of
+   * every repo, usage counts, a mod's activity) reads transcripts on this thread, and the overview alone asks for dozens: a
+   * click arriving behind them waited for all of them. Those requests run one per turn of the event loop, so a click is
+   * answered after at most one of them; the ones for the open element first, and a request already waiting is not queued twice.
+   */
+  private dispatch(m: ToHost): void {
+    if (!BACKGROUND.has(m.type)) return void this.run(m);
+    const key = JSON.stringify(m);
+    if (this.background.some(b => b.key === key)) return;
+    const urgent = 'id' in m && m.id === this.selected;
+    const at = urgent ? this.background.findIndex(b => !b.urgent) : -1;
+    this.background.splice(at < 0 ? this.background.length : at, 0, { key, urgent, m });
+    void this.drain();
+  }
+
+  private async drain(): Promise<void> {
+    if (this.draining) return;
+    this.draining = true;
+    while (this.background.length) {
+      this.run(this.background.shift()!.m);
+      await new Promise(resolve => setImmediate(resolve));
+    }
+    this.draining = false;
+  }
+
+  private run(m: ToHost): void {
+    this.receive(m).catch(() => undefined);
   }
 
   private post(message: ToWebview): void {
@@ -382,7 +418,7 @@ export class HarnessPanel {
         this.post({ type: 'initResult', dir: m.dir, apply: m.apply, data: await this.host.initRun?.(m.dir, m.form, m.apply) });
         return;
       case 'sessions':
-        this.post({ type: 'sessions', scope: m.scope, list: this.host.sessions?.(m.scope) ?? [] });
+        this.post({ type: 'sessions', scope: m.scope, list: (await this.host.sessions?.(m.scope)) ?? [] });
         return;
       case 'weekly': {
         let list: unknown = [];
@@ -487,7 +523,7 @@ export class HarnessPanel {
       case 'importSession': {
         const id = await this.host.importSession?.(m.scope);
         if (!id) return;
-        this.post({ type: 'sessions', scope: m.scope, list: this.host.sessions?.(m.scope) ?? [] });
+        this.post({ type: 'sessions', scope: m.scope, list: (await this.host.sessions?.(m.scope)) ?? [] });
         this.post({ type: 'page', page: 'session', repo: m.scope, session: id });
         return;
       }
