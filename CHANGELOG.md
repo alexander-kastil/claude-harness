@@ -2,6 +2,23 @@
 
 All notable changes to Claude Harness are listed here, newest first. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions with no version change in the package.json history (0.1.3, 0.1.5 to 0.1.18, 0.1.20 to 0.1.24, 0.1.27, 0.2.1 and 0.2.3 to 0.2.11) and development builds (0.2.14 to 0.2.22, 0.2.24 to 0.2.30, 0.2.32 to 0.2.34, 0.2.36 to 0.2.44, 0.3.0, 0.3.2, 0.4.1 to 0.4.3, 0.5.2 and 0.5.3) have no entry.
 
+## [0.13.5] - 2026-10-29
+
+### Added
+
+- **Process perspective on plugin drawings**: a Harness | Process toggle in the corner of a plugin's drawing. Harness is the drawing as before; Process shows the plugin's stages in the order they run, the outputs each stage hands on, the paths back to an earlier stage, loops, and a line per mod saying what it does. Draw with Claude draws the perspective on screen, and a plugin's Harness drawing stays as it was.
+- The skill and agent rows on a plugin page show what each item does between the name and the tags, the full text on hover.
+- **New hunt and History tabs on the Plugin Hunter**: New hunt splits the page in half, the chat with its message box on the left and the findings and selections on the right (the proposed card, the picker, Create and the count of selected elements); on a narrow panel the halves stack. History holds every other card together with the chat that made it, each collapsed to its header, which opens and closes it. After Create the page opens History on the new plugin.
+
+### Changed
+
+- The Plugin Hunter button on the Plugins page carries the Claude mark and is the page's main button, in the theme's accent colour.
+- Start over clears the chats in History too; the cards stay. Chat turns saved before this version are shown with the newest card made at or before them.
+
+### Fixed
+
+- On a Plugin Hunter card, an element that is not ticked has its Retire boxes and those of its copies cleared and disabled, and Retire all ticks only the copies of ticked elements.
+
 ## [0.12.0] - 2026-10-29
 
 ### Added

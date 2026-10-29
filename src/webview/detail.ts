@@ -9,7 +9,7 @@ import { hideHover } from './hover';
 import { renderMain } from './main';
 import { goBack, historyLabel } from './refs';
 import { slimOf } from './slim';
-import { canDraw, drawingOf, drawsWhat } from './drawing';
+import { canDraw, drawingId, drawingOf, drawsWhat, processOf } from './drawing';
 import { syncableFromGlobal, syncableMcp } from './sync';
 
 // The kinds Review with Claude and Try it apply to.
@@ -322,7 +322,8 @@ function commandBar(d, dirty) {
         : null,
       canDraw(a)
         ? (() => {
-            const drawn = drawingOf(a.id);
+            const drawn = drawingOf(drawingId(a));
+            const process = processOf(a);
             const running = !!drawn?.running;
             return confirmAt(
               cmd(

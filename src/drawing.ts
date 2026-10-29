@@ -153,6 +153,58 @@ export function drawSource(asset: Asset, pluginDir?: string): { text: string; fr
   }
 }
 
+/** The drawing id of a plugin's process perspective: the plugin's id with this suffix; its drawing is stored under that id. */
+export const PROCESS_SUFFIX = '#process';
+
+export const PROCESS_SYSTEM =
+  'You draw SVG process diagrams of Claude Code plugins: what runs in which order, with what input and output, and what each hook module does. Answer with one svg element only.';
+
+const MOD_CHARS = 6000;
+
+// The process perspective reads the plugin as the harness perspective does, plus the hook modules themselves: a mod's code is
+// where what it does is written down.
+export function processText(dir: string): string {
+  const base = pluginText(dir);
+  const hooks = path.join(dir, 'hooks');
+  if (!fs.existsSync(hooks)) return base;
+  const mods = fs
+    .readdirSync(hooks, { withFileTypes: true })
+    .filter(e => e.isFile() && /\.(mjs|js)$/i.test(e.name))
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map(e => {
+      const text = fs.readFileSync(path.join(hooks, e.name), 'utf8');
+      return `### Mod ${e.name}\n${text.length > MOD_CHARS ? `${text.slice(0, MOD_CHARS)}\n[cut]` : text}`;
+    });
+  return [base, ...mods].filter(Boolean).join('\n\n');
+}
+
+/** The prompt for a plugin's process perspective: numbered stage cards in run order, the shared files, the loops and the mods. */
+export function processPrompt(name: string, source: string): string {
+  return [
+    `Draw the plugin "${name}" as a process, from its manifest, contents and hook modules below: what runs in which order, and what each mod does.`,
+    'Answer with one complete <svg> element and nothing else: no markdown fence, no prose before or after.',
+    'What to draw:',
+    '- A vertical stack of numbered stage cards in run order (use 5a and 5b for stages that run side by side). A stage is a step of the plugin: a skill, an agent, a script or a gate. Take the order from what the skills, agents and mods say; when the plugin has no sequence, stack the parts by when they fire (session start, prompt, tool call).',
+    '- Each card: the number and a stage name of at most three words in bold; one muted line of at most ten words on what it does; then "Runs:" (main thread, background, or the agent name), "Model:" (only when the source names one), "Exit:" (the condition that ends the stage, only when the source states it); and a small chip with the file it writes, when it writes one. Leave out a line the source does not support: no placeholder.',
+    '- When stages hand files to each other, a narrow "Shared ledger" column at the right lists each stage\'s output file: a solid arrow from the stage to the ledger, a dashed arrow from the ledger to the next stage that reads it.',
+    '- Where a later stage sends work back to an earlier one (a gate that fails, a loop), an arrow in var(--vscode-textLink-foreground) from the later card back to the earlier, labelled with the fault in two to four words. A stage that repeats gets a small loop marker beside it with what repeats it.',
+    '- An input that several stages use (a voice or brand skill, a shared reference) is one purple box with purple arrows into the stages that use it.',
+    '- Under the stack, one line per hook module: its file name in bold, then at most fourteen words on what it does, from its code (what it watches, what it holds, what it changes).',
+    '- Draw only what exists in the source.',
+    'Rules for the layout:',
+    '- Use a viewBox 900 wide and as tall as the stack needs, with no width or height attributes. Cards are about 560 wide, centered or left, with the ledger and return arrows in the free columns. No line crosses a card or another line; route lines in the gaps with right-angle bends.',
+    '- At least 13 px text for card titles, at least 12 px for the other lines, font-family inherit.',
+    'Rules for the svg:',
+    '- Draw only with the editor theme colours, set as presentation attributes (fill="...", stroke="..."), never style attributes and never a fixed colour such as #fff or red.',
+    '- Text and outlines: currentColor; muted lines: var(--vscode-descriptionForeground). Card fills: fill="none", or a theme variable with a low fill-opacity.',
+    '- Allowed theme variables: var(--vscode-editor-foreground), var(--vscode-descriptionForeground), var(--vscode-textLink-foreground), var(--vscode-charts-blue), var(--vscode-charts-green), var(--vscode-charts-orange), var(--vscode-charts-purple), var(--vscode-editorWidget-background), var(--vscode-editorWidget-border).',
+    '- Plain shapes, text, paths, lines and marker arrowheads only. No script, no style element, no foreignObject, no image, no links, no event attributes, no animation.',
+    '',
+    '## Plugin',
+    source.length > MAX_CHARS ? `${source.slice(0, MAX_CHARS)}\n[cut]` : source,
+  ].join('\n');
+}
+
 /** The svg element of Claude's answer, whatever surrounds it; undefined when there is none. */
 export function extractSvg(reply: string): string | undefined {
   const m = /<svg[\s>][\s\S]*<\/svg>/i.exec(reply);

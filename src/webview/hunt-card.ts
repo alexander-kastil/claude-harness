@@ -3,7 +3,8 @@
 import { app, state, vscode } from './core';
 import { confirmAt } from './confirm';
 import { aiGroup, el, icon, iconBtn, plural } from './dom';
-import { hunt, marketOf, repaint, saveNow, saveSoon } from './hunt-state';
+import { turnRow } from './hunt-chat';
+import { hunt, marketOf, repaint, saveNow, saveSoon, splitCards, turnsOf } from './hunt-state';
 
 const newId = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
@@ -39,13 +40,20 @@ const repoWhere = (r, shared) => (shared.has(r.repo) ? el('div', { className: 'h
 function assetRows(p, a) {
   const rows = [];
   const shared = sharedNames();
-  const tick = (label, checked, onchange, title) => el('label', { className: 'hunt-retire', title }, el('input', { type: 'checkbox', checked, onchange: e => (onchange(e.target.checked), saveSoon(), syncRetireAll(p)) }), label);
+  // A deselected element's Retire boxes (its own and its copies') are clear and cannot be ticked.
+  const tick = (label, checked, onchange, title) => el('label', { className: 'hunt-retire', title }, el('input', { type: 'checkbox', checked: checked && a.include, disabled: !a.include, onchange: e => (onchange(e.target.checked), saveSoon(), syncRetireAll(p)) }), label);
   const gone = !a.global && !a.repos.length;
   rows.push(
     el(
       'div',
       { className: `hunt-asset${a.include ? '' : ' off'}` },
-      el('input', { type: 'checkbox', checked: a.include && !gone, 'aria-label': `Include ${a.name}`, disabled: gone, onchange: e => ((a.include = e.target.checked), saveSoon(), repaint()) }),
+      el('input', { type: 'checkbox', checked: a.include && !gone, 'aria-label': `Include ${a.name}`, disabled: gone, onchange: e => {
+          a.include = e.target.checked;
+          // Unticking an element clears what it would retire; ticking it again leaves them clear.
+          if (!a.include) [a.global, ...a.repos].filter(Boolean).forEach(c => (c.retire = false));
+          saveSoon();
+          repaint();
+        } }),
       el(
         'div',
         { className: 'hunt-main' },
@@ -131,7 +139,8 @@ function comment(p, ticked) {
 }
 
 // One tick for the Retire tick of every listed copy: set, partly set or clear.
-const copiesOf = p => p.assets.flatMap(a => [a.global, ...a.repos].filter(Boolean));
+// Only the ticked elements: a deselected element and its copies are never retired.
+const copiesOf = p => p.assets.filter(a => a.include).flatMap(a => [a.global, ...a.repos].filter(Boolean));
 
 const showRetireAll = (box, copies) => {
   const on = copies.filter(c => c.retire).length;
@@ -251,7 +260,7 @@ function describe(p, done) {
   return ta;
 }
 
-export function card(p) {
+export function card(p, history = false) {
   const market = marketOf();
   const result = hunt.results[p.id];
   const done = hunt.created[p.id] || (result && result.state === 'done' ? result.text : '');
@@ -286,12 +295,20 @@ export function card(p) {
     if (b) b.disabled = !!why;
     if (hint) hint.textContent = why;
   };
-  return el(
+  // A History item is collapsed to its header; a click on the header, or on its chevron, opens it with the chat turns that made it.
+  const expanded = !history || !!hunt.open[p.id];
+  const toggle = () => {
+    hunt.open[p.id] = !hunt.open[p.id];
+    repaint();
+  };
+  const turns = history && expanded ? turnsOf(p, splitCards().all) : [];
+  const box = el(
     'div',
-    { className: `hunt-card${done ? ' done' : ''}`, 'data-card': p.id },
+    { className: `hunt-card${done ? ' done' : ''}${history ? ' history' : ''}${history && !expanded ? ' collapsed' : ''}`, 'data-card': p.id },
     el(
       'div',
-      { className: 'hunt-card-head' },
+      { className: 'hunt-card-head', onclick: history ? e => (e.target.closest('input,button') ? undefined : toggle()) : undefined },
+      history ? el('button', { type: 'button', className: 'hunt-chev', 'aria-expanded': String(expanded), 'aria-label': `${expanded ? 'Collapse' : 'Expand'} ${p.name || 'this card'}`, onclick: toggle }, icon(expanded ? 'chevron-down' : 'chevron-right')) : null,
       icon(done ? 'pass-filled' : 'package'),
       el('input', { className: 'hunt-title', type: 'text', placeholder: 'plugin-name', value: p.name, readonly: !!done, 'aria-label': 'Plugin name', oninput: e => ((p.name = e.target.value.trim()), saveSoon(), sync()) }),
       el('span', { className: 'hunt-when' }, done ? 'Created' : p.prompt ? 'Hunted' : 'New'),
@@ -349,4 +366,7 @@ export function card(p) {
         ? el('div', { className: 'hunt-assets' }, p.assets.flatMap(a => assetRows(p, a)))
         : null
   );
+  if (!expanded) while (box.children.length > 1) box.lastElementChild.remove();
+  else if (turns.length) box.children[0].after(el('div', { className: 'hunt-card-chat', role: 'log', 'aria-label': 'Conversation of this card' }, turns.map(turnRow)));
+  return box;
 }

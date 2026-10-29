@@ -246,7 +246,7 @@ onMessage(m => {
   } else if (m.type === 'slim') {
     if (storeSlim(m) && state.detail && state.detail.asset.id === m.id && state.detailMode !== 'edit') keepMainScroll(renderMain);
   } else if (m.type === 'drawing') {
-    if (storeDrawing(m) && state.detail && state.detail.asset.id === m.id && state.detailMode !== 'edit') keepMainScroll(renderMain);
+    if (storeDrawing(m) && state.detail && state.detail.asset.id === m.id.replace(/#process$/, '') && state.detailMode !== 'edit') keepMainScroll(renderMain);
   } else if (m.type === 'mcpInfo') {
     // A retry keeps the old banner, busy, until the new answer comes in.
     if (m.info === undefined && state.mcpBusy[m.id] === 'busy') return;

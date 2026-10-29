@@ -30,6 +30,9 @@ export const hunt = {
   results: {},
   // The conversation shows its last turns; older ones open on request.
   earlier: false,
+  // The page's tab, and the History items that are open (collapsed by default), by card id.
+  tab: 'new',
+  open: {},
   // After the next paint: a card to bring into view or to focus, the picker or the search to focus, the newest reply to show.
   reveal: undefined,
   focusName: undefined,
@@ -113,5 +116,24 @@ export const repaint = () => {
   if (body) body.scrollTop = top;
   afterPaint();
 };
+
+/** A card Create has made a plugin of. */
+export const isDone = p => !!(hunt.created[p.id] || (hunt.results[p.id] && hunt.results[p.id].state === 'done'));
+
+/** The cards, newest first: the one being worked on (the newest not yet created) and the rest, which are the History. */
+export const splitCards = () => {
+  const all = [...hunt.proposals].sort((a, b) => b.created - a.created);
+  const working = all.find(p => !isDone(p));
+  return { all, working, history: all.filter(p => p !== working) };
+};
+
+/** The card a turn belongs to: the one it names; a turn from before that field is the newest card made at or before it; '' is the working one. */
+const cardOfTurn = (t, all) => (t.card !== undefined ? t.card : (all.find(p => p.created <= t.at) || {}).id || '');
+
+/** The turns of one card, oldest first. */
+export const turnsOf = (p, all) => hunt.chat.filter(t => cardOfTurn(t, all) === p.id);
+
+/** The turns of the hunt in progress: those of its card and those that came before any card or name a card that is gone. */
+export const workingTurns = ({ all, working }) => hunt.chat.filter(t => (working ? cardOfTurn(t, all) === working.id : false) || !all.some(p => p.id === cardOfTurn(t, all)));
 
 export const marketOf = () => hunt.info && hunt.info.markets.find(k => k.name === hunt.picked);

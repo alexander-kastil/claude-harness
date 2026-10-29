@@ -265,6 +265,11 @@ export function usedRefList(plugin: Asset, entries: { a: Asset; v: unknown }[], 
     { className: 'ref-list' },
     entries.map(e => {
       const row = refRow(e);
+      // What the item does, between its name and its tags.
+      if (e.a.description) {
+        row.classList.add('has-desc');
+        row.querySelector('.ref-name')?.after(el('span', { className: 'ref-desc', title: e.a.description }, e.a.description));
+      }
       const n = elementCount(plugin, kind, e.a.name);
       if (n === undefined) return row;
       row.classList.add('has-uses');

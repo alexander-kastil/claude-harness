@@ -105,7 +105,7 @@ export function huntHost(d: HuntDeps): HuntHost {
           } else reply += live ? ' The card was left as it is.' : '';
         }
         const now = Date.now();
-        await d.state.update(CHAT, [...chat, { role: 'owner', text: prompt, at: now }, { role: 'claude', text: reply, at: now }]);
+        await d.state.update(CHAT, [...chat, { role: 'owner', text: prompt, at: now, card: touched ?? live?.id ?? '' }, { role: 'claude', text: reply, at: now, card: touched ?? live?.id ?? '' }]);
         if (turn.create) createId = touched ?? d.state.get<string>(CURRENT);
         // The page gets the new card first, so that "done" can bring it and the reply into view.
         latest = info();
