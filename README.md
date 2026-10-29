@@ -6,6 +6,8 @@
 
 Claude Harness is a VS Code editor for your whole Claude Code harness: memory, rules, agents, skills, commands, output styles, workflows, hooks, MCP servers and plugins, globally and per repository. It reads the session transcripts Claude Code already writes, so every part of the harness shows what it did and what it cost.
 
+Replay a session to any checkpoint, see what each agent and skill cost, build plugins from your skills with Claude, and open every view as an `@harness` mention.
+
 ![Claude Harness in action](docs/images/harness-demo.gif)
 
 [Watch the film as MP4](https://github.com/alexander-kastil/claude-harness/blob/master/docs/images/harness-demo.mp4)
