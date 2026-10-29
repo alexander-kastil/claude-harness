@@ -4,8 +4,8 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { test } from 'node:test';
 import { run } from '../../src/cli';
-import { install, linkToRepo } from '../../src/distributor';
-import { updateBackupDir } from '../../src/cli-sources';
+import { ROOT_NOISE, install, linkToRepo } from '../../src/distributor';
+import { checkState, updateBackupDir } from '../../src/cli-sources';
 
 // The fixture is a Claude folder of its own under a temp folder: no network, and the owner's ~/.claude is never named.
 
@@ -149,4 +149,18 @@ test('sources takes only check and update after its name', async () => {
   const r = await cli(['sources', 'bogus', '--root', root, '--user-config', userConfig]);
   assert.equal(r.code, 2);
   assert.match(r.err, /sources takes no bogus/);
+});
+
+test('a source whose version is lower than the installed one is older, not newer', () => {
+  assert.equal(checkState({ state: 'newer', version: '2.4.0' }, '3.0.0'), 'older');
+  assert.equal(checkState({ state: 'newer', version: '3.1.0' }, '3.0.0'), 'newer');
+  assert.equal(checkState({ state: 'newer', version: '3.0.0' }, '3.0.0'), 'newer');
+  assert.equal(checkState({ state: 'newer' }, '3.0.0'), 'newer');
+  assert.equal(checkState({ state: 'newer', version: '2.4.0' }, null), 'newer');
+  assert.equal(checkState({ state: 'current' }, '3.0.0'), 'current');
+});
+
+test('a skill at the repository root leaves the readme, changelog, tool folders and tests out of the install', () => {
+  for (const noise of ['README.md', 'CHANGELOG.md', '.claude-plugin/plugin.json', '.codex-plugin/plugin.json', '.agents/x.json', 'agents/openai.yaml', 'tests/corpus/a.md', 'docs/a.md', 'AGENTS.md', '.gitignore']) assert.ok(ROOT_NOISE.test(noise), noise);
+  for (const kept of ['SKILL.md', 'references/readme.md', 'scripts/run.py', 'agents/reviewer.md', 'assets/logo.png', 'testing/a.md']) assert.ok(!ROOT_NOISE.test(kept), kept);
 });

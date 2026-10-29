@@ -216,11 +216,15 @@ export async function skillsCommand(a: Args, io: Io): Promise<number> {
     }
   } else if (sub === 'repoint') {
     const from = skillName(one(a, 'from'), 'skills repoint --from');
-    const to = skillName(one(a, 'to'), 'skills repoint --to');
+    // --to may carry a plugin prefix (plugin:skill), the form a skill takes once it ships in a plugin.
+    const toText = one(a, 'to') ?? '';
+    const colon = toText.indexOf(':');
+    const to = colon > 0 ? `${skillName(toText.slice(0, colon), 'skills repoint --to plugin')}:${skillName(toText.slice(colon + 1), 'skills repoint --to')}` : skillName(toText, 'skills repoint --to');
     const only = [...list(a, 'skills').map(n => path.join(root, 'skills', n)), ...list(a, 'agents').map(n => path.join(root, 'agents', `${n}.md`))];
     const own = path.join(root, 'skills', from) + path.sep;
     const files = textFiles(a, root).filter(f => !f.startsWith(own) && (!only.length || only.some(o => f === o || f.startsWith(o + path.sep))));
-    s.replace(files, skillRef(from), to);
+    // A name already behind a plugin prefix is not repointed again, so a second run changes nothing.
+    s.replace(files, colon > 0 ? new RegExp(`(?<![\\w.:-])${escape(from)}(?![\\w-])`, 'g') : skillRef(from), to);
     if (!s.changes.length) throw new Stop(`Nothing refers to ${from}.`);
   } else throw new Stop('skills needs move, split, put, remove or repoint. Run with --help.', 2);
   const out: SkillsOut = { op: sub as SkillsOut['op'], changes: s.changes, backup: s.backup };

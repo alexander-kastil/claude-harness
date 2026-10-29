@@ -64,7 +64,7 @@ export const COMMANDS: CommandSpec[] = [
   { path: 'inventory', flags: [REPO] },
   { path: 'consolidate', flags: [{ name: 'name', takes: 'names' }] },
   { path: 'consolidate retire', flags: [{ name: 'name', takes: 'names' }, { name: 'kind', takes: ['skill', 'agent'] }, { name: 'from', takes: [] }, DRY] },
-  { path: 'hunt catalog', flags: [] },
+  { path: 'hunt catalog', flags: [{ name: 'kind', takes: ['skill', 'agent'] }, { name: 'query', takes: [] }] },
   { path: 'hunt plan', flags: HUNT },
   { path: 'hunt create', flags: [...HUNT, DRY] },
   { path: 'agents list', flags: [] },
