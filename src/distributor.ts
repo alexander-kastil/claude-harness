@@ -148,6 +148,9 @@ export interface Staged {
   version?: string;
 }
 
+/** What a repository holds beside a skill that sits at its root: git and tool folders, readmes, changelogs, tests, docs and the Codex agent file. */
+export const ROOT_NOISE = /^(\.|(README|CHANGELOG|CONTRIBUTING|CODE_OF_CONDUCT|SECURITY|AGENTS|CLAUDE)[^/]*$|(tests?|docs)\/|agents\/openai\.yaml$)/i;
+
 const MAX_FILES = 400;
 const MAX_BYTES = 25 * 1024 * 1024;
 
@@ -165,7 +168,7 @@ export async function stage(found: Resolved): Promise<Staged> {
   const prefix = dir ? `${dir}/` : '';
   const hash = hashOf(tree, dir);
   if (!hash) throw new Error(`${dir} is not a folder of ${src.owner}/${src.repo}.`);
-  const blobs = tree.entries.filter(e => e.type === 'blob' && e.path.startsWith(prefix) && !(dir === '' && e.path.split('/')[0].startsWith('.git')));
+  const blobs = tree.entries.filter(e => e.type === 'blob' && e.path.startsWith(prefix) && !(dir === '' && ROOT_NOISE.test(e.path)));
   if (blobs.length > MAX_FILES || blobs.reduce((n, e) => n + (e.size ?? 0), 0) > MAX_BYTES) throw new Error(`${dir || src.repo} holds more than ${MAX_FILES} files or ${MAX_BYTES / 1024 / 1024} MB: not a skill folder.`);
   const scratch = fs.mkdtempSync(path.join(os.tmpdir(), SCRATCH));
   live.add(scratch);

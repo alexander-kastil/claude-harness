@@ -3,7 +3,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { test } from 'node:test';
-import { claudeLauncher, installPlugin, isInstalled, runClaude } from '../../src/hunt-create';
+import { CreatePlan, claudeLauncher, installPlugin, isInstalled, runClaude, writePlugin } from '../../src/hunt-create';
 import type { HuntMarket, HuntProposal } from '../../src/shared/hunt';
 
 const win = process.platform === 'win32';
@@ -61,4 +61,22 @@ test('the install step runs claude with an argument array and no shell: no DEP01
     process.off('warning', onWarning);
   }
   assert.ok(!warnings.includes('DEP0190'));
+});
+
+test('a new plugin carries the author of the marketplace\'s existing plugins, else the marketplace owner', async () => {
+  const author = async (existing: unknown) => {
+    const market = fs.mkdtempSync(path.join(os.tmpdir(), 'author-'));
+    const write = (rel: string, text: string) => {
+      fs.mkdirSync(path.dirname(path.join(market, rel)), { recursive: true });
+      fs.writeFileSync(path.join(market, rel), text);
+    };
+    write('.claude-plugin/marketplace.json', JSON.stringify({ name: 'own', owner: { name: 'the-org' }, plugins: existing ? [{ name: 'old', source: './plugins/old' }] : [] }));
+    if (existing) write('plugins/old/.claude-plugin/plugin.json', JSON.stringify({ name: 'old', author: existing }));
+    const dir = path.join(market, 'plugins', 'fresh');
+    const plan = { problems: [], files: [], retired: [], kept: [], source: './plugins/fresh', dir, chosen: [], retires: [] } as unknown as CreatePlan;
+    await writePlugin({ name: 'fresh', description: 'd', assets: [] } as unknown as HuntProposal, plan, { name: 'own', location: market, owned: true } as HuntMarket);
+    return JSON.parse(fs.readFileSync(path.join(dir, '.claude-plugin', 'plugin.json'), 'utf8')).author;
+  };
+  assert.deepEqual(await author({ name: 'Alexander Kastil' }), { name: 'Alexander Kastil' });
+  assert.deepEqual(await author(undefined), { name: 'the-org' });
 });

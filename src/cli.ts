@@ -33,7 +33,8 @@ Usage: node cli.js <command> [options]
   consolidate [--name <n>]            Every skill, agent, rule, command or workflow that exists in more than one place, with its copies.
   consolidate retire --name <n> --kind skill|agent --from <global|repo dir> [--dry-run]
                                       Retire one copy, backed up first (same backup as the extension).
-  hunt catalog                        The skills and agents across Global and repos that a plugin can be made from.
+  hunt catalog [--kind skill|agent] [--query <text>]
+                                      The skills and agents across Global and repos that a plugin can be made from; --kind and --query keep the ones whose type or name and description match.
   hunt plan --name <plugin> --category <c> --skills a,b --agents x,y [--files <file>=<path in plugin>,...] [--drop-files] [--market <m>] [--description <t>] [--retire]
                                       The same as hunt create --dry-run. --files rides a hooks.json, a hook script or an .mcp.json into the plugin; --drop-files retires them too.
   hunt create <same options> [--dry-run]
@@ -54,7 +55,7 @@ Usage: node cli.js <command> [options]
                                       Put a file into a skill: new or rewritten text no move can make (an existing file is backed up).
   skills remove --name <skill>|--leaf <skill>/<path> [--market <dir>] [--dry-run]
                                       Delete a skill or one leaf of it, backed up first, and list what still mentions it.
-  skills repoint --from <skill> --to <skill> [--skills a,b] [--agents x,y] [--market <dir>] [--dry-run]
+  skills repoint --from <skill> --to <skill>|<plugin>:<skill> [--skills a,b] [--agents x,y] [--market <dir>] [--dry-run]
                                       Rewrite the mentions of one skill name to another in skills and agents.
   generate agent <name> [--scope repo|user] [--model <m>] [--tools a,b] [--description <t>] [--from <file>] [--dry-run]
                                       Make sure an agent exists as given in the repo (or ~/.claude); a rerun with nothing changed writes nothing. Alias g.
@@ -378,7 +379,10 @@ export async function run(argv: string[], io: Io): Promise<number> {
       emit(io, a, o, consolidateLines(o));
     } else if (cmd === 'hunt' && sub === 'catalog') {
       const w = load(a);
-      const catalog = buildCatalog(w.views, w.plugins);
+      const kind = one(a, 'kind');
+      if (kind && kind !== 'skill' && kind !== 'agent') throw new Stop(`hunt catalog --kind takes skill or agent, got "${kind}".`, 2);
+      const query = (one(a, 'query') ?? '').toLowerCase();
+      const catalog = buildCatalog(w.views, w.plugins).filter(c => (!kind || c.asset.kind === kind) && (!query || `${c.asset.name} ${c.description}`.toLowerCase().includes(query)));
       emit(io, a, { catalog, markets: readMarkets(w.root) }, catalogLines(catalog));
     } else if (cmd === 'hunt' && (sub === 'plan' || sub === 'create')) {
       const w = load(a);

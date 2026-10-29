@@ -119,7 +119,9 @@ export async function writePlugin(p: HuntProposal, plan: CreatePlan, market: Hun
   const firstDir = sourcesOf(entries).map(s => path.resolve(market.location, s)).find(d => fs.existsSync(path.join(d, '.claude-plugin', 'plugin.json')));
   const schema = (firstDir && readJson(path.join(firstDir, '.claude-plugin', 'plugin.json')).$schema) || SCHEMA;
   const manifest: Record<string, unknown> = { $schema: schema, name: p.name, version: '0.1.0', description: p.description };
-  if (catalog.owner && typeof catalog.owner === 'object') manifest.author = catalog.owner;
+  // The author of the marketplace's existing plugins, else the marketplace owner.
+  const author = (firstDir && readJson(path.join(firstDir, '.claude-plugin', 'plugin.json')).author) || catalog.owner;
+  if (author && typeof author === 'object') manifest.author = author;
   try {
     await fs.promises.mkdir(path.join(plan.dir, '.claude-plugin'), { recursive: true });
     await fs.promises.writeFile(path.join(plan.dir, '.claude-plugin', 'plugin.json'), `${JSON.stringify(manifest, null, 2)}\n`);

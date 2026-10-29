@@ -202,3 +202,15 @@ test('hunt plan --files rides plain files into a plugin made of them alone and d
   assert.equal(gone.code, 1);
   assert.match(gone.out, /is gone from disk/);
 });
+
+test('skills repoint --to takes a plugin:skill name and leaves a name that already has a prefix alone', async () => {
+  const f = fixture();
+  const first = JSON.parse((await cli(['skills', 'repoint', '--from', 'media', '--to', 'pictures:media', '--json', ...f.base])).out) as SkillsOut;
+  assert.ok(first.changes.length > 0);
+  assert.match(read(f.root, 'agents/maker.md'), /the pictures:media skill/);
+  assert.match(read(f.root, 'skills/film/SKILL.md'), /Use pictures:media for sets/);
+  // The second run finds nothing left to repoint: no pictures:pictures:media.
+  assert.equal((await cli(['skills', 'repoint', '--from', 'media', '--to', 'pictures:media', ...f.base])).code, 1);
+  assert.doesNotMatch(read(f.root, 'agents/maker.md'), /pictures:pictures/);
+  assert.equal((await cli(['skills', 'repoint', '--from', 'media', '--to', 'pictures:', ...f.base])).code, 2);
+});

@@ -187,3 +187,12 @@ test('the command modules are wired: media doctor and usage refuse missing argum
   assert.equal((await cli(['media', 'doctor'])).code, 2);
   assert.equal((await cli(['usage'])).code, 2);
 });
+
+test('hunt catalog --kind and --query keep the matching skills and agents', async () => {
+  const f = fixture();
+  const names = async (...extra: string[]) => (JSON.parse((await cli(['hunt', 'catalog', '--json', ...extra, ...f.base])).out) as { catalog: { asset: { name: string } }[] }).catalog.map(c => c.asset.name);
+  assert.deepEqual(await names('--kind', 'agent'), ['helper']);
+  assert.deepEqual(await names('--kind', 'skill', '--query', 'MOVED'), ['moved']);
+  assert.deepEqual(await names('--query', 'helps'), ['helper']);
+  assert.equal((await cli(['hunt', 'catalog', '--kind', 'rule', ...f.base])).code, 2);
+});

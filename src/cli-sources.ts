@@ -3,6 +3,7 @@ import * as os from 'os';
 import * as path from 'path';
 import { Args, Io, Stop, emit, headline, list, one, table } from './cli-core';
 import { Latest, discard, install, latest, linkState, resolveOrigin, stage, diffFolders } from './distributor';
+import { compareVersions } from './fleet';
 import { backupStamp, knownRepos, parseMarkdown, versionOf } from './harness';
 import { SkillOrigin, originsOf } from './skill-lock';
 
@@ -29,7 +30,8 @@ interface SourceRow {
 interface CheckRow {
   name: string;
   source: string;
-  state: Latest['state'];
+  /** `older`: the source's version is lower than the installed one, so it differs but is not an update. */
+  state: Latest['state'] | 'older';
   installed: string | null;
   newerVersion: string | null;
   error: string | null;
@@ -83,17 +85,23 @@ function listSources(a: Args, io: Io, root: string): number {
   return 0;
 }
 
+/** The source differs from the install; it is only an update when its version is not lower than the installed one. */
+export function checkState(r: Latest, installedVersion: string | null): CheckRow['state'] {
+  return r.state === 'newer' && r.version && installedVersion && compareVersions(r.version, installedVersion) < 0 ? 'older' : r.state;
+}
+
 async function checkSources(a: Args, io: Io, root: string): Promise<number> {
   const skills = installed(root);
   const answers = skills.length ? await latest(skills.map(i => ({ name: i.name, origin: i.origin }))) : {};
   const rows: CheckRow[] = skills.map(i => {
     const r: Latest = answers[i.name] ?? { state: 'error', error: 'the source gave no answer' };
+    const state = checkState(r, i.version);
     return {
       name: i.name,
       source: i.origin.source,
-      state: r.state,
+      state,
       installed: i.version,
-      newerVersion: r.state === 'newer' ? (r.version ?? null) : null,
+      newerVersion: state === 'newer' ? (r.version ?? null) : null,
       error: r.error ?? null,
     };
   });
