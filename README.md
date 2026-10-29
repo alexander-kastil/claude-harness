@@ -8,6 +8,8 @@ Claude Harness is a VS Code editor for your whole Claude Code harness: memory, r
 
 ![Claude Harness in action](docs/images/harness-demo.gif)
 
+[Watch the film as MP4](https://github.com/alexander-kastil/claude-harness/blob/master/docs/images/harness-demo.mp4)
+
 *The Claude actions in the film run in your terminal on your own Claude plan. Claude Harness charges nothing on top.*
 
 ## Why Claude Harness
