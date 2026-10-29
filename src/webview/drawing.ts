@@ -5,6 +5,7 @@ import type { Asset } from '../harness';
 import { state, vscode } from './core';
 import { el, icon } from './dom';
 import { hideHover, placeCard } from './hover';
+import { renderMain } from './main';
 
 interface Drawing {
   svg?: string;
@@ -33,7 +34,18 @@ const DRAWS: Record<string, string> = {
 
 export const canDraw = (a: Asset): boolean => a.kind in DRAWS;
 
-export const drawsWhat = (kind: string): string => DRAWS[kind];
+export const drawsWhat = (kind: string, process = false): string => (process ? 'the plugin as a process: its stages in run order, what each takes in and puts out, and what its mods do, from its manifest, contents and hook modules' : DRAWS[kind]);
+
+// A plugin has two drawings: the harness perspective (how its parts connect to a session) and the process perspective (what runs
+// in which order). The process one is stored under the plugin's id plus this suffix; the toggle in the figure picks the one shown.
+const PROCESS = '#process';
+let processFor: string | undefined;
+
+/** Whether the page of this plugin shows the process perspective. */
+export const processOf = (a: Asset): boolean => a.kind === 'plugin' && processFor === a.id;
+
+/** The id the element's drawing is stored and asked under: the plugin's process perspective has its own. */
+export const drawingId = (a: Asset): string => (processOf(a) ? a.id + PROCESS : a.id);
 
 /** Asks for the stored drawing once per loaded detail; the page repaints when the answer differs. */
 export function askDrawing(a: Asset): void {
@@ -41,6 +53,7 @@ export function askDrawing(a: Asset): void {
   if (!canDraw(a) || !d || asked.has(d)) return;
   asked.add(d);
   vscode.postMessage({ type: 'drawing', id: a.id });
+  if (a.kind === 'plugin') vscode.postMessage({ type: 'drawing', id: a.id + PROCESS });
 }
 
 /** Stores the host's answer; true when the page showing the element has something new to draw. */
@@ -99,13 +112,22 @@ const bigCard = (title: string, svg: SVGSVGElement) => el('div', { className: 'h
 
 /** The figure above the info card: the drawing, or nothing at all. Hovered or focused, it opens the drawing large. */
 export function drawingFigure(a: Asset): HTMLElement | null {
-  const svg = drawingOf(a.id)?.svg;
-  if (!canDraw(a) || !svg) return null;
-  const clean = cleanSvg(svg);
-  if (!clean) return null;
-  const title = `What ${a.name} does`;
-  clean.setAttribute('aria-label', title);
-  const fig = el('figure', { className: 'dv-draw', tabindex: '0' }, clean);
+  const plugin = a.kind === 'plugin';
+  const process = processOf(a);
+  const svg = drawingOf(drawingId(a))?.svg;
+  // A plugin keeps its figure while either perspective has a drawing, so the toggle stays reachable; the shown one may be empty.
+  if (!canDraw(a) || (!svg && !(plugin && (drawingOf(a.id)?.svg || drawingOf(a.id + PROCESS)?.svg)))) return null;
+  const clean = svg ? cleanSvg(svg) : undefined;
+  if (svg && !clean) return null;
+  const title = process ? `How ${a.name} runs` : `What ${a.name} does`;
+  clean?.setAttribute('aria-label', title);
+  const pick = (to: boolean, label: string, tip: string) =>
+    el('button', { type: 'button', className: `view-tab dg-mode${process === to ? ' active' : ''}`, title: tip, 'aria-pressed': String(process === to), onclick: () => ((processFor = to ? a.id : undefined), hideHover(), renderMain()) }, el('span', {}, label));
+  const toggle = plugin
+    ? el('div', { className: 'dg-modes dv-persp', role: 'group', 'aria-label': 'Perspective' }, pick(false, 'Harness', 'Harness\nHow the plugin connects to a Claude session.'), pick(true, 'Process', 'Process\nWhat runs in which order, and what its mods do.'))
+    : null;
+  const fig = el('figure', { className: `dv-draw${process ? ' dv-process' : ''}`, tabindex: svg ? '0' : undefined }, toggle, clean ?? el('div', { className: 'dv-empty' }, 'Not drawn yet. Draw with Claude in the bar above.'));
+  if (!svg) return fig;
   let timer: ReturnType<typeof setTimeout> | undefined;
   const open = (delay: number) => {
     clearTimeout(timer);

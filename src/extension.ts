@@ -75,7 +75,7 @@ import type { Progress } from './usage';
 import { hookRows, hookTarget } from './usage-hooks';
 import { registerQuota } from './quota';
 import { analyzeSkill, resolvePrompt, slimPrompt } from './slim';
-import { DRAW_SYSTEM, contentHash, drawPrompt, drawSource, drawable, extractSvg, readDrawing, writeDrawing } from './drawing';
+import { DRAW_SYSTEM, PROCESS_SUFFIX, PROCESS_SYSTEM, contentHash, drawPrompt, drawSource, drawable, extractSvg, processPrompt, processText, readDrawing, writeDrawing } from './drawing';
 import type { SlimReport } from './shared/slim';
 import { usageMore, usageRows, usageTarget, usageTotals } from './usage-rows';
 import type { UsageTarget } from './usage-rows';
@@ -668,14 +668,18 @@ export function activate(context: vscode.ExtensionContext): void {
       return usageTotals(data, targets, kind === 'skill');
     },
     drawing: id => {
-      const asset = find(id);
-      const source = asset && drawSource(asset, pluginDirOf(asset));
+      const process = id.endsWith(PROCESS_SUFFIX);
+      const asset = find(process ? id.slice(0, -PROCESS_SUFFIX.length) : id);
+      const dir = asset && pluginDirOf(asset);
+      const source = process ? (dir && asset.kind === 'plugin' ? { text: processText(dir) } : undefined) : asset && drawSource(asset, dir);
       return source ? readDrawing(drawingsDir, id, contentHash(source.text)) : undefined;
     },
     drawAsset: async (id, answer, ask, started) => {
-      const asset = find(id);
-      if (!asset || !drawable(asset.kind)) return undefined;
-      const source = drawSource(asset, pluginDirOf(asset));
+      const process = id.endsWith(PROCESS_SUFFIX);
+      const asset = find(process ? id.slice(0, -PROCESS_SUFFIX.length) : id);
+      if (!asset || !drawable(asset.kind) || (process && asset.kind !== 'plugin')) return undefined;
+      const dir = pluginDirOf(asset);
+      const source = process ? (dir && fs.existsSync(dir) ? { text: processText(dir), from: "the plugin's manifest, contents and hook modules" } : undefined) : drawSource(asset, dir);
       if (!source) return { error: 'Nothing on disk to draw from.' };
       if (!answer.confirmed && !context.globalState.get<boolean>('drawRemembered')) {
         ask({ kind: 'draw', id, name: asset.name, file: asset.file, chars: Math.min(source.text.length, 30000), source: source.from });
@@ -683,7 +687,9 @@ export function activate(context: vscode.ExtensionContext): void {
       }
       if (answer.remember) await context.globalState.update('drawRemembered', true);
       started();
-      const result = await draftStyle(drawPrompt(asset.kind, asset.name, source.text), 'sonnet', os.tmpdir(), 300000, DRAW_SYSTEM);
+      const result = process
+        ? await draftStyle(processPrompt(asset.name, source.text), 'sonnet', os.tmpdir(), 300000, PROCESS_SYSTEM)
+        : await draftStyle(drawPrompt(asset.kind, asset.name, source.text), 'sonnet', os.tmpdir(), 300000, DRAW_SYSTEM);
       if ('error' in result) return { error: result.error };
       const svg = extractSvg(result.text);
       if (!svg) return { error: 'Claude did not answer with an svg drawing.' };

@@ -48,6 +48,8 @@ export interface HuntTurn {
   role: 'owner' | 'claude';
   text: string;
   at: number;
+  /** The card the turn belongs to; empty when it came before any card. Turns stored before this field have none. */
+  card?: string;
 }
 
 export interface HuntInfo {

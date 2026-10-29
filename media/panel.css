@@ -4522,6 +4522,39 @@ button.std-finding:hover {
   grid-template-columns: 16px minmax(0, 1fr) auto auto auto;
 }
 
+/* A plugin's item row with what it does between the name and the tags. */
+.ref-row.has-desc {
+  grid-template-columns: 16px minmax(120px, 220px) minmax(0, 1fr) auto auto;
+}
+
+.ref-row.has-desc.has-uses {
+  grid-template-columns: 16px minmax(120px, 220px) minmax(0, 1fr) auto auto auto;
+}
+
+.ref-desc {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+}
+
+/* The perspective toggle in the drawing's top-left corner; the process drawing is a tall stack, so it is not capped at 180px. */
+.dv-persp {
+  margin: 0 0 6px;
+}
+
+.dv-draw.dv-process svg {
+  max-width: 900px;
+  max-height: none;
+  margin: 0 auto;
+}
+
+.dv-draw .dv-empty {
+  padding: 24px 0;
+  text-align: center;
+}
+
 .ref-uses {
   font-size: 11px;
   color: var(--vscode-charts-blue);
@@ -5984,6 +6017,146 @@ body.vscode-high-contrast-light {
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
   overflow: hidden;
+}
+
+/* The Plugins page's main action: the page's one primary button, larger than its icon neighbours, with the Claude mark. */
+button.primary.hunt-cta {
+  gap: 8px;
+  padding: 6px 16px;
+  border-radius: 6px;
+  /* The theme's accent (the badge colour), not the button colour: some themes (Dracula) draw primary buttons as dim slate. */
+  border-color: transparent;
+  background: var(--vscode-activityBarBadge-background, var(--vscode-button-background));
+  color: var(--vscode-activityBarBadge-foreground, var(--vscode-button-foreground));
+  font-weight: 600;
+  box-shadow: 0 2px 10px color-mix(in srgb, var(--vscode-activityBarBadge-background, var(--vscode-button-background)) 45%, transparent);
+}
+
+button.primary.hunt-cta:hover {
+  background: var(--vscode-activityBarBadge-background, var(--vscode-button-hoverBackground));
+  filter: brightness(1.12);
+}
+
+button.primary.hunt-cta .claude-mark {
+  flex: none;
+}
+
+/* The mark takes the button's text colour: its own orange is unreadable on a pink or purple accent. */
+button.primary.hunt-cta .claude-mark,
+button.primary.hunt-cta .claude-mark path {
+  fill: currentColor;
+}
+
+/* The Plugin Hunter: half chat, half findings and selections; stacked when the page is narrow. */
+.hunt-body {
+  container: hunt-body / inline-size;
+}
+
+.hunt-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.hunt-col {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--vscode-editorWidget-background) 55%, transparent);
+}
+
+.hunt-col-find {
+  border-color: color-mix(in srgb, var(--vscode-focusBorder) 45%, var(--vscode-panel-border));
+}
+
+.hunt-col-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--vscode-panel-border);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--vscode-descriptionForeground);
+}
+
+.hunt-col-count {
+  margin-left: auto;
+  padding: 1px 8px;
+  border-radius: 10px;
+  background: var(--vscode-badge-background);
+  color: var(--vscode-badge-foreground);
+  font-size: 11px;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.hunt-col .hunt-card {
+  border: none;
+  padding: 0;
+  background: transparent;
+}
+
+.hunt-col .hunt-msg {
+  max-width: 100%;
+}
+
+@container hunt-body (max-width: 860px) {
+  .hunt-split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* History: each card a collapsed item whose header toggles it and its chat. */
+.hunt-history {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.hunt-card.history .hunt-card-head {
+  cursor: pointer;
+}
+
+.hunt-card.history.collapsed {
+  gap: 0;
+}
+
+.hunt-chev {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--vscode-descriptionForeground);
+  cursor: pointer;
+}
+
+.hunt-chev:hover {
+  background: var(--vscode-toolbar-hoverBackground);
+}
+
+.hunt-card-chat {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--vscode-panel-border);
+}
+
+.hunt-card-chat .hunt-msg {
+  max-width: 100%;
 }
 
 /* A confirm card that asks for text or a pick. */
