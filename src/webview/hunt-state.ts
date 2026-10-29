@@ -13,6 +13,9 @@ export const hunt = {
   pending: '',
   picked: undefined,
   prompt: '',
+  // The change comment typed on each card, by card id, and the one being answered now.
+  notes: {},
+  cardAsk: undefined,
   running: false,
   // When the running turn started, for the elapsed time shown while Claude works.
   startedAt: 0,

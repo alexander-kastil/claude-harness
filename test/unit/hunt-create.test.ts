@@ -80,3 +80,21 @@ test('a new plugin carries the author of the marketplace\'s existing plugins, el
   assert.deepEqual(await author({ name: 'Alexander Kastil' }), { name: 'Alexander Kastil' });
   assert.deepEqual(await author(undefined), { name: 'the-org' });
 });
+
+test('a renamed skill is written under its new folder with the new name in its front matter', async () => {
+  const market = fs.mkdtempSync(path.join(os.tmpdir(), 'rename-'));
+  fs.mkdirSync(path.join(market, '.claude-plugin'), { recursive: true });
+  fs.writeFileSync(path.join(market, '.claude-plugin', 'marketplace.json'), JSON.stringify({ name: 'own', plugins: [] }));
+  const src = path.join(market, 'src', 'docker-images');
+  fs.mkdirSync(src, { recursive: true });
+  fs.writeFileSync(path.join(src, 'SKILL.md'), '---\r\nname: docker-images\r\ndescription: Builds images\r\n---\r\n\r\nname: stays in the body\r\n');
+  const dir = path.join(market, 'plugins', 'fresh');
+  const from = { id: 'g', scope: 'global', kind: 'skill', name: 'docker-images', file: path.join(src, 'SKILL.md'), dir: src } as any;
+  const asset = { kind: 'skill', name: 'docker-images', as: 'hetzner-docker', include: true, repos: [] };
+  const plan = { problems: [], files: [], retired: [], kept: [], source: './plugins/fresh', dir, chosen: [{ asset, from, kind: 'skill' }], retires: [] } as unknown as CreatePlan;
+  await writePlugin({ name: 'fresh', description: 'd', assets: [asset] } as unknown as HuntProposal, plan, { name: 'own', location: market, owned: true } as HuntMarket);
+  const text = fs.readFileSync(path.join(dir, 'skills', 'hetzner-docker', 'SKILL.md'), 'utf8');
+  assert.ok(text.startsWith('---\r\nname: hetzner-docker\r\ndescription: Builds images\r\n---'));
+  assert.ok(text.includes('name: stays in the body'));
+  assert.ok(!fs.existsSync(path.join(dir, 'skills', 'docker-images')));
+});

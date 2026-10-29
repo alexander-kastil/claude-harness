@@ -5537,9 +5537,10 @@ body.vscode-high-contrast-light {
 .hunt-card {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
   flex-shrink: 0;
   min-width: 0;
+  container: hunt-card / inline-size;
   padding: 12px 14px;
   border: 1px solid var(--vscode-panel-border);
   border-radius: 6px;
@@ -5622,17 +5623,57 @@ body.vscode-high-contrast-light {
 .hunt-assets {
   display: flex;
   flex-direction: column;
-  border-top: 1px solid var(--vscode-panel-border);
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 6px;
+  overflow: hidden;
 }
 
-/* A row wraps instead of overflowing: the name and its reason take what is left, the copy, tick and remove button drop below at a narrow width. */
-.hunt-asset {
+/* The bar of a card sits under its title row: add, count and Retire all on the left, the reason and Create on the right. */
+.hunt-card > .hunt-foot {
+  padding: 6px 8px;
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--vscode-foreground) 4%, transparent);
+}
+
+.hunt-comment-row {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 4px 10px;
-  padding: 6px 0;
+  gap: 8px;
+}
+
+.hunt-comment {
+  flex: 1;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.hunt-foot .hunt-count {
+  padding: 0 4px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Every row of the card shares one column grid, so the copy, Retire tick, Merge group and remove button of every element and every repo copy line up. At a narrow width the grid gives way to a wrapping row. */
+.hunt-asset {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) 104px 68px 112px 24px;
+  align-items: center;
+  column-gap: 10px;
+  padding: 8px 8px;
   border-bottom: 1px solid var(--vscode-panel-border);
+}
+
+.hunt-asset > input[type='checkbox'] {
+  align-self: start;
+  margin: 3px 0 0;
+}
+
+.hunt-asset:last-child {
+  border-bottom: 0;
+}
+
+.hunt-assets > .hunt-asset:not(.sub):hover {
+  background: var(--vscode-list-hoverBackground);
 }
 
 .hunt-asset.off {
@@ -5640,7 +5681,17 @@ body.vscode-high-contrast-light {
 }
 
 .hunt-asset.sub {
-  padding-left: 12px;
+  padding-top: 6px;
+  padding-bottom: 6px;
+  background: color-mix(in srgb, var(--vscode-foreground) 4%, transparent);
+}
+
+.hunt-asset.sub .hunt-main {
+  padding-left: 4px;
+}
+
+.hunt-asset.done {
+  grid-template-columns: 20px minmax(0, 1fr);
 }
 
 .hunt-asset.done > .codicon {
@@ -5649,12 +5700,74 @@ body.vscode-high-contrast-light {
 
 .hunt-gap {
   width: 13px;
-  flex: none;
 }
 
 .hunt-main {
-  flex: 1 1 220px;
   min-width: 0;
+}
+
+.hunt-cell {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.hunt-c-x {
+  justify-content: flex-end;
+}
+
+.hunt-asset > .hunt-c-copy {
+  grid-column: 3;
+}
+
+.hunt-asset > .hunt-c-retire {
+  grid-column: 4;
+}
+
+.hunt-asset > .hunt-c-act {
+  grid-column: 5;
+}
+
+.hunt-asset > .hunt-c-x {
+  grid-column: 6;
+}
+
+/* Below the width the columns need, the cells wrap under the name instead of clipping. */
+@container hunt-card (max-width: 400px) {
+  .hunt-asset {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+  }
+
+  .hunt-asset > .hunt-main {
+    flex: 1 1 calc(100% - 40px);
+  }
+
+  .hunt-asset > .hunt-cell:empty {
+    display: none;
+  }
+
+  .hunt-asset > .hunt-c-copy {
+    margin-left: 32px;
+  }
+}
+
+/* In a narrow card the name and its reason take the whole row and the controls sit under them, in the same columns. */
+@container hunt-card (max-width: 520px) {
+  .hunt-asset > .hunt-main {
+    grid-column: 2 / -1;
+    padding-bottom: 4px;
+  }
+
+  .hunt-asset:not(.done) > .hunt-cell {
+    grid-row: 2;
+  }
+
+  .hunt-asset:not(.done) > input,
+  .hunt-asset > .hunt-gap {
+    grid-row: 1;
+  }
 }
 
 .hunt-name {
@@ -5666,6 +5779,10 @@ body.vscode-high-contrast-light {
 
 .hunt-name .codicon {
   flex: none;
+}
+
+.hunt-asset:not(.sub) > .hunt-main .hunt-name-text {
+  font-weight: 600;
 }
 
 .hunt-name-text {
@@ -5687,15 +5804,6 @@ body.vscode-high-contrast-light {
   font-size: 12px;
   opacity: 0.8;
   overflow-wrap: anywhere;
-}
-
-.hunt-side {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 4px 12px;
-  margin-left: auto;
 }
 
 .hunt-copy {

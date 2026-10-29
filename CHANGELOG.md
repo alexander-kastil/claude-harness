@@ -2,6 +2,19 @@
 
 All notable changes to Claude Harness are listed here, newest first. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions with no version change in the package.json history (0.1.3, 0.1.5 to 0.1.18, 0.1.20 to 0.1.24, 0.1.27, 0.2.1 and 0.2.3 to 0.2.11) and development builds (0.2.14 to 0.2.22, 0.2.24 to 0.2.30, 0.2.32 to 0.2.34, 0.2.36 to 0.2.44, 0.3.0, 0.3.2, 0.4.1 to 0.4.3, 0.5.2 and 0.5.3) have no entry.
 
+## [0.12.0] - 2026-10-29
+
+### Added
+
+- **Claude Go on Plugin Hunter cards**: each card has a comment line for changes to its ticked elements, for example "rename docker-images to hetzner-docker". Go, or Enter, sends the comment with the ticked elements to Claude in the hunt conversation. The answer shows in the bubble above the cards and the card updates.
+- A rename shows on the element as an "as <new name>" tag, and Create writes the element under the new name with its `name:` front matter changed. Two elements that would end up with the same name stop Create.
+
+### Changed
+
+- The Plugin Hunter card's bar with Add skill or agent, the asset count, Retire all and Create sits under the title and prompt line instead of at the bottom of the card.
+- Every row of a card, element or repo copy, lines up in the same columns: tick, name, copy state, Retire, Merge or Compare, remove.
+- The Description and Category folder fields are off the card. Their values stay and Create still uses them; when a marketplace needs a category and the card has none, the Create hint says to ask Claude for one.
+
 ## [0.11.2] - 2026-10-28
 
 ### Added

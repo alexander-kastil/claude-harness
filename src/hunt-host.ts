@@ -4,7 +4,7 @@ import * as vscode from 'vscode';
 import type { HuntHost } from './panel';
 import { KeepCopies, ScopeView, backupStamp } from './harness';
 import { HUNT_SYSTEM, applyProposal, chatPrompt, parseTurn, shortReply, unknownNames } from './hunt';
-import { assetAt, buildCatalog, inventoryText, items, reconcile } from './hunt-catalog';
+import { assetAt, buildCatalog, inventoryText, items, keyOf, reconcile } from './hunt-catalog';
 import { installPlugin, planCreate, retireCopies, unwritePlugin, writePlugin } from './hunt-create';
 import { readMarkets } from './hunt-market';
 import type { HuntInfo, HuntProposal, HuntTurn } from './shared/hunt';
@@ -63,7 +63,7 @@ export function huntHost(d: HuntDeps): HuntHost {
       void d.state.update(PROPOSALS, proposals);
       if (market) void d.state.update(MARKET, market);
     },
-    run: async (prompt, answer, ask, post) => {
+    run: async (prompt, answer, ask, post, cardId) => {
       if (!prompt.trim()) return void post({ type: 'huntRun', state: 'error', error: 'Write a message first.' });
       if (busy) return;
       const views = d.views();
@@ -72,7 +72,7 @@ export function huntHost(d: HuntDeps): HuntHost {
       const inventory = inventoryText(views, plugins, open);
       const chat = d.state.get<HuntTurn[]>(CHAT, []);
       // Asked once per conversation: the card says every message of it counts against the plan.
-      if (!chat.length && !answer.confirmed && !d.state.get<boolean>(REMEMBERED)) return ask({ kind: 'hunt', prompt, items: inventory.split('\n').length });
+      if (!chat.length && !answer.confirmed && !d.state.get<boolean>(REMEMBERED)) return ask({ kind: 'hunt', prompt, items: inventory.split('\n').length, card: cardId });
       if (answer.remember) await d.state.update(REMEMBERED, true);
       busy = true;
       post({ type: 'huntRun', state: 'running' });
@@ -81,9 +81,10 @@ export function huntHost(d: HuntDeps): HuntHost {
       let latest: HuntInfo | undefined;
       try {
         const catalog = buildCatalog(views, plugins);
-        const currentId = d.state.get<string>(CURRENT);
+        // A comment typed on a card is about that card, whichever one the conversation was building.
+        const currentId = cardId && stored().some(p => p.id === cardId) ? cardId : d.state.get<string>(CURRENT);
         const sent = reconcile(stored(), catalog).find(p => p.id === currentId);
-        const result = await draftStyle(chatPrompt(prompt, inventory, sent, chat.slice(-HISTORY)), 'sonnet', os.tmpdir(), 300000, HUNT_SYSTEM);
+        const result = await draftStyle(chatPrompt(prompt, inventory, sent, chat.slice(-HISTORY), !!cardId && !!sent), 'sonnet', os.tmpdir(), 300000, HUNT_SYSTEM);
         if ('error' in result) return void post({ type: 'huntRun', state: 'error', error: friendly(result.error) });
         const turn = parseTurn(result.text);
         let reply = shortReply(turn.reply) || 'Done.';
@@ -94,6 +95,8 @@ export function huntHost(d: HuntDeps): HuntHost {
           if (left.length) reply += ` Left out ${left.length} not in your inventory.`;
           const card = applyProposal(live, turn.proposal, chat.find(t => t.role === 'owner')?.text ?? prompt, catalog, live?.id ?? `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`, Date.now(), sent);
           // A proposal with nothing in it never empties a card, and never makes an empty one.
+          // Claude is shown the ticked elements only: the unticked ones of the card stay on it.
+          if (live && cardId) card.assets.push(...live.assets.filter(a => !a.include && !card.assets.some(c => keyOf(c) === keyOf(a))));
           if (card.assets.length) {
             const cards = stored();
             await d.state.update(PROPOSALS, live ? cards.map(c => (c.id === card.id ? card : c)) : [card, ...cards]);

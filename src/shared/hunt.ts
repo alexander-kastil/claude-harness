@@ -9,6 +9,8 @@ export interface HuntAsset {
   repos: { repo: string; path: string; same: boolean; retire: boolean }[];
   /** Already shipped by this installed plugin. */
   inPlugin?: string;
+  /** The name the element gets inside the plugin, when a comment to Claude renamed it. */
+  as?: string;
 }
 
 export interface HuntProposal {

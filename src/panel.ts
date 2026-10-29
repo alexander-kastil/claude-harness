@@ -31,7 +31,7 @@ export interface HuntHost {
   save(proposals: HuntProposal[], market?: string): void;
   /** Starts the conversation over; the cards stay. */
   clear(): void;
-  run(prompt: string, answer: Answer, ask: (c: Confirm) => void, post: (m: ToWebview) => void): Promise<void>;
+  run(prompt: string, answer: Answer, ask: (c: Confirm) => void, post: (m: ToWebview) => void, card?: string): Promise<void>;
   create(id: string, market: string, answer: Answer, ask: (c: Confirm) => void, post: (m: ToWebview) => void): Promise<void>;
   merge(kind: 'skill' | 'agent', file: string, ask: (c: Confirm) => void): Promise<void>;
 }
@@ -597,7 +597,7 @@ export class HarnessPanel {
         if (this.host.hunt) this.post({ type: 'hunt', info: this.host.hunt.info() });
         return;
       case 'huntRun':
-        await this.host.hunt?.run(m.prompt, { confirmed: m.confirmed, remember: m.remember }, ask => this.post({ type: 'confirm', ask }), msg => this.post(msg));
+        await this.host.hunt?.run(m.prompt, { confirmed: m.confirmed, remember: m.remember }, ask => this.post({ type: 'confirm', ask }), msg => this.post(msg), m.card);
         return;
       case 'huntCreate':
         await this.host.hunt?.create(m.id, m.market, { confirmed: m.confirmed }, ask => this.post({ type: 'confirm', ask }), msg => this.post(msg));
