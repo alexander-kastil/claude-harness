@@ -46,7 +46,7 @@ Remove the repo line when it says only this:
 
 ## .claude/rules/<area>.md
 
-- `templates/rules-area.md`: `paths:` globs of the area, a title, then `- Owner agent: \`<agent>\`.` naming a global agent from `~/.claude/agents/`, a repo agent from `.claude/agents/`, or a plugin agent written `<plugin>:<agent>` (`dotnet-toolkit:dotnet-expert`); the extension accepts both forms.
+- `templates/rules-area.md`: `paths:` globs of the area, a title, then `- Owner agent: \`<agent>\`.` naming a global agent from `~/.claude/agents/`, a repo agent from `.claude/agents/`, or a plugin agent written `<plugin>:<agent>` (`dotnet-conventions:dotnet-expert`); the extension accepts both forms.
 - One fact per bullet, moved verbatim in substance from the old `CLAUDE.md` or a retired copy.
 
 ## .claude/settings.json

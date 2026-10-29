@@ -114,9 +114,13 @@ Merges duplicate skills across scopes and plugins into one source. A copy identi
 
 ### Plugin Hunter
 
-Talk to Claude about the skills and agents you already have, and it proposes a plugin. Create writes the plugin into a marketplace folder of yours, installs it and retires the copies you tick, with a backup. **Retire all** ticks every copy at once. The Enabled column of the Plugins page is a switch that enables or disables a plugin.
+Talk to Claude about the skills and agents you already have, and it proposes a plugin. The New hunt tab is half chat, with the message box pinned under the conversation (Hunt sends the message, Go sends it as a change to the ticked elements, for example a rename), and half findings and selections: the proposed card with the picker and Create. Create writes the plugin into a marketplace folder of yours, installs it and retires the copies you tick, with a backup. **Retire all** ticks the copies of the ticked elements at once. The History tab keeps every other card with the chat that made it, each collapsed until you click its header. The Enabled column of the Plugins page is a switch that enables or disables a plugin.
 
-![Plugin Hunter with a conversation and the card of a proposed plugin](docs/images/plugin-hunter.png)
+![Plugin Hunter with the chat and its message box on the left and the card of a proposed plugin on the right](docs/images/plugin-hunter.png)
+
+A plugin page can show a drawing of the plugin above its details, made with **Draw with Claude**. A toggle in the drawing switches between the Harness perspective (how its parts connect to a session) and the Process perspective (its stages in the order they run, with what each mod does).
+
+![The Process perspective of a plugin drawing](docs/images/plugin-drawing-process.png)
 
 ### Command line
 
@@ -125,11 +129,11 @@ Run **Claude Harness: Install 'harness' Command Line** once to put `harness` on 
 - `inventory [--repo <dir>]`: the harness of Global, or of one repo.
 - `consolidate`: every skill, agent, rule, command or workflow that exists in more than one place.
 - `consolidate retire --name <n> --kind skill|agent --from <global|repo dir>`: retires one copy, backed up first.
-- `hunt catalog`: the skills and agents that a plugin can be made from.
+- `hunt catalog [--kind skill|agent] [--query <text>]`: the skills and agents that a plugin can be made from, optionally of one type or matching a text.
 - `hunt plan --name <plugin> --category <c> --skills a,b --agents x,y`: the plugin that `hunt create` would write.
 - `hunt create` with the same options: writes the plugin and installs it; `--retire` retires the copies.
 - `agents list`: the agents of Global, the plugins and the repos, with their copies that differ and the gated ones.
-- `agents route "<prompt>"`: the agents that the orchestration plugin would route a prompt to, and the ones it drops.
+- `agents route "<prompt>"`: the agents that the agent-control-plugin would route a prompt to, and the ones it drops.
 - `usage --session latest|previous|<id> [--week]`: a session's tokens and cost by model and by agent, and its share of the week.
 - `delegation --session latest|previous|<id>`: the agents a session launched, with their decisions, slips and findings.
 - `media doctor <dir>`: checks a film or images folder under `assets/films` or `assets/images`.
@@ -219,7 +223,7 @@ Install Claude Harness: it opens on the `~/.claude` you already have.
 | [MCP servers](docs/mcp-servers.md) | Lists MCP servers with their source and status, sorts them, shows their tools, and adds, copies or deletes them |
 | [MCP switches](docs/mcp-toggles.md) | Turns an MCP server on or off for one repo or in every folder |
 | [Plugins](docs/plugins.md) | Enables, disables, installs and uninstalls plugins, marks mods, and builds a new plugin from your skills and agents with Plugin Hunter |
-| [Skill sources](docs/skill-sources.md) | Adds skills from skills.sh or GitHub, checks them for a newer version, updates them in place, and links a global skill into a repo |
+| [Skill sources](docs/skill-sources.md) | Adds skills from skills.sh or GitHub, checks them for a newer version, updates them in place, and moves a global skill into a repo |
 | [Settings](docs/settings.md) | Sets the global harness folder, the repo lists, where Claude terminals open and which command starts them, the Claude usage item in the status bar and the list lengths, and edits the settings files |
 | [Commands](docs/commands.md) | Every Claude Harness command, what it does and where to find it |
 | [Command line](docs/command-line.md) | Runs inventory, consolidate, hunt, agents, usage, delegation and media checks from a terminal, with `--json` for scripts, builds a harness with `generate`, `add`, `new` and `update`, and hands the views to Claude as `@harness:` mentions |

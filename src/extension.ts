@@ -547,9 +547,9 @@ export function activate(context: vscode.ExtensionContext): void {
       if (answer.remember) await context.globalState.update('reviewRemembered', true);
       const what = (KINDS.find(k => k.kind === asset.kind)?.label ?? asset.kind).replace(/s$/, '').toLowerCase();
       const prompt = dir
-        ? `Review the plugin ${asset.name} in ${dir}. Read its manifest (.claude-plugin/plugin.json) and its skills, agents, commands, hooks and MCP servers, check that each part is clear, specific and consistent with the others and with the rest of the harness, and list what you would improve and why. Do not change any file until I agree.`
-        : `Review the ${what} at ${asset.file}. Read it, check that it is clear, specific and consistent with the rest of the harness, and list what you would improve and why. Do not change the file until I agree.`;
-      terminal(`Review: ${asset.name}`, cwd, claudeCommand(`"${promptText(prompt)}"`));
+        ? `Edit the plugin ${asset.name} in ${dir}. Read its manifest (.claude-plugin/plugin.json) and its skills, agents, commands, hooks and MCP servers, check that each part is clear, specific and consistent with the others and with the rest of the harness, and list what you would improve and why. Do not change any file until I agree; then make the changes I agree to.`
+        : `Edit the ${what} at ${asset.file}. Read it, check that it is clear, specific and consistent with the rest of the harness, and list what you would improve and why. Do not change the file until I agree; then make the changes I agree to.`;
+      terminal(`Edit: ${asset.name}`, cwd, claudeCommand(`"${promptText(prompt)}"`));
     },
     consolidateAsset: async (id, answer, ask) => {
       const asset = find(id);
@@ -674,27 +674,34 @@ export function activate(context: vscode.ExtensionContext): void {
       const source = process ? (dir && asset.kind === 'plugin' ? { text: processText(dir) } : undefined) : asset && drawSource(asset, dir);
       return source ? readDrawing(drawingsDir, id, contentHash(source.text)) : undefined;
     },
-    drawAsset: async (id, answer, ask, started) => {
+    drawAsset: async (id, answer, ask, started, done) => {
       const process = id.endsWith(PROCESS_SUFFIX);
-      const asset = find(process ? id.slice(0, -PROCESS_SUFFIX.length) : id);
-      if (!asset || !drawable(asset.kind) || (process && asset.kind !== 'plugin')) return undefined;
+      const base = process ? id.slice(0, -PROCESS_SUFFIX.length) : id;
+      const asset = find(base);
+      if (!asset || !drawable(asset.kind) || (process && asset.kind !== 'plugin')) return;
       const dir = pluginDirOf(asset);
-      const source = process ? (dir && fs.existsSync(dir) ? { text: processText(dir), from: "the plugin's manifest, contents and hook modules" } : undefined) : drawSource(asset, dir);
-      if (!source) return { error: 'Nothing on disk to draw from.' };
+      // A plugin is drawn in both perspectives, the shown one first, so one press fills the toggle's two sides.
+      const sources = (asset.kind === 'plugin' ? [id, process ? base : base + PROCESS_SUFFIX] : [id]).map(drawId => {
+        const proc = drawId.endsWith(PROCESS_SUFFIX);
+        const source = proc ? (dir && fs.existsSync(dir) ? { text: processText(dir), from: "the plugin's manifest, contents and hook modules" } : undefined) : drawSource(asset, dir);
+        return { drawId, proc, source };
+      });
+      if (sources.some(s => !s.source)) return done(id, { error: 'Nothing on disk to draw from.' });
       if (!answer.confirmed && !context.globalState.get<boolean>('drawRemembered')) {
-        ask({ kind: 'draw', id, name: asset.name, file: asset.file, chars: Math.min(source.text.length, 30000), source: source.from });
-        return undefined;
+        const chars = sources.reduce((sum, s) => sum + Math.min(s.source!.text.length, 30000), 0);
+        return ask({ kind: 'draw', id: base, name: asset.name, file: asset.file, chars, source: sources[0].source!.from, both: sources.length > 1 });
       }
       if (answer.remember) await context.globalState.update('drawRemembered', true);
-      started();
-      const result = process
-        ? await draftStyle(processPrompt(asset.name, source.text), 'sonnet', os.tmpdir(), 300000, PROCESS_SYSTEM)
-        : await draftStyle(drawPrompt(asset.kind, asset.name, source.text), 'sonnet', os.tmpdir(), 300000, DRAW_SYSTEM);
-      if ('error' in result) return { error: result.error };
-      const svg = extractSvg(result.text);
-      if (!svg) return { error: 'Claude did not answer with an svg drawing.' };
-      writeDrawing(drawingsDir, id, contentHash(source.text), svg);
-      return { svg };
+      sources.forEach(s => started(s.drawId));
+      for (const { drawId, proc, source } of sources) {
+        const text = source!.text;
+        const result = proc
+          ? await draftStyle(processPrompt(asset.name, text), 'sonnet', os.tmpdir(), 300000, PROCESS_SYSTEM)
+          : await draftStyle(drawPrompt(asset.kind, asset.name, text), 'sonnet', os.tmpdir(), 300000, DRAW_SYSTEM);
+        const svg = 'error' in result ? undefined : extractSvg(result.text);
+        if (svg) writeDrawing(drawingsDir, drawId, contentHash(text), svg);
+        done(drawId, svg ? { svg } : { error: 'error' in result ? result.error : 'Claude did not answer with an svg drawing.' });
+      }
     },
     slim: id => {
       const asset = find(id);

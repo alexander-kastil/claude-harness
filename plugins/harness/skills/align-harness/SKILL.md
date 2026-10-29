@@ -36,8 +36,8 @@ the standard gives it. Nothing is deleted before its facts have a home.
   ([templates/rules-area.md](templates/rules-area.md)): `paths:` globs, a title, the owner agent, one
   fact per bullet. Extend an existing rules file of that area instead of adding a second one.
 - Deploy and docs facts that span areas go to a rules file without `paths:`.
-- A coding-standards block that a global skill already carries (`angular-conventions`,
-  `dotnet-conventions`, ...) goes; only the repo's deviations move to the area's rules file.
+- A coding-standards block that a global skill already carries (`angular`,
+  `dotnet`, ...) goes; only the repo's deviations move to the area's rules file.
 - A routing table (which agent owns what) becomes the `Owner agent` line of each area's rules file.
 
 ## 4. Rewrite the root CLAUDE.md

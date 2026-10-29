@@ -119,7 +119,7 @@ Example change lines: `delete .claude/hooks/<file>` and `delete empty .claude/ho
 
 Run: `<root> --root <dir> --summary <text> --area name=glob[,glob]:owner --rule <text> [--fact area=text] [--apply]`
 
-- `--area` repeats once per area and splits at the first `:` after `=`, so the owner may be a plugin agent such as `dotnet-toolkit:dotnet-expert`. `--rule` repeats once per repo rule. `--fact` adds a line to an area's rules file.
+- `--area` repeats once per area and splits at the first `:` after `=`, so the owner may be a plugin agent such as `dotnet-conventions:dotnet-expert`. `--rule` repeats once per repo rule. `--fact` adds a line to an area's rules file.
 - The output is one `create <path>` or `skip <path>` line per file, then `created=<n> skipped=<n> dry-run` or `created=<n> skipped=<n> applied`.
 - The script creates `CLAUDE.md`, `tasks/todo.md`, `tasks/lessons.md`, `.gitignore` and one `.claude/rules/<area>.md` per area. An existing file is skipped, never overwritten.
 

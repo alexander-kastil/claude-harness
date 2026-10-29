@@ -2,35 +2,43 @@
 
 All notable changes to Claude Harness are listed here, newest first. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions with no version change in the package.json history (0.1.3, 0.1.5 to 0.1.18, 0.1.20 to 0.1.24, 0.1.27, 0.2.1 and 0.2.3 to 0.2.11) and development builds (0.2.14 to 0.2.22, 0.2.24 to 0.2.30, 0.2.32 to 0.2.34, 0.2.36 to 0.2.44, 0.3.0, 0.3.2, 0.4.1 to 0.4.3, 0.5.2 and 0.5.3) have no entry.
 
-## [0.13.5] - 2026-10-29
+## [0.12.2] - 2026-10-29
 
 ### Added
 
 - **Process perspective on plugin drawings**: a Harness | Process toggle in the corner of a plugin's drawing. Harness is the drawing as before; Process shows the plugin's stages in the order they run, the outputs each stage hands on, the paths back to an earlier stage, loops, and a line per mod saying what it does. Draw with Claude draws the perspective on screen, and a plugin's Harness drawing stays as it was.
 - The skill and agent rows on a plugin page show what each item does between the name and the tags, the full text on hover.
-- **New hunt and History tabs on the Plugin Hunter**: New hunt splits the page in half, the chat with its message box on the left and the findings and selections on the right (the proposed card, the picker, Create and the count of selected elements); on a narrow panel the halves stack. History holds every other card together with the chat that made it, each collapsed to its header, which opens and closes it. After Create the page opens History on the new plugin.
+- **New hunt and History tabs on the Plugin Hunter**: New hunt splits the page in half like a chat beside its artifact. On the left the conversation runs oldest to newest, with one message box pinned under it: Hunt sends a message, Go sends it as a change to the card's ticked elements. On the right is the proposed card with its picker, Create and the count of selected elements. On a narrow panel the halves stack. History holds every other card together with the chat that made it, each collapsed to its header, which opens and closes it. After Create the page opens History on the new plugin.
+- **Claude Go on Plugin Hunter cards**: a change to the card's ticked elements, for example "rename docker-images to hetzner-docker", goes to Claude with Go from the chat's message box. The answer shows in the conversation and the card updates.
+- A rename shows on the element as an "as <new name>" tag, and Create writes the element under the new name with its `name:` front matter changed. Two elements that would end up with the same name stop Create.
+- A thin progress line runs along the bottom of the page header while Draw with Claude runs, and on the Plugin Hunter while Hunt or Go runs; with reduced motion it stands still.
+- `harness hunt catalog` takes `--kind` and `--query`, and `harness skills repoint --to` takes a `plugin:skill` name.
+- `harness skills rename` renames a skill's folder and its `name:` line and repoints every mention, and `harness plugins rename` renames a plugin of a directory marketplace: its folder, plugin.json, catalog entry, dependents, `enabledPlugins` keys, and the namespace, id and path in the text that names it. Both back every changed file up first and support `--dry-run`.
+- `harness check` reports a git repo whose `.gitignore` lacks `.time/`, `.claude/settings.local.json` or `.claude/scheduled_tasks.lock`, or whose index still tracks them. `harness check fix` adds the missing entries under one comment line and untracks the files with `git rm --cached`; they stay on disk. The scaffold script's `.gitignore` carries the three entries.
 
 ### Changed
 
+- The harness skills name the renamed plugins `angular-conventions` and `dotnet-conventions` (formerly `angular-plugin` and `dotnet-toolkit`).
+- **Move into repo** replaces Link into repo on a global skill's page: the skill's folder moves into the one repo you pick and leaves the global skills, so a skill lives in exactly one place. Claude Harness makes no soft links any more; the Linked origin only shows links made before.
+- Draw with Claude on a plugin draws both the Harness and the Process drawing in one press, the one on screen first, each shown as soon as it is ready.
+- **Edit with Claude** replaces Review with Claude on skill, agent, command, rule, output style, workflow and plugin pages: the Claude it opens in a terminal reads the element's files, says what to improve and makes the changes you agree to.
 - The Plugin Hunter button on the Plugins page carries the Claude mark and is the page's main button, in the theme's accent colour.
 - Start over clears the chats in History too; the cards stay. Chat turns saved before this version are shown with the newest card made at or before them.
+- The Plugin Hunter card's bar with Add skill or agent, the asset count, Retire all and Create sits under the title and prompt line instead of at the bottom of the card.
+- Every row of a card, element or repo copy, lines up in the same columns: tick, name, copy state, Retire, Merge or Compare, remove.
+- The Description and Category folder fields are off the card. Their values stay and Create still uses them; when a marketplace needs a category and the card has none, the Create hint says to ask Claude for one.
+- `harness hunt create` gives a new plugin the author of the marketplace's existing plugins, and the marketplace owner only when there is none.
+- `harness sources update` leaves README, CHANGELOG, tool folders, tests and docs out of a skill whose source is a repo root.
+- The harness plugin installs as `harness@claude-harness`, formerly `harness-plugin@claude-harness`.
+- `harness agents route` and the harness standard name agent-control-plugin, formerly orchestration-plugin, as the router plugin.
 
 ### Fixed
 
 - On a Plugin Hunter card, an element that is not ticked has its Retire boxes and those of its copies cleared and disabled, and Retire all ticks only the copies of ticked elements.
-
-## [0.12.0] - 2026-10-29
-
-### Added
-
-- **Claude Go on Plugin Hunter cards**: each card has a comment line for changes to its ticked elements, for example "rename docker-images to hetzner-docker". Go, or Enter, sends the comment with the ticked elements to Claude in the hunt conversation. The answer shows in the bubble above the cards and the card updates.
-- A rename shows on the element as an "as <new name>" tag, and Create writes the element under the new name with its `name:` front matter changed. Two elements that would end up with the same name stop Create.
-
-### Changed
-
-- The Plugin Hunter card's bar with Add skill or agent, the asset count, Retire all and Create sits under the title and prompt line instead of at the bottom of the card.
-- Every row of a card, element or repo copy, lines up in the same columns: tick, name, copy state, Retire, Merge or Compare, remove.
-- The Description and Category folder fields are off the card. Their values stay and Create still uses them; when a marketplace needs a category and the card has none, the Create hint says to ask Claude for one.
+- A click or a save in the panel is answered at once while sessions, usage and mod activity load in the background, and repo scans and file comparisons no longer hold the panel up.
+- `harness sources check` reports a source with a lower version than the install as older, not newer.
+- `harness skills repoint --to` no longer prefixes a name twice.
+- Retiring a global skill that the skills CLI installed as a link no longer fails with `EPERM` on Windows: the backup holds the files the link points to, and only the link is removed, never its target in `~/.agents`.
 
 ## [0.11.2] - 2026-10-28
 

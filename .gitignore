@@ -4,3 +4,8 @@ out/
 tasks/
 agent-instructions/
 media/panel.js
+
+# Claude Code session files: time ledger, personal settings, scheduler lock
+.time/
+.claude/settings.local.json
+.claude/scheduled_tasks.lock

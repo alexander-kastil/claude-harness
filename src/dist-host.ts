@@ -1,11 +1,11 @@
 // The skill distributor commands: add a skill from a skills.sh or GitHub address into ~/.claude/skills, connect a skill you already
-// have to its source, check whether the distributor has a newer version, update in place, and link a global skill into a repo.
+// have to its source, check whether the distributor has a newer version, update in place, and move a global skill into a repo.
 // The network and disk work is in distributor.ts. Questions are cards in the panel and results are a line in the panel (the palette
 // gets a quick input, a quick pick and notifications instead, when the panel is not the one asking).
 import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { Cancelled, Latest, Resolved, Staged, diffFolders, discard, explainSource, install, latest, linkState, linkToRepo, parseSource, resolve, resolveOrigin, stage, sweepStaged } from './distributor';
+import { Cancelled, Latest, Resolved, Staged, diffFolders, discard, explainSource, install, latest, linkState, moveToRepo, parseSource, resolve, resolveOrigin, stage, sweepStaged } from './distributor';
 import { backupStamp } from './harness';
 import type { Asset } from './harness';
 import { HarnessPanel, PanelAnswer } from './panel';
@@ -16,7 +16,7 @@ export interface DistDeps {
   root: () => string;
   /** The skills of the global scope that sit in `~/.claude/skills`. */
   skills: () => Asset[];
-  /** The repos the harness knows, for linking a global skill into one. */
+  /** The repos the harness knows, for moving a global skill into one. */
   repos: () => { label: string; path: string }[];
   /** The skill a command argument names: an id, a panel command's `{ id }` or a tree node. */
   find: (arg: unknown) => Asset | undefined;
@@ -179,7 +179,7 @@ export function registerDistributor(deps: DistDeps): vscode.Disposable[] {
         key: (arg as { anchor?: string } | undefined)?.anchor ?? (one ? 'update' : 'update-all'),
         title: list.length === 1 ? `Update ${list[0].name}` : `Update ${plural(list.length, 'skill')}`,
         sub: list.length === 1 ? `from ${list[0].origin!.source}` : 'from their distributors',
-        facts: [...facts.slice(0, 7), ...(facts.length > 7 ? [`and ${facts.length - 7} more skills`] : []), `The old files are backed up first, in ${tilde(deps.backupRoot())}. Repos that link a skill pick up the update.`],
+        facts: [...facts.slice(0, 7), ...(facts.length > 7 ? [`and ${facts.length - 7} more skills`] : []), `The old files are backed up first, in ${tilde(deps.backupRoot())}. Repos still linked to a skill by an older version pick up the update.`],
         action: 'Update',
       });
       if (answer.choice !== 'ok') return clearNote();
@@ -324,38 +324,33 @@ export function registerDistributor(deps: DistDeps): vscode.Disposable[] {
     vscode.commands.registerCommand('claudeHarness.linkSkillToRepo', async (arg?: unknown) => {
       clearNote();
       let asset = deps.find(arg);
-      if (!asset) asset = (await vscode.window.showQuickPick(deps.skills().map(a => ({ label: a.name, description: a.version ? `v${a.version}` : '', a })), { title: 'Link which global skill into a repo?', matchOnDescription: true }))?.a;
+      if (!asset) asset = (await vscode.window.showQuickPick(deps.skills().map(a => ({ label: a.name, description: a.version ? `v${a.version}` : '', a })), { title: 'Move which global skill into a repo?', matchOnDescription: true }))?.a;
       if (!asset) return;
       const found = asset;
       const globalDir = path.join(deps.root(), 'skills', found.name);
       const choices = deps.repos().map(r => {
         const state = linkState(path.join(r.path, '.claude', 'skills', found.name), globalDir);
-        return { id: r.path, label: r.label, note: state === 'linked' ? 'already linked' : state === 'copy' ? 'has its own folder of that name' : state === 'elsewhere' ? 'links somewhere else' : `.../${path.basename(path.dirname(r.path))}`, disabled: state !== 'none' };
+        return { id: r.path, label: r.label, note: state === 'linked' ? 'replaces its old link' : state === 'copy' ? 'has its own folder of that name' : state === 'elsewhere' ? 'links somewhere else' : `.../${path.basename(path.dirname(r.path))}`, disabled: state === 'copy' || state === 'elsewhere' };
       });
-      if (!choices.some(c => !c.disabled)) return say('info', choices.length ? `Every repo already has a ${found.name} folder or link.` : 'No repo is open in the harness yet.');
+      if (!choices.some(c => !c.disabled)) return say('info', choices.length ? `Every repo already has its own ${found.name} folder or a link to something else.` : 'No repo is open in the harness yet.');
       const answer = await prompt(arg, {
         key: 'link-repo',
-        title: `Link ${found.name} into repos`,
-        sub: 'a soft link to the global skill',
-        facts: [`Each repo you pick gets .claude/skills/${found.name} as a link to ${tilde(globalDir)}, so updating the global skill updates it there too.`],
+        title: `Move ${found.name} into a repo`,
+        sub: 'out of the global skills',
+        facts: [`${found.name} leaves ${tilde(globalDir)} and becomes .claude/skills/${found.name} in the repo you pick. It is no longer a global skill afterwards.`],
         choices,
-        multi: true,
-        action: 'Link',
+        action: 'Move',
       });
       if (answer.choice !== 'ok' || !answer.picked?.length) return clearNote();
-      const done: string[] = [];
-      const failed: string[] = [];
-      for (const dir of answer.picked) {
-        try {
-          linkToRepo(deps.root(), dir, found.name);
-          done.push(choices.find(c => c.id === dir)?.label ?? dir);
-        } catch (e) {
-          failed.push((e as Error).message);
-        }
+      const dir = answer.picked[0];
+      try {
+        moveToRepo(deps.root(), dir, found.name);
+      } catch (e) {
+        deps.refresh();
+        return say('bad', (e as Error).message);
       }
       deps.refresh();
-      if (failed.length) say('bad', failed.join(' '));
-      else say('ok', `${found.name} is linked into ${done.join(', ')}.`);
+      say('ok', `${found.name} moved into ${choices.find(c => c.id === dir)?.label ?? dir}.`);
     }),
 
     vscode.commands.registerCommand('claudeHarness.checkSkillUpdates', check),

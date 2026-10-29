@@ -13,9 +13,6 @@ export const hunt = {
   pending: '',
   picked: undefined,
   prompt: '',
-  // The change comment typed on each card, by card id, and the one being answered now.
-  notes: {},
-  cardAsk: undefined,
   running: false,
   // When the running turn started, for the elapsed time shown while Claude works.
   startedAt: 0,
@@ -28,8 +25,6 @@ export const hunt = {
   addQuery: '',
   // What the last Create of each card said.
   results: {},
-  // The conversation shows its last turns; older ones open on request.
-  earlier: false,
   // The page's tab, and the History items that are open (collapsed by default), by card id.
   tab: 'new',
   open: {},
@@ -68,34 +63,16 @@ export const saveSoon = () => {
   saveTimer = setTimeout(saveNow, 300);
 };
 
-// Scrolls the page body, and nothing above it, so that a node shows: at the top of the body, or just inside it.
-const bring = (node, where) => {
-  const body = app.querySelector('.main-body');
-  if (!body || !node) return;
-  const b = body.getBoundingClientRect();
-  const n = node.getBoundingClientRect();
-  if (where === 'start' || n.top < b.top || n.height > b.height) body.scrollTop += n.top - b.top - 8;
-  else if (n.bottom > b.bottom) body.scrollTop += n.bottom - b.bottom + 8;
-};
+const card = id => app.querySelector(`[data-card="${id}"]`);
 
+// After a paint: the card to focus or bring into view (in whichever column or page scrolls it), the adder to focus.
 const afterPaint = () => {
-  const card = id => app.querySelector(`[data-card="${id}"]`);
   if (hunt.focusName) {
     const input = card(hunt.focusName)?.querySelector('.hunt-title');
     input?.focus();
-    bring(input);
-    hunt.focusName = undefined;
-    hunt.reveal = undefined;
-  } else if (hunt.showReply) {
-    // The newest reply at the top: the card it made or changed sits right below it.
-    const replies = app.querySelectorAll('.hunt-msg.claude');
-    bring(replies[replies.length - 1], 'start');
-    hunt.showReply = false;
-    hunt.reveal = undefined;
-  } else if (hunt.reveal) {
-    bring(card(hunt.reveal));
-    hunt.reveal = undefined;
-  }
+    input?.scrollIntoView({ block: 'nearest' });
+  } else if (hunt.reveal) card(hunt.reveal)?.scrollIntoView({ block: 'nearest' });
+  hunt.focusName = hunt.reveal = undefined;
   if (hunt.focusAdder) {
     app.querySelector('.hunt-adder input')?.focus();
     hunt.focusAdder = false;
@@ -107,13 +84,23 @@ const afterPaint = () => {
   }
 };
 
-// A repaint that stays where the owner had scrolled, unless something asked to be shown.
+// A repaint that stays where the owner had scrolled: the page, the card column and the chat. The chat is a traditional one: it
+// follows the newest message while it is at the bottom or a reply just arrived.
+const SCROLLERS = ['.main-body', '.hunt-col-find'];
 export const repaint = () => {
   if (state.page !== 'hunt' || state.detail) return;
-  const top = app.querySelector('.main-body')?.scrollTop ?? 0;
+  const tops = SCROLLERS.map(q => app.querySelector(q)?.scrollTop ?? 0);
+  const log = app.querySelector('.hunt-chat-log');
+  const follow = !log || log.scrollHeight - log.scrollTop - log.clientHeight < 24;
+  const logTop = log?.scrollTop ?? 0;
   renderMain();
-  const body = app.querySelector('.main-body');
-  if (body) body.scrollTop = top;
+  SCROLLERS.forEach((q, i) => {
+    const node = app.querySelector(q);
+    if (node) node.scrollTop = tops[i];
+  });
+  const next = app.querySelector('.hunt-chat-log');
+  if (next) next.scrollTop = follow || hunt.showReply ? next.scrollHeight : logTop;
+  hunt.showReply = false;
   afterPaint();
 };
 
@@ -135,5 +122,14 @@ export const turnsOf = (p, all) => hunt.chat.filter(t => cardOfTurn(t, all) === 
 
 /** The turns of the hunt in progress: those of its card and those that came before any card or name a card that is gone. */
 export const workingTurns = ({ all, working }) => hunt.chat.filter(t => (working ? cardOfTurn(t, all) === working.id : false) || !all.some(p => p.id === cardOfTurn(t, all)));
+
+/** New plugin: an empty card, on top and in focus, without asking Claude. */
+export const newCard = () => {
+  const id = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+  hunt.proposals = [{ id, prompt: '', created: Date.now(), name: '', description: '', category: '', assets: [] }, ...hunt.proposals];
+  hunt.focusName = id;
+  saveNow();
+  repaint();
+};
 
 export const marketOf = () => hunt.info && hunt.info.markets.find(k => k.name === hunt.picked);

@@ -98,7 +98,7 @@ export type Confirm =
   | { kind: 'try'; id: string; name: string; as: 'agent' | 'skill' | 'command'; cwd: string }
   | { kind: 'slim'; id: string; name: string; file: string; cwd: string; files: number; findings: number }
   | { kind: 'resolve'; id: string; key: string; finding: 'description' | 'house' | 'body'; name: string; file: string; cwd: string }
-  | { kind: 'draw'; id: string; name: string; file: string; chars: number; /** What Claude gets, in words ("the agent file"); SKILL.md when missing. */ source?: string }
+  | { kind: 'draw'; id: string; name: string; file: string; chars: number; /** What Claude gets, in words ("the agent file"); SKILL.md when missing. */ source?: string; /** A plugin is drawn twice, in the Harness and the Process perspective. */ both?: boolean }
   | { kind: 'hunt'; prompt: string; items: number; card?: string }
   | { kind: 'huntCreate'; id: string; key: string; name: string; market: string; location: string; problems: string[]; files: string[]; retired: string[]; kept: string[] }
   | ShareChoice

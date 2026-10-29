@@ -26,7 +26,7 @@ Derive from the repo first:
    the project files (`*.csproj`, `package.json`, `hugo.toml`, ...).
 2. The areas: one per project folder, with its globs and an owner agent from `~/.claude/agents/`,
    `.claude/agents/` or a plugin, written `<plugin>:<agent>`
-   (`api=src/api/**:dotnet-toolkit:dotnet-expert`, `ui=src/ui/**:angular-plugin:angular-expert`,
+   (`api=src/api/**:dotnet-conventions:dotnet-expert`, `ui=src/ui/**:angular-conventions:angular-expert`,
    `site=src/site/**:hugo-expert`, `desktop=src/app/**:wpf-expert`).
 3. The build, run and test commands of each area, as `--fact` lines for its rules file.
 
@@ -38,7 +38,7 @@ House rules from `~/.claude/CLAUDE.md` are never listed. When nothing is missing
 
 ```bash
 python <this skill>/scripts/init-product-repo.py --root <repo> --summary "<sentences>" \
-  --area api=src/api/**:dotnet-toolkit:dotnet-expert --area ui=src/ui/**:angular-plugin:angular-expert \
+  --area api=src/api/**:dotnet-conventions:dotnet-expert --area ui=src/ui/**:angular-conventions:angular-expert \
   --rule "<rule>" --fact "api=<one fact for the api rules file>"
 python <this skill>/scripts/init-product-repo.py ... --apply
 ```

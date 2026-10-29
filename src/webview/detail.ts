@@ -9,10 +9,10 @@ import { hideHover } from './hover';
 import { renderMain } from './main';
 import { goBack, historyLabel } from './refs';
 import { slimOf } from './slim';
-import { canDraw, drawingId, drawingOf, drawsWhat, processOf } from './drawing';
+import { canDraw, drawState, drawsWhat } from './drawing';
 import { syncableFromGlobal, syncableMcp } from './sync';
 
-// The kinds Review with Claude and Try it apply to.
+// The kinds Edit with Claude and Try it apply to.
 const REVIEWABLE = ['skill', 'agent', 'command', 'rule', 'outputStyle', 'workflow', 'plugin'];
 const TRYABLE = ['agent', 'skill', 'command'];
 
@@ -315,21 +315,19 @@ function commandBar(d, dirty) {
     aiGroup(
       '',
       REVIEWABLE.includes(a.kind)
-        ? claude('lightbulb-sparkle', 'Review with Claude', `Review with Claude\nA new Claude in a terminal reads ${a.kind === 'plugin' ? "the plugin's manifest and its skills, agents, commands, hooks and servers" : 'this file'} and says what to improve.`, 'review', 'reviewAsset')
+        ? claude('lightbulb-sparkle', 'Edit with Claude', `Edit with Claude\nA new Claude in a terminal reads ${a.kind === 'plugin' ? "the plugin's manifest and its skills, agents, commands, hooks and servers" : 'this file'}, says what to improve and makes the changes you agree to.`, 'review', 'reviewAsset')
         : null,
       a.kind === 'skill' && slimOf(a.id)?.findings
         ? claude('fold', 'Slim with Claude', "Slim with Claude\nA new Claude in a terminal gets the skill's files and what is flagged on this page, and says what to move and cut.", 'slim', 'slimAsset')
         : null,
       canDraw(a)
         ? (() => {
-            const drawn = drawingOf(drawingId(a));
-            const process = processOf(a);
-            const running = !!drawn?.running;
+            const { running, drawn, error } = drawState(a);
             return confirmAt(
               cmd(
                 'brush',
-                running ? 'Drawing...' : drawn?.svg ? 'Redraw with Claude' : 'Draw with Claude',
-                `${drawn?.svg ? 'Redraw' : 'Draw'} with Claude\nClaude draws ${drawsWhat(a.kind)}, and the drawing shows above the details. It runs in the background and counts against your plan.${drawn?.error ? `\nLast try failed: ${drawn.error}` : ''}`,
+                running ? 'Drawing...' : drawn ? 'Redraw with Claude' : 'Draw with Claude',
+                `${drawn ? 'Redraw' : 'Draw'} with Claude\nClaude draws ${drawsWhat(a.kind)}, and the drawing shows above the details as soon as it is ready. It runs in the background and counts against your plan.${error ? `\nLast try failed: ${error}` : ''}`,
                 () => (hideHover(), vscode.postMessage({ type: 'drawAsset', id: a.id })),
                 { disabled: running }
               ),
@@ -382,7 +380,8 @@ export function renderHead() {
   const kindLabel = cat ? cat.label.replace(/s$/, '') : d.asset.kind;
   return el(
     'header',
-    { className: 'main-head detail-head' },
+    // A flat, indeterminate line along the bottom edge while a Claude action runs in the background.
+    { className: `main-head detail-head${canDraw(d.asset) && drawState(d.asset).running ? ' busy' : ''}` },
     el(
       'div',
       { className: 'title' },

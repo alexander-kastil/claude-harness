@@ -1,4 +1,5 @@
 import * as assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -180,4 +181,54 @@ test('check with an unknown word stops with a bad-arguments code', async () => {
   const { root } = fixture();
   const r = await cli(['check', 'nope', '--root', root]);
   assert.equal(r.code, 2);
+});
+
+const git = (dir: string, ...args: string[]) => execFileSync('git', args, { cwd: dir, encoding: 'utf8' });
+
+/** A git repo that tracks its time ledger and local settings and ignores only node_modules. */
+function gitRepo() {
+  const { root, beta } = fixture();
+  const dir = path.join(tmp('git'), 'gitrepo');
+  write(dir, 'CLAUDE.md', 'Fine\n');
+  write(dir, '.gitignore', 'node_modules/\n');
+  write(dir, '.time/working-time.md', 'ledger\n');
+  write(dir, '.claude/settings.local.json', '{}\n');
+  git(dir, 'init', '-q');
+  git(dir, 'add', '-f', '.');
+  return { root, beta, dir };
+}
+
+test('check reports a git repo whose .gitignore lacks the session files or whose index tracks them, and not a plain folder', async () => {
+  const { root, beta, dir } = gitRepo();
+  const data = JSON.parse((await cli(['check', '--root', root, ...repoArgs([dir, beta]), '--json'])).out);
+  const [g, b] = data.repos;
+  assert.deepEqual([g.passed, g.failed, g.fixable], [false, 2, 2]);
+  assert.equal(b.passed, true);
+  const rows = data.failures.filter((f: { check: string }) => f.check === 'gitignore');
+  assert.equal(rows.length, 2);
+  assert.match(rows[0].detail, /lacks \.time\/, \.claude\/settings\.local\.json, \.claude\/scheduled_tasks\.lock/);
+  assert.match(rows[1].detail, /tracks 2 session files/);
+});
+
+test('check fix --dry-run names the git changes and writes nothing; check fix adds the block, untracks the files, keeps them and backs the .gitignore up', async () => {
+  const { root, dir } = gitRepo();
+  const dry = JSON.parse((await cli(['check', 'fix', '--dry-run', '--root', root, ...repoArgs([dir]), '--json'])).out);
+  assert.equal(dry.applied, false);
+  assert.match(dry.repos[0].changes[0], /^\.gitignore: added \.time\//);
+  assert.equal(read(dir, '.gitignore'), 'node_modules/\n');
+  assert.equal(git(dir, 'ls-files', '.time').trim(), '.time/working-time.md');
+
+  const r = await cli(['check', 'fix', '--root', root, ...repoArgs([dir]), '--json']);
+  assert.equal(r.code, 0, r.err);
+  const data = JSON.parse(r.out);
+  assert.equal(data.applied, true);
+  assert.match(data.repos[0].changes[1], /^untracked 2 files/);
+  assert.equal(read(dir, '.gitignore'), 'node_modules/\n\n# Claude Code session files: time ledger, personal settings, scheduler lock\n.time/\n.claude/settings.local.json\n.claude/scheduled_tasks.lock\n');
+  assert.equal(git(dir, 'ls-files', '.time', '.claude').trim(), '');
+  assert.equal(read(dir, '.time/working-time.md'), 'ledger\n');
+  assert.equal(fs.readFileSync(path.join(data.repos[0].backup, '.gitignore'), 'utf8'), 'node_modules/\n');
+  // Fixed: a second check is clean and a second fix has nothing to do.
+  const again = JSON.parse((await cli(['check', '--root', root, ...repoArgs([dir]), '--json'])).out);
+  assert.equal(again.repos[0].passed, true);
+  assert.deepEqual(JSON.parse((await cli(['check', 'fix', '--root', root, ...repoArgs([dir]), '--json'])).out).repos, []);
 });

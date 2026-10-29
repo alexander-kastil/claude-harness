@@ -13,6 +13,7 @@ import { skillsCommand } from './cli-skills';
 import { completeCommand, completionCommand } from './cli-complete';
 import { buildCommand } from './cli-build';
 import { marketplacesCommand } from './cli-markets';
+import { pluginsCommand } from './cli-plugins';
 import { checkCommand } from './cli-check';
 import { fleetCommand } from './cli-fleet';
 import { syncCommand } from './cli-sync';
@@ -57,6 +58,8 @@ Usage: node cli.js <command> [options]
                                       Delete a skill or one leaf of it, backed up first, and list what still mentions it.
   skills repoint --from <skill> --to <skill>|<plugin>:<skill> [--skills a,b] [--agents x,y] [--market <dir>] [--dry-run]
                                       Rewrite the mentions of one skill name to another in skills and agents.
+  skills rename --from <skill> --to <name> [--market <dir>] [--dry-run]
+                                      Rename a skill's folder and its name: line, and repoint every mention like repoint; backed up first.
   generate agent <name> [--scope repo|user] [--model <m>] [--tools a,b] [--description <t>] [--from <file>] [--dry-run]
                                       Make sure an agent exists as given in the repo (or ~/.claude); a rerun with nothing changed writes nothing. Alias g.
   generate rule <name> [--scope repo|user] [--paths a,b] [--from <file>] [--dry-run]
@@ -79,9 +82,11 @@ Usage: node cli.js <command> [options]
   marketplaces                        Every marketplace with its plugins and their health.
   marketplaces rename --from <name> --to <name> [--dry-run]
                                       Rename a marketplace in its catalog, the settings and the commands that name it.
-  check [--repo <dir>]                The harness checks of the known repos (or one) against the harness standard.
+  plugins rename --from <plugin>@<market> --to <name> [--dry-run]
+                                      Rename a plugin of a directory marketplace: its folder, plugin.json, catalog entry, dependents, enabledPlugins keys and the namespace, id and path in the text that names it; backed up first, the claude commands listed.
+  check [--repo <dir>]                The harness checks of the known repos (or one) against the harness standard, and whether git ignores and no longer tracks .time/, .claude/settings.local.json and .claude/scheduled_tasks.lock.
   check fix [--repo <dir>] [--dry-run]
-                                      Apply the fixes the checks offer for settings and hooks.
+                                      Apply the fixes the checks offer for settings and hooks, add the missing session files to .gitignore and untrack the tracked ones (they stay on disk).
   fleet                               One row per repo: its harness, its checks and its CLAUDE.md.
   sync [--repo <dir>]                 The repo copies of skills and agents that differ from Global.
   sync apply [--repo <dir>] [--name <n>] [--dry-run]
@@ -348,6 +353,8 @@ export async function run(argv: string[], io: Io): Promise<number> {
       return await completionCommand(a, io);
     } else if (cmd === 'marketplaces') {
       return await marketplacesCommand(a, io);
+    } else if (cmd === 'plugins') {
+      return await pluginsCommand(a, io);
     } else if (cmd === 'check') {
       return await checkCommand(a, io);
     } else if (cmd === 'fleet') {

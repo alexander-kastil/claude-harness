@@ -1,22 +1,10 @@
 // @ts-nocheck
-// The Plugin Hunter's plugin card: its fields, the skills and agents in it with their copies, the picker that adds more, and Create.
+// The Plugin Hunter's plugin card, the artifact beside the chat: its skills and agents with their copies, the picker that adds more, and Create. In the History it collapses to its header.
 import { app, state, vscode } from './core';
 import { confirmAt } from './confirm';
 import { aiGroup, el, icon, iconBtn, plural } from './dom';
 import { turnRow } from './hunt-chat';
 import { hunt, marketOf, repaint, saveNow, saveSoon, splitCards, turnsOf } from './hunt-state';
-
-const newId = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
-
-export const newCard = () => {
-  const id = newId();
-  hunt.proposals = [{ id, prompt: '', created: Date.now(), name: '', description: '', category: '', assets: [] }, ...hunt.proposals];
-  hunt.focusName = id;
-  saveNow();
-  repaint();
-};
-
-const field = (label, ...nodes) => el('label', { className: 'hunt-field' }, el('span', { className: 'hunt-label' }, label), ...nodes);
 
 const copyTag = same => el('span', { className: `tag ${same ? '' : 'warn'}` }, same ? 'identical' : 'differs');
 
@@ -96,50 +84,7 @@ function assetRows(p, a) {
   return rows;
 }
 
-// The fields are kept for a later phase: Create still reads the description and the category from the card.
-const SHOW_FIELDS = false;
-
-// A change comment for Claude about the ticked elements of this card, sent with the card as it stands. The answer comes in the conversation above.
-function comment(p, ticked) {
-  const send = () => {
-    hunt.cardAsk = { id: p.id, text: hunt.notes[p.id] };
-    vscode.postMessage({ type: 'huntRun', prompt: hunt.notes[p.id], card: p.id });
-  };
-  const off = () => hunt.running || !(hunt.notes[p.id] || '').trim() || !ticked;
-  const go = confirmAt(
-    el(
-      'button',
-      {
-        className: 'primary',
-        disabled: off(),
-        title: 'Go\nSends your comment to Claude with the ticked elements of this card. Claude answers in the conversation above and changes the card. A rename is carried out when you press Create.',
-        onclick: send,
-      },
-      icon('send'),
-      hunt.running ? 'Working...' : 'Go'
-    ),
-    'hunt'
-  );
-  const input = el('input', {
-    type: 'text',
-    className: 'hunt-comment',
-    placeholder: ticked ? 'Tell Claude what to change in the ticked elements, e.g. rename docker-images to hetzner-docker' : 'Tick an element to comment on it',
-    'aria-label': 'Change comment for Claude',
-    value: hunt.notes[p.id] || '',
-    readonly: hunt.running,
-    oninput: e => {
-      hunt.notes[p.id] = e.target.value;
-      go.disabled = off();
-    },
-    onkeydown: e => {
-      if (e.key === 'Enter' && !off()) go.click();
-    },
-  });
-  return el('div', { className: 'hunt-comment-row' }, input, aiGroup('', go));
-}
-
-// One tick for the Retire tick of every listed copy: set, partly set or clear.
-// Only the ticked elements: a deselected element and its copies are never retired.
+// The Retire tick of every listed copy of the ticked elements as one tick: set, partly set or clear. A deselected element and its copies are never retired.
 const copiesOf = p => p.assets.filter(a => a.include).flatMap(a => [a.global, ...a.repos].filter(Boolean));
 
 const showRetireAll = (box, copies) => {
@@ -248,23 +193,10 @@ function whyNot(p, market) {
   return '';
 }
 
-// The description grows with its text, so no sentence is cut off and no scrollbar sits in a two-row box.
-const fit = ta => {
-  ta.style.height = 'auto';
-  ta.style.height = `${ta.scrollHeight + 2}px`;
-};
-
-function describe(p, done) {
-  const ta = el('textarea', { rows: 2, value: p.description, readonly: !!done, oninput: e => ((p.description = e.target.value), fit(ta), saveSoon()) });
-  requestAnimationFrame(() => fit(ta));
-  return ta;
-}
-
 export function card(p, history = false) {
   const market = marketOf();
   const result = hunt.results[p.id];
   const done = hunt.created[p.id] || (result && result.state === 'done' ? result.text : '');
-  const chosen = p.assets.filter(a => a.include);
   const busy = !!(result && result.state === 'running');
   const blocked = whyNot(p, market);
   const create = confirmAt(
@@ -287,7 +219,6 @@ export function card(p, history = false) {
     p.id
   );
   const open = hunt.adding === p.id;
-  const categories = market && market.categorized ? market.categories : [];
   const sync = () => {
     const b = app.querySelector(`[data-confirm-key="${p.id}"]`);
     const hint = app.querySelector(`[data-card="${p.id}"] .hunt-hint`);
@@ -301,72 +232,51 @@ export function card(p, history = false) {
     hunt.open[p.id] = !hunt.open[p.id];
     repaint();
   };
-  const turns = history && expanded ? turnsOf(p, splitCards().all) : [];
-  const box = el(
+  const head = el(
     'div',
-    { className: `hunt-card${done ? ' done' : ''}${history ? ' history' : ''}${history && !expanded ? ' collapsed' : ''}`, 'data-card': p.id },
-    el(
-      'div',
-      { className: 'hunt-card-head', onclick: history ? e => (e.target.closest('input,button') ? undefined : toggle()) : undefined },
-      history ? el('button', { type: 'button', className: 'hunt-chev', 'aria-expanded': String(expanded), 'aria-label': `${expanded ? 'Collapse' : 'Expand'} ${p.name || 'this card'}`, onclick: toggle }, icon(expanded ? 'chevron-down' : 'chevron-right')) : null,
-      icon(done ? 'pass-filled' : 'package'),
-      el('input', { className: 'hunt-title', type: 'text', placeholder: 'plugin-name', value: p.name, readonly: !!done, 'aria-label': 'Plugin name', oninput: e => ((p.name = e.target.value.trim()), saveSoon(), sync()) }),
-      el('span', { className: 'hunt-when' }, done ? 'Created' : p.prompt ? 'Hunted' : 'New'),
-      iconBtn('trash', 'Discard this card', () => {
-        hunt.proposals = hunt.proposals.filter(x => x !== p);
-        saveNow();
-        repaint();
-      })
-    ),
-    p.prompt ? el('div', { className: 'hunt-prompt', title: p.prompt }, p.prompt) : null,
-    done
-      ? el('div', { className: 'notice done', role: 'status' }, icon('check'), done)
-      : el(
-          'div',
-          { className: 'hunt-foot' },
-          el(
-            'button',
-            {
-              className: 'secondary',
-              onclick: () => {
-                hunt.adding = open ? undefined : p.id;
-                hunt.addQuery = '';
-                hunt.focusAdder = !open;
-                repaint();
-              },
-            },
-            icon(open ? 'chevron-up' : 'add'),
-            open ? 'Done adding' : 'Add skill or agent'
-          ),
-          el('span', { className: 'hunt-count' }, plural(chosen.length, 'asset')),
-          retireAll(p),
-          el('span', { className: 'hunt-hint', role: 'status' }, blocked),
-          el('span', { className: 'spacer' }),
-          create
-        ),
-    !done && result && result.text ? el('div', { className: `notice hunt-result${result.state === 'error' ? ' bad' : ''}`, role: result.state === 'error' ? 'alert' : 'status', title: result.text }, result.text) : null,
-    done ? null : open ? adder(p) : null,
-    done ? null : comment(p, chosen.length),
-    // Description and category stay on the card and in Create; their fields are off the page in this phase.
-    SHOW_FIELDS
-      ? el(
-          'div',
-          { className: 'hunt-fields' },
-          field('Description', describe(p, done)),
-          field(
-            'Category folder',
-            el('input', { type: 'text', placeholder: market && market.categorized ? 'e.g. guards' : 'optional', value: p.category, readonly: !!done, list: `hunt-cats-${p.id}`, oninput: e => ((p.category = e.target.value.trim()), saveSoon(), sync()) }),
-            el('datalist', { id: `hunt-cats-${p.id}` }, categories.map(c => el('option', { value: c })))
-          )
-        )
-      : null,
-    done
-      ? el('div', { className: 'hunt-assets' }, doneRows(p))
-      : p.assets.length
-        ? el('div', { className: 'hunt-assets' }, p.assets.flatMap(a => assetRows(p, a)))
-        : null
+    { className: 'hunt-card-head', onclick: history ? e => (e.target.closest('input,button') ? undefined : toggle()) : undefined },
+    history ? el('button', { type: 'button', className: 'hunt-chev', 'aria-expanded': String(expanded), 'aria-label': `${expanded ? 'Collapse' : 'Expand'} ${p.name || 'this card'}`, onclick: toggle }, icon(expanded ? 'chevron-down' : 'chevron-right')) : null,
+    icon(done ? 'pass-filled' : 'package'),
+    el('input', { className: 'hunt-title', type: 'text', placeholder: 'plugin-name', value: p.name, readonly: !!done, 'aria-label': 'Plugin name', oninput: e => ((p.name = e.target.value.trim()), saveSoon(), sync()) }),
+    el('span', { className: 'hunt-when' }, done ? 'Created' : p.prompt ? 'Hunted' : 'New'),
+    iconBtn('trash', 'Discard this card', () => {
+      hunt.proposals = hunt.proposals.filter(x => x !== p);
+      saveNow();
+      repaint();
+    })
   );
-  if (!expanded) while (box.children.length > 1) box.lastElementChild.remove();
-  else if (turns.length) box.children[0].after(el('div', { className: 'hunt-card-chat', role: 'log', 'aria-label': 'Conversation of this card' }, turns.map(turnRow)));
-  return box;
+  // The description and the category are not shown; Create reads the values Claude set.
+  const bar = el(
+    'div',
+    { className: 'hunt-foot' },
+    el(
+      'button',
+      {
+        className: 'secondary',
+        onclick: () => {
+          hunt.adding = open ? undefined : p.id;
+          hunt.addQuery = '';
+          hunt.focusAdder = !open;
+          repaint();
+        },
+      },
+      icon(open ? 'chevron-up' : 'add'),
+      open ? 'Done adding' : 'Add skill or agent'
+    ),
+    el('span', { className: 'hunt-count' }, plural(p.assets.filter(a => a.include).length, 'asset')),
+    retireAll(p),
+    el('span', { className: 'hunt-hint', role: 'status' }, blocked),
+    el('span', { className: 'spacer' }),
+    create
+  );
+  const turns = history && expanded ? turnsOf(p, splitCards().all) : [];
+  const body = () => [
+    turns.length ? el('div', { className: 'hunt-card-chat', role: 'log', 'aria-label': 'Conversation of this card' }, turns.map(turnRow)) : null,
+    p.prompt ? el('div', { className: 'hunt-prompt', title: p.prompt }, p.prompt) : null,
+    done ? el('div', { className: 'notice done', role: 'status' }, icon('check'), done) : bar,
+    !done && result && result.text ? el('div', { className: `notice hunt-result${result.state === 'error' ? ' bad' : ''}`, role: result.state === 'error' ? 'alert' : 'status', title: result.text }, result.text) : null,
+    !done && open ? adder(p) : null,
+    done ? el('div', { className: 'hunt-assets' }, doneRows(p)) : p.assets.length ? el('div', { className: 'hunt-assets' }, p.assets.flatMap(a => assetRows(p, a))) : null,
+  ].filter(Boolean);
+  return el('div', { className: `hunt-card${done ? ' done' : ''}${history ? ' history' : ''}${history && !expanded ? ' collapsed' : ''}`, 'data-card': p.id }, head, expanded ? body() : null);
 }
