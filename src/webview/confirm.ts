@@ -49,11 +49,11 @@ const CARDS = {
   }),
   review: ask => ({
     mark: claudeMark(18),
-    title: `Review ${ask.name} with Claude`,
+    title: `Edit ${ask.name} with Claude`,
     sub: 'in a new Claude, in a terminal',
     facts: [
       ['terminal', el('span', {}, 'A terminal opens in ', el('code', {}, ask.cwd), '.')],
-      ['file', el('span', {}, 'Claude is asked to read ', el('code', {}, ask.file), ' and say what to improve. It changes nothing until you agree.')],
+      ['file', el('span', {}, 'Claude is asked to read ', el('code', {}, ask.file), ', say what to improve and make the changes you agree to. It changes nothing until you agree.')],
       ['credit-card', 'The run counts against your plan.'],
     ],
     action: 'Open in terminal',
@@ -158,7 +158,7 @@ const CARDS = {
     title: `Draw ${ask.name} with Claude`,
     sub: 'with Claude Sonnet, in the background',
     facts: [
-      ['account', 'Runs claude -p on your own Claude login, so it counts against your plan.'],
+      ['account', `Runs claude -p on your own Claude login${ask.both ? ', twice: one drawing for the Harness and one for the Process perspective,' : ','} so it counts against your plan.`],
       ['files', `Claude gets ${ask.source || 'SKILL.md'} (${ask.chars} characters) and nothing else: no tools, no other files.`],
       ['symbol-color', `The drawing is kept in the extension, not beside your files, and is dropped when ${ask.source ? 'any of that' : 'SKILL.md'} changes.`],
     ],

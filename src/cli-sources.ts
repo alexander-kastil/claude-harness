@@ -58,7 +58,7 @@ function installed(root: string): Installed[] {
     });
 }
 
-/** The repos a skill is linked into: `<repo>/.claude/skills/<name>` is a junction to the global folder. */
+/** The repos whose `<repo>/.claude/skills/<name>` is still a link to the global folder (made by an older version). */
 function linkedIn(a: Args, root: string, name: string): string[] {
   const repos = knownRepos([...(a.flags.get('repo') ?? []), ...list(a, 'repos')], one(a, 'user-config') ?? path.join(os.homedir(), '.claude.json'));
   return repos.filter(r => linkState(path.join(r, '.claude', 'skills', name), path.join(root, 'skills', name)) === 'linked').map(r => path.basename(r));

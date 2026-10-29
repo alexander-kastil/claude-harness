@@ -83,6 +83,18 @@ export function originsOf(claudeRoot: string): Map<string, SkillOrigin> {
   return origins;
 }
 
+/** Drops one skill's entry from the extension's record (the skills CLI's lock is never touched). */
+export function forgetOrigin(claudeRoot: string, name: string): void {
+  const file = recordFile(claudeRoot);
+  const data = read(file);
+  if (!data || !(name in data.skills)) return;
+  delete data.skills[name];
+  const temp = `${file}.${process.pid}.tmp`;
+  fs.writeFileSync(temp, JSON.stringify(data, null, 2), 'utf8');
+  fs.renameSync(temp, file);
+  cache = undefined;
+}
+
 /** Adds or updates one skill's entry in the extension's record, keeping every other entry. */
 export function recordOrigin(claudeRoot: string, name: string, origin: Omit<SkillOrigin, 'installedAt' | 'updatedAt'>, now = new Date()): void {
   const file = recordFile(claudeRoot);

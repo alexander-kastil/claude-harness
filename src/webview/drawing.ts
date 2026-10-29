@@ -27,14 +27,14 @@ const DRAWS: Record<string, string> = {
   agent: 'what this agent does and what it works with, from its file',
   command: 'what this command does, from its file',
   workflow: 'the steps of this workflow, from its script',
-  plugin: 'what this plugin brings and how its skills, agents, servers and hooks connect, from its manifest and contents',
+  plugin: 'what this plugin brings and how its skills, agents, servers and hooks connect (Harness), and what runs in which order with what its mods do (Process), two drawings from its manifest, contents and hook modules',
   hook: 'when this hook runs and what it does, from its entry in the settings file',
   mcp: 'what this server is and what it connects to, from its entry',
 };
 
 export const canDraw = (a: Asset): boolean => a.kind in DRAWS;
 
-export const drawsWhat = (kind: string, process = false): string => (process ? 'the plugin as a process: its stages in run order, what each takes in and puts out, and what its mods do, from its manifest, contents and hook modules' : DRAWS[kind]);
+export const drawsWhat = (kind: string): string => DRAWS[kind];
 
 // A plugin has two drawings: the harness perspective (how its parts connect to a session) and the process perspective (what runs
 // in which order). The process one is stored under the plugin's id plus this suffix; the toggle in the figure picks the one shown.
@@ -46,6 +46,12 @@ export const processOf = (a: Asset): boolean => a.kind === 'plugin' && processFo
 
 /** The id the element's drawing is stored and asked under: the plugin's process perspective has its own. */
 export const drawingId = (a: Asset): string => (processOf(a) ? a.id + PROCESS : a.id);
+
+/** What Draw with Claude shows for an element: a plugin has two drawings, so it counts as running while either runs, and as drawn once either exists. */
+export function drawState(a: Asset): { running: boolean; drawn: boolean; error?: string } {
+  const all = [drawingOf(a.id), a.kind === 'plugin' ? drawingOf(a.id + PROCESS) : undefined];
+  return { running: all.some(d => d?.running), drawn: all.some(d => d?.svg), error: all.find(d => d?.error)?.error };
+}
 
 /** Asks for the stored drawing once per loaded detail; the page repaints when the answer differs. */
 export function askDrawing(a: Asset): void {

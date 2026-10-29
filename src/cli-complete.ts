@@ -88,6 +88,8 @@ export const COMMANDS: CommandSpec[] = [
   { path: 'add', flags: [SCOPE, DRY], positional: 'plugins' },
   { path: 'validate', flags: [REPO], positional: 'scripts' },
   { path: 'run', flags: [DRY], positional: 'scripts' },
+  { path: 'skills rename', flags: [{ name: 'from', takes: 'skills' }, { name: 'to', takes: [] }, { name: 'market', takes: [] }, DRY] },
+  { path: 'plugins rename', flags: [{ name: 'from', takes: 'plugins' }, { name: 'to', takes: [] }, DRY] },
   { path: 'marketplaces', flags: [] },
   { path: 'marketplaces rename', flags: [{ name: 'from', takes: 'markets' }, { name: 'to', takes: [] }, DRY] },
   { path: 'check', flags: [REPO] },

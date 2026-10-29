@@ -196,6 +196,43 @@ input[type='checkbox'] {
   border-bottom: 1px solid var(--vscode-panel-border);
 }
 
+/* The processing line: a flat, thin, indeterminate bar along the bottom edge of a header while a Claude action runs in the background,
+   in VS Code's own progress colour. With reduced motion it stands still. */
+.main-head.busy {
+  position: relative;
+}
+
+.main-head.busy::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, var(--vscode-progressBar-background, var(--vscode-focusBorder)), transparent) no-repeat;
+  background-size: 35% 100%;
+  animation: head-progress 1.8s linear infinite;
+}
+
+@keyframes head-progress {
+  from {
+    background-position: -35% 0;
+  }
+
+  to {
+    background-position: 135% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .main-head.busy::after {
+    background: var(--vscode-progressBar-background, var(--vscode-focusBorder));
+    opacity: 0.6;
+    animation: none;
+  }
+}
+
 .main-head .big {
   font-size: 22px;
   opacity: 0.85;
@@ -4541,7 +4578,16 @@ button.std-finding:hover {
 
 /* The perspective toggle in the drawing's top-left corner; the process drawing is a tall stack, so it is not capped at 180px. */
 .dv-persp {
-  margin: 0 0 6px;
+  position: absolute;
+  top: 8px;
+  left: 10px;
+  z-index: 1;
+  margin: 0;
+}
+
+/* The tall process drawing starts below the toggle in the corner. */
+.dv-draw.dv-process {
+  padding-top: 42px;
 }
 
 .dv-draw.dv-process svg {
@@ -4551,7 +4597,7 @@ button.std-finding:hover {
 }
 
 .dv-draw .dv-empty {
-  padding: 24px 0;
+  padding: 40px 0 24px;
   text-align: center;
 }
 
@@ -5525,16 +5571,19 @@ body.vscode-high-contrast-light {
   opacity: 0.75;
 }
 
-.hunt-ask {
+/* The composer is pinned under the conversation. */
+.hunt-composer {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  flex-shrink: 0;
+  flex: none;
+  padding-top: 12px;
+  border-top: 1px solid var(--vscode-panel-border);
 }
 
 .hunt-ask-text {
   width: 100%;
-  min-height: 80px;
+  min-height: 64px;
   resize: vertical;
   box-sizing: border-box;
 }
@@ -5613,44 +5662,12 @@ body.vscode-high-contrast-light {
   text-overflow: ellipsis;
 }
 
-.hunt-fields {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 10px;
-}
-
-.hunt-field {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 0;
-}
-
-.hunt-field textarea,
-.hunt-field input {
-  width: 100%;
-  box-sizing: border-box;
-}
-
-.hunt-field textarea {
-  overflow: hidden;
-  resize: none;
-}
-
 .hunt-where {
   font-size: 11px;
   opacity: 0.65;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.hunt-label {
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  opacity: 0.75;
 }
 
 .hunt-assets {
@@ -5667,18 +5684,6 @@ body.vscode-high-contrast-light {
   border: 1px solid var(--vscode-panel-border);
   border-radius: 6px;
   background: color-mix(in srgb, var(--vscode-foreground) 4%, transparent);
-}
-
-.hunt-comment-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.hunt-comment {
-  flex: 1;
-  min-width: 0;
-  box-sizing: border-box;
 }
 
 .hunt-foot .hunt-count {
@@ -5935,7 +5940,7 @@ body.vscode-high-contrast-light {
 }
 
 .hunt-card button.primary:disabled,
-.hunt-ask button.primary:disabled {
+.hunt-composer button.primary:disabled {
   opacity: 0.65;
 }
 
@@ -5944,30 +5949,28 @@ body.vscode-high-contrast-light {
   overflow-y: auto;
 }
 
-.hunt-chat {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  flex-shrink: 0;
-}
-
-.hunt-chat-head {
-  display: flex;
-  align-items: center;
-}
-
-.hunt-chat-head .spacer {
-  flex: 1;
-}
-
-.hunt-earlier {
-  align-self: flex-start;
-}
-
+/* The conversation scrolls inside its column, the newest message at the bottom, and the composer stays under it. */
 .hunt-chat-log {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.hunt-chat-log > :first-child {
+  margin-top: auto;
+}
+
+.hunt-chat-log > .empty {
+  margin: auto 0;
+}
+
+.hunt-col-head .hunt-clear {
+  margin-left: auto;
+  text-transform: none;
+  letter-spacing: 0;
 }
 
 .hunt-msg {
@@ -6052,11 +6055,14 @@ button.primary.hunt-cta .claude-mark path {
   container: hunt-body / inline-size;
 }
 
+/* The halves fill the page's height; the chat scrolls inside its own, the card column inside its own. */
 .hunt-split {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
   gap: 20px;
-  align-items: start;
+  flex: 1;
+  min-height: 420px;
 }
 
 .hunt-col {
@@ -6064,6 +6070,7 @@ button.primary.hunt-cta .claude-mark path {
   flex-direction: column;
   gap: 12px;
   min-width: 0;
+  min-height: 0;
   padding: 14px;
   border: 1px solid var(--vscode-panel-border);
   border-radius: 8px;
@@ -6071,7 +6078,12 @@ button.primary.hunt-cta .claude-mark path {
 }
 
 .hunt-col-find {
+  overflow-y: auto;
   border-color: color-mix(in srgb, var(--vscode-focusBorder) 45%, var(--vscode-panel-border));
+}
+
+.hunt-col-find > .hunt-col-head {
+  flex: none;
 }
 
 .hunt-col-head {
@@ -6111,6 +6123,12 @@ button.primary.hunt-cta .claude-mark path {
 @container hunt-body (max-width: 860px) {
   .hunt-split {
     grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: none;
+    flex: none;
+  }
+
+  .hunt-col-chat {
+    height: min(70vh, 560px);
   }
 }
 
@@ -6469,6 +6487,7 @@ button.primary.hunt-cta .claude-mark path {
 
 /* The drawing of what an element does, above the info card: scaled to the width, never taller than 180px. */
 .dv-draw {
+  position: relative;
   margin: 0;
   padding: 6px 14px;
   border: 1px solid var(--vscode-editorWidget-border, var(--vscode-panel-border));

@@ -51,11 +51,11 @@ Each command follows `harness ` (or `node <extension folder>/out/src/cli.js `).
 | `inventory [--repo <dir>]` | The harness of Global, or of one repo: memory, rules, agents, skills, commands, hooks, MCP servers and plugins. |
 | `consolidate [--name <n>]` | Every skill, agent, rule, command or workflow that exists in more than one place, with its copies. |
 | `consolidate retire --name <n> --kind skill\|agent --from <global\|repo dir> [--dry-run]` | Retires one copy, backed up first with the same backup the extension makes. |
-| `hunt catalog` | The skills and agents across Global and the repos that a plugin can be made from. |
+| `hunt catalog [--kind skill\|agent] [--query <text>]` | The skills and agents across Global and the repos that a plugin can be made from. `--kind` keeps one type, `--query` keeps the ones whose name or description contains the text. |
 | `hunt plan --name <plugin> --category <c> --skills a,b --agents x,y [--files <file>=<path in plugin>,...] [--drop-files] [--market <m>] [--description <t>] [--retire]` | The plugin that `hunt create` would write, the same as `hunt create --dry-run`. `--files` adds a hooks.json, a hook script or an `.mcp.json` to the plugin; `--drop-files` retires them too. |
-| `hunt create <hunt plan options> [--dry-run]` | Writes the plugin and installs it; `--retire` retires the copies. Rolls back if the install fails. |
+| `hunt create <hunt plan options> [--dry-run]` | Writes the plugin and installs it; `--retire` retires the copies. The plugin's author is copied from the marketplace's existing plugins, and falls back to the marketplace owner. Rolls back if the install fails. |
 | `agents list` | The agents of Global, the plugins and the repos, with the copies that differ and the gated ones. |
-| `agents route "<prompt>" [--repo <dir>]` | The agents the orchestration plugin would route a prompt to, and the ones it drops. |
+| `agents route "<prompt>" [--repo <dir>]` | The agents the agent-control-plugin would route a prompt to, and the ones it drops. |
 | `usage --session latest\|previous\|<id> [--repo <dir>] [--week] [--week-used <pct>]` | A session's tokens and cost by model and by agent; `--week` adds its share of the week. |
 | `delegation --session latest\|previous\|<id> [--repo <dir>]` | The agents a session launched, with their decisions, slips and findings. |
 | `media doctor <dir>` | Checks a film or images folder under `assets/films` or `assets/images`. |
@@ -63,7 +63,7 @@ Each command follows `harness ` (or `node <extension folder>/out/src/cli.js `).
 | `skills split --from <skill> --name <new> --leaves a,b [--description <t>] [--market <dir>] [--dry-run]` | Makes a new skill from leaves of one skill and repoints the references. |
 | `skills put --file <file> --to <skill>/<path>\|agents/<name>.md [--dry-run]` | Puts new or rewritten text into a skill or an agent file; an existing file is backed up first. |
 | `skills remove --name <skill>\|--leaf <skill>/<path> [--market <dir>] [--dry-run]` | Deletes a skill or one leaf of it, backed up first, and lists what still mentions it. |
-| `skills repoint --from <skill> --to <skill> [--skills a,b] [--agents x,y] [--market <dir>] [--dry-run]` | Rewrites the mentions of one skill name to another in skills and agents. |
+| `skills repoint --from <skill> --to <skill>\|<plugin>:<skill> [--skills a,b] [--agents x,y] [--market <dir>] [--dry-run]` | Rewrites the mentions of one skill name to another in skills and agents. `--to` takes `plugin:skill`, the form a skill has once it ships in a plugin; a name that already has the prefix is not changed again, so a second run changes nothing. |
 | `generate agent <name> [--scope repo\|user] [--model <m>] [--tools a,b] [--description <t>] [--from <file>] [--dry-run]` | Makes sure an agent exists in the repo's `.claude` folder, or in `~/.claude` with `--scope user`. A rerun with nothing changed writes nothing. `g` is an alias of `generate`. |
 | `generate rule <name> [--scope repo\|user] [--paths a,b] [--from <file>] [--dry-run]` | Makes sure a rule exists. `--from` takes the text of a template file. |
 | `generate skill <name> [--scope repo\|user] [--description <t>] [--from <file>] [--dry-run]` | Makes sure a skill exists, as a `SKILL.md`. `--from` takes the text of a template file. |
@@ -89,8 +89,8 @@ Each command follows `harness ` (or `node <extension folder>/out/src/cli.js `).
 | `time [--repo <dir>] [--days <n>]` | The repo's time ledger, `.time/working-time.md`, by day for the last 14 days or `--days`, with the total of those days and of the ledger. |
 | `lessons [--repo <dir>] [--find <text>]` | The entries of the repo's `tasks/lessons.md`, or only those that mention a text. |
 | `sources` | The skills installed from a source, with their source, version, install date and the repos they are linked into. |
-| `sources check` | Asks each source whether it has a newer version of the skill. |
-| `sources update --name <skill> [--dry-run]` | Installs the source's version of one skill, backed up first. |
+| `sources check` | Asks each source whether it has a newer version of the skill. A source whose version is lower than the installed one is reported as `older`, not as newer. |
+| `sources update --name <skill> [--dry-run]` | Installs the source's version of one skill, backed up first. For a skill that sits at the root of its repository, the README, CHANGELOG, tool folders, tests and docs of that repository are left out of the install. |
 | `complete --line "<command line>" [--position <n>]` | The candidates for the word at the cursor, one per line, or a list with `--json`. The Tab completion scripts call it. |
 | `completion powershell\|bash` | Prints the Tab completion script for that shell; the lines **Install 'harness' Command Line** adds load it. |
 

@@ -4,7 +4,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { test } from 'node:test';
 import { run } from '../../src/cli';
-import { ROOT_NOISE, install, linkToRepo } from '../../src/distributor';
+import { ROOT_NOISE, install } from '../../src/distributor';
 import { checkState, updateBackupDir } from '../../src/cli-sources';
 
 // The fixture is a Claude folder of its own under a temp folder: no network, and the owner's ~/.claude is never named.
@@ -65,7 +65,8 @@ function fixture() {
     )
   );
   fs.mkdirSync(path.join(repo, '.claude', 'skills'), { recursive: true });
-  linkToRepo(root, repo, 'media');
+  // The link an older version made.
+  fs.symlinkSync(path.join(root, 'skills', 'media'), path.join(repo, '.claude', 'skills', 'media'), process.platform === 'win32' ? 'junction' : 'dir');
   return { base, root, repo, userConfig };
 }
 

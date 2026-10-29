@@ -7,13 +7,13 @@ import { Args, Io, Stop, emit, headline, list, one, table } from './cli-core';
 // `skills move`, `skills split` and `skills repoint`: reorganise skills under a Claude folder (leaf files between skills, a part of a skill into a new one) and keep the references pointing at the right place.
 
 export interface SkillChange {
-  action: 'move' | 'create' | 'rewrite' | 'remove' | 'check';
+  action: 'move' | 'create' | 'rewrite' | 'remove' | 'rename' | 'check';
   file: string;
   detail: string;
 }
 
 export interface SkillsOut {
-  op: 'move' | 'split' | 'put' | 'remove' | 'repoint';
+  op: 'move' | 'split' | 'put' | 'remove' | 'repoint' | 'rename';
   changes: SkillChange[];
   /** The folder the originals go to before any change; null when nothing is written. */
   backup: string | null;
@@ -52,13 +52,33 @@ function textFiles(a: Args, root: string): string[] {
   return files;
 }
 
-const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+export const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const skillRef = (name: string) => new RegExp(`(?<![\\w.-])${escape(name)}(?![\\w-])`, 'g');
 
-class Session {
+/** The folder of a skill: the root's, else one of the market's plugins. */
+function skillDir(a: Args, root: string, name: string): string | undefined {
+  const own = path.join(root, 'skills', name);
+  if (fs.existsSync(own)) return own;
+  const market = one(a, 'market');
+  const find = (dir: string): string | undefined => {
+    for (const e of fs.existsSync(dir) ? fs.readdirSync(dir, { withFileTypes: true }) : []) {
+      if (!e.isDirectory() || e.name.startsWith('.') || e.name === 'node_modules') continue;
+      const f = path.join(dir, e.name);
+      if (e.name === name && path.basename(path.dirname(f)) === 'skills') return f;
+      const hit = find(f);
+      if (hit) return hit;
+    }
+    return undefined;
+  };
+  return market ? find(path.join(path.resolve(market), 'plugins')) : undefined;
+}
+
+export class Session {
   readonly changes: SkillChange[] = [];
   private readonly dir: string;
   private made = false;
+  /** A file is backed up once per session, so a second write keeps the original. */
+  private readonly saved = new Set<string>();
   constructor(readonly a: Args, readonly root: string, readonly op: SkillsOut['op']) {
     this.dir = path.join(root, 'repo-sync-backups', backupStamp());
   }
@@ -77,9 +97,13 @@ class Session {
   }
   /** Copy a file into the backup, mirrored by its path under the root (or the market). */
   save(file: string) {
-    if (this.dry || !fs.existsSync(file)) return;
+    if (this.dry || !fs.existsSync(file) || this.saved.has(file)) return;
+    this.saved.add(file);
     const rel = path.relative(this.root, file);
-    const target = path.join(this.dir, rel.startsWith('..') ? path.join('outside', path.relative(path.parse(file).root, file)) : rel);
+    // A file outside the root, on another drive too, goes under outside/<drive>/ without the colon.
+    const outside = rel.startsWith('..') || path.isAbsolute(rel);
+    const drive = path.parse(file).root.replace(/[:\\/]/g, '');
+    const target = path.join(this.dir, outside ? path.join('outside', drive, path.relative(path.parse(file).root, file)) : rel);
     fs.mkdirSync(path.dirname(target), { recursive: true });
     fs.copyFileSync(file, target);
     this.made = true;
@@ -99,11 +123,16 @@ class Session {
   }
   /** Replace text in every file but the skipped ones. */
   replace(files: string[], pattern: RegExp, to: string, skip: string[] = []) {
+    const hit: { f: string; text: string; hits: number }[] = [];
     for (const f of files) {
       if (skip.includes(f) || !fs.existsSync(f)) continue;
       const text = fs.readFileSync(f, 'utf8');
       const hits = text.match(pattern)?.length ?? 0;
-      if (!hits) continue;
+      if (hits) hit.push({ f, text, hits });
+    }
+    // Every backup first: a failure there writes nothing.
+    for (const h of hit) this.save(h.f);
+    for (const { f, text, hits } of hit) {
       this.record('rewrite', f, `${hits} reference${hits > 1 ? 's' : ''} to ${to}`);
       this.write(f, text.replace(pattern, to));
     }
@@ -226,7 +255,30 @@ export async function skillsCommand(a: Args, io: Io): Promise<number> {
     // A name already behind a plugin prefix is not repointed again, so a second run changes nothing.
     s.replace(files, colon > 0 ? new RegExp(`(?<![\\w.:-])${escape(from)}(?![\\w-])`, 'g') : skillRef(from), to);
     if (!s.changes.length) throw new Stop(`Nothing refers to ${from}.`);
-  } else throw new Stop('skills needs move, split, put, remove or repoint. Run with --help.', 2);
+  } else if (sub === 'rename') {
+    const from = skillName(one(a, 'from'), 'skills rename --from');
+    const to = skillName(one(a, 'to'), 'skills rename --to');
+    const dir = skillDir(a, root, from);
+    if (!dir) throw new Stop(`There is no skill ${from} under ${path.join(root, 'skills')}${one(a, 'market') ? ` or in ${one(a, 'market')}` : ''}.`);
+    const dst = path.join(path.dirname(dir), to);
+    if (fs.existsSync(dst)) throw new Stop(`Skill ${to} exists already beside ${from}.`);
+    s.save(path.join(dir, 'SKILL.md'));
+    // The skill's own text names it as well, so its files are rewritten with the rest.
+    // A name directly followed by ":" and a name character is a plugin prefix (x-conventions:x-conventions), not the skill.
+    const ref = new RegExp(`(?<![\\w.-])${escape(from)}(?![\\w-])(?!:[\\w])`, 'g');
+    s.replace(textFiles(a, root), ref, to);
+    const md = path.join(dir, 'SKILL.md');
+    if (fs.existsSync(md)) {
+      const text = fs.readFileSync(md, 'utf8').replace(ref, to);
+      const front = /^(---\r?\n[\s\S]*?^name:[ \t]*)(.+?)([ \t]*\r?$)/m.exec(text);
+      if (front && front[2] !== to) {
+        s.record('rewrite', md, `name: ${to}`);
+        s.write(md, text.replace(front[0], `${front[1]}${to}${front[3]}`));
+      }
+    }
+    s.record('rename', dir, `to ${to}`);
+    if (!s.dry) fs.renameSync(dir, dst);
+  } else throw new Stop('skills needs move, split, put, remove, repoint or rename. Run with --help.', 2);
   const out: SkillsOut = { op: sub as SkillsOut['op'], changes: s.changes, backup: s.backup };
   emit(io, a, out, lines(out, s.dry), !s.dry);
   return 0;

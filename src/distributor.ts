@@ -1,11 +1,11 @@
 // Skills from a distributor (skills.sh, which serves GitHub repos): find a skill in its repo, download it into ~/.claude/skills,
-// ask GitHub whether the skill's folder changed since it was installed, and link an installed global skill into a repo (a
-// directory junction on Windows). Where a skill came from is recorded in skill-lock.ts.
+// ask GitHub whether the skill's folder changed since it was installed, and move an installed global skill into a repo
+// (a real move, no link). Where a skill came from is recorded in skill-lock.ts.
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { parseMarkdown, versionOf } from './harness';
-import { SkillOrigin, recordOrigin } from './skill-lock';
+import { SkillOrigin, forgetOrigin, originsOf, recordOrigin } from './skill-lock';
 
 /** What a skills.sh or GitHub address names: a repo, and perhaps a skill in it. */
 export interface Source {
@@ -364,15 +364,26 @@ export function install(claudeRoot: string, s: Staged, backupDir: string): { fol
   return { folder, backup };
 }
 
-/** Links an installed global skill into a repo: `<repo>/.claude/skills/<name>` becomes a junction (a symlink off Windows) to the global folder. */
-export function linkToRepo(claudeRoot: string, repoDir: string, name: string): string {
-  const target = path.join(claudeRoot, 'skills', name);
-  const link = path.join(repoDir, '.claude', 'skills', name);
-  const state = linkState(link, target);
-  if (state === 'linked') return link;
-  if (state === 'copy') throw new Error(`${link} is a folder of its own. Retire or move it first.`);
-  if (state === 'elsewhere') throw new Error(`${link} is already a link to something else.`);
-  fs.mkdirSync(path.dirname(link), { recursive: true });
-  fs.symlinkSync(target, link, process.platform === 'win32' ? 'junction' : 'dir');
-  return link;
+/**
+ * Moves an installed global skill into a repo: the folder leaves `~/.claude/skills/<name>` and becomes `<repo>/.claude/skills/<name>`.
+ * The two can be on different drives, so it is copied and then the source is removed. A repo link left by the earlier link
+ * code is removed as a link. The skill's recorded source follows it into the repo's own record.
+ */
+export function moveToRepo(claudeRoot: string, repoDir: string, name: string): string {
+  const source = path.join(claudeRoot, 'skills', name);
+  const dest = path.join(repoDir, '.claude', 'skills', name);
+  const state = linkState(dest, source);
+  if (state === 'copy') throw new Error(`${dest} is a folder of its own. Retire or move it first.`);
+  if (state === 'elsewhere') throw new Error(`${dest} is a link to something else.`);
+  if (!fs.existsSync(source)) throw new Error(`${source} does not exist.`);
+  const origin = originsOf(claudeRoot).get(name);
+  if (state === 'linked') removeLink(dest);
+  fs.mkdirSync(path.dirname(dest), { recursive: true });
+  // A source that is itself a link (a skills CLI install) is copied as the files it points to.
+  fs.cpSync(source, dest, { recursive: true, dereference: true });
+  if (fs.lstatSync(source).isSymbolicLink()) removeLink(source);
+  else fs.rmSync(source, { recursive: true, force: true });
+  if (origin) recordOrigin(path.join(repoDir, '.claude'), name, origin, origin.updatedAt ? new Date(origin.updatedAt) : undefined);
+  forgetOrigin(claudeRoot, name);
+  return dest;
 }

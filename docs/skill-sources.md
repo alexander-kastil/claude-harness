@@ -66,7 +66,7 @@ Checks are never made on their own. GitHub allows 60 requests an hour without a 
 - which files are deleted because the download does not have them, such as notes you added to the folder,
 - for a skill that was a link into `~/.agents` (see [below](#where-the-source-is-recorded)), that the link becomes a real folder.
 
-The old files are backed up first, in `~/.claude/repo-sync-backups/<time>/skills/<name>`. A repo that links the skill (see [Link a global skill into a repo](#link-a-global-skill-into-a-repo)) picks up the update at once.
+The old files are backed up first, in `~/.claude/repo-sync-backups/<time>/skills/<name>`. A repo that still links the skill from an older version picks up the update at once; a skill moved into a repo (see [Move a global skill into a repo](#move-a-global-skill-into-a-repo)) is no longer global and is not updated here.
 
 ## Connect a skill you already have
 
@@ -74,13 +74,11 @@ A skill you copied by hand has no source yet. Open it and click **Connect to sou
 
 ![Connect card for a copy made by hand: it overwrites SKILL.md, adds 9 files and deletes notes.md, kept in the backup](images/skill-sources-connect-card.png)
 
-## Link a global skill into a repo
+## Move a global skill into a repo
 
-A skill in `~/.claude/skills` loads in every repo. To keep one copy and still list it in a repo's own `.claude/skills`, click **Link into repo** on the skill's page (**Claude Harness: Link Global Skill into a Repo...**). A card lists your repos to pick from. Each picked repo gets `.claude/skills/<name>` as a soft link (a directory junction on Windows, which needs no admin rights) to the global folder, so an update of the global skill shows in every linked repo.
+A skill in `~/.claude/skills` loads in every repo. When it belongs to one repo only, click **Move into repo** on the skill's page (**Claude Harness: Move Global Skill into a Repo...**). A card lists your repos to pick one. The folder leaves `~/.claude/skills` and becomes `.claude/skills/<name>` in that repo, so exactly one folder is left and no link is made. The skill's source record moves with it.
 
-A repo that already has its own folder of that name, a link to somewhere else, or this link is shown disabled with the reason. Nothing is replaced. The skill's page then says `linked into <repo>` in its heading line, and the repo's skill shows as linked on the Skills page (preset **Linked**).
-
-![Link card with a repo that can be linked and one that has its own folder of that name](images/skill-sources-link-card.png)
+A repo that already has its own folder of that name, or a link to somewhere else, is shown disabled with the reason. Nothing is replaced. A link that an older version made to the global folder is replaced by the moved folder; the global folder is not touched through it.
 
 ## Where the source is recorded
 
@@ -99,7 +97,7 @@ Claude Harness only reads the CLI's lock file, never writes it. A skill the CLI 
 | Connect Skill to its Source... | Connects a skill you already have to its address |
 | Check Skills for Updates | Checks every skill with a source |
 | Update Skills from their Source | Updates the skills the last check found newer, or checks first |
-| Link Global Skill into a Repo... | Picks the repos that get a soft link to a global skill |
+| Move Global Skill into a Repo... | Moves a global skill into the repo you pick |
 
 Run from the Command Palette, a question is a quick input, a pick list or a dialog, because a card belongs to the button you pressed. The result still appears as a line in the panel when it is open, and as a notification when it is not. See also [Commands](commands.md).
 

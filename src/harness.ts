@@ -1290,8 +1290,18 @@ export function retireAsset(asset: Asset, repoDir: string, backupRoot: string, s
   const target = asset.dir ?? asset.file;
   const dest = path.join(backupRoot, stamp, path.basename(repoDir), path.relative(repoDir, target));
   fs.mkdirSync(path.dirname(dest), { recursive: true });
-  fs.cpSync(target, dest, { recursive: true });
-  fs.rmSync(target, { recursive: true, force: true });
+  const isLink = fs.lstatSync(target).isSymbolicLink();
+  // A link is backed up as the files it points to and removed as a link, never through its target.
+  fs.cpSync(target, dest, { recursive: true, dereference: isLink });
+  if (isLink) {
+    try {
+      fs.unlinkSync(target);
+    } catch {
+      fs.rmdirSync(target);
+    }
+  } else {
+    fs.rmSync(target, { recursive: true, force: true });
+  }
   return dest;
 }
 

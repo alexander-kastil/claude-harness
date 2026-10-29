@@ -18,8 +18,8 @@ The commands of an item page sit in the bar under its path, as buttons with an i
 | --- | --- |
 | Page | **Back**, **View**, **Edit** |
 | File | **Open in editor**, **Reveal** |
-| AI | **Review with Claude** (a lightbulb with a sparkle), **Slim with Claude**, **Try it**. The group starts with the Claude mark, and each button has its own icon. |
-| Source | On a skill: **Check update**, **Update**, **Connect to source** and **Link into repo**. See [Skill sources](skill-sources.md). |
+| AI | **Edit with Claude** (a lightbulb with a sparkle), **Slim with Claude**, **Draw with Claude** (a paintbrush), **Try it**. The group starts with the Claude mark, and each button has its own icon. |
+| Source | On a skill: **Check update**, **Update**, **Connect to source** and **Move into repo**. See [Skill sources](skill-sources.md). |
 | Item | **Copy command** (MCP server), **Rename**, **Duplicate**, **Retire**, **Sync from Global**, **Sync to other copies...** (MCP server), **Consolidate**, **Delete**, and **Enable** or **Disable** and **Uninstall** on a plugin |
 | Draft | **Revert**, **Save**. Shown in Edit mode and while there are unsaved changes. |
 
@@ -87,11 +87,13 @@ Three buttons in the item's command bar open a new Claude in a terminal:
 
 | Button | Kinds | What it does |
 | --- | --- | --- |
-| **Review with Claude** | Skills, agents, commands, rules, output styles | Claude reads the file and says what to improve. It changes nothing until you agree. A card says what happens first, and a switch on it remembers the answer. |
+| **Edit with Claude** | Skills, agents, commands, rules, output styles, workflows, plugins | Claude reads the file (a plugin's folder), says what to improve and makes the changes you agree to in that terminal. It changes nothing until you agree. A card says what happens first, and a switch on it remembers the answer. |
 | **Slim with Claude** | Skills, when something is flagged on the Size card or the References tab | Claude gets the skill's files and what is flagged, and says what to move and cut. See [Skill size](#skill-size). |
 | **Try it** | Agents, skills, commands | Starts Claude as the agent (`claude --agent <name>`), or runs the skill or command (`claude "/name"`). A card says what happens first. |
 
-A skill that came from skills.sh or GitHub has more buttons in its command bar: **Check update**, **Update**, **Connect to source** and **Link into repo**. See [Skill sources](skill-sources.md).
+**Draw with Claude** is on skills, agents, commands, workflows, plugins, hooks and MCP servers. It does not open a terminal: Claude draws in the background what the item does and how its parts connect, and the drawing shows above the details; the button reads **Redraw with Claude** once there is one. A plugin has a Harness and a Process perspective, see [Drawing a plugin](plugins.md#drawing-a-plugin).
+
+A skill that came from skills.sh or GitHub has more buttons in its command bar: **Check update**, **Update**, **Connect to source** and **Move into repo**. See [Skill sources](skill-sources.md).
 
 The run counts against your plan. On every card that starts Claude, the **Don't ask again** switch starts off, so a question is skipped only after you turn the switch on.
 

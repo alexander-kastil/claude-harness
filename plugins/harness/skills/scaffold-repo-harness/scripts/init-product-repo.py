@@ -23,6 +23,10 @@ local.settings.json
 .idea/
 .DS_Store
 Thumbs.db
+# Claude Code session files: time ledger, personal settings, scheduler lock
+.time/
+.claude/settings.local.json
+.claude/scheduled_tasks.lock
 """
 
 
@@ -34,7 +38,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--root", required=True)
     ap.add_argument("--summary", required=True, help="one to three sentences: what the product is and its stack")
-    ap.add_argument("--area", action="append", default=[], help="name=glob[,glob]:owner-agent, e.g. api=src/api/**:dotnet-toolkit:dotnet-expert or site=src/site/**:hugo-expert")
+    ap.add_argument("--area", action="append", default=[], help="name=glob[,glob]:owner-agent, e.g. api=src/api/**:dotnet-conventions:dotnet-expert or site=src/site/**:hugo-expert")
     ap.add_argument("--rule", action="append", default=[], help="one repo-only hard rule")
     ap.add_argument("--fact", action="append", default=[], help="area=one fact for that area's rules file")
     ap.add_argument("--apply", action="store_true")

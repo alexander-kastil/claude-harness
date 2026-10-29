@@ -78,7 +78,7 @@ export const sourceTip = a => {
 
 const norm = p => String(p).replace(/\\/g, '/').toLowerCase();
 
-// The repos whose `.claude/skills/<name>` is a soft link to this global skill.
+// The repos whose `.claude/skills/<name>` is still a link to this global skill (made by an older version).
 export const linkedRepos = a => {
   if (a.scope !== 'global') return [];
   const mine = new Set([a.dir, a.link].filter(Boolean).map(norm));
@@ -163,6 +163,6 @@ export const distCommands = (a, cmd) => {
     !a.origin
       ? confirmAt(cmd('plug', 'Connect to source', `Connect to source\nName the skills.sh or GitHub address ${a.name} comes from. Its files are replaced by the distributor's, the current ones are backed up, and checks and updates work from then on.`, () => (hideHover(), command('connectSkillSource', { id: a.id }))), 'panel', 'link')
       : null,
-    confirmAt(cmd('link', 'Link into repo', `Link into repo\nPick repos that get .claude/skills/${a.name} as a soft link to this global skill, so updating it here updates them too.${linkedRepos(a).length ? ` Linked now: ${linkedRepos(a).join(', ')}.` : ''}`, () => (hideHover(), command('linkSkillToRepo', { id: a.id }))), 'panel', 'link-repo'),
+    confirmAt(cmd('repo', 'Move into repo', `Move into repo\nPick a repo that gets this skill as .claude/skills/${a.name}. The folder leaves the global skills, so only that repo has it afterwards.${linkedRepos(a).length ? ` Still linked from an older version: ${linkedRepos(a).join(', ')}.` : ''}`, () => (hideHover(), command('linkSkillToRepo', { id: a.id }))), 'panel', 'link-repo'),
   ];
 };

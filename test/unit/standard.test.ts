@@ -187,6 +187,22 @@ test('linkCopies marks hook scripts and plugin copies; Retire backs up a clean r
   assert.match(retireBlock(skill, repo, { claudeMdPattern: 'copies are kept' })!, /CLAUDE.md says/);
 });
 
+test('retireAsset backs a linked skill up as files and leaves the link target alone', () => {
+  const root = tmp('harness-retire-link-');
+  const real = path.join(root, 'agents', 'social');
+  fs.mkdirSync(real, { recursive: true });
+  fs.writeFileSync(path.join(real, 'SKILL.md'), '---\nname: social\n---\n');
+  const skills = path.join(root, 'claude', 'skills');
+  fs.mkdirSync(skills, { recursive: true });
+  const link = path.join(skills, 'social');
+  fs.symlinkSync(real, link, 'junction');
+  const dest = retireAsset({ kind: 'skill', name: 'social', dir: link } as never, path.join(root, 'claude'), path.join(root, 'backups'), '20261029-120000');
+  assert.ok(!fs.lstatSync(dest).isSymbolicLink());
+  assert.ok(fs.existsSync(path.join(dest, 'SKILL.md')));
+  assert.ok(!fs.existsSync(link));
+  assert.ok(fs.existsSync(path.join(real, 'SKILL.md')));
+});
+
 test('renameInSettings rewrites @old plugin ids and the marketplace key, nothing else', () => {
   const dir = tmp('harness-ren-');
   const file = path.join(dir, 'settings.json');

@@ -86,8 +86,11 @@ export interface PanelHost {
   resolveFinding?(id: string, finding: 'description' | 'house' | 'body', answer: Answer, ask: (c: Confirm) => void): Promise<void>;
   /** The stored drawing of an element when it was made from its source as it is now (a skill's SKILL.md, a plugin's folder). */
   drawing?(id: string): string | undefined;
-  /** Has the user's claude draw what the element is and stores it; asks first, `started` fires once the run begins. */
-  drawAsset?(id: string, answer: Answer, ask: (c: Confirm) => void, started: () => void): Promise<{ svg: string } | { error: string } | undefined>;
+  /**
+   * Has the user's claude draw what the element is and stores it; asks first. A plugin is drawn in both perspectives, whichever the
+   * id names: `started` fires for each drawing as the run begins, `done` for each as it is ready or fails.
+   */
+  drawAsset?(id: string, answer: Answer, ask: (c: Confirm) => void, started: (id: string) => void, done: (id: string, result: { svg: string } | { error: string }) => void): Promise<void>;
   /** The size and spread of a skill, measured from its files. */
   slim?(id: string): SlimReport | undefined;
   /** Consolidates a repo skill into global or its plugin: always asks in the panel, then retires, moves, opens the diff editor or starts Claude on the merge. */
@@ -503,8 +506,13 @@ export class HarnessPanel {
         return;
       }
       case 'drawAsset': {
-        const result = await this.host.drawAsset?.(m.id, { confirmed: m.confirmed, remember: m.remember }, ask => this.post({ type: 'confirm', ask }), () => this.post({ type: 'drawing', id: m.id, running: true }));
-        if (result) this.post('svg' in result ? { type: 'drawing', id: m.id, svg: result.svg } : { type: 'drawing', id: m.id, error: result.error });
+        await this.host.drawAsset?.(
+          m.id,
+          { confirmed: m.confirmed, remember: m.remember },
+          ask => this.post({ type: 'confirm', ask }),
+          id => this.post({ type: 'drawing', id, running: true }),
+          (id, result) => this.post('svg' in result ? { type: 'drawing', id, svg: result.svg } : { type: 'drawing', id, error: result.error })
+        );
         return;
       }
       case 'slim': {

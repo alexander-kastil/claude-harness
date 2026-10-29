@@ -184,7 +184,7 @@ test('a type page lists every skill of the scope, with a heading per origin and 
 test('detail page of a skill: the command bar, the header tiles and the size flag', T, async () => {
   await openRow('Skills', 'release-playbook');
   await notBlank('skill page');
-  assert.deepEqual(await labels('.main .view-tab').then(l => l.slice(0, 13)), ['Back', 'View', 'Edit', 'Open in editor', 'Reveal', 'Review with Claude', 'Slim with Claude', 'Draw with Claude', 'Try it', 'Connect to source', 'Link into repo', 'Rename', 'Duplicate']);
+  assert.deepEqual(await labels('.main .view-tab').then(l => l.slice(0, 13)), ['Back', 'View', 'Edit', 'Open in editor', 'Reveal', 'Edit with Claude', 'Slim with Claude', 'Draw with Claude', 'Try it', 'Connect to source', 'Move into repo', 'Rename', 'Duplicate']);
   await s.mouse('.view-tab', 'Instructions');
   const body = await text();
   assert.match(body, /SKILL\.md is long/);
@@ -272,12 +272,12 @@ test('Slim with Claude asks in a card: keyboard focus on the action, Tab stays i
   await s.waitFor(D => !D.querySelector('.cf'));
 });
 
-test('Review and Try it ask too; nothing starts a terminal without the card', T, async () => {
+test('Edit with Claude and Try it ask too; nothing starts a terminal without the card', T, async () => {
   await openRow('Skills', 'release-playbook');
   const before = await s.pageEv(() => document.querySelectorAll('.terminal-tab, .terminal-tabs-entry').length);
-  await s.mouse('.main button', 'Review with Claude');
+  await s.mouse('.main button', 'Edit with Claude');
   const c = await s.waitFor(D => !!D.querySelector('.cf')).then(card);
-  assert.match(c.text, /Review release-playbook with Claude/);
+  assert.match(c.text, /Edit release-playbook with Claude/);
   assert.match(c.text, /changes nothing until you agree/);
   await closeCard();
   assert.equal(await s.pageEv(() => document.querySelectorAll('.terminal-tab, .terminal-tabs-entry').length), before);
@@ -596,10 +596,10 @@ const dropDraft = async () => {
 };
 const barRows = () => s.ev(D => new Set([...D.querySelectorAll('.cmd-bar .dg-modes')].map(g => Math.round(g.getBoundingClientRect().top))).size);
 
-test('Try it asks in a card with its own switch; Review, Slim and Try it cards open with Don\'t ask again off', T, async () => {
+test('Try it asks in a card with its own switch; Edit, Slim and Try it cards open with Don\'t ask again off', T, async () => {
   await openRow('Skills', 'release-playbook');
   const before = await s.pageEv(() => document.querySelectorAll('.terminal-tab, .terminal-tabs-entry').length);
-  for (const [button, title] of [['Try it', /Try release-playbook in Claude/], ['Review with Claude', /Review release-playbook with Claude/], ['Slim with Claude', /Slim release-playbook with Claude/]]) {
+  for (const [button, title] of [['Try it', /Try release-playbook in Claude/], ['Edit with Claude', /Edit release-playbook with Claude/], ['Slim with Claude', /Slim release-playbook with Claude/]]) {
     await s.mouse('.main button', button);
     const c = await s.waitFor(D => !!D.querySelector('.cf')).then(card);
     assert.match(c.text, title);
@@ -618,7 +618,7 @@ test('a skill that comes from a plugin is read-only: no Edit, Rename, Duplicate 
   await notBlank('plugin skill page');
   const bar = await labels('.main .cmd-bar .view-tab');
   for (const gone of ['View', 'Edit', 'Rename', 'Duplicate', 'Delete', 'Revert', 'Save']) assert.ok(!bar.includes(gone), `${gone} is hidden: ${bar}`);
-  for (const kept of ['Open in editor', 'Reveal', 'Review with Claude', 'Try it']) assert.ok(bar.includes(kept), `${kept} stays: ${bar}`);
+  for (const kept of ['Open in editor', 'Reveal', 'Edit with Claude', 'Try it']) assert.ok(bar.includes(kept), `${kept} stays: ${bar}`);
   assert.ok(!(await labels('.main .dv-card-head button')).some(t => /Edit/.test(t)), 'the document card has no Edit link');
 });
 
@@ -749,7 +749,7 @@ test('a plugin page has the labelled command bar in the skill page groups, wide 
       await openRow('Plugins', 'team-tools');
       await notBlank('plugin page');
       const bar = await barGroups();
-      assert.deepEqual(bar.groups, [['Back'], ['Open in editor', 'Reveal'], ['Review with Claude', 'Draw with Claude'], ['Disable', 'Uninstall']], `${width || 'wide'}: Page, File, Claude and Item boxes`);
+      assert.deepEqual(bar.groups, [['Back'], ['Open in editor', 'Reveal'], ['Edit with Claude', 'Draw with Claude'], ['Disable', 'Uninstall']], `${width || 'wide'}: Page, File, Claude and Item boxes`);
       assert.ok(!bar.icons && bar.labels === bar.buttons, `${width || 'wide'}: every button shows its label: ${JSON.stringify(bar)}`);
       assert.ok(bar.mark, 'the Claude actions sit in the Claude group');
     }
@@ -766,7 +766,7 @@ const storeDrawing = (a, svg, pluginDir) => {
 const SVG = name => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 240"><rect x="20" y="20" width="240" height="60" fill="none" stroke="currentColor"/><text x="36" y="56" fill="currentColor">${name}</text></svg>`;
 
 test('agents, commands, workflows, mods, plugins, hooks and MCP servers have Draw with Claude in their Claude group, and a stored drawing of an agent or a plugin shows above its details', T, async () => {
-  const both = ['Review with Claude', 'Draw with Claude'];
+  const both = ['Edit with Claude', 'Draw with Claude'];
   for (const [kind, name, claudeActions] of [['Agents', 'code-reviewer', [...both, 'Try it']], ['Commands', 'review', [...both, 'Try it']], ['Workflows', 'fan-out', both], ['Mods', 'delegation-mod', both], ['Plugins', 'old-helper', both], ['Hooks', 'Stop', ['Draw with Claude']], ['MCP Servers', 'filesystem', ['Draw with Claude']]]) {
     await openRow(kind, name);
     const bar = await barGroups();
@@ -774,7 +774,7 @@ test('agents, commands, workflows, mods, plugins, hooks and MCP servers have Dra
     assert.ok(bar.mark, `${kind} ${name}: the Claude mark leads the group`);
   }
   // Where a drawing does not help there is no Draw, and no Claude group where it would have been the only action.
-  for (const [kind, name, claudeActions] of [['Memory', 'CLAUDE.md', []], ['Rules', 'style', ['Review with Claude']], ['Output Styles', 'terse', ['Review with Claude']], ['Settings', 'settings.json', []]]) {
+  for (const [kind, name, claudeActions] of [['Memory', 'CLAUDE.md', []], ['Rules', 'style', ['Edit with Claude']], ['Output Styles', 'terse', ['Edit with Claude']], ['Settings', 'settings.json', []]]) {
     await openRow(kind, name);
     const bar = await barGroups();
     assert.deepEqual(bar.claude, claudeActions, `${kind} ${name}: the Claude actions it had before`);
@@ -788,7 +788,8 @@ test('agents, commands, workflows, mods, plugins, hooks and MCP servers have Dra
     await openRow(kind, name);
     const fig = await s.waitFor(D => {
       const f = D.querySelector('.main .dv > figure.dv-draw');
-      return f && { first: f === f.parentElement.firstElementChild, text: f.textContent, label: f.querySelector('svg').getAttribute('aria-label') };
+      // A plugin's frame also holds the Harness | Process toggle, so the drawing's text is the svg's.
+      return f && { first: f === f.parentElement.firstElementChild, text: f.querySelector('svg').textContent, label: f.querySelector('svg').getAttribute('aria-label') };
     });
     assert.ok(fig.first, `${name}: the drawing sits above the details`);
     assert.equal(fig.text, name);
@@ -801,10 +802,10 @@ test('agents, commands, workflows, mods, plugins, hooks and MCP servers have Dra
   assert.match(c.text, /Draw team-tools@acme-market with Claude/);
   assert.match(c.text, /manifest/);
   await closeCard();
-  // Review reads the plugin's folder, the parts the drawing is made of, not the settings file that enables it.
-  await s.mouse('.main .cmd-bar button', 'Review with Claude');
+  // Edit with Claude reads the plugin's folder, the parts the drawing is made of, not the settings file that enables it.
+  await s.mouse('.main .cmd-bar button', 'Edit with Claude');
   const r = await s.waitFor(D => !!D.querySelector('.cf')).then(card);
-  assert.match(r.text, /Review team-tools@acme-market with Claude/);
+  assert.match(r.text, /Edit team-tools@acme-market with Claude/);
   assert.match(r.text, /team-tools[\\/]1\.2\.0/);
   assert.doesNotMatch(r.text, /settings\.json/);
   await closeCard();
