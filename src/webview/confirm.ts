@@ -81,7 +81,7 @@ const CARDS = {
       ['eye', 'Claude answers in the conversation and can add or change the plugin card. Nothing is created until you press Create, or ask Claude to create it and confirm.'],
     ],
     action: 'Hunt',
-    send: remember => vscode.postMessage({ type: 'huntRun', prompt: ask.prompt, confirmed: true, remember }),
+    send: remember => vscode.postMessage({ type: 'huntRun', prompt: ask.prompt, card: ask.card, confirmed: true, remember }),
   }),
   // Starting the conversation over, no host involved. No Don't ask again switch.
   huntClear: ask => ({

@@ -49,16 +49,17 @@ function assetRows(p, a) {
       el(
         'div',
         { className: 'hunt-main' },
-        nameLine(a, a.inPlugin ? el('span', { className: 'tag hunt-in', title: `Already shipped\nThe installed plugin ${a.inPlugin} already has this ${a.kind}.` }, `in ${a.inPlugin}`) : null),
+        nameLine(
+          a,
+          a.as ? el('span', { className: 'tag hunt-in', title: `Renamed\nCreate writes this ${a.kind} into the plugin as ${a.as}.` }, `as ${a.as}`) : null,
+          a.inPlugin ? el('span', { className: 'tag hunt-in', title: `Already shipped\nThe installed plugin ${a.inPlugin} already has this ${a.kind}.` }, `in ${a.inPlugin}`) : null
+        ),
         gone || a.why ? el('div', { className: 'hunt-why' }, gone ? 'Gone from disk. Remove it from the card.' : a.why) : null
       ),
-      el(
-        'div',
-        { className: 'hunt-side' },
-        a.global ? el('span', { className: 'hunt-copy' }, icon('globe'), 'Global') : el('span', { className: 'hunt-none' }, 'No global copy'),
-        a.global ? tick('Retire', a.global.retire, v => (a.global.retire = v), 'Retire global copy\nAfter the plugin is installed, the global copy is backed up and removed.') : null,
-        iconBtn('close', `Remove ${a.name} from the card`, () => ((p.assets = p.assets.filter(x => x !== a)), saveSoon(), repaint()))
-      )
+      el('div', { className: 'hunt-cell hunt-c-copy' }, a.global ? el('span', { className: 'hunt-copy' }, icon('globe'), 'Global') : el('span', { className: 'hunt-none' }, 'No global copy')),
+      el('div', { className: 'hunt-cell hunt-c-retire' }, a.global ? tick('Retire', a.global.retire, v => (a.global.retire = v), 'Retire global copy\nAfter the plugin is installed, the global copy is backed up and removed.') : null),
+      el('div', { className: 'hunt-cell hunt-c-act' }),
+      el('div', { className: 'hunt-cell hunt-c-x' }, iconBtn('close', `Remove ${a.name} from the card`, () => ((p.assets = p.assets.filter(x => x !== a)), saveSoon(), repaint())))
     )
   );
   a.repos.forEach((r, i) => {
@@ -69,21 +70,64 @@ function assetRows(p, a) {
         { className: `hunt-asset sub${a.include ? '' : ' off'}` },
         el('span', { className: 'hunt-gap' }),
         el('div', { className: 'hunt-main' }, el('div', { className: 'hunt-name' }, icon('repo'), repoName(r)), repoWhere(r, shared)),
+        el('div', { className: 'hunt-cell hunt-c-copy' }, el('span', { className: 'hunt-copy' }, base ? el('span', { className: 'tag', title: 'Used\nThe plugin takes this copy, there is no global one.' }, 'used') : copyTag(r.same))),
+        el('div', { className: 'hunt-cell hunt-c-retire' }, tick('Retire', r.retire, v => (r.retire = v), 'Retire repo copy\nAfter the plugin is installed, this copy is backed up and removed.')),
         el(
           'div',
-          { className: 'hunt-side' },
-          el('span', { className: 'hunt-copy' }, base ? el('span', { className: 'tag', title: 'Used\nThe plugin takes this copy, there is no global one.' }, 'used') : copyTag(r.same)),
-          tick('Retire', r.retire, v => (r.retire = v), 'Retire repo copy\nAfter the plugin is installed, this copy is backed up and removed.'),
+          { className: 'hunt-cell hunt-c-act' },
           !r.same && !base && a.kind === 'skill' && a.global
             ? aiGroup('compact', confirmAt(el('button', { className: 'secondary', title: 'Merge with Claude\nOpens Consolidate for this copy: compare it with the global copy in the editor, or let Claude merge them in a terminal.', onclick: () => vscode.postMessage({ type: 'huntMerge', path: r.path, kind: a.kind }) }, icon('git-merge'), 'Merge'), 'consolidate'))
             : !r.same && !base && a.kind === 'agent' && a.global
               ? el('button', { className: 'secondary', title: 'Compare with the global copy\nOpens the repo copy next to the global one in the editor. Agents are not merged here.', onclick: () => vscode.postMessage({ type: 'huntMerge', path: r.path, kind: a.kind }) }, icon('diff'), 'Compare')
               : null
-        )
+        ),
+        el('div', { className: 'hunt-cell hunt-c-x' })
       )
     );
   });
   return rows;
+}
+
+// The fields are kept for a later phase: Create still reads the description and the category from the card.
+const SHOW_FIELDS = false;
+
+// A change comment for Claude about the ticked elements of this card, sent with the card as it stands. The answer comes in the conversation above.
+function comment(p, ticked) {
+  const send = () => {
+    hunt.cardAsk = { id: p.id, text: hunt.notes[p.id] };
+    vscode.postMessage({ type: 'huntRun', prompt: hunt.notes[p.id], card: p.id });
+  };
+  const off = () => hunt.running || !(hunt.notes[p.id] || '').trim() || !ticked;
+  const go = confirmAt(
+    el(
+      'button',
+      {
+        className: 'primary',
+        disabled: off(),
+        title: 'Go\nSends your comment to Claude with the ticked elements of this card. Claude answers in the conversation above and changes the card. A rename is carried out when you press Create.',
+        onclick: send,
+      },
+      icon('send'),
+      hunt.running ? 'Working...' : 'Go'
+    ),
+    'hunt'
+  );
+  const input = el('input', {
+    type: 'text',
+    className: 'hunt-comment',
+    placeholder: ticked ? 'Tell Claude what to change in the ticked elements, e.g. rename docker-images to hetzner-docker' : 'Tick an element to comment on it',
+    'aria-label': 'Change comment for Claude',
+    value: hunt.notes[p.id] || '',
+    readonly: hunt.running,
+    oninput: e => {
+      hunt.notes[p.id] = e.target.value;
+      go.disabled = off();
+    },
+    onkeydown: e => {
+      if (e.key === 'Enter' && !off()) go.click();
+    },
+  });
+  return el('div', { className: 'hunt-comment-row' }, input, aiGroup('', go));
 }
 
 // One tick for the Retire tick of every listed copy: set, partly set or clear.
@@ -124,7 +168,7 @@ function retireAll(p) {
 }
 
 // A created card: what went into the plugin, read only.
-const doneRows = p => p.assets.filter(a => a.include).map(a => el('div', { className: 'hunt-asset done' }, icon('check'), el('div', { className: 'hunt-main' }, nameLine(a), a.why ? el('div', { className: 'hunt-why' }, a.why) : null)));
+const doneRows = p => p.assets.filter(a => a.include).map(a => el('div', { className: 'hunt-asset done' }, icon('check'), el('div', { className: 'hunt-main' }, nameLine(a, a.as ? el('span', { className: 'tag hunt-in', title: `Renamed\nThe plugin has this ${a.kind} as ${a.as}.` }, `as ${a.as}`) : null), a.why ? el('div', { className: 'hunt-why' }, a.why) : null)));
 
 function adder(p) {
   const taken = new Set(p.assets.map(a => `${a.kind}:${a.name}`));
@@ -191,7 +235,7 @@ function whyNot(p, market) {
   if (!market) return 'Pick a marketplace of yours first.';
   if (!p.name.trim()) return 'Give the plugin a name.';
   if (!p.assets.some(a => a.include)) return 'Tick at least one skill or agent.';
-  if (market.categorized && !p.category.trim()) return `${market.name} keeps plugins in category folders: fill in the category.`;
+  if (market.categorized && !p.category.trim()) return `${market.name} keeps plugins in category folders: ask Claude for a category.`;
   return '';
 }
 
@@ -258,22 +302,6 @@ export function card(p) {
       })
     ),
     p.prompt ? el('div', { className: 'hunt-prompt', title: p.prompt }, p.prompt) : null,
-    el(
-      'div',
-      { className: 'hunt-fields' },
-      field('Description', describe(p, done)),
-      field(
-        'Category folder',
-        el('input', { type: 'text', placeholder: market && market.categorized ? 'e.g. guards' : 'optional', value: p.category, readonly: !!done, list: `hunt-cats-${p.id}`, oninput: e => ((p.category = e.target.value.trim()), saveSoon(), sync()) }),
-        el('datalist', { id: `hunt-cats-${p.id}` }, categories.map(c => el('option', { value: c })))
-      )
-    ),
-    done
-      ? el('div', { className: 'hunt-assets' }, doneRows(p))
-      : p.assets.length
-        ? el('div', { className: 'hunt-assets' }, p.assets.flatMap(a => assetRows(p, a)))
-        : null,
-    done ? null : open ? adder(p) : null,
     done
       ? el('div', { className: 'notice done', role: 'status' }, icon('check'), done)
       : el(
@@ -299,6 +327,26 @@ export function card(p) {
           el('span', { className: 'spacer' }),
           create
         ),
-    !done && result && result.text ? el('div', { className: `notice hunt-result${result.state === 'error' ? ' bad' : ''}`, role: result.state === 'error' ? 'alert' : 'status', title: result.text }, result.text) : null
+    !done && result && result.text ? el('div', { className: `notice hunt-result${result.state === 'error' ? ' bad' : ''}`, role: result.state === 'error' ? 'alert' : 'status', title: result.text }, result.text) : null,
+    done ? null : open ? adder(p) : null,
+    done ? null : comment(p, chosen.length),
+    // Description and category stay on the card and in Create; their fields are off the page in this phase.
+    SHOW_FIELDS
+      ? el(
+          'div',
+          { className: 'hunt-fields' },
+          field('Description', describe(p, done)),
+          field(
+            'Category folder',
+            el('input', { type: 'text', placeholder: market && market.categorized ? 'e.g. guards' : 'optional', value: p.category, readonly: !!done, list: `hunt-cats-${p.id}`, oninput: e => ((p.category = e.target.value.trim()), saveSoon(), sync()) }),
+            el('datalist', { id: `hunt-cats-${p.id}` }, categories.map(c => el('option', { value: c })))
+          )
+        )
+      : null,
+    done
+      ? el('div', { className: 'hunt-assets' }, doneRows(p))
+      : p.assets.length
+        ? el('div', { className: 'hunt-assets' }, p.assets.flatMap(a => assetRows(p, a)))
+        : null
   );
 }

@@ -29,10 +29,14 @@ export function onHuntMessage(m) {
     hunt.running = m.state === 'running';
     if (hunt.running) hunt.startedAt = Date.now();
     tickWait(hunt.running);
-    hunt.pending = m.state === 'running' ? hunt.prompt : '';
+    hunt.pending = m.state === 'running' ? (hunt.cardAsk ? hunt.cardAsk.text : hunt.prompt) : '';
     hunt.error = m.state === 'error' ? m.error || 'Claude could not answer. Your message is still in the box.' : '';
+    if (m.state !== 'running' && hunt.cardAsk) {
+      // The comment is answered: gone from its card. A failed answer leaves it there.
+      if (m.state === 'done') delete hunt.notes[hunt.cardAsk.id];
+      hunt.cardAsk = undefined;
+    } else if (m.state === 'done') hunt.prompt = '';
     if (m.state === 'done') {
-      hunt.prompt = '';
       hunt.reveal = m.card;
       hunt.showReply = true;
     }
@@ -72,7 +76,7 @@ export function renderHunt() {
     },
   });
   const huntBtn = confirmAt(
-    el('button', { className: 'primary', disabled: hunt.running || !hunt.prompt.trim(), onclick: () => vscode.postMessage({ type: 'huntRun', prompt: hunt.prompt }) }, icon('telescope'), hunt.running ? 'Hunting...' : 'Hunt'),
+    el('button', { className: 'primary', disabled: hunt.running || !hunt.prompt.trim(), onclick: () => ((hunt.cardAsk = undefined), vscode.postMessage({ type: 'huntRun', prompt: hunt.prompt })) }, icon('telescope'), hunt.running ? 'Hunting...' : 'Hunt'),
     'hunt'
   );
   const cards = [...hunt.proposals].sort((a, b) => b.created - a.created);

@@ -68,6 +68,15 @@ export function planCreate(p: HuntProposal, ctx: CreateCtx): CreatePlan {
       problems.push(`${a.name} is not a valid name.`);
       continue;
     }
+    const to = a.as ?? a.name;
+    if (a.as && !NAME.test(a.as)) {
+      problems.push(`${a.as} is not a valid name for ${a.name}.`);
+      continue;
+    }
+    if (included.some(o => o !== a && o.kind === a.kind && (o.as ?? o.name) === to)) {
+      problems.push(`Two ${a.kind}s would be called ${to} in the plugin.`);
+      continue;
+    }
     // The global copy is the plugin's version; a repo copy only when there is no global one.
     const from = a.global ? assetAt(ctx.views, a.kind, a.global.path) : a.repos[0] ? assetAt(ctx.views, a.kind, a.repos[0].path) : undefined;
     if (!from) {
@@ -77,8 +86,8 @@ export function planCreate(p: HuntProposal, ctx: CreateCtx): CreatePlan {
     plan.chosen.push({ asset: a, from: from.asset, kind: a.kind });
     if (a.kind === 'skill') {
       const files = filesIn(pathOf(from.asset));
-      plan.files.push(...(files.length > 12 ? [rel('skills', a.name, `... ${files.length} files`)] : files.map(f => rel('skills', a.name, f))));
-    } else plan.files.push(rel('agents', `${a.name}.md`));
+      plan.files.push(...(files.length > 12 ? [rel('skills', to, `... ${files.length} files`)] : files.map(f => rel('skills', to, f))));
+    } else plan.files.push(rel('agents', `${to}.md`));
     const retire = (file: string, label: string) => {
       const hit = assetAt(ctx.views, a.kind, file);
       if (!hit) return void problems.push(`The copy of ${a.name} in ${label} is gone from disk. Untick it.`);
@@ -110,6 +119,15 @@ export function planCreate(p: HuntProposal, ctx: CreateCtx): CreatePlan {
 const eolOf = (text: string) => (text.includes('\r\n') ? '\r\n' : '\n');
 const format = (text: string) => ({ insertSpaces: true, tabSize: 2, eol: eolOf(text) });
 
+/** A renamed element's copy in the plugin: the `name` line of its front matter says the new name, the rest of the file stays. */
+function renameIn(file: string, name: string): void {
+  if (!fs.existsSync(file)) return;
+  const text = fs.readFileSync(file, 'utf8');
+  const head = /^---\r?\n[\s\S]*?\r?\n---/.exec(text);
+  if (!head) return;
+  fs.writeFileSync(file, text.replace(head[0], () => head[0].replace(/^name:.*$/m, () => `name: ${name}`)));
+}
+
 /** Steps 2 and 3: the plugin folder and the marketplace entry. A failure removes the folder it made. */
 export async function writePlugin(p: HuntProposal, plan: CreatePlan, market: HuntMarket): Promise<void> {
   const catalogFile = catalogFileOf(market.location);
@@ -126,11 +144,16 @@ export async function writePlugin(p: HuntProposal, plan: CreatePlan, market: Hun
     await fs.promises.mkdir(path.join(plan.dir, '.claude-plugin'), { recursive: true });
     await fs.promises.writeFile(path.join(plan.dir, '.claude-plugin', 'plugin.json'), `${JSON.stringify(manifest, null, 2)}\n`);
     for (const c of plan.chosen) {
-      if (c.kind === 'skill') await fs.promises.cp(pathOf(c.from), path.join(plan.dir, 'skills', c.asset.name), { recursive: true, dereference: true, filter: src => !SKIP.has(path.basename(src)) });
-      else {
-        const dest = path.join(plan.dir, 'agents', `${c.asset.name}.md`);
+      const to = c.asset.as ?? c.asset.name;
+      if (c.kind === 'skill') {
+        const dest = path.join(plan.dir, 'skills', to);
+        await fs.promises.cp(pathOf(c.from), dest, { recursive: true, dereference: true, filter: src => !SKIP.has(path.basename(src)) });
+        if (c.asset.as) renameIn(path.join(dest, 'SKILL.md'), to);
+      } else {
+        const dest = path.join(plan.dir, 'agents', `${to}.md`);
         await fs.promises.mkdir(path.dirname(dest), { recursive: true });
         await fs.promises.copyFile(c.from.file, dest);
+        if (c.asset.as) renameIn(dest, to);
       }
     }
     for (const f of plan.extra ?? []) {

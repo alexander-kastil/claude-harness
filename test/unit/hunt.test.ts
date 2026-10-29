@@ -2,7 +2,7 @@ import * as assert from 'assert';
 import test from 'node:test';
 import type { Asset, ScopeView } from '../../src/harness';
 import { buildCatalog, inventoryText, reconcile } from '../../src/hunt-catalog';
-import { chatPrompt, shortReply } from '../../src/hunt';
+import { applyProposal, chatPrompt, parseTurn, shortReply } from '../../src/hunt';
 import { mergePrompt } from '../../src/consolidate';
 import { sessionTitle } from '../../src/sessions';
 import { stylePrompt } from '../../src/style';
@@ -60,4 +60,15 @@ test('a session name is one short line, and the style and merge prompts ask for 
   assert.ok(stylePrompt(scan).includes('at most eight one-line rules'));
   const asset: any = { name: 'x', dir: '/a' };
   assert.ok(mergePrompt(asset, { label: 'Global', dir: '/b' } as any).includes('one short sentence'));
+});
+
+test('a rename Claude agrees to is read, kept on the card under the original name, and shown to Claude on the next turn', () => {
+  const catalog = buildCatalog([view('global', 'Global', '/g', [asset('skill', 'docker-images', 'global')])], []);
+  const turn = parseTurn(JSON.stringify({ reply: 'Renamed.', proposal: { name: 'hetzner', assets: [{ kind: 'skill', name: 'docker-images', rename: 'Hetzner Docker', why: 'x' }] } }));
+  const card = applyProposal(undefined, turn.proposal!, 'p', catalog, 'id', 1);
+  assert.strictEqual(card.assets[0].name, 'docker-images');
+  assert.strictEqual(card.assets[0].as, 'hetzner-docker');
+  assert.ok(chatPrompt('go on', '', card, [], true).includes('"rename":"hetzner-docker"'));
+  const same = parseTurn(JSON.stringify({ reply: 'ok', proposal: { assets: [{ kind: 'skill', name: 'docker-images', rename: 'docker-images', why: '' }] } }));
+  assert.strictEqual(applyProposal(card, same.proposal!, 'p', catalog, 'id', 2).assets[0].as, undefined);
 });

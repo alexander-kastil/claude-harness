@@ -99,7 +99,7 @@ export type Confirm =
   | { kind: 'slim'; id: string; name: string; file: string; cwd: string; files: number; findings: number }
   | { kind: 'resolve'; id: string; key: string; finding: 'description' | 'house' | 'body'; name: string; file: string; cwd: string }
   | { kind: 'draw'; id: string; name: string; file: string; chars: number; /** What Claude gets, in words ("the agent file"); SKILL.md when missing. */ source?: string }
-  | { kind: 'hunt'; prompt: string; items: number }
+  | { kind: 'hunt'; prompt: string; items: number; card?: string }
   | { kind: 'huntCreate'; id: string; key: string; name: string; market: string; location: string; problems: string[]; files: string[]; retired: string[]; kept: string[] }
   | ShareChoice
   | PanelAsk;
@@ -283,7 +283,7 @@ export type ToHost =
   /** The Plugin Hunter page: marketplaces, the catalog of skills and agents, and the saved cards. */
   | { type: 'huntInfo' }
   /** One turn of the conversation; asks first like draftStyle. The reply and the card arrive in `hunt`. */
-  | ({ type: 'huntRun'; prompt: string } & Answer)
+  | ({ type: 'huntRun'; prompt: string; /** A change comment typed on this card: the turn is about its ticked elements. */ card?: string } & Answer)
   /** The cards as the page has them, and the marketplace picked last. */
   /** Starts the conversation over; the cards stay. */
   | { type: 'huntClear' }
