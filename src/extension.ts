@@ -8,7 +8,7 @@ import { Shell, addLine, hasLine, pathWith, pathWithout, profileLine, psProfileF
 import { Constitution } from './constitution';
 import { consolidateApply, consolidatePlan, mergePrompt, routesOf } from './consolidate';
 import type { ConsolidateRoute, ConsolidateTarget } from './shared/messages';
-import { FileEdit, fleetRow, guardInfo, guardReasons, lastSessionAt, marketplaceHealth, renameCatalog, renameCommands, renameInSettings } from './fleet';
+import { FileEdit, fleetRow, guardInfo, guardReasons, lastSessionSteps, marketplaceHealth, renameCatalog, renameCommands, renameInSettings } from './fleet';
 import { huntHost } from './hunt-host';
 import { keyChanges, mcpApply, mcpConfig, mcpVersions, syncApply, syncFiles, syncSource, updatePluginFromMarket } from './sync';
 import { registerDistributor } from './dist-host';
@@ -43,7 +43,7 @@ import {
   KINDS,
   expandRepoFolders,
   knownRepos,
-  linkCopies,
+  linkCopiesSteps,
   McpSource,
   applyMcpState,
   parseMcpList,
@@ -188,18 +188,32 @@ export function activate(context: vscode.ExtensionContext): void {
       refresh();
     });
 
-  const refresh = () => {
+  // The work of a refresh, yielding after each repo it scans and each group of copies it compares. The views are built
+  // on the side and swapped in at the end, so a click answered between two steps still finds the previous views whole.
+  let refreshEpoch = 0;
+  const refreshSteps = function* (): Generator<void> {
+    const epoch = ++refreshEpoch;
     const folders = (vscode.workspace.workspaceFolders ?? []).map(f => f.uri.fsPath);
-    views = scopes.map(s => ({ id: s.id, label: s.label, path: s.base, local: s !== global && folders.some(f => samePath(f, s.base)), lastUsed: s !== global ? lastSessionAt(s.base) : undefined, categories: scan(s) }));
-    const globalMcp = views[0].categories.find(c => c.kind === 'mcp');
+    const next: ScopeView[] = [];
+    for (const s of scopes) {
+      const lastUsed = s !== global ? yield* lastSessionSteps(s.base) : undefined;
+      next.push({ id: s.id, label: s.label, path: s.base, local: s !== global && folders.some(f => samePath(f, s.base)), lastUsed, categories: scan(s) });
+      yield;
+    }
+    const globalMcp = next[0].categories.find(c => c.kind === 'mcp');
     if (globalMcp) {
       for (const a of globalMcp.items) a.status = cliServers.find(c => c.name === a.name)?.status;
       globalMcp.items.push(...cliServers.filter(c => !globalMcp.items.some(a => a.name === c.name)).map(c => ({ ...c })));
     }
-    applyMcpState(views, global.userConfig);
-    plugins = pluginViews(global.root);
+    applyMcpState(next, global.userConfig);
+    const nextPlugins = pluginViews(global.root);
+    yield;
+    yield* linkCopiesSteps(next, nextPlugins);
+    // A newer refresh began while this one waited its turn: its views win.
+    if (epoch !== refreshEpoch) return;
+    views = next;
+    plugins = nextPlugins;
     loadProvider();
-    linkCopies(views, plugins);
     // A plugin enabled in your settings runs its agents as global agents, so they join the global Agents list, read-only.
     const globalAgents = views[0].categories.find(c => c.kind === 'agent');
     const enabledPlugins = new Set((views[0].categories.find(c => c.kind === 'plugin')?.items ?? []).filter(p => p.enabled).map(p => p.name));
@@ -221,9 +235,36 @@ export function activate(context: vscode.ExtensionContext): void {
     HarnessPanel.update();
     lensesChanged.fire();
   };
+  /** For a change made by this extension: the views are current when it returns. */
+  const refresh = () => {
+    for (const _ of refreshSteps());
+  };
+  /** For a change that was noticed, not made (a watched file, the panel coming back into view): a few milliseconds at a time, so a click is answered between two of them. */
+  let refreshing = false;
+  let refreshAgain = false;
+  const refreshSoon = async () => {
+    // One at a time: a change that comes in while it runs is read by one more pass, not by a pass of its own each.
+    if (refreshing) return void (refreshAgain = true);
+    refreshing = true;
+    try {
+      do {
+        refreshAgain = false;
+        const steps = refreshSteps();
+        let since = Date.now();
+        while (!steps.next().done) {
+          if (Date.now() - since > 8) {
+            await new Promise(resolve => setImmediate(resolve));
+            since = Date.now();
+          }
+        }
+      } while (refreshAgain);
+    } finally {
+      refreshing = false;
+    }
+  };
   const scheduleRefresh = () => {
     if (timer) clearTimeout(timer);
-    timer = setTimeout(refresh, 300);
+    timer = setTimeout(() => void refreshSoon(), 300);
   };
 
   const watch = () => {
@@ -294,6 +335,7 @@ export function activate(context: vscode.ExtensionContext): void {
     views: () => views,
     find,
     refresh,
+    refreshSoon,
     checks: () => Object.fromEntries(repoViews().map(v => [v.id, constitution.summary(v.path)])),
     standard: () =>
       provider

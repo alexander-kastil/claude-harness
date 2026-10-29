@@ -261,6 +261,8 @@ onMessage(m => {
     renderMain();
   } else if (m.type === 'detail') {
     if (m.external && isDirty()) return;
+    // A refresh's copy of the element that was open when it began never replaces the one a click has opened since.
+    if (m.external && state.detail && m.detail && m.detail.asset.id !== state.detail.asset.id) return;
     if (m.external && m.detail && state.detail && snapshot(m.detail) === snapshot(state.detail) && m.detail.asset.enabled === state.detail.asset.enabled) return;
     const before = state.detail && state.detail.asset.id;
     state.detail = m.detail;

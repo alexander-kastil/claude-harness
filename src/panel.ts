@@ -49,6 +49,8 @@ export interface PanelHost {
   views(): ScopeView[];
   find(id: string): Asset | undefined;
   refresh(): void;
+  /** Reads the harness again a few milliseconds at a time, for a change nobody is waiting on. */
+  refreshSoon?(): Promise<void>;
   checks?(): Record<string, CheckSummary>;
   standard?(): Standard | undefined;
   ensureChecks?(scopeIds: string[]): void;
@@ -205,7 +207,7 @@ export class HarnessPanel {
       // A question still open is cancelled, so the command that waits on it cleans up.
       [...this.asks.values()].forEach(answer => answer({ choice: 'cancel' }));
     });
-    panel.onDidChangeViewState(e => e.webviewPanel.visible && host.refresh());
+    panel.onDidChangeViewState(e => e.webviewPanel.visible && (host.refreshSoon ? void host.refreshSoon() : host.refresh()));
     panel.webview.onDidReceiveMessage((m: ToHost) => this.dispatch(m));
   }
 
@@ -246,8 +248,15 @@ export class HarnessPanel {
     void this.panel.webview.postMessage(message);
   }
 
-  private postState(): void {
-    this.post({ type: 'state', views: this.host.views(), checks: this.host.checks?.() ?? {}, standard: this.host.standard?.(), lists: listLimits() });
+  private postedState = '';
+
+  /** A refresh that found nothing new posts nothing: the panel would only rebuild its sidebar from 1.6 MB it already has. A panel that just loaded asks with `force`. */
+  private postState(force = false): void {
+    const state: ToWebview = { type: 'state', views: this.host.views(), checks: this.host.checks?.() ?? {}, standard: this.host.standard?.(), lists: listLimits() };
+    const key = JSON.stringify(state);
+    if (!force && key === this.postedState) return;
+    this.postedState = key;
+    this.post(state);
     if (this.selected) this.post({ type: 'detail', detail: this.detail(this.selected), external: true });
   }
 
@@ -359,7 +368,7 @@ export class HarnessPanel {
   private async receive(m: ToHost): Promise<void> {
     switch (m.type) {
       case 'ready':
-        this.postState();
+        this.postState(true);
         this.post({ type: 'detail', detail: this.selected ? this.detail(this.selected) : undefined });
         if (this.page && !this.selected) this.post({ type: 'page', ...this.page });
         return;

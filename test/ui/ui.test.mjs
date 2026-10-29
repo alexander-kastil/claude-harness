@@ -1552,3 +1552,64 @@ test('a nav row pressed right after the panel opens shows its details promptly w
     for (const file of made) fs.rmSync(file, { force: true });
   }
 });
+
+// The owner, 2026-10-29: the panel is switched to and a row clicked at once. Coming back into view read the whole harness
+// again in one block (about 0.5 s with the owner's 36 repos), the watched files do the same whenever they change, and each
+// pass posted 1.6 MB of unchanged state that rebuilt the sidebar. Thousands of transcripts make a pass take a good
+// fraction of a second here too (each repo's last use is read from them); the panel is left and entered through its tab, and a row is pressed right after.
+test('a nav row pressed right after the panel comes back into view shows its details promptly while the harness is read again', T, async t => {
+  const projects = path.join(claude(), 'projects');
+  const { projectSlug } = createRequire(import.meta.url)(path.join(repoRoot, 'out', 'src', 'fleet.js'));
+  const made = [];
+  for (const dir of s.fixture.repos) {
+    const folder = path.join(projects, projectSlug(dir));
+    fs.mkdirSync(folder, { recursive: true });
+    for (let i = 0; i < 6000; i++) {
+      const id = `88888888-0000-4000-8000-${String(made.length).padStart(12, '0')}`;
+      const file = path.join(folder, `${id}.jsonl`);
+      fs.writeFileSync(file, `{"type":"user","timestamp":"${new Date(Date.now() - 3600000 - i * 1000).toISOString()}","sessionId":"${id}","message":{"role":"user","content":"Load ${i}"}}
+`);
+      made.push(file);
+    }
+  }
+  const tab = () =>
+    s.pageEv(() => {
+      const t = [...document.querySelectorAll('.tab')].find(x => (x.getAttribute('aria-label') || '').includes('Claude Harness'));
+      const r = t.getBoundingClientRect();
+      return { x: r.left + 30, y: r.top + r.height / 2 };
+    });
+  try {
+    await sleep(2500);
+    // Agents, not the long Skills list: the cost under test is the host's, not the panel drawing 1500 rows.
+    await s.ev(D => {
+      const head = [...D.querySelectorAll('.sidebar .scope-block .section-head')].find(h => h.querySelector('.label')?.textContent === 'Agents');
+      if (head.getAttribute('aria-expanded') === 'false') head.click();
+      return true;
+    });
+    const waits = [];
+    for (let i = 0; i < 4; i++) {
+      await s.chord('n', { ctrl: true });
+      await sleep(400);
+      const at = await tab();
+      for (const type of ['mouseMoved', 'mousePressed', 'mouseReleased']) await s.page.send('Input.dispatchMouseEvent', { type, x: at.x, y: at.y, button: 'left', clickCount: 1 });
+      await sleep(30);
+      const nav = await s.waitFor((D, i) => { const rows = [...D.querySelectorAll('.sidebar .scope-block .row[data-nav*="|agent:"]')]; return rows.length ? rows[i % rows.length].dataset.nav : undefined; }, i);
+      const row = `.sidebar .scope-block .row[data-nav="${nav}"]`;
+      const name = await s.ev((D, row) => D.querySelector(`${row} .name`)?.textContent, row);
+      const to = await s.where(row);
+      const started = Date.now();
+      await s.page.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: to.x, y: to.y });
+      await s.page.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: to.x, y: to.y, button: 'left', clickCount: 1 });
+      await s.page.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: to.x, y: to.y, button: 'left', clickCount: 1 });
+      while (!(await s.ev((D, name) => D.querySelector('.detail-head .dh-name')?.textContent.startsWith(name), name))) {
+        assert.ok(Date.now() - started < 30000, `${name} never showed its details`);
+        await sleep(20);
+      }
+      waits.push(Date.now() - started);
+    }
+    t.diagnostic(`details after the press: ${waits.join(', ')} ms`);
+    assert.ok(Math.max(...waits) < 450, `the details of a row pressed right after the panel came back took ${waits.join(', ')} ms`);
+  } finally {
+    for (const file of made) fs.rmSync(file, { force: true });
+  }
+});

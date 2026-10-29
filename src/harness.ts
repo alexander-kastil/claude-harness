@@ -563,6 +563,11 @@ function hashOf(asset: Asset, near: boolean): string {
 }
 
 export function linkCopies(views: ScopeView[], extra: ScopeView[] = []): void {
+  for (const _ of linkCopiesSteps(views, extra));
+}
+
+/** `linkCopies`, yielding after each group of same-named elements it compares, so a caller can give the event loop a turn. */
+export function* linkCopiesSteps(views: ScopeView[], extra: ScopeView[] = []): Generator<void> {
   const groups = new Map<string, { asset: Asset; label: string; shown: boolean }[]>();
   const shown = new Set(views);
   for (const view of [...views, ...extra])
@@ -584,6 +589,7 @@ export function linkCopies(views: ScopeView[], extra: ScopeView[] = []): void {
           const same = hashes.get(g.asset.id) === hashes.get(asset.id);
           return { id: g.asset.id, scope: g.asset.scope, label: g.label, file: g.asset.file, same, near: !same && nearOf(g.asset) === nearOf(asset) };
         });
+    yield;
   }
 }
 

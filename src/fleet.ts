@@ -24,10 +24,24 @@ export interface GuardInfo {
 export const projectSlug = (dir: string) => path.resolve(dir).replace(/[^A-Za-z0-9]/g, '-');
 
 export function lastSessionAt(dir: string, home = os.homedir()): number | undefined {
+  const steps = lastSessionSteps(dir, home);
+  for (;;) {
+    const step = steps.next();
+    if (step.done) return step.value;
+  }
+}
+
+/** `lastSessionAt`, yielding after every few hundred transcripts it reads, for a caller that gives the event loop a turn between them. */
+export function* lastSessionSteps(dir: string, home = os.homedir()): Generator<void, number | undefined> {
   const folder = path.join(home, '.claude', 'projects', projectSlug(dir));
   let newest = 0;
   try {
-    for (const f of fs.readdirSync(folder)) if (f.endsWith('.jsonl')) newest = Math.max(newest, fs.statSync(path.join(folder, f)).mtimeMs);
+    let n = 0;
+    for (const f of fs.readdirSync(folder)) {
+      if (!f.endsWith('.jsonl')) continue;
+      newest = Math.max(newest, fs.statSync(path.join(folder, f)).mtimeMs);
+      if (++n % 400 === 0) yield;
+    }
   } catch {
     return undefined;
   }
