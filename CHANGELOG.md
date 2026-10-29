@@ -2,6 +2,12 @@
 
 All notable changes to Claude Harness are listed here, newest first. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions with no version change in the package.json history (0.1.3, 0.1.5 to 0.1.18, 0.1.20 to 0.1.24, 0.1.27, 0.2.1 and 0.2.3 to 0.2.11) and development builds (0.2.14 to 0.2.22, 0.2.24 to 0.2.30, 0.2.32 to 0.2.34, 0.2.36 to 0.2.44, 0.3.0, 0.3.2, 0.4.1 to 0.4.3, 0.5.2 and 0.5.3) have no entry.
 
+## [Unreleased]
+
+### Changed
+
+- The README film is new for 0.12.2: one panel for every repo, session replay with Restore, usage and cost, plugins built from your skills, plugin drawings, Resolve with Claude, `@harness` in the Claude prompt and the plan quota, with an MP4 of the same cut linked under it.
+
 ## [0.12.2] - 2026-10-29
 
 ### Added
@@ -18,6 +24,7 @@ All notable changes to Claude Harness are listed here, newest first. The format 
 
 ### Changed
 
+- Git ignores the time ledger (`.time/`), personal Claude settings and the scheduler lock, and no longer tracks the ledger.
 - The harness skills name the renamed plugins `angular-conventions` and `dotnet-conventions` (formerly `angular-plugin` and `dotnet-toolkit`).
 - **Move into repo** replaces Link into repo on a global skill's page: the skill's folder moves into the one repo you pick and leaves the global skills, so a skill lives in exactly one place. Claude Harness makes no soft links any more; the Linked origin only shows links made before.
 - Draw with Claude on a plugin draws both the Harness and the Process drawing in one press, the one on screen first, each shown as soon as it is ready.
