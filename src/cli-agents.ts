@@ -8,7 +8,7 @@ import { Args, Io, Stop, World, emit, headline, load, one, table } from './cli-c
 
 // `agents list` and `agents route`: the agents of Global, the plugins and the repos, and the delegation plugin's routing.
 
-const ROUTER = 'orchestration-plugin';
+const ROUTER = 'agent-control-plugin';
 
 export type CopyState = 'identical' | 'nearly identical' | 'differs';
 

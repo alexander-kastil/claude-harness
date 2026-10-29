@@ -7,7 +7,7 @@ What a repo's harness holds, where each kind of instruction lives, and what neve
 | Instruction | Home |
 | --- | --- |
 | House rules for every repo | `~/.claude/CLAUDE.md`, never restated in a repo |
-| Orchestration: delegation, routing, briefs, fact gathering, the ledger, status reports, session close | the installed plugins `harness` and `orchestration-plugin`, never restated in a repo |
+| Orchestration: delegation, routing, briefs, fact gathering, the ledger, status reports, session close | the installed plugins `harness` and `agent-control-plugin`, never restated in a repo |
 | Conventions of a stack (.NET, Angular, Hugo, WPF, ...) | global skills in `~/.claude/skills/` and plugin skills |
 | Repo map and the rules only this repo has | root `CLAUDE.md`, a router of at most 120 lines |
 | Facts an agent needs for one area: commands, ports, paths, architecture, conventions, the owner agent | `.claude/rules/<area>.md` with `paths:` frontmatter |
@@ -64,7 +64,7 @@ Delete the script and its settings entry, and `.claude/hooks/` when nothing else
 | Script | Replaced by |
 | --- | --- |
 | `claude-md-guard.sh`, `skill-leaf-guard.sh`, `kill-switch.sh`, `steer.sh`, `verification-gate.sh` | `harness` (`HARNESS_VERIFICATION_GATE=1` turns the verification gate on) |
-| `delegation-reminder.sh`, `skill-reference-guard.sh` | `orchestration-plugin` |
+| `delegation-reminder.sh`, `skill-reference-guard.sh` | `agent-control-plugin` |
 
 Every other hook is repo-only and stays.
 
