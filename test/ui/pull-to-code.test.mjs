@@ -86,7 +86,7 @@ test('a task page pulls its instructions into Global as a skill, and nothing els
   await s.waitFor(D => D.querySelectorAll('.main .asset-table .at-row:not(.at-head)').length === 1);
   await s.mouse('.sidebar .row', 'Weekly digest');
   await s.waitFor(D => D.querySelector('.main-head h1')?.textContent.trim() === 'Weekly digest');
-  assert.deepEqual(await labels('.main .cmd-bar button'), ['Back', 'Open on claude.ai', 'Pull to Code', 'Draw with Claude']);
+  assert.deepEqual(await labels('.main .cmd-bar button'), ['Back', 'Open on claude.ai', 'Pull to Code', 'Draw']);
   const picks = await options('.main .cmd-bar select.pull-target');
   assert.ok(picks[0].startsWith('Global'), picks.join(' | '));
   if (SHOTS) await shoot(path.join(SHOTS, '15-pull-task-to-code.png'), '.main');

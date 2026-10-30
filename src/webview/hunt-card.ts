@@ -29,13 +29,13 @@ function assetRows(p, a) {
   const rows = [];
   const shared = sharedNames();
   // A deselected element's Retire boxes (its own and its copies') are clear and cannot be ticked.
-  const tick = (label, checked, onchange, title) => el('label', { className: 'hunt-retire', title }, el('input', { type: 'checkbox', checked: checked && a.include, disabled: !a.include, onchange: e => (onchange(e.target.checked), saveSoon(), syncRetireAll(p)) }), label);
+  const tick = (label, checked, onchange, title) => el('label', { className: 'hunt-retire', title }, el('input', { type: 'checkbox', role: 'switch', checked: checked && a.include, disabled: !a.include, onchange: e => (onchange(e.target.checked), saveSoon(), syncRetireAll(p)) }), label);
   const gone = !a.global && !a.repos.length;
   rows.push(
     el(
       'div',
       { className: `hunt-asset${a.include ? '' : ' off'}` },
-      el('input', { type: 'checkbox', checked: a.include && !gone, 'aria-label': `Include ${a.name}`, disabled: gone, onchange: e => {
+      el('input', { type: 'checkbox', role: 'switch', checked: a.include && !gone, 'aria-label': `Include ${a.name}`, disabled: gone, onchange: e => {
           a.include = e.target.checked;
           // Unticking an element clears what it would retire; ticking it again leaves them clear.
           if (!a.include) [a.global, ...a.repos].filter(Boolean).forEach(c => (c.retire = false));
@@ -66,13 +66,13 @@ function assetRows(p, a) {
         { className: `hunt-asset sub${a.include ? '' : ' off'}` },
         el('span', { className: 'hunt-gap' }),
         el('div', { className: 'hunt-main' }, el('div', { className: 'hunt-name' }, icon('repo'), repoName(r)), repoWhere(r, shared)),
-        el('div', { className: 'hunt-cell hunt-c-copy' }, el('span', { className: 'hunt-copy' }, base ? el('span', { className: 'tag', title: 'Used\nThe plugin takes this copy, there is no global one.' }, 'used') : copyTag(r.same))),
+        el('div', { className: 'hunt-cell hunt-c-copy' }, el('span', { className: 'hunt-copy' }, base ? el('span', { className: 'tag state', title: 'Used\nThe plugin takes this copy, there is no global one.' }, 'used') : copyTag(r.same))),
         el('div', { className: 'hunt-cell hunt-c-retire' }, tick('Retire', r.retire, v => (r.retire = v), 'Retire repo copy\nAfter the plugin is installed, this copy is backed up and removed.')),
         el(
           'div',
           { className: 'hunt-cell hunt-c-act' },
           !r.same && !base && a.kind === 'skill' && a.global
-            ? aiGroup('compact', confirmAt(el('button', { className: 'secondary', title: 'Merge with Claude\nOpens Consolidate for this copy: compare it with the global copy in the editor, or let Claude merge them in a terminal.', onclick: () => vscode.postMessage({ type: 'huntMerge', path: r.path, kind: a.kind }) }, icon('git-merge'), 'Merge'), 'consolidate'))
+            ? aiGroup('compact', confirmAt(el('button', { className: 'secondary', title: 'Merge\nOpens Consolidate for this copy: compare it with the global copy in the editor, or let Claude merge them in a terminal.', onclick: () => vscode.postMessage({ type: 'huntMerge', path: r.path, kind: a.kind }) }, icon('git-merge'), 'Merge'), 'consolidate'))
             : !r.same && !base && a.kind === 'agent' && a.global
               ? el('button', { className: 'secondary', title: 'Compare with the global copy\nOpens the repo copy next to the global one in the editor. Agents are not merged here.', onclick: () => vscode.postMessage({ type: 'huntMerge', path: r.path, kind: a.kind }) }, icon('diff'), 'Compare')
               : null
@@ -91,6 +91,9 @@ const showRetireAll = (box, copies) => {
   const on = copies.filter(c => c.retire).length;
   box.checked = on === copies.length;
   box.indeterminate = on > 0 && on < copies.length;
+  // A mixed tick names the count: "Retire all · 1 of 2".
+  const text = box.closest('label')?.querySelector('.hunt-retire-text');
+  if (text) text.textContent = box.indeterminate ? `Retire all · ${on} of ${copies.length}` : 'Retire all';
 };
 
 // A single Retire tick moved: bring the Retire all tick in line.
@@ -104,6 +107,7 @@ function retireAll(p) {
   if (!copies.length) return null;
   const box = el('input', {
     type: 'checkbox',
+    role: 'switch',
     className: 'hunt-retire-all',
     'aria-label': 'Retire all',
     onchange: e => {
@@ -112,13 +116,14 @@ function retireAll(p) {
       repaint();
     },
   });
-  showRetireAll(box, copies);
-  return el(
+  const label = el(
     'label',
     { className: 'hunt-retire', title: 'Retire all\nTicks Retire on every listed copy, global and repo. Untick to clear them all again.' },
     box,
-    'Retire all'
+    el('span', { className: 'hunt-retire-text' }, 'Retire all')
   );
+  showRetireAll(box, copies);
+  return label;
 }
 
 // A created card: what went into the plugin, read only.

@@ -141,7 +141,7 @@ test('a chat page shows the whole conversation and every file it produced or was
   for (const f of ['report.md', 'charts/chart.txt', 'fixture-brief.txt']) assert.ok(page.includes(f), f);
   assert.match(page, /Produced/);
   assert.match(page, /Given/);
-  assert.deepEqual(await labels('.main .cmd-bar button'), ['Back', 'Continue in terminal', 'Draw with Claude']);
+  assert.deepEqual(await labels('.main .cmd-bar button'), ['Back', 'Continue in terminal', 'Draw']);
   await shoot(path.join(SHOTS, '17-cowork-chat.png'), '.main');
 });
 

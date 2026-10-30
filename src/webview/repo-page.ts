@@ -238,7 +238,7 @@ export function renderRepo(view) {
         'div',
         { className: 'toolbar' },
         std() ? iconBtn('checklist', 'Check against the harness standard', () => command('checkRepos', { scope: view.id })) : null,
-        aiGroup('', std('align') ? iconBtn('markdown', 'Align CLAUDE.md with Claude...', () => command('alignClaudeMd', { scope: view.id })) : null),
+        aiGroup('', std('align') ? iconBtn('markdown', 'Align CLAUDE.md...', () => command('alignClaudeMd', { scope: view.id })) : null),
         std('fix') ? iconBtn('wrench', 'Fix settings and hooks...', () => command('fixSettings', { scope: view.id })) : null,
         std('scaffold') ? iconBtn('new-folder', 'Scaffold repo harness...', () => showPage('init', view.path)) : null,
         iconBtn('add', `New in ${view.label}`, () => command('create', { scope: view.id })),

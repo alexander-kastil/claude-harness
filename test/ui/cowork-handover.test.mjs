@@ -135,7 +135,7 @@ test('a chat puts its files on the card, ticked; Claude drafts the task and rule
   assert.equal(await s.ev(D => D.querySelectorAll('.hv-file input:checked').length), 3);
   assert.match(await s.ev(D => D.querySelector('.hv-card select').value), /shop-api$/);
   assert.equal(await s.ev(D => D.querySelector('.hv-task').value), '');
-  await s.mouse('.main .cmd-bar button', 'Draft with Claude');
+  await s.mouse('.main .cmd-bar button', 'Draft');
   await s.waitFor(D => D.querySelector('.cf'));
   const ask = await text('.cf');
   assert.match(ask, /Draft the handover with Claude/);
@@ -150,7 +150,7 @@ test('a chat puts its files on the card, ticked; Claude drafts the task and rule
   assert.deepEqual(await s.ev(D => [...D.querySelectorAll('.hv-state textarea')].map(t => t.value)), ['Every draft image is used', 'report.md', 'The summary']);
   assert.equal(await s.ev(D => D.querySelector('.hv-state').open), true, 'the folded fields open when the draft filled them');
   assert.equal(await s.ev(D => !!D.querySelector('.main .cmd-bar > .ai-group:last-child')), true);
-  assert.deepEqual(await labels('.main .cmd-bar button'), ['Reload', 'Draft with Claude', 'Continue in terminal']);
+  assert.deepEqual(await labels('.main .cmd-bar button'), ['Reload', 'Draft', 'Continue in terminal']);
   assert.equal(await s.ev(D => D.querySelectorAll('.hv-card button.primary, .hv-card .ai-group').length), 0, 'nothing stays at the card bottom');
   assert.equal(await s.ev(D => D.querySelector('.hv-card details[open] textarea').value.split('Please research the fixture topic').length - 1), 1, 'the first message is in the snapshot once');
 });

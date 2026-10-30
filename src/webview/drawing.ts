@@ -214,7 +214,7 @@ export function drawingFigure(a: Drawn): HTMLElement | null {
     'figure',
     { className: 'dv-draw', tabindex: clean ? '0' : undefined },
     toggle,
-    clean ?? el('div', { className: 'dv-empty' }, svg ? "Claude's drawing could not be read. Redraw with Claude in the bar above." : 'Not drawn yet. Draw with Claude in the bar above.')
+    clean ?? el('div', { className: 'dv-empty' }, svg ? "Claude's drawing could not be read. Redraw in the AI group above." : 'Not drawn yet. Draw in the AI group above.')
   );
   if (!svg || !clean) return fig;
   let timer: ReturnType<typeof setTimeout> | undefined;

@@ -48,7 +48,7 @@ function findingItem(view: ScopeView, f: Finding): HTMLElement {
     'div',
     { className: 'std-item' },
     row,
-    aiGroup('compact', iconBtn('lightbulb', 'Fix with Claude\nA new Claude in a terminal at the repo, asked to fix this one finding.', () => vscode.postMessage({ type: 'fixFinding', scope: view.id, text, file: f.file, line: f.line }), false))
+    aiGroup('compact', iconBtn('lightbulb', 'Fix\nA new Claude in a terminal at the repo, asked to fix this one finding.', () => vscode.postMessage({ type: 'fixFinding', scope: view.id, text, file: f.file, line: f.line }), false))
   );
 }
 

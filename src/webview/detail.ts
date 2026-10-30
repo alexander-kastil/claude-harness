@@ -161,7 +161,7 @@ export function fieldInput(f, i) {
     state.draft.fields[i] = Object.assign({}, f, { value });
     refreshHead();
   };
-  if (f.type === 'boolean') return el('input', { type: 'checkbox', checked: f.value === true, onchange: e => update(e.target.checked) });
+  if (f.type === 'boolean') return el('input', { type: 'checkbox', role: 'switch', checked: f.value === true, onchange: e => update(e.target.checked) });
   if (TOOL_FIELDS.includes(f.key)) {
     const box = el('textarea', { className: 'tools', rows: 1, value: f.value, spellcheck: false, placeholder: 'comma separated', oninput: e => (update(e.target.value), fit(box)) });
     requestAnimationFrame(() => fit(box));
@@ -291,8 +291,8 @@ export const drawButton = a => {
   return confirmAt(
     cmd(
       'brush',
-      running ? 'Drawing...' : drawn ? 'Redraw with Claude' : 'Draw with Claude',
-      `${drawn ? 'Redraw' : 'Draw'} with Claude\nClaude draws ${drawsWhatOf(a)}, and each drawing shows above the details as soon as it is ready. It runs in the background and counts against your plan.${error ? `\nLast try failed: ${error}` : ''}`,
+      running ? 'Drawing...' : drawn ? 'Redraw' : 'Draw',
+      `${drawn ? 'Redraw' : 'Draw'}\nClaude draws ${drawsWhatOf(a)}, and each drawing shows above the details as soon as it is ready. It runs in the background and counts against your plan.${error ? `\nLast try failed: ${error}` : ''}`,
       () => (hideHover(), vscode.postMessage({ type: 'drawAsset', id: drawingId(a) })),
       { disabled: running }
     ),
@@ -389,10 +389,10 @@ function commandBar(d, dirty) {
     aiGroup(
       '',
       REVIEWABLE.includes(a.kind)
-        ? claude('lightbulb-sparkle', 'Edit with Claude', `Edit with Claude\nA new Claude in a terminal reads ${a.kind === 'plugin' ? "the plugin's manifest and its skills, agents, commands, hooks and servers" : 'this file'}, says what to improve and makes the changes you agree to.`, 'review', 'reviewAsset')
+        ? claude('lightbulb-sparkle', 'Edit', `Edit\nA new Claude in a terminal reads ${a.kind === 'plugin' ? "the plugin's manifest and its skills, agents, commands, hooks and servers" : 'this file'}, says what to improve and makes the changes you agree to.`, 'review', 'reviewAsset')
         : null,
       a.kind === 'skill' && slimOf(a.id)?.findings
-        ? claude('fold', 'Slim with Claude', "Slim with Claude\nA new Claude in a terminal gets the skill's files and what is flagged on this page, and says what to move and cut.", 'slim', 'slimAsset')
+        ? claude('fold', 'Slim', "Slim\nA new Claude in a terminal gets the skill's files and what is flagged on this page, and says what to move and cut.", 'slim', 'slimAsset')
         : null,
       drawButton(a),
       TRYABLE.includes(a.kind) ? confirmAt(cmd('play', 'Try it', `Try it\nA new Claude in a terminal${a.kind === 'agent' ? ' started as this agent' : ` that runs /${a.name}`}.`, () => (hideHover(), vscode.postMessage({ type: 'tryAsset', id: a.id }))), 'try') : null,
@@ -535,7 +535,7 @@ export function renderDetail() {
       el(
         'div',
         { className: 'switch' },
-        el('input', { type: 'checkbox', id: 'plugin-enabled', checked: d.asset.enabled, onchange: () => command('togglePlugin', { id: d.asset.id }) }),
+        el('input', { type: 'checkbox', role: 'switch', id: 'plugin-enabled', checked: d.asset.enabled, onchange: () => command('togglePlugin', { id: d.asset.id }) }),
         el('label', { for: 'plugin-enabled' }, 'Enabled'),
         el('span', { className: 'desc' }, d.asset.description)
       )
@@ -567,7 +567,7 @@ export function renderMcp(d) {
     el(
       'div',
       { className: 'switch' },
-      el('input', { type: 'checkbox', id: 'mcp-enabled', checked: a.enabled !== false, onchange: () => command('toggleMcp', { id: a.id }) }),
+      el('input', { type: 'checkbox', role: 'switch', id: 'mcp-enabled', checked: a.enabled !== false, onchange: () => command('toggleMcp', { id: a.id }) }),
       el('label', { for: 'mcp-enabled' }, repo ? `Enabled in ${repo.label}` : 'Enabled in every folder'),
       !repo && a.offIn ? el('span', { className: 'desc' }, `Off in ${a.offIn} of ${plural(a.folders, 'folder')}. Switch on to enable it everywhere.`) : null
     ),

@@ -115,7 +115,7 @@ const flagRow = (glyph: string, tone: Tone, head: string, text: string, tip?: st
       ? aiGroup(
           'compact',
           confirmAt(
-            iconBtn('wand', 'Resolve with Claude\nA new Claude in a terminal, asked to fix this one finding and nothing else.', () => (hideHover(), vscode.postMessage({ type: 'resolveFinding', id: resolve.id, finding: resolve.finding })), false),
+            iconBtn('wand', 'Resolve\nA new Claude in a terminal, asked to fix this one finding and nothing else.', () => (hideHover(), vscode.postMessage({ type: 'resolveFinding', id: resolve.id, finding: resolve.finding })), false),
             'resolve',
             `${resolve.id}/${resolve.finding}`
           )

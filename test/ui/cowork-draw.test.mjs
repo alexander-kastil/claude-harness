@@ -134,10 +134,10 @@ test('a scheduled task has Draw with Claude at the right end of its bar, asks fi
   await s.mouse('.sidebar .row', 'Weekly digest');
   await s.waitFor(D => D.querySelector('.main-head h1')?.textContent.trim() === 'Weekly digest');
   const g = await aiGroup();
-  assert.deepEqual(g.buttons, ['Draw with Claude']);
+  assert.deepEqual(g.buttons, ['Draw']);
   assert.equal(g.marks, 1);
   assert.ok(g.last, 'the AI group ends the bar');
-  await s.mouse('.main .cmd-bar button', 'Draw with Claude');
+  await s.mouse('.main .cmd-bar button', 'Draw');
   const c = await s.waitFor(D => !!D.querySelector('.cf')).then(card);
   assert.match(c.text, /Draw Weekly digest with Claude/);
   assert.match(c.text, /schedule/);
@@ -154,7 +154,7 @@ test('a scheduled task has Draw with Claude at the right end of its bar, asks fi
   assert.ok(fig.first, 'the drawing sits above the details');
   assert.equal(fig.text, 'Weekly digest');
   assert.deepEqual(fig.modes, ['Harness', 'Process']);
-  assert.deepEqual((await aiGroup()).buttons, ['Redraw with Claude']);
+  assert.deepEqual((await aiGroup()).buttons, ['Redraw']);
   await shoot(path.join(SHOTS, '25-cowork-task-draw.png'), '.main');
 });
 
@@ -163,10 +163,10 @@ test('a chat has Draw with Claude beside Continue in terminal and shows its stor
   await s.waitFor(D => /Fixture research chat/.test(D.querySelector('.main-body')?.innerText || ''));
   await s.mouse('.main .asset-table .at-row', 'Fixture research chat');
   await s.waitFor(D => D.querySelector('.main-head h1')?.textContent.trim() === 'Fixture research chat');
-  assert.deepEqual(await labels('.main .cmd-bar button'), ['Back', 'Continue in terminal', 'Draw with Claude']);
+  assert.deepEqual(await labels('.main .cmd-bar button'), ['Back', 'Continue in terminal', 'Draw']);
   const g = await aiGroup();
   assert.ok(g.last, 'the AI group ends the bar');
-  await s.mouse('.main .cmd-bar button', 'Draw with Claude');
+  await s.mouse('.main .cmd-bar button', 'Draw');
   const c = await s.waitFor(D => !!D.querySelector('.cf')).then(card);
   assert.match(c.text, /Draw Fixture research chat with Claude/);
   assert.match(c.text, /conversation/);
@@ -188,9 +188,9 @@ test('a synced skill, a synced plugin and a connector have Draw with Claude in t
     await s.mouse('.sidebar .row', name);
     await s.waitFor(D => /Cowork/.test(D.querySelector('.main-head')?.innerText || ''));
     const g = await aiGroup();
-    assert.deepEqual(g.buttons, ['Draw with Claude'], `${name}: the AI group`);
+    assert.deepEqual(g.buttons, ['Draw'], `${name}: the AI group`);
     assert.ok(g.last, `${name}: the AI group ends the bar`);
-    await s.mouse('.main .cmd-bar button', 'Draw with Claude');
+    await s.mouse('.main .cmd-bar button', 'Draw');
     const c = await s.waitFor(D => !!D.querySelector('.cf')).then(card, e => Promise.reject(new Error(`${name}: ${e.message}`)));
     assert.match(c.text, new RegExp(`Draw .*${name}.* with Claude`));
     await closeCard();

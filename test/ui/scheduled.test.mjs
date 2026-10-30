@@ -110,7 +110,7 @@ test('a task page: Cowork badge, header commands without an AI group, details, i
   await s.waitFor(D => D.querySelector('.main-head h1')?.textContent.trim() === 'Weekly digest');
   assert.match(await text('.main-head'), /Cowork/);
   const bar = await labels('.main .cmd-bar button');
-  assert.deepEqual(bar, ['Back', 'Open on claude.ai', 'Open project', 'Open last run', 'Pull to Code', 'Draw with Claude']);
+  assert.deepEqual(bar, ['Back', 'Open on claude.ai', 'Open project', 'Open last run', 'Pull to Code', 'Draw']);
   assert.equal(await s.ev(D => D.querySelectorAll('.main .cmd-bar > .ai-group').length), 1);
   const facts = await s.ev(D => [...D.querySelectorAll('.main .dv-fact')].map(f => f.querySelector('.k').textContent.trim() + '=' + f.querySelector('.v').textContent.trim()));
   const byKey = Object.fromEntries(facts.map(f => f.split(/=(.*)/s).slice(0, 2)));
@@ -145,7 +145,7 @@ test('a task page: Cowork badge, header commands without an AI group, details, i
   // A task without a project or a run offers neither command.
   await s.mouse('.sidebar .row', 'Nightly check');
   await s.waitFor(D => D.querySelector('.main-head h1')?.textContent.trim() === 'Nightly check');
-  assert.deepEqual(await labels('.main .cmd-bar button'), ['Back', 'Open on claude.ai', 'Pull to Code', 'Draw with Claude']);
+  assert.deepEqual(await labels('.main .cmd-bar button'), ['Back', 'Open on claude.ai', 'Pull to Code', 'Draw']);
 });
 
 test('an expired sign-in is reported and not refreshed', T, async () => {
