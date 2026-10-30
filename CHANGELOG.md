@@ -20,6 +20,7 @@ All notable changes to Claude Harness are listed here, newest first. The format 
 - Drop "with Claude" from AI group labels: The "with Claude" labels are gone from every AI-group button, but the full UI suite is not green
 - Docs screenshots: docs/ pages images: Progress: 5/51 · overview-search.png
 - @harness:session-analyze opens current session: The root README.md now has the second example in "Command line and @harness mentions",
+- Release build
 
 ### Fixed
 

@@ -1200,7 +1200,7 @@ test('the nav lists its sections in reading order with Marketplaces last above R
   assert.deepEqual(await labels('.sidebar .scope-block > .section-head .label'), ['Memory', 'Rules', 'Settings', 'Output Styles', 'Agents', 'Skills', 'Commands', 'Workflows', 'MCP Servers', 'Hooks', 'Mods', 'Plugins', 'Marketplaces']);
   // Cowork is a region of its own after the Code tree, before Repositories.
   assert.deepEqual(await s.ev(D => [...D.querySelectorAll('.sidebar .list [data-region]')].map(h => `${h.dataset.region}:${h.querySelector('.label').textContent}`)), ['code:Claude Code', 'cowork:Cowork', 'repos:Repositories']);
-  assert.deepEqual(await s.ev(D => [...D.querySelectorAll('.sidebar-head button')].map(b => b.getAttribute('aria-label'))), ['Overview', 'Marketplace health', 'Collapse all', 'New...', 'Refresh']);
+  assert.deepEqual(await s.ev(D => [...D.querySelectorAll('.sidebar-head button')].map(b => b.getAttribute('aria-label'))), ['Overview', 'Marketplace health', 'Collapse all', 'New...', 'Refresh', 'Collapse navigation']);
   // The Marketplaces head counts the marketplaces and opens Marketplace health, the way a global head opens its type page.
   await s.waitFor(D => D.querySelector('[data-nav="s|markets"] .count')?.textContent === '1');
   await go('.sidebar [data-nav="s|markets"]', '', D => D.querySelector('.main-head h1')?.textContent === 'Marketplace health');

@@ -12,6 +12,8 @@ export interface Saved {
   skillView?: string;
   foldedGroups?: string[];
   repoSort?: string;
+  /** The left nav is collapsed to the rail; expanded unless stored true. */
+  navRail?: boolean;
   sessionView?: string;
   decisionView?: string;
   mapMode?: string;

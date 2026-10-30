@@ -12,6 +12,7 @@ import { SOURCE_ICONS, sourceTip } from './pages';
 import { splitDescription } from './refs';
 import { sessionDesc, sessionIcon, showSession, showSessionsPage } from './sessions';
 import { groupHead, rowName } from './tables';
+import { activeEntry, railCount, railEntries, revealEntry } from '../shared/nav-rail';
 
 // One toggle per list view in a category header: the grouping first, then each sort.
 const VIEW_MODES = {
@@ -481,6 +482,124 @@ function foldAllButton() {
   });
 }
 
+// ---- The rail: the nav collapsed to 48px, one button per region and top-level group. ----
+
+const NAV_ID = 'nav-pane';
+const NAV_KEYS = 'Ctrl+Alt+B';
+
+// The nav key an expand from the rail scrolls to once the full nav is repainted.
+let railTarget;
+
+const wide = window.matchMedia('(min-width: 641px)');
+
+// The part that is not on show cannot take focus or be reached by Tab (`inert`). A stacked layout (a narrow panel) has no rail.
+function syncRail(aside) {
+  if (!aside) return;
+  const on = state.navRail && wide.matches;
+  aside.querySelector('.sidebar-full').toggleAttribute('inert', on);
+  aside.querySelector('.rail').toggleAttribute('inert', !on);
+}
+
+// Collapses or expands the nav without a repaint, so the column width, the fade of the labels and the fade of the rail run as one
+// CSS transition that a second press interrupts. Focus follows only when it was inside the part that goes away.
+function setRail(next) {
+  const aside = app.querySelector('.sidebar');
+  const hadFocus = aside && aside.contains(document.activeElement);
+  state.navRail = next;
+  persist();
+  hideHover();
+  app.classList.add('rail-anim');
+  app.classList.toggle('rail', next);
+  syncRail(aside);
+  document.querySelectorAll('.nav-toggle').forEach(b => b.setAttribute('aria-expanded', next ? 'false' : 'true'));
+  if (aside && hadFocus && wide.matches) aside.querySelector(next ? '.rail .nav-toggle' : '.sidebar-full .nav-toggle').focus();
+}
+
+window.addEventListener('keydown', e => {
+  if (e.ctrlKey && e.altKey && !e.shiftKey && !e.metaKey && e.code === 'KeyB') {
+    e.preventDefault();
+    setRail(!state.navRail);
+  }
+});
+wide.addEventListener('change', () => syncRail(app.querySelector('.sidebar')));
+
+// The collapse button of the top bar and the expand button of the rail: one control, `aria-expanded` says which way it goes.
+const navToggle = collapsed => {
+  const label = collapsed ? 'Expand navigation' : 'Collapse navigation';
+  const b = iconBtn(collapsed ? 'layout-sidebar-left' : 'layout-sidebar-left-off', `${label}\n${NAV_KEYS}`, () => setRail(!collapsed));
+  b.classList.add('nav-toggle');
+  b.setAttribute('aria-label', label);
+  b.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+  b.setAttribute('aria-controls', NAV_ID);
+  b.setAttribute('aria-keyshortcuts', 'Control+Alt+B');
+  return b;
+};
+
+// The top bar's buttons: the pages first, then the actions.
+const topActions = () => [
+  iconBtn('home', 'Overview', () => {
+    state.overviewFilter = '';
+    showRepo(undefined);
+  }),
+  iconBtn('package', 'Marketplace health', () => showPage('marketplaces')),
+  foldAllButton(),
+  iconBtn('add', 'New...', () => command('create')),
+  iconBtn('refresh', 'Refresh', () => command('refresh')),
+];
+
+function railInput(global, cowork, visibleRepos) {
+  const groups = (view, keep) => view.categories.filter(keep).map(c => ({ id: `${view.id}|${c.kind}`, label: c.label, glyph: c.icon, count: c.items.length }));
+  const open = state.detail
+    ? activeEntry({ kind: state.detail.asset.kind, scope: state.detail.asset.scope || 'global' })
+    : state.page === 'kind' && state.kindPage
+      ? activeEntry({ kind: state.kindPage.kind, scope: state.kindPage.origin })
+      : state.page === 'marketplaces' || state.page === 'market'
+        ? activeEntry({ market: true })
+        : state.page === 'session' && state.session
+          ? activeEntry({ scope: state.session.scope })
+          : state.page === 'sessions' && state.sessionsPage
+            ? activeEntry({ scope: state.sessionsPage.scope })
+            : state.repo
+              ? activeEntry({ repo: state.repo })
+              : undefined;
+  return {
+    code: global ? { label: 'Claude Code', count: total(global), groups: [...groups(inNavOrder(global), () => true), { id: 'markets', label: 'Marketplaces', glyph: 'package', count: state.markets ? state.markets.length : 0 }] } : undefined,
+    cowork: cowork ? { label: 'Cowork', count: total(cowork), groups: groups(cowork, c => c.items.length) } : undefined,
+    repos: { label: 'Repositories', count: visibleRepos.length, repos: visibleRepos.map(v => ({ id: v.id, label: v.label, count: total(v) })) },
+    active: open,
+  };
+}
+
+function renderRail(input) {
+  const entries = railEntries(input);
+  const noun = e => (e.id === 'region:repos' ? plural(e.count, 'repository').replace(/^\d+ /, '') : plural(e.count, 'item').replace(/^\d+ /, ''));
+  const button = e => {
+    const b = el(
+      'button',
+      {
+        type: 'button',
+        className: `rail-btn${e.level === 0 ? ' region' : ''}${e.active ? ' active' : ''}`,
+        title: `${e.label}\n${e.count} ${noun(e)}`,
+        'aria-label': `${e.label}, ${e.count}`,
+        'aria-current': e.active ? 'true' : undefined,
+        onclick: () => {
+          railTarget = revealEntry(e, state);
+          setRail(false);
+          render();
+        },
+      },
+      icon(e.glyph),
+      el('span', { className: 'rail-count', 'aria-hidden': 'true' }, railCount(e.count))
+    );
+    b.dataset.rail = e.id;
+    return b;
+  };
+  const logoBtn = el('button', { type: 'button', className: 'icon-btn rail-logo', title: `Expand navigation\n${NAV_KEYS}`, 'aria-label': 'Expand navigation', 'aria-expanded': 'false', 'aria-controls': NAV_ID, onclick: () => setRail(false) }, logo('logo-sm'));
+  const top = el('div', { className: 'rail-top' }, logoBtn, topActions(), navToggle(true));
+  top.querySelectorAll('button').forEach((b, i) => (b.dataset.rail = `top${i}`));
+  return el('nav', { className: 'rail', 'aria-label': 'Harness, collapsed' }, top, el('div', { className: 'rail-list' }, entries.map(button)));
+}
+
 export function renderSidebar() {
   const sig = selectionSig();
   const isFresh = sig !== revealedSig;
@@ -613,32 +732,47 @@ export function renderSidebar() {
     },
   });
   wireTree(list);
+  const railFocus = document.activeElement && document.activeElement.closest ? document.activeElement.closest('.rail [data-rail]') : null;
+  const refocusRail = railFocus && railFocus.dataset.rail;
+  const rail = renderRail(railInput(global, cowork && state.coworkShow !== false ? cowork : undefined, visibleRepos));
   const aside = el(
     'aside',
-    { className: 'sidebar' },
+    { className: 'sidebar', id: NAV_ID },
     el(
       'div',
-      { className: 'sidebar-head' },
-      // The tab already says Claude Harness, so the row holds the mark and the buttons.
-      logo('logo-sm'),
-      el('span', { className: 'spacer' }),
-      // The pages first, in the nav's order from top to bottom (the overview, the Marketplaces section, the Repositories), then the
-      // actions. Home opens the overview with a clean search; Back to it keeps the search.
-      iconBtn('home', 'Overview', () => {
-        state.overviewFilter = '';
-        showRepo(undefined);
-      }),
-      iconBtn('package', 'Marketplace health', () => showPage('marketplaces')),
-      foldAllButton(),
-      iconBtn('add', 'New...', () => command('create')),
-      iconBtn('refresh', 'Refresh', () => command('refresh'))
+      { className: 'sidebar-full' },
+      el(
+        'div',
+        { className: 'sidebar-head' },
+        // The tab already says Claude Harness, so the row holds the mark and the buttons.
+        logo('logo-sm'),
+        el('span', { className: 'spacer' }),
+        // The pages first, in the nav's order from top to bottom (the overview, the Marketplaces section, the Repositories), then the
+        // actions. Home opens the overview with a clean search; Back to it keeps the search. The collapse button ends the row.
+        ...topActions(),
+        navToggle(false)
+      ),
+      el('div', { className: 'search' }, search),
+      list
     ),
-    el('div', { className: 'search' }, search),
-    list
+    rail
   );
+  app.classList.toggle('rail', state.navRail);
+  syncRail(aside);
   // Once the repaint is in the page: the selected row scrolls into view, and the focus comes back.
   queueMicrotask(() => {
     if (app.querySelector('.sidebar') !== aside) return;
+    if (railTarget) {
+      const target = navItems(list).find(n => n.dataset.nav === railTarget);
+      railTarget = undefined;
+      if (target) {
+        scrollToRow(list, target);
+        target.focus({ preventScroll: true });
+      }
+    } else if (refocusRail && (!document.activeElement || document.activeElement === document.body)) {
+      const again = [...rail.querySelectorAll('[data-rail]')].find(b => b.dataset.rail === refocusRail);
+      if (again && !rail.hasAttribute('inert')) again.focus({ preventScroll: true });
+    }
     if (isFresh) {
       const row = list.querySelector('.selected');
       if (row) {

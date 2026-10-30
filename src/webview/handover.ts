@@ -136,7 +136,7 @@ function filesField(c) {
       el(
         'div',
         { className: `hv-file${f.missing ? ' missing' : ''}` },
-        el('input', { type: 'checkbox', checked: f.include, 'aria-label': `Copy ${f.name}`, onchange: e => (f.include = e.target.checked) }),
+        el('input', { type: 'checkbox', role: 'switch', checked: f.include, 'aria-label': `Copy ${f.name}`, onchange: e => (f.include = e.target.checked) }),
         icon(f.missing ? 'warning' : 'file'),
         el('span', { className: 'hv-file-name', title: f.file }, f.name),
         f.missing ? el('span', { className: 'hv-missing' }, 'Missing on this PC') : null,

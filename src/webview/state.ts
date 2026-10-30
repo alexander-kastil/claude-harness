@@ -30,6 +30,8 @@ export interface State {
   listViews: Record<string, string | undefined>;
   foldedGroups: Set<string>;
   repoSort: string;
+  /** The left nav is collapsed to the 48px rail. */
+  navRail: boolean;
   mcpInfo: Record<string, McpInfo | undefined>;
   mcpBusy: Record<string, 'busy' | 'done' | undefined>;
   checks: Record<string, CheckSummary>;

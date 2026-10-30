@@ -3,6 +3,7 @@
 import { saved, vscode } from './bridge';
 import { el, icon, plural } from './dom';
 import { render } from './main';
+import { railFromSaved } from '../shared/nav-rail';
 import type { State } from './state';
 
 export { saved, vscode };
@@ -21,6 +22,7 @@ export const state: State = {
   listViews: Object.assign({ mcp: saved.mcpView, skill: saved.skillView }, saved.listViews),
   foldedGroups: new Set(saved.foldedGroups || []),
   repoSort: saved.repoSort || 'recent',
+  navRail: railFromSaved(saved),
   mcpInfo: {},
   mcpBusy: {},
   checks: {},
@@ -53,7 +55,7 @@ export const state: State = {
 
 export const app = document.getElementById('app') as HTMLElement;
 
-export const persist = () => vscode.setState({ filter: state.filter, expanded: [...state.expanded], openRepos: [...state.openRepos], listViews: state.listViews, foldedGroups: [...state.foldedGroups], repoSort: state.repoSort, sessionView: state.sessionView, decisionView: state.decisionMode, mapMode: state.mapMode, mapPrompts: state.mapPrompts, mapMods: state.mapMods, billing: state.billing, styleModel: state.styleModel, reviewTab: state.reviewTab, repoTab: state.repoTab, overviewTab: state.overviewTab, detailMode: state.detailMode, detailTabs: state.detailTabs });
+export const persist = () => vscode.setState({ filter: state.filter, expanded: [...state.expanded], openRepos: [...state.openRepos], listViews: state.listViews, foldedGroups: [...state.foldedGroups], repoSort: state.repoSort, navRail: state.navRail, sessionView: state.sessionView, decisionView: state.decisionMode, mapMode: state.mapMode, mapPrompts: state.mapPrompts, mapMods: state.mapMods, billing: state.billing, styleModel: state.styleModel, reviewTab: state.reviewTab, repoTab: state.repoTab, overviewTab: state.overviewTab, detailMode: state.detailMode, detailTabs: state.detailTabs });
 
 export const SOURCES = {
   user: { icon: 'account', label: 'Your config (~/.claude.json)' },
