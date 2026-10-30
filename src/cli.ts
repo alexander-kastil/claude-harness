@@ -117,6 +117,8 @@ Usage: node cli.js <command> [options]
                                       Update an installed plugin from its marketplace.
   sessions [--repo <dir>] [--limit <n>]
                                       The sessions of a repo in /resume order, with their names, start, minutes and agents.
+  sessions open --session latest|previous|<id> [--repo <dir>] [--dry-run]
+                                      Open a session on its page in the Claude Harness panel of the running VS Code window.
   sessions rename --session latest|previous|<id> --title <t> [--repo <dir>] [--dry-run]
                                       Rename a session the way /rename does.
   mods --session latest|previous|<id> [--repo <dir>]

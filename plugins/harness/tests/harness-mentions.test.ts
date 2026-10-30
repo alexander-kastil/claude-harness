@@ -39,7 +39,7 @@ describe("harness-mentions: @harness mentions", () => {
     const { $, calls } = fakeProcess({ stdout: "[]" });
     const all = await h["prompt.autocomplete"]($, ask("why @h"), next);
     expect(all.suggestions[0]).toBe(base[0]);
-    expect(all.suggestions.slice(1).map((s: any) => s.text)).toEqual(["@harness:inventory", "@harness:consolidate", "@harness:agents", "@harness:usage", "@harness:delegation", "@harness:hunt", "@harness:marketplaces", "@harness:check", "@harness:repos", "@harness:sync", "@harness:sessions", "@harness:mods", "@harness:time", "@harness:lessons", "@harness:sources"]);
+    expect(all.suggestions.slice(1).map((s: any) => s.text)).toEqual(["@harness:inventory", "@harness:consolidate", "@harness:agents", "@harness:usage", "@harness:delegation", "@harness:hunt", "@harness:marketplaces", "@harness:check", "@harness:repos", "@harness:sync", "@harness:sessions", "@harness:session-analyze", "@harness:mods", "@harness:time", "@harness:lessons", "@harness:sources"]);
     const some = await h["prompt.autocomplete"]($, ask("@harness:u"), next);
     expect(some.suggestions.slice(1).map((s: any) => s.text)).toEqual(["@harness:usage"]);
     const bare = await h["prompt.autocomplete"]($, ask("look at @"), next);
@@ -66,6 +66,18 @@ describe("harness-mentions: @harness mentions", () => {
     expect(seen.text).toBe("why so expensive? @harness:usage and @harness:usage.");
     expect(seen.context[0]).toBe("earlier");
     expect(seen.context[1]).toBe("@harness:usage (claude-harness usage --session latest):\n**Usage**\n| Model | Cost |");
+  });
+
+  test("@harness:session-analyze opens the session it was typed in and adds one line", async () => {
+    const h = handlers();
+    const { $, calls } = fakeProcess({ stdout: 'Opened session "x" in the Claude Harness panel.\n' });
+    let seen: any;
+    await h["prompt.submit"]({ ...$, session: { id: async () => "abc-123" } }, { text: "@harness:session-analyze please" }, async (e: any) => ((seen = e), e));
+    expect(script(calls[0].argv)).toEqual(["sessions", "open", "--session", "abc-123"]);
+    expect(seen.context[0]).toBe('@harness:session-analyze: Opened session "x" in the Claude Harness panel.');
+    const again = fakeProcess({ stdout: "" });
+    await h["prompt.submit"](again.$, { text: "@harness:session-analyze", session_id: "from-event" }, async (e: any) => e);
+    expect(script(again.calls[0].argv)).toEqual(["sessions", "open", "--session", "from-event"]);
   });
 
   test("a failed view adds stderr after stdout, prefixed", async () => {

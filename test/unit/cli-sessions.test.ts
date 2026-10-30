@@ -4,6 +4,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { test } from 'node:test';
 import { run } from '../../src/cli';
+import { launcher } from '../../src/cli-sessions';
 import { projectSlug } from '../../src/repos-overview';
 
 const NOW = Date.now();
@@ -185,4 +186,42 @@ test('rename stops with code 2 without a session or a title, and code 1 for an u
   assert.equal((await exec(['sessions', 'rename', '--session', SID, '--repo', repo, '--root', root])).code, 2);
   assert.equal((await exec(['sessions', 'rename', '--session', SID, '--title', '   ', '--repo', repo, '--root', root])).code, 2);
   assert.equal((await exec(['sessions', 'rename', '--session', 'nope', '--title', 'x', '--repo', repo, '--root', root])).code, 1);
+});
+
+test('sessions open hands the extension a session URI and says in one line what it opened', async () => {
+  const { root, repo } = fixture();
+  const saved = { ...launcher };
+  const sent: string[] = [];
+  Object.assign(launcher, { installed: () => true, running: () => true, open: (uri: string) => (sent.push(uri), { ok: true }) });
+  try {
+    const r = await capture()(['sessions', 'open', '--session', 'latest', '--repo', repo, '--root', root]);
+    assert.equal(r.code, 0);
+    assert.equal(r.text, 'Opened session "Refactor the parser" in the Claude Harness panel.');
+    assert.equal(sent.length, 1);
+    assert.equal(sent[0], `vscode://integrations-at.claude-harness/session?id=${SID}&repo=${encodeURIComponent(repo)}`);
+    const dry = await capture()(['sessions', 'open', '--session', SID2, '--repo', repo, '--root', root, '--dry-run']);
+    assert.match(dry.text, /^\[dry-run\] would open vscode:\/\/integrations-at\.claude-harness\/session\?id=66666666/);
+    assert.equal(sent.length, 1);
+  } finally {
+    Object.assign(launcher, saved);
+  }
+});
+
+test('sessions open says why it could not reach the panel and exits 1', async () => {
+  const { root, repo } = fixture();
+  const saved = { ...launcher };
+  try {
+    Object.assign(launcher, { installed: () => true, running: () => false, open: () => ({ ok: true }) });
+    const stopped = await capture()(['sessions', 'open', '--session', 'latest', '--repo', repo, '--root', root]);
+    assert.equal(stopped.code, 1);
+    assert.equal(stopped.text, 'Could not open the session in the Claude Harness panel: VS Code is not running.');
+    Object.assign(launcher, { installed: () => false });
+    assert.match((await capture()(['sessions', 'open', '--session', 'latest', '--repo', repo, '--root', root])).text, /extension is not installed/);
+    Object.assign(launcher, { installed: () => true, running: () => true, open: () => ({ ok: false, why: 'the code command is not on the PATH' }) });
+    assert.match((await capture()(['sessions', 'open', '--session', 'latest', '--repo', repo, '--root', root])).text, /not on the PATH/);
+    assert.equal((await capture()(['sessions', 'open', '--repo', repo, '--root', root])).code, 2);
+    assert.equal((await capture()(['sessions', 'open', '--session', 'nope', '--repo', repo, '--root', root])).code, 1);
+  } finally {
+    Object.assign(launcher, saved);
+  }
 });

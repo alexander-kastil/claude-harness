@@ -124,10 +124,12 @@ The Marketplaces section of the sidebar lists every marketplace with its plugin 
 
 Run **Claude Harness: Install 'harness' Command Line** once to put `harness` on your PATH, with Tab completion in PowerShell and Git Bash. In Claude Code, with the [harness plugin](#install-the-harness-plugin) installed, type `@h` in a prompt for a view such as `@harness:usage`: when you send the prompt, the view runs and Claude reads its output as context.
 
+A second example is `harness sessions open --session <id>` with its mention `@harness:session-analyze`: typed in a Claude Code prompt, it opens the current session on the panel's session page.
+
 | Area | Commands |
 | --- | --- |
 | Read the harness | `inventory`, `consolidate`, `agents list`, `agents route`, `marketplaces`, `repos`, `check`, `sync`, `sources` |
-| Sessions | `usage`, `delegation`, `sessions`, `mods`, `time`, `lessons` |
+| Sessions | `usage`, `delegation`, `sessions`, `sessions open`, `mods`, `time`, `lessons` |
 | Plugins | `hunt catalog`, `hunt plan`, `hunt create`, `hunt add`, `plugins rename`, `marketplaces rename`, `sync plugin` |
 | Skills and copies | `consolidate retire`, `skills move`, `split`, `put`, `remove`, `rename`, `repoint`, `fix-paths`, `sync apply` |
 | Build a harness | `generate`, `add`, `new`, `update`, `validate`, `run` |

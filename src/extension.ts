@@ -1641,6 +1641,21 @@ export function activate(context: vscode.ExtensionContext): void {
       const id = node && typeof node === 'object' && node.type === 'session' ? node.session.id : sessionId;
       if (repo && id) HarnessPanel.showPage(context, host, { page: 'session', repo, session: id });
     }),
+    // vscode://integrations-at.claude-harness/session?id=<id>&repo=<dir>: `harness sessions open` opens a session page from outside VS Code.
+    vscode.window.registerUriHandler({
+      handleUri(uri) {
+        if (uri.path !== '/session') return;
+        const query = new URLSearchParams(uri.query);
+        const id = query.get('id');
+        const dir = query.get('repo');
+        if (!id) return;
+        const candidates = repoViews();
+        const ordered = [...candidates.filter(v => dir && samePath(v.path, dir)), ...candidates.filter(v => !dir || !samePath(v.path, dir))];
+        const view = ordered.find(v => findAccountSession(v.path, accounts(), id));
+        if (!view) return void vscode.window.showWarningMessage(`Claude Harness: session ${id} is not in a repo this window knows.`);
+        HarnessPanel.showPage(context, host, { page: 'session', repo: view.id, session: id });
+      },
+    }),
     vscode.commands.registerCommand('claudeHarness.renameSession', async (arg?: unknown) => {
       const node = arg as Node | undefined;
       let summary = node && typeof node === 'object' && node.type === 'session' ? node.session : undefined;

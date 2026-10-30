@@ -124,6 +124,7 @@ export const COMMANDS: CommandSpec[] = [
   { path: 'sync plugin', flags: [{ name: 'name', takes: [] }, DRY] },
   { path: 'sessions', flags: [REPO, { name: 'limit', takes: [] }] },
   { path: 'sessions rename', flags: [{ name: 'session', takes: 'session' }, { name: 'title', takes: [] }, REPO, DRY] },
+  { path: 'sessions open', flags: [{ name: 'session', takes: 'session' }, REPO, DRY] },
   { path: 'mods', flags: [{ name: 'session', takes: 'session' }, REPO] },
   { path: 'time', flags: [REPO, { name: 'days', takes: [] }] },
   { path: 'lessons', flags: [REPO, { name: 'find', takes: [] }] },

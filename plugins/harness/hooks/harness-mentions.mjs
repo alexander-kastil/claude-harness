@@ -17,12 +17,14 @@ const MENTIONS = {
   repos: { argv: ["repos"], description: "One row per repo: its harness, its checks and its CLAUDE.md" },
   sync: { argv: ["sync"], description: "The repo copies of skills and agents that differ from Global" },
   sessions: { argv: ["sessions"], description: "This repo's sessions in /resume order, with their names, start, minutes and agents" },
+  // Opens the session it was typed in on its page in the panel; the output is the one line saying what happened.
+  "session-analyze": { argv: ["sessions", "open"], session: true, description: "Open this session on its page in the Claude Harness panel: cost, who spent it, the timeline" },
   mods: { argv: ["mods", "--session", "latest"], description: "Which mods and guards acted in this session" },
   time: { argv: ["time"], description: "This repo's time ledger by day, with the total" },
   lessons: { argv: ["lessons"], description: "The entries of this repo's tasks/lessons.md" },
   sources: { argv: ["sources"], description: "The skills installed from a source, with their source and version" },
 };
-const MENTION_RE = new RegExp(`(?:^|\\s)@${NAME}:([a-z]+)(?=[\\s.,;!?)]|$)`, "g");
+const MENTION_RE = new RegExp(`(?:^|\\s)@${NAME}:([a-z-]+)(?=[\\s.,;!?)]|$)`, "g");
 
 function harness($, argv, timeoutMs) {
   return $.process.run(["node", `${$.plugin.root}/${SCRIPT}`, ...argv], { timeoutMs });
@@ -38,14 +40,20 @@ export function mentionRows(token) {
     .map(([name, m]) => ({ text: `${MENTION}${name}`, label: `${MENTION}${name}`, description: m.description }));
 }
 
-async function mentionBlock($, name) {
+async function sessionId($, e) {
+  return e.session_id || (await $.session.id().catch(() => "")) || "latest";
+}
+
+async function mentionBlock($, name, e = {}) {
   const m = MENTIONS[name];
   if (!m) return `${MENTION}${name} is not a harness view; the views are ${Object.keys(MENTIONS).map((n) => MENTION + n).join(", ")}.`;
   try {
-    const r = await harness($, m.argv, RUN_MS);
+    const argv = m.session ? [...m.argv, "--session", await sessionId($, e)] : m.argv;
+    const r = await harness($, argv, RUN_MS);
     const out = String(r.stdout ?? "").trimEnd();
     const err = String(r.stderr ?? "").trim();
     const body = r.exitCode === 0 ? out : [out, err && `harness: ${err}`].filter(Boolean).join("\n");
+    if (m.session) return `${MENTION}${name}: ${body || "(no output)"}`;
     return `${MENTION}${name} (claude-harness ${m.argv.join(" ")}):\n${body || "(no output)"}`;
   } catch (error) {
     return `${MENTION}${name}: harness: ${error?.message ?? error}`;
@@ -57,7 +65,7 @@ export function registerMentions(on) {
     if (e.command || e.isMeta) return next(e);
     const names = [...new Set([...String(e.text ?? "").matchAll(MENTION_RE)].map((m) => m[1]))];
     if (!names.length) return next(e);
-    const blocks = await Promise.all(names.map((name) => mentionBlock($, name)));
+    const blocks = await Promise.all(names.map((name) => mentionBlock($, name, e)));
     return next({ ...e, context: [...(e.context ?? []), ...blocks] });
   });
 

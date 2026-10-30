@@ -1,3 +1,5 @@
+import { spawnSync } from 'child_process';
+import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { Args, Io, Stop, emit, headline, one, table } from './cli-core';
@@ -79,8 +81,59 @@ function rename(a: Args, io: Io): number {
   return 0;
 }
 
+/** The extension's id: a URI of this authority reaches its URI handler. */
+export const EXTENSION_ID = 'integrations-at.claude-harness';
+
+/** Whether a VS Code window is running, where the process list can say so (Windows); elsewhere it is assumed. */
+function codeRunning(): boolean {
+  if (process.platform !== 'win32') return true;
+  const r = spawnSync('tasklist', ['/FI', 'IMAGENAME eq Code.exe', '/NH'], { encoding: 'utf8', windowsHide: true });
+  return r.status !== 0 || /Code\.exe/i.test(r.stdout ?? '');
+}
+
+/** Whether the extension is installed in the user's VS Code extensions folder. */
+function extensionInstalled(): boolean {
+  const dir = path.join(os.homedir(), '.vscode', 'extensions');
+  try {
+    return fs.readdirSync(dir).some(n => n.toLowerCase().startsWith(`${EXTENSION_ID}-`));
+  } catch {
+    return false;
+  }
+}
+
+/** Hands a URI to VS Code, which routes it to the extension's URI handler; replaced in tests. */
+export const launcher = {
+  open(uri: string): { ok: boolean; why?: string } {
+    const r = spawnSync('code', ['--open-url', uri], { encoding: 'utf8', shell: process.platform === 'win32', windowsHide: true });
+    return r.status === 0 ? { ok: true } : { ok: false, why: 'the code command is not on the PATH' };
+  },
+  running: codeRunning,
+  installed: extensionInstalled,
+};
+
+/** Opens a session on its page in the Claude Harness panel of the running VS Code window. */
+function open(a: Args, io: Io): number {
+  const { repo, summary } = resolve(a);
+  const uri = `vscode://${EXTENSION_ID}/session?id=${encodeURIComponent(summary.id)}&repo=${encodeURIComponent(repo)}`;
+  const dry = !!one(a, 'dry-run');
+  let reason: string | undefined;
+  if (!dry) {
+    if (!launcher.installed()) reason = 'the Claude Harness extension is not installed in VS Code';
+    else if (!launcher.running()) reason = 'VS Code is not running';
+    else {
+      const r = launcher.open(uri);
+      if (!r.ok) reason = r.why;
+    }
+  }
+  const opened = !dry && !reason;
+  const line = dry ? `[dry-run] would open ${uri}` : opened ? `Opened session "${summary.title}" in the Claude Harness panel.` : `Could not open the session in the Claude Harness panel: ${reason}.`;
+  emit(io, a, { session: summary.id, title: summary.title, uri, opened, reason: reason ?? null }, [line], opened);
+  return opened || dry ? 0 : 1;
+}
+
 export async function sessionsCommand(a: Args, io: Io): Promise<number> {
   const [, sub] = a.words;
+  if (sub === 'open') return open(a, io);
   if (sub === 'rename') return rename(a, io);
   if (sub) throw new Stop(`sessions takes no ${sub}; use sessions or sessions rename.`, 2);
   return list(a, io);
