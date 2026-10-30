@@ -8,13 +8,12 @@
 </tr>
 </table>
 
-A repository appears under **Repositories** in the sidebar and in the activity bar. Its harness is read from its own `.claude` folder and its `CLAUDE.md` files, with the same kinds as the global harness. Click a repo to open its page.
+A repository appears under **Repositories** in the sidebar. Its harness is read from its own `.claude` folder and its `CLAUDE.md` files, with the same kinds as the global harness. Click a repo to open its page.
 
 | Section | Description |
 | --- | --- |
 | [Where repos come from](#where-repos-come-from) | The three sources and the order of the list |
 | [Repository page](#repository-page) | The tabs and the buttons on a repo page |
-| [Activity bar node](#activity-bar-node) | The Repositories node and its buttons |
 | [Add a repo](#add-a-repo) | Adds repo folders |
 | [Remove a repo](#remove-a-repo) | Hides repos or added folders |
 
@@ -48,18 +47,6 @@ The repo page shows the repo name and a short count line such as `13 assets · r
 The terminal button in the AI group on a repo row in the sidebar (tooltip **Open Claude in** and the repo name) opens a terminal in that repo running `claude`. See [Commands](commands.md#open-claude-here).
 
 Provider features appear when a harness standard provider plugin is installed.
-
-## Activity bar node
-
-The activity bar tree has a **Repositories** node below the global sections. Its count is the number of repos. Expand it to list the repos, and click a repo to open its page. Expand a repo row to list its [sessions](sessions.md#sessions-in-the-tree), newest first. The node has a GitHub button that opens the [GitHub Repo overview](fleet-overview.md), and the activity bar title bar has the same button.
-
-A repo row's right-click menu has one command:
-
-| Command | What it does |
-| --- | --- |
-| **Open Repo** | Opens the repo page in the main window. The page lists the [effective harness](effective-harness.md). See [Repository page](#repository-page). |
-
-The Repositories node's right-click menu has **Retire Clean Copies...** and **Marketplace Health**. See [Duplicates](duplicates.md#retire-clean-copies) and [Marketplace health](marketplace-health.md).
 
 ## Add a repo
 

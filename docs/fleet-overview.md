@@ -36,7 +36,6 @@ The search box above the table filters the repos by name or path as you type. Wh
 ## Open the GitHub Repo overview
 
 - The GitHub icon in the main window sidebar header.
-- The GitHub icon in the activity bar title bar, before Open Claude Here, and on the **Repositories** node.
 - **Claude Harness: GitHub Repo Overview** in the command palette.
 
 ---

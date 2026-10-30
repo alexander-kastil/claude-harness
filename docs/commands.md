@@ -19,19 +19,18 @@ Every command is in the **Claude Harness** category. Commands marked *hidden* do
 | New... | Creates a rule, agent, skill, command, output style or workflow | Palette, tree title bar, category headers |
 | Configure Tools... (*hidden*) | Picks the tools an agent, skill or command may use | Code lens on `tools` lines, item page |
 | Open File (*hidden*) | Opens the item's file in the editor | Tree, item page |
-| Rename... (*hidden*) | Renames an item and its file | Tree right-click, item page |
-| Duplicate... (*hidden*) | Copies an item under a new name | Tree right-click, item page |
-| Compare with Copy... (*hidden*) | Opens an item and its copy in another scope in the diff editor. See [Duplicates](duplicates.md). | Tree right-click |
-| Delete (*hidden*) | Moves an item to the trash, or removes an MCP server's entry from its file | Tree right-click, item page |
-| Reveal in File Explorer (*hidden*) | Shows the item's file or folder in the file explorer | Tree right-click, item page |
+| Rename... (*hidden*) | Renames an item and its file | Item page |
+| Duplicate... (*hidden*) | Copies an item under a new name | Item page |
+| Delete (*hidden*) | Moves an item to the trash, or removes an MCP server's entry from its file | Item page |
+| Reveal in File Explorer (*hidden*) | Shows the item's file or folder in the file explorer | Item page |
 | Enable / Disable Plugin (*hidden*) | Turns a plugin on or off | Tree inline, plugin page |
 | Add MCP Server... | Asks for the scope, a name, and a command line or URL, then adds the server to `~/.claude.json` or the repo's `.mcp.json` | Palette, MCP Servers header, tree inline |
-| Copy as claude mcp add Command (*hidden*) | Copies a `claude mcp add` line for the server to the clipboard | Tree right-click, server page |
+| Copy as claude mcp add Command (*hidden*) | Copies a `claude mcp add` line for the server to the clipboard | Server page |
 | Open Claude Here | Opens a terminal in a repo, or in your home folder, running `claude` (or the command set in `claudeHarness.terminal.command`). Every action that starts Claude sits in an AI group, led by the Claude mark, last at the right end of its bar. | Palette, tree title bar, repo rows |
 | New Claude Terminal | Opens a new terminal running `claude`, in the active editor's workspace folder. Each terminal gets its own name. See [Settings](settings.md#new-claude-terminal-and-image-paste). | Palette, Ctrl+F1, Claude mark button in the editor title bar |
 | Paste Image into Claude | Saves an image on the clipboard as a PNG and types its path into the terminal, so Claude Code reads it. Text on the clipboard pastes as usual. Windows only. See [Settings](settings.md#new-claude-terminal-and-image-paste). | Palette, Ctrl+V in a terminal |
 | Install Plugin... | Picks a plugin from your marketplaces and the scope, then runs `claude plugin install` in a terminal | Palette, Plugins header, tree inline |
-| Uninstall Plugin... | Confirms, then runs `claude plugin uninstall` in a terminal | Palette, tree right-click, plugin page |
+| Uninstall Plugin... | Confirms, then runs `claude plugin uninstall` in a terminal | Palette, plugin page |
 | Open Settings File... | Picks any `settings.json` or `settings.local.json` and opens it in the editable JSON view | Palette, tree inline on Settings |
 | GitHub Repo Overview | Opens the table of every repo, with a search box. See [GitHub Repo overview](fleet-overview.md). | Palette, tree title bar, Repositories node, sidebar header |
 | Marketplace Health | Opens the marketplaces and their plugins. See [Marketplace health](marketplace-health.md). | Palette, Plugins header, Repositories node, sidebar header, Marketplaces header in the sidebar |
@@ -51,8 +50,8 @@ Every command is in the **Claude Harness** category. Commands marked *hidden* do
 | Retire Clean Copies... | Retires identical repo copies of skills and agents after you pick them. See [Duplicates](duplicates.md#retire-clean-copies). | Palette, Repositories node, GitHub Repo overview |
 | Rename Marketplace... | Renames a directory marketplace in the settings files, then re-registers it in a terminal. See [Marketplace health](marketplace-health.md#rename-a-directory-marketplace). | Palette, Marketplace health page, marketplace page |
 | Open Repo (*hidden*) | Opens a repo's page | Right-click on a repo row |
-| Rename Session... | Renames a Claude Code session the way `/rename` does, so `/resume` shows the new name. See [Sessions](sessions.md#sessions-in-the-tree). | Palette, right-click on a session row |
-| Open Session (*hidden*) | Opens a Claude Code session's page. See [Sessions](sessions.md). | Session rows in the tree |
+| Rename Session... | Renames a Claude Code session the way `/rename` does, so `/resume` shows the new name. See [Sessions](sessions.md#sessions-in-the-sidebar). | Palette |
+| Open Session (*hidden*) | Opens a Claude Code session's page. See [Sessions](sessions.md). | Session rows in the sidebar and on the Sessions page |
 | Remove Line (*hidden*) | Deletes a line that a CodeLens or quick fix flags. See [CLAUDE.md lenses](claude-md-lenses.md). | CodeLens, quick fix |
 | Repoint... (*hidden*) | Replaces a dead pointer with a name you pick. See [CLAUDE.md lenses](claude-md-lenses.md#dead-pointers). | CodeLens |
 | Check Harness | Runs the harness standard checks of the provider plugin. A repo row checks that repo. | Palette, repo rows |
@@ -62,10 +61,6 @@ Every command is in the **Claude Harness** category. Commands marked *hidden* do
 | Open the Harness Standard | Opens the harness standard that the provider plugin ships | Palette |
 
 Provider commands appear when a harness standard provider plugin is installed.
-
-## Plugin agents
-
-In the tree, a plugin agent offers only **Open File** and **Reveal in File Explorer** on right-click. **Rename**, **Duplicate**, **Compare with Copy** and **Delete** are hidden for it. See [Plugins](plugins.md#agents-in-the-global-list).
 
 ## Add MCP Server
 

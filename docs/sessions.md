@@ -8,11 +8,11 @@
 </tr>
 </table>
 
-Claude Harness lists the Claude Code sessions that ran in each repo. A session page shows what the run cost, which agents it started and how the work was delegated. Open a session from the activity bar, the main window or a repo page.
+Claude Harness lists the Claude Code sessions that ran in each repo. A session page shows what the run cost, which agents it started and how the work was delegated. Open a session from the sidebar, the overview or a repo page.
 
 | Section | Description |
 | --- | --- |
-| [Sessions in the tree](#sessions-in-the-tree) | The session rows under each repo in the activity bar |
+| [Sessions in the sidebar](#sessions-in-the-sidebar) | The session rows under each repo in the sidebar |
 | [Sessions page](#sessions-page) | The search box, its suggestions, filters and chips |
 | [Several accounts](#several-accounts) | Sessions of more than one Claude config folder, and the last 7 days of each account |
 | [Session page](#session-page) | The header, the cost, the four KPIs and the agent details |
@@ -22,15 +22,15 @@ Claude Harness lists the Claude Code sessions that ran in each repo. A session p
 | [Used in](#used-in) | The sessions that used an element, with the Used column and the other Used in tabs |
 | [Hover cards](#hover-cards) | The cards for agents, the main thread and repos |
 
-## Sessions in the tree
+## Sessions in the sidebar
 
-Each repo in the activity bar expands to its sessions, newest first. A session row shows its name, its date, its duration, its agent count and whether it is running now. Hover a row for a card with a heading (**Session**, **Running now** or **Headless session**), the first prompt, and the repo, branch, date and agent count; it never shows the path of the transcript. Headless `claude -p` runs started from a session's scratchpad folder appear under that session.
+The **Sessions** node of an open repo in the sidebar lists its sessions, newest first. A session row shows its name, its date, its duration, its agent count and whether it is running now. Hover a row for a card with a heading (**Session**, **Running now** or **Headless session**), the first prompt, and the repo, branch, date and agent count; it never shows the path of the transcript. Headless `claude -p` runs started from a session's scratchpad folder appear under that session.
 
 A session is named the way Claude Code's `/resume` names it: its agent name, then its custom title (set with `/rename`), its AI-generated title, its summary, its first prompt, and last the first 8 characters of its id.
 
 Click a session row to open its session page. The **Open Session** command runs from these rows. See [Commands](commands.md).
 
-Right-click a session row and choose **Rename Session...** to change its name. An input box is prefilled with the current name; Enter writes it the way `/rename` does, so `/resume` shows the new name too, and Escape or an empty name changes nothing. The command is also in the palette, where it first asks which session.
+Run **Claude Harness: Rename Session...** from the palette to change a session's name. It asks which session, then an input box is prefilled with the current name; Enter writes it the way `/rename` does, so `/resume` shows the new name too, and Escape or an empty name changes nothing.
 
 The **Sessions** node has an import button. It adds a Claude Code transcript (a `.jsonl` file) to that repo's account, so the session can be resumed there with `claude --resume`.
 

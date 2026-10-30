@@ -110,7 +110,7 @@ The Status of a server is one fact in the info card of its page: an icon, a word
 
 The command bar of the server page has a **Delete** button for a server that has an entry in a config file: `.mcp.json` in a repo, or `~/.claude.json` for your own config and for a repo's entry there. Claude Harness asks you to confirm with a card under the button (a VS Code dialog when you start it from the sidebar tree), then removes that entry from the file. Removing the entry can reformat the entries next to it in that file.
 
-claude.ai connectors and plugin servers have no entry in a file, so they have no trash button. The same delete is in the sidebar tree's right-click menu.
+claude.ai connectors and plugin servers have no entry in a file, so they have no trash button.
 
 ## Add a server
 
@@ -118,7 +118,7 @@ Click the plus button on the **MCP Servers** header, or run **Claude Harness: Ad
 
 ## Copy as a command
 
-The **Copy command** button in the server page command bar, also in the tree's right-click menu, copies a `claude mcp add` line for the server to the clipboard. See [Commands](commands.md#copy-as-claude-mcp-add-command).
+The **Copy command** button in the server page command bar copies a `claude mcp add` line for the server to the clipboard. See [Commands](commands.md#copy-as-claude-mcp-add-command).
 
 ## Share and sync
 

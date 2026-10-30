@@ -140,7 +140,7 @@ claude plugin install harness@claude-harness
 Install Claude Harness: it opens on the `~/.claude` you already have.
 
 1. Open the Extensions view (Ctrl+Shift+X), search for **Claude Harness**, and click **Install**. You can also run `code --install-extension integrations-at.claude-harness` in a terminal.
-2. Click **Claude Harness** in the status bar, or its icon in the activity bar. The main window opens; the activity bar icon opens it when it is not open yet.
+2. Click **Claude Harness** in the status bar, or its icon in the activity bar. The main window opens, and the side bar keeps the view you had open.
 3. Pick an item in the sidebar to view and edit it. The global harness is read from `~/.claude`.
 
 > Note: Claude Harness needs Claude Code and VS Code 1.100 or newer. The global MCP server list comes from `claude mcp list`, so the `claude` command must be on your PATH.

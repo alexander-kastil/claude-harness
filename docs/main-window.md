@@ -15,7 +15,7 @@ The main window shows your global harness and each repository in one place. The 
 | Method | Result |
 | --- | --- |
 | **Claude Harness** in the status bar (bottom bar) | Opens the main window |
-| Claude Harness icon in the activity bar | Opens the activity bar view, and the main window too when it is not open. Click an item there to open it in the main window. |
+| Claude Harness icon in the activity bar | Opens the main window, then puts back the side bar view you had open, or hides the side bar again when it was hidden |
 | **Claude Harness: Open Claude Harness** in the command palette | Opens the main window |
 | Ctrl+Alt+A | Opens the main window |
 
@@ -71,17 +71,6 @@ The search box, **Search the harness and sessions**, filters the harness items b
 
 
 The type pages of agents, skills and commands have a **Used** column and two more filters. See [Used column on the type pages](sessions.md#used-column-on-the-type-pages).
-
-## Activity bar view
-
-The activity bar view shows the global harness as a tree. Expand a section to see its items, and expand a skill to see its files.
-
-| Action | Result |
-| --- | --- |
-| Click an item | Opens it in the main window |
-| Right-click an item | Opens the file, reveals it, and for editable items renames, duplicates or deletes it. **Share...** saves most kinds as a file, and a skill with a source offers **Sync**. See [Share and Import](commands.md#share-and-import). |
-| Plugin row button | Enables or disables the plugin. See [Plugins](plugins.md). |
-| Title bar buttons | Open the main window, create an item, refresh, open the GitHub Repo overview and open Claude Here |
 
 ---
 

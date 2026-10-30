@@ -49,7 +49,7 @@ Markdown items (memory, rules, agents, skills, commands and output styles) show 
 | --- | --- |
 | Save | Click **Save**, or press Ctrl+S (Cmd+S on macOS). The button is enabled only when there are unsaved changes. Any save, including **Save** on the unsaved-changes card, returns the page to View mode. |
 | Revert | Click **Revert** to discard the changes since the last save. A card asks first. |
-| Switch to another item | A **Save changes** card with the item's name appears under the button you pressed, with **Save**, **Don't Save** and **Cancel**. **Cancel**, or Esc, stays on the current item. When you start the switch from a tree menu in the activity bar, the question is a VS Code dialog instead. |
+| Switch to another item | A **Save changes** card with the item's name appears under the button you pressed, with **Save**, **Don't Save** and **Cancel**. **Cancel**, or Esc, stays on the current item. |
 
 ![Save changes card](images/save-card.png)
 
@@ -60,7 +60,7 @@ After a save, the status bar shows "Saved" with the item name. If the file canno
 ## Open files
 
 - **Open in editor** opens the item's file in VS Code. It is on every item.
-- **Reveal** opens the file's folder in Windows File Explorer. In the activity bar menu it is **Reveal in File Explorer**.
+- **Reveal** opens the file's folder in Windows File Explorer.
 - For a skill, the **Files** list shows the other files in its folder. Click one to open it. The **Files** tile counts them and its line reads, for example, `SKILL.md · 3 references · 1 script`.
 
 ## Create, rename, duplicate and delete
@@ -77,7 +77,7 @@ To pass an element to someone else, **Share...** in its right-click menu saves i
 | Duplicate | The same kinds as rename | Copies the file or skill folder under a new name. The default name is the original name with `-copy`. |
 | Delete | The same kinds as rename | Asks you to confirm, then moves the file or skill folder to the trash. |
 
-The confirmation for delete, and for deleting an MCP server, uninstalling a plugin and retiring a copy, is a card under the button on the item page. These cards have no **Don't ask again**, and they start with **Cancel** selected. From a tree menu in the activity bar the question is a VS Code dialog.
+The confirmation for delete, and for deleting an MCP server, uninstalling a plugin and retiring a copy, is a card under the button on the item page. These cards have no **Don't ask again**, and they start with **Cancel** selected.
 
 ![Confirmation card for retiring a copy](images/confirm-card.png)
 
@@ -113,7 +113,7 @@ A skill page measures what the skill costs in context, against Anthropic's publi
 
 ![Skills page with the Desc and Cost columns and the new presets](images/skills-page.png)
 
-Rename, duplicate and delete are in the detail view and in the right-click menu of the activity bar view.
+Rename, duplicate and delete are in the detail view.
 
 ---
 

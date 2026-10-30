@@ -24,7 +24,6 @@ The Plugins section lists the plugins in the global harness and in each repo. Yo
 | --- | --- |
 | Plugins page | Use the switch in the **Enabled** column of the plugin's row. It enables or disables the plugin in the scope of that row, and clicking it does not open the plugin. |
 | Detail view | Tick or clear the checkbox under the description, **Enabled for your user** for a global plugin. The change is written at once. |
-| Activity bar view | Click the circle button on the plugin's row. Its tooltip is **Enable / Disable Plugin**. |
 
 ## What it changes
 
@@ -34,11 +33,9 @@ The switch sets the plugin's key under `enabledPlugins` in the `settings.json` o
 
 Each agent of a plugin enabled in `~/.claude/settings.json` also appears in the global **Agents** list, in the **From plugins** group under the **Global** group. The skills of an enabled plugin appear the same way in the **From plugins** group of the **Skills** list. Each group is sorted by name. These copies are read-only. Each description starts with `plugin <name>`, for example `plugin review-kit · Reviews a pull request`. Plugins enabled only in a repo's settings do not add agents to the global list.
 
-In the activity bar, the right-click menu of a plugin agent shows **Open File** and **Reveal in File Explorer** only. **Rename**, **Duplicate**, **Compare with Copy** and **Delete** do not appear for it. See [Commands](commands.md#plugin-agents).
-
 ## Install and uninstall
 
-Click the plus button on the **Plugins** header, or run **Claude Harness: Install Plugin...**, to install a plugin from your marketplaces. The **Uninstall** button on a plugin page, the tree's right-click menu and **Claude Harness: Uninstall Plugin...** uninstall it. From the plugin page a card under the button asks first; from the tree or the palette a VS Code dialog does. Both run the `claude plugin` command in a terminal. See [Commands](commands.md#install-and-uninstall-plugins).
+Click the plus button on the **Plugins** header, or run **Claude Harness: Install Plugin...**, to install a plugin from your marketplaces. The **Uninstall** button on a plugin page and **Claude Harness: Uninstall Plugin...** uninstall it. From the plugin page a card under the button asks first; from the palette a VS Code dialog does. Both run the `claude plugin` command in a terminal. See [Commands](commands.md#install-and-uninstall-plugins).
 
 To see which installed plugins are behind their marketplace source, open [Marketplace health](marketplace-health.md). A plugin whose source is ahead of the installed copy has a **Sync plugin** button in the Sync column there, which refreshes the marketplace and updates the plugin, and **Sync all** in the column's header syncs every plugin that is ahead after one card. The right-click menu of a plugin has **Sync Plugin from Its Marketplace...** for one plugin. The same page renames a directory marketplace and re-registers its plugins.
 

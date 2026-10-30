@@ -43,7 +43,7 @@ Each kind has a page with a table. Every table has Name, Description and Changed
 
 **Origin** reads `global`, `repo`, `linked` (a skill that is a link to another folder, such as one an older version or the skills CLI made), `marketplace` (shipped by a plugin) or `distributor` (a skill with a source). **Sync** reads `current`, `update`, `unchecked` or `gone`; see [Skill sources](skill-sources.md#the-origin-and-sync-columns). In **Used** and **Cost**, a red 0 means the usage has not been counted yet; **Count usage** builds it.
 
-The second line of a row in the sidebar and the tree shows at most three short facts for its kind, such as when it changed, how often it was used and its size. Each has a hover card that says what it is.
+The second line of a row in the sidebar shows at most three short facts for its kind, such as when it changed, how often it was used and its size. Each has a hover card that says what it is.
 
 ## Read-only and switch-only kinds
 

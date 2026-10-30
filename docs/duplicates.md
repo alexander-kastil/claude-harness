@@ -20,7 +20,7 @@ Items with the same name are compared across all scopes. Each copy reads one of 
 | nearly identical | Only whitespace or version lines differ. |
 | differs | The content is different. |
 
-The hover card of an item in the activity bar tree ends with the copies, for example **also in Global (identical)** or **also in docs-kit (differs)**. In the main window, the page of a repo skill or agent offers **Retire** when an identical copy exists and **Sync from Global** when the Global copy differs, and the **Copies** tile of the repo page counts the copies. **Compare with Copy...** on the tree's right-click menu opens the two files in the diff editor.
+In the main window, the page of a repo skill or agent offers **Retire** when an identical copy exists and **Sync from Global** when the Global copy differs, and the **Copies** tile of the repo page counts the copies.
 
 ## Retire a copy
 

@@ -25,7 +25,7 @@ The marketplaces are in two groups: **Local, on disk** for your own directory ma
 
 **Sync plugin** refreshes the marketplace and updates that plugin from it, after a card that names both versions. The same command is **Claude Harness: Sync Plugin from Its Marketplace...** in the plugin's right-click menu. **Sync all** syncs every plugin of that marketplace that is ahead in one go, see [Sync every plugin that is ahead](#sync-every-plugin-that-is-ahead).
 
-Open the page from the package icon in the sidebar header, the **Marketplaces** header in the sidebar, the package icon on the **Plugins** row of the activity bar, the **Repositories** node menu, or **Claude Harness: Marketplace Health** in the command palette.
+Open the page from the package icon in the sidebar header, the **Marketplaces** header in the sidebar, or **Claude Harness: Marketplace Health** in the command palette.
 
 ## Marketplace page
 

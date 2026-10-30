@@ -75,7 +75,7 @@ Claude Code reads its config folder from `CLAUDE_CONFIG_DIR`, so a machine with 
 
 `path` is required, and a leading `~` is your home folder. The label defaults to the folder name, and an unknown plan counts as none. The main account, from `claudeHarness.root`, is labeled **Default**; give it a plan with `claudeHarness.plan`. A folder that repeats an earlier one is ignored. `weekStart` is the weekday (`Mon`, `Tue` and so on, or the full name) and the UTC hour, with optional minutes, at which the weekly limit of the plan resets, for example `Mon 11:00` or `Thu 9:30`. Find it in the usage card of the Claude app, and convert to UTC. A value in another form is ignored. With the list empty nothing changes. Only the sessions come from the extra folders: the harness items you edit still come from the main folder.
 
-With more than one account, each session in the tree, the sessions page and the session header shows the label of its account, and the cost row starts on that account's plan. See [Sessions](sessions.md#several-accounts).
+With more than one account, each session in the sidebar, the sessions page and the session header shows the label of its account, and the cost row starts on that account's plan. See [Sessions](sessions.md#several-accounts).
 
 See [Repositories](repositories.md) for how the two repo lists are used.
 
