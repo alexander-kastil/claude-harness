@@ -24,6 +24,7 @@ All notable changes to Claude Harness are listed here, newest first. The format 
 - Docs screenshots: README images: The stop markers are not drawn at all in this mock: no dg-mark, dg-stop or dg-chip nodes in the DOM
 - One consistent Cowork icon everywhere: Progress: 4/4 · report
 - Docs screenshots: README images: Fitted all eight images to their content and copied them into docs/images
+- Collapse/expand the left nav to a rail: Already applied: line 63 now reads 72px (their message likely crossed mine)
 
 ### Fixed
 

@@ -485,7 +485,7 @@ function foldAllButton() {
 // ---- The rail: the nav collapsed to 48px, one button per region and top-level group. ----
 
 const NAV_ID = 'nav-pane';
-const NAV_KEYS = 'Ctrl+Alt+B';
+const NAV_KEYS = 'Alt+Shift+B';
 
 // The nav key an expand from the rail scrolls to once the full nav is repainted.
 let railTarget;
@@ -502,21 +502,21 @@ function syncRail(aside) {
 
 // Collapses or expands the nav without a repaint, so the column width, the fade of the labels and the fade of the rail run as one
 // CSS transition that a second press interrupts. Focus follows only when it was inside the part that goes away.
-function setRail(next) {
+function setRail(next, byMouse) {
   const aside = app.querySelector('.sidebar');
-  const hadFocus = aside && aside.contains(document.activeElement);
+  const hadFocus = aside && aside.contains(document.activeElement) && !byMouse;
   state.navRail = next;
   persist();
   hideHover();
   app.classList.add('rail-anim');
-  app.classList.toggle('rail', next);
+  app.classList.toggle('rail-on', next);
   syncRail(aside);
   document.querySelectorAll('.nav-toggle').forEach(b => b.setAttribute('aria-expanded', next ? 'false' : 'true'));
   if (aside && hadFocus && wide.matches) aside.querySelector(next ? '.rail .nav-toggle' : '.sidebar-full .nav-toggle').focus();
 }
 
 window.addEventListener('keydown', e => {
-  if (e.ctrlKey && e.altKey && !e.shiftKey && !e.metaKey && e.code === 'KeyB') {
+  if (e.altKey && e.shiftKey && !e.ctrlKey && !e.metaKey && e.code === 'KeyB') {
     e.preventDefault();
     setRail(!state.navRail);
   }
@@ -526,12 +526,12 @@ wide.addEventListener('change', () => syncRail(app.querySelector('.sidebar')));
 // The collapse button of the top bar and the expand button of the rail: one control, `aria-expanded` says which way it goes.
 const navToggle = collapsed => {
   const label = collapsed ? 'Expand navigation' : 'Collapse navigation';
-  const b = iconBtn(collapsed ? 'layout-sidebar-left' : 'layout-sidebar-left-off', `${label}\n${NAV_KEYS}`, () => setRail(!collapsed));
+  const b = iconBtn(collapsed ? 'layout-sidebar-left' : 'layout-sidebar-left-off', `${label}\n${NAV_KEYS}`, e => setRail(!collapsed, e.detail > 0));
   b.classList.add('nav-toggle');
   b.setAttribute('aria-label', label);
   b.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
   b.setAttribute('aria-controls', NAV_ID);
-  b.setAttribute('aria-keyshortcuts', 'Control+Alt+B');
+  b.setAttribute('aria-keyshortcuts', 'Alt+Shift+B');
   return b;
 };
 
@@ -594,7 +594,7 @@ function renderRail(input) {
     b.dataset.rail = e.id;
     return b;
   };
-  const logoBtn = el('button', { type: 'button', className: 'icon-btn rail-logo', title: `Expand navigation\n${NAV_KEYS}`, 'aria-label': 'Expand navigation', 'aria-expanded': 'false', 'aria-controls': NAV_ID, onclick: () => setRail(false) }, logo('logo-sm'));
+  const logoBtn = el('button', { type: 'button', className: 'icon-btn rail-logo', title: `Expand navigation\n${NAV_KEYS}`, 'aria-label': 'Expand navigation', 'aria-expanded': 'false', 'aria-controls': NAV_ID, onclick: e => setRail(false, e.detail > 0) }, logo('logo-sm'));
   const top = el('div', { className: 'rail-top' }, logoBtn, topActions(), navToggle(true));
   top.querySelectorAll('button').forEach((b, i) => (b.dataset.rail = `top${i}`));
   return el('nav', { className: 'rail', 'aria-label': 'Harness, collapsed' }, top, el('div', { className: 'rail-list' }, entries.map(button)));
@@ -757,7 +757,7 @@ export function renderSidebar() {
     ),
     rail
   );
-  app.classList.toggle('rail', state.navRail);
+  app.classList.toggle('rail-on', state.navRail);
   syncRail(aside);
   // Once the repaint is in the page: the selected row scrolls into view, and the focus comes back.
   queueMicrotask(() => {
