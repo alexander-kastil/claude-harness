@@ -69,6 +69,7 @@ import { STYLE_MODELS, StyleModel, draftStyle, stylePrompt, writeStyleDraft } fr
 import { Specialist, fitGeneralFindings } from './findings';
 import { pickTools, splitTools, TOOL_FIELDS } from './tools';
 import { modActivity, repoTrace } from './trace';
+import { trackSideBar } from './side-bar';
 import { HarnessTree, Node, sessionText } from './tree';
 import { UsageIndex } from './usage';
 import type { Progress } from './usage';
@@ -1077,12 +1078,16 @@ export function activate(context: vscode.ExtensionContext): void {
     },
   };
 
-  // Switching to the Claude Harness view in the activity bar opens the main panel, unless it is already open.
-  const treeView = vscode.window.createTreeView('claudeHarness.tree', { treeDataProvider: tree, showCollapseAll: true });
+  // The activity bar icon is a button for the main panel: its view holds no tree, it opens the panel and puts back the side bar
+  // view the user had open, or hides the side bar again when it was hidden.
+  const sideBar = trackSideBar(context, 'workbench.view.extension.claudeHarness');
+  const treeView = vscode.window.createTreeView('claudeHarness.tree', { treeDataProvider: { getTreeItem: (n: vscode.TreeItem) => n, getChildren: () => [] } });
   context.subscriptions.push(
     treeView,
     treeView.onDidChangeVisibility(e => {
-      if (e.visible) HarnessPanel.ensure(context, host);
+      if (!e.visible) return;
+      HarnessPanel.show(context, host);
+      sideBar.restore();
     })
   );
 
