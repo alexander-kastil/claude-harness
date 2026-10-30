@@ -158,20 +158,149 @@ test('skills remove deletes a leaf or a skill after a backup and lists what stil
   assert.equal((await cli(['skills', 'remove', '--name', 'media', ...f.base])).code, 1);
 });
 
+test('skills remove retires a stray folder with no SKILL.md, of a repo with --repo, backed up first', async () => {
+  const f = fixture();
+  const repo = tmp('repo');
+  write(repo, 'CLAUDE.md', '# repo\n\nThe vendored folder is old.\n');
+  write(repo, '.claude/skills/vendored/README.md', '# vendored\n');
+  write(repo, '.claude/skills/vendored/hooks/hook.mjs', 'export {};\n');
+  const dry = await cli(['skills', 'remove', '--name', 'vendored', '--repo', repo, '--dry-run', ...f.base]);
+  assert.equal(dry.code, 0, dry.err);
+  assert.ok(has(repo, '.claude/skills/vendored/README.md'));
+  const o = JSON.parse((await cli(['skills', 'remove', '--name', 'vendored', '--repo', repo, '--json', ...f.base])).out) as SkillsOut;
+  assert.ok(!has(repo, '.claude/skills/vendored'));
+  assert.ok(o.backup && fs.readdirSync(o.backup, { recursive: true }).some(x => String(x).endsWith(path.join('vendored', 'hooks', 'hook.mjs'))));
+  assert.ok(o.changes.some(c => c.action === 'remove' && /stray, no SKILL\.md/.test(c.detail)));
+  assert.ok(o.changes.some(c => c.action === 'check' && c.file.endsWith('CLAUDE.md')));
+  // An empty stray of the root has nothing to back up and still says what it deleted.
+  fs.mkdirSync(path.join(f.root, 'skills/empty-one'));
+  const empty = JSON.parse((await cli(['skills', 'remove', '--name', 'empty-one', '--json', ...f.base])).out) as SkillsOut;
+  assert.ok(!has(f.root, 'skills/empty-one'));
+  assert.deepEqual(empty.changes.map(c => [c.action, c.detail]), [['remove', 'empty folder, deleted']]);
+});
+
+test('skills move finds both skills in the market plugins, stops on a name in two places, and writes an absolute mention in the plugin skill\'s own form', async () => {
+  const f = fixture();
+  const sql = 'plugins/azure/skills/sql-server';
+  const slot = 'plugins/hetzner-cicd/skills/db-slot-sync';
+  write(f.market, `${sql}/SKILL.md`, skill('sql-server', 'Run `bash ~/.claude/skills/sql-server/scripts/push.sh` or see references/push.md.'));
+  write(f.market, `${sql}/scripts/push.sh`, 'echo push\n');
+  write(f.market, `${sql}/references/push.md`, '# Push\n\nbash ~/.claude/skills/sql-server/scripts/push.sh --apply\n');
+  write(f.market, `${slot}/SKILL.md`, skill('db-slot-sync', 'Runs <this skill>/scripts/apply.sh.'));
+  write(f.root, 'agents/dba.md', '---\nname: dba\ndescription: dba\n---\n\nUse $HOME/.claude/skills/sql-server/scripts/push.sh.\n');
+  const md = await cli(['skills', 'move', '--leaf', 'sql-server/references/push.md', '--to', 'db-slot-sync/references/push.md', '--json', ...f.base]);
+  assert.equal(md.code, 0, md.err);
+  assert.ok(has(f.market, `${slot}/references/push.md`) && !has(f.market, `${sql}/references/push.md`));
+  assert.ok((JSON.parse(md.out) as SkillsOut).changes.some(c => c.action === 'check' && c.file.endsWith(`${sql}/SKILL.md`)));
+  // A skill of that name under the root as well: the move stops and lists both; <plugin>:<skill> picks the plugin's.
+  write(f.root, 'skills/db-slot-sync/SKILL.md', skill('db-slot-sync'));
+  const two = await cli(['skills', 'move', '--leaf', 'sql-server/scripts/push.sh', '--to', 'db-slot-sync/scripts/push.sh', ...f.base]);
+  assert.equal(two.code, 1);
+  assert.match(two.err, /db-slot-sync is in more than one place: .*db-slot-sync, hetzner-cicd:db-slot-sync \(/);
+  assert.ok(has(f.market, `${sql}/scripts/push.sh`));
+  const sh = await cli(['skills', 'move', '--leaf', 'azure:sql-server/scripts/push.sh', '--to', 'hetzner-cicd:db-slot-sync/scripts/push.sh', ...f.base]);
+  assert.equal(sh.code, 0, sh.err);
+  assert.ok(has(f.market, `${slot}/scripts/push.sh`) && !has(f.market, `${sql}/scripts/push.sh`));
+  // Inside the target skill the absolute place becomes <this skill>/...; everywhere else <skill>/..., never ~/.claude/skills/db-slot-sync.
+  assert.equal(read(f.market, `${slot}/references/push.md`), '# Push\n\nbash <this skill>/scripts/push.sh --apply\n');
+  assert.match(read(f.market, `${sql}/SKILL.md`), /Run `bash db-slot-sync\/scripts\/push\.sh` or see/);
+  assert.match(read(f.root, 'agents/dba.md'), /^Use db-slot-sync\/scripts\/push\.sh\.$/m);
+  const missing = await cli(['skills', 'move', '--leaf', 'media/references/sets.md', '--to', 'nope/references/sets.md', ...f.base]);
+  assert.equal(missing.code, 1);
+  assert.match(missing.err, /There is no skill nope\. Create it with skills split\./);
+});
+
+test('skills repoint leaves the plugin folder that ships the skill and the synced skills alone', async () => {
+  const f = fixture();
+  write(f.market, 'plugins/azure/skills/azure/SKILL.md', skill('azure', 'The azure skill.'));
+  write(f.market, 'plugins/azure/skills/sql-server/SKILL.md', skill('sql-server', 'Pairs with the azure skill.'));
+  write(f.market, 'plugins/other/skills/y/SKILL.md', skill('y', 'Use the azure skill.'));
+  write(f.root, 'skills/synced/z/SKILL.md', skill('z', 'Use the azure skill.'));
+  write(f.root, 'skills/film/references/cloud.md', 'Deploy with azure.\n');
+  const dry = JSON.parse((await cli(['skills', 'repoint', '--from', 'azure', '--to', 'azure:azure', '--dry-run', '--json', ...f.base])).out) as SkillsOut;
+  const rewritten = dry.changes.filter(c => c.action === 'rewrite').map(c => c.file);
+  assert.equal(rewritten.length, 2, rewritten.join(', '));
+  assert.ok(rewritten.includes('skills/film/references/cloud.md') && rewritten.some(x => x.endsWith('plugins/other/skills/y/SKILL.md')));
+  assert.equal((await cli(['skills', 'repoint', '--from', 'azure', '--to', 'azure:azure', ...f.base])).code, 0);
+  assert.equal(read(f.root, 'skills/film/references/cloud.md'), 'Deploy with azure:azure.\n');
+  assert.match(read(f.market, 'plugins/azure/skills/sql-server/SKILL.md'), /Pairs with the azure skill\./);
+  assert.match(read(f.root, 'skills/synced/z/SKILL.md'), /Use the azure skill\./);
+});
+
 test('skills repoint rewrites a skill name in the other skills and agents, limited by --skills', async () => {
   const f = fixture();
   const only = JSON.parse((await cli(['skills', 'repoint', '--from', 'media', '--to', 'pictures', '--skills', 'film', '--json', ...f.base])).out) as SkillsOut;
-  assert.deepEqual(only.changes.map(c => c.file), ['skills/film/SKILL.md']);
-  assert.match(read(f.root, 'skills/film/SKILL.md'), /Use pictures for sets/);
-  // A path such as media/references is a different word boundary than the skill name only when followed by a slash: both are rewritten.
-  assert.match(read(f.root, 'skills/film/SKILL.md'), /pictures\/references\/clips\.md/);
+  assert.deepEqual(only.changes.filter(c => c.action === 'rewrite').map(c => c.file), ['skills/film/SKILL.md']);
+  // To a plain name only the reference forms change: the paths do, the bare word comes back as a check row.
+  assert.match(read(f.root, 'skills/film/SKILL.md'), /pictures\/references\/clips\.md; sets pictures\/references\/sets\.md\. Use media for sets/);
+  assert.ok(only.changes.some(c => c.action === 'check' && c.file === 'skills/film/SKILL.md' && /still names it: Clips are/.test(c.detail)));
   assert.match(read(f.root, 'agents/maker.md'), /the media skill/);
   assert.match(read(f.root, 'skills/media/SKILL.md'), /references\/clips\.md/);
   const all = await cli(['skills', 'repoint', '--from', 'media', '--to', 'pictures', ...f.base]);
   assert.equal(all.code, 0);
   assert.match(read(f.root, 'agents/maker.md'), /the pictures skill/);
   assert.match(read(f.market, 'plugins/other/skills/x/SKILL.md'), /pictures\/references\/clips\.md/);
-  assert.equal((await cli(['skills', 'repoint', '--from', 'media', '--to', 'pictures', ...f.base])).code, 1);
+  const again = await cli(['skills', 'repoint', '--from', 'media', '--to', 'pictures', ...f.base]);
+  assert.equal(again.code, 1);
+  assert.match(again.err, /Nothing refers to media in a form repoint rewrites; 1 line still names it\./);
+});
+
+test('skills fix-paths writes a plugin skill\'s absolute paths as <this skill>/ or <plugin:skill>/, keeps a global one and lists the rest', async () => {
+  const f = fixture();
+  const catalog = { name: 'own', plugins: [{ name: 'web-quality', source: './plugins/web-quality' }, { name: 'agentic-web', source: './plugins/agentic-web' }, { name: 'corp', source: './plugins/corp' }] };
+  write(f.market, '.claude-plugin/marketplace.json', JSON.stringify(catalog));
+  write(f.market, 'plugins/web-quality/skills/chrome-devtools/SKILL.md', skill('chrome-devtools'));
+  write(f.market, 'plugins/agentic-web/skills/hugo-authoring/SKILL.md', skill('hugo-authoring'));
+  write(f.market, 'plugins/agentic-web/skills/hugo-authoring/references/create-layout-page.md', 'Run node ~/.claude/skills/hugo-authoring/scripts/create-layout-page.js.\n');
+  write(f.market, 'plugins/agentic-web/skills/hugo-authoring/scripts/orphans.py', 'p = "~/.claude/skills/hugo-authoring/data.json"\n');
+  write(f.root, 'skills/kept/SKILL.md', skill('kept'));
+  const banner = [
+    '# Banner',
+    'Shoot with `node .claude/skills/chrome-devtools/scripts/screenshot.js`.',
+    'Then %USERPROFILE%\\.claude\\skills\\design\\scripts\\fit.ps1 and ~/.claude/skills/kept/x.md.',
+    'Gone: ~/.claude/skills/gone/y.md',
+    '',
+  ];
+  write(f.market, 'plugins/corp/skills/design/SKILL.md', skill('design'));
+  write(f.market, 'plugins/corp/skills/design/references/banner-design.md', banner.join('\n'));
+  const one = JSON.parse((await cli(['skills', 'fix-paths', '--plugin', 'corp', '--dry-run', '--json', ...f.base])).out) as SkillsOut;
+  assert.ok(one.changes.every(c => c.file.includes('/plugins/corp/')));
+  assert.equal(read(f.market, 'plugins/corp/skills/design/references/banner-design.md'), banner.join('\n'));
+  const o = JSON.parse((await cli(['skills', 'fix-paths', '--json', ...f.base])).out) as SkillsOut;
+  assert.equal(
+    read(f.market, 'plugins/corp/skills/design/references/banner-design.md'),
+    [
+      '# Banner',
+      'Shoot with `node <web-quality:chrome-devtools>/scripts/screenshot.js`.',
+      'Then <this skill>\\scripts\\fit.ps1 and ~/.claude/skills/kept/x.md.',
+      'Gone: ~/.claude/skills/gone/y.md',
+      '',
+    ].join('\n')
+  );
+  assert.equal(read(f.market, 'plugins/agentic-web/skills/hugo-authoring/references/create-layout-page.md'), 'Run node <this skill>/scripts/create-layout-page.js.\n');
+  assert.equal(read(f.market, 'plugins/agentic-web/skills/hugo-authoring/scripts/orphans.py'), 'p = "~/.claude/skills/hugo-authoring/data.json"\n');
+  const checks = o.changes.filter(c => c.action === 'check').map(c => `${path.basename(c.file)} ${c.detail.slice(0, c.detail.indexOf(': '))}`);
+  assert.deepEqual(checks.sort(), ['banner-design.md line 4, gone is not a skill under ' + path.join(f.root, 'skills') + ' or in the market', "orphans.py line 1, a script names hugo-authoring's global folder"]);
+  assert.ok(o.backup && fs.readdirSync(o.backup, { recursive: true }).some(x => String(x).endsWith('banner-design.md')));
+  assert.equal((await cli(['skills', 'fix-paths', '--plugin', 'nope', ...f.base])).code, 1);
+  assert.equal((await cli(['skills', 'fix-paths', '--root', f.root])).code, 2);
+});
+
+test('skills put finds the target skill in a plugin of --market, and <plugin>:<skill> picks one', async () => {
+  const f = fixture();
+  const file = path.join(tmp('put'), 'tool-evals.md');
+  fs.writeFileSync(file, '# Evals\n');
+  write(f.market, 'plugins/agentic-web/skills/webmcp/SKILL.md', skill('webmcp'));
+  const r = await cli(['skills', 'put', '--file', file, '--to', 'webmcp/references/tool-evals.md', ...f.base]);
+  assert.equal(r.code, 0, r.err);
+  assert.equal(read(f.market, 'plugins/agentic-web/skills/webmcp/references/tool-evals.md'), '# Evals\n');
+  write(f.root, 'skills/webmcp/SKILL.md', skill('webmcp'));
+  const two = await cli(['skills', 'put', '--file', file, '--to', 'webmcp/references/other.md', ...f.base]);
+  assert.equal(two.code, 1);
+  assert.match(two.err, /webmcp is in more than one place/);
+  assert.equal((await cli(['skills', 'put', '--file', file, '--to', 'agentic-web:webmcp/references/other.md', ...f.base])).code, 0);
+  assert.ok(has(f.market, 'plugins/agentic-web/skills/webmcp/references/other.md') && !has(f.root, 'skills/webmcp/references/other.md'));
+  assert.match((await cli(['skills', 'put', '--file', file, '--to', 'nope/references/x.md', ...f.base])).err, /There is no skill nope\./);
 });
 
 test('skills needs a known subcommand and valid names', async () => {

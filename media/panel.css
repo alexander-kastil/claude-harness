@@ -2578,6 +2578,20 @@ mark {
   flex-wrap: wrap;
 }
 
+/* The AI group sits at the right end of whatever bar it is in, last in order and pushed right by an auto margin, so it stays there
+   when the bar wraps or drops its labels; the other groups keep their order on the left. */
+.cmd-bar > .ai-group,
+.cmd-row > .ai-group,
+.dg-bar > .ai-group,
+.style-draft > .ai-group,
+.cp-actions > .ai-group,
+.std-actions > .ai-group,
+.hunt-ask-actions > .ai-group,
+.toolbar > .ai-group {
+  order: 99;
+  margin-left: auto;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .cf,
   .cf.leaving {

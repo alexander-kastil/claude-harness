@@ -8,6 +8,8 @@ Claude Harness is a first-class tool for harness engineering, a VS Code editor f
 
 Replay a session to any checkpoint, see what each agent and skill cost, build plugins from your skills with Claude, and open every view as an `@harness` mention.
 
+Best of all: once you have visualized and configured a scenario, you continue the task in a Claude terminal that opens with that context already filled in.
+
 ![Claude Harness in action](docs/images/harness-demo.gif)
 
 [Watch the film as MP4](https://github.com/alexander-kastil/claude-harness/blob/master/docs/images/harness-demo.mp4)

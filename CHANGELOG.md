@@ -4,9 +4,35 @@ All notable changes to Claude Harness are listed here, newest first. The format 
 
 ## [Unreleased]
 
+### Added
+
+- `harness hunt add --name <plugin> [--skills a,b] [--agents x,y] [--market <m>] [--retire] [--dry-run]` adds skills and agents to a plugin your marketplace already has: it copies them as `hunt create` does, bumps the plugin's patch version in plugin.json and in the marketplace entry (and in the marketplace repo's package.json and package-lock.json when they carry the same version, as the harness plugin's repo does), updates the installed plugin, and with `--retire` retires the copies, backed up first. An element the plugin already has is reported as a problem, never overwritten, and a failed update takes the addition out again.
+- `harness hunt create` and `hunt add` take `<plugin>:<name>` in `--skills` and `--agents` to move a skill or agent out of another plugin of the same marketplace: it is copied into the new or chosen plugin and removed from the old one, backed up first. Both plugins get a patch version bump and are updated when installed; a failed install or update puts both back.
+- `harness hunt create` and `hunt add` list the lines that still name a retired copy, by its old place or its bare name, in CLAUDE.md, the rules, skills and agents of Global and the repos, and in the marketplace's plugins. They are only reported, never rewritten.
+- `harness hunt catalog` lists the strays: folders under a skills root that have no SKILL.md, with what they hold. The `synced` folder under the global skills and dot folders such as `.trash` are not strays.
+- `harness skills remove` takes `--repo <dir>` to delete a skill or a stray folder from a repo's `.claude/skills`, backed up first, and deletes an empty stray folder too.
+- The `harness` plugin ships `mod-authoring`, `context-engineering`, `output-styles`, `hook-caveman-compression`, `claude-harness-consolidate`, `find-skills` and `visualize-conversation`, moved in from the global skills.
+- `harness skills fix-paths --market <dir> [--plugin <p>]` repairs skills that moved into plugins: an absolute path to the skill's own global folder becomes `<this skill>/`, a path into a skill another plugin ships becomes `<plugin:skill>/`, a path to a skill that still exists in your global skills stays, and every other one is listed. Markdown only, backed up first.
+- `harness media doctor` knows the production layout of a film folder (story.md, storyboard.json and .md, grounding.md, look.md, prompt.md, verdict.json, publish.md, ledger.jsonl, takes/ and evidence/) and no longer reports those files as loose or unknown. It runs the layout check of the producer plugin, or of film-producer when that is the one installed.
+- `harness hunt create` and `hunt add` write a copied skill's own absolute path as `<this skill>/` in the plugin copy and list the paths into other skills.
+- `harness skills move`, `split` and `remove` find a skill in the plugins of `--market` as well as in your skills, and `<plugin>:<skill>` picks a plugin's copy. A name found in two places stops and lists both.
+
 ### Changed
 
+- `harness hunt create` and `hunt plan` need `--category` only for a marketplace that keeps its plugins in category folders. Elsewhere a new plugin goes to `plugins/<name>`, and a category given is not used, also in an empty marketplace.
+- `harness skills rename`, and `skills repoint` to a plain name, change only the places where the name is a reference: in backticks, after a plugin prefix, in a skill path, in a link into the skill, and in "name skill". The same word in running text, and the agent of the same name, stay as they are; every line that still names it comes back as a check row. `skills rename --from` takes `<plugin>:<skill>`.
+- `harness skills put` finds the skill in the plugins of `--market` as well, as `skills move` does.
+- A leaf that `harness skills move` puts into a plugin's skill is no longer named under `~/.claude/skills`: inside that skill an absolute mention becomes `<this skill>/<path>`, elsewhere `<skill>/<path>`.
 - The README film is new for 0.12.2: one panel for every repo, session replay with Restore, usage and cost, plugins built from your skills, plugin drawings, Resolve with Claude, `@harness` in the Claude prompt and the plan quota, with an MP4 of the same cut linked under it.
+- The Claude group sits at the right end of its bar on every view: detail page command bars, MCP sign-in rows, the map toggles, the session output-style draft, checkpoint and standard card actions, the repo page toolbar and the Plugin Hunter composer, also when the bar wraps or shows icons only.
+- The README intro calls Claude Harness a first-class tool for harness engineering and says what it lets you do: replay a session to any checkpoint, see what each agent and skill cost, build plugins from your skills with Claude, open every view as an `@harness` mention, and continue the task in a Claude terminal that opens with that context already filled in.
+
+### Fixed
+
+- `harness plugins rename` finishes the identifiers it used to leave as check rows: the old name in quotes and `mcp__<old>__` in the plugin's own code, the `<old>:`, `<old>@<market>` and `plugins/<old>` forms in the other plugins' code files, and the label of a `[<old>](plugins/<old>)` link in the marketplace's README.
+- `harness skills repoint` no longer rewrites the plugin folder that ships the skill, nor the synced skills Claude.ai manages under `~/.claude/skills/synced`.
+- `harness plugins rename` rewrites `<old>:` only where a name follows it with no space (`old:skill-name`), so a YAML key or a JS object key named like the plugin (`  github:` or `github: {`) is left alone.
+- `harness plugins rename` also rewrites the plugin's own json, mjs, ts, js and py files and the `[name](name)` link of the marketplace's plugin list, lists each leftover mention with its line, and a second run after the rename finishes what is left instead of stopping.
 
 ## [0.12.2] - 2026-10-29
 

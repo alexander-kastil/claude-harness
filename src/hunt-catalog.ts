@@ -1,3 +1,4 @@
+import * as fs from 'fs';
 import * as path from 'path';
 import { Asset, ScopeView, contentHash, isPluginCopy } from './harness';
 import type { HuntCatalogItem, HuntProposal } from './shared/hunt';
@@ -52,6 +53,43 @@ export function buildCatalog(views: ScopeView[], plugins: ScopeView[]): HuntCata
     }
   }
   return out.sort((a, b) => a.asset.kind.localeCompare(b.asset.kind) || a.asset.name.localeCompare(b.asset.name));
+}
+
+/** A folder under a skills root that Claude Code does not load as a skill: it has no SKILL.md. */
+export interface HuntStray {
+  scope: string;
+  path: string;
+  why: string;
+}
+
+/** The strays of Global and the repos; the `synced` folder Claude.ai manages under the global skills and dot folders (.trash, .archive) are not. */
+export function straysOf(views: ScopeView[]): HuntStray[] {
+  const out: HuntStray[] = [];
+  for (const view of views) {
+    const global = view.id === 'global';
+    const root = global ? path.join(view.path, 'skills') : path.join(view.path, '.claude', 'skills');
+    let entries: fs.Dirent[];
+    try {
+      entries = fs.readdirSync(root, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    for (const e of entries) {
+      const dir = path.join(root, e.name);
+      if ((global && e.name === 'synced') || e.name.startsWith('.') || fs.existsSync(path.join(dir, 'SKILL.md'))) continue;
+      let inside: fs.Dirent[];
+      try {
+        if (!fs.statSync(dir).isDirectory()) continue;
+        inside = fs.readdirSync(dir, { withFileTypes: true });
+      } catch {
+        continue;
+      }
+      const names = inside.map(x => (x.isDirectory() ? `${x.name}/` : x.name)).sort();
+      const why = names.length ? `No SKILL.md; holds ${names.slice(0, 6).join(', ')}${names.length > 6 ? ` and ${names.length - 6} more` : ''}.` : 'Empty folder, no SKILL.md.';
+      out.push({ scope: global ? 'global' : view.label, path: dir, why });
+    }
+  }
+  return out;
 }
 
 const clip = (text: string, n: number) => (text.length > n ? `${text.slice(0, n - 3)}...` : text);

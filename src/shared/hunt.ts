@@ -11,6 +11,8 @@ export interface HuntAsset {
   inPlugin?: string;
   /** The name the element gets inside the plugin, when a comment to Claude renamed it. */
   as?: string;
+  /** Another plugin of the same marketplace the element moves out of, and the element's path there. */
+  plugin?: { name: string; path: string };
 }
 
 export interface HuntProposal {
