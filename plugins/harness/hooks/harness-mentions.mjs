@@ -14,7 +14,7 @@ const MENTIONS = {
   hunt: { argv: ["hunt", "catalog"], description: "The skills and agents a plugin can be made from" },
   marketplaces: { argv: ["marketplaces"], description: "Every marketplace with its plugins and their health" },
   check: { argv: ["check"], description: "The harness checks of the known repos against the harness standard" },
-  fleet: { argv: ["fleet"], description: "One row per repo: its harness, its checks and its CLAUDE.md" },
+  repos: { argv: ["repos"], description: "One row per repo: its harness, its checks and its CLAUDE.md" },
   sync: { argv: ["sync"], description: "The repo copies of skills and agents that differ from Global" },
   sessions: { argv: ["sessions"], description: "This repo's sessions in /resume order, with their names, start, minutes and agents" },
   mods: { argv: ["mods", "--session", "latest"], description: "Which mods and guards acted in this session" },

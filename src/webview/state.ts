@@ -25,7 +25,7 @@ export interface State {
   draft?: Draft;
   filter: string;
   overviewFilter: string;
-  fleetFilter: string;
+  repoOverviewFilter: string;
   expanded: Set<string>;
   listViews: Record<string, string | undefined>;
   foldedGroups: Set<string>;
@@ -38,7 +38,7 @@ export interface State {
   /** From the claudeHarness.cowork.show setting; false hides the Cowork region of the nav. */
   coworkShow?: boolean;
   page?: string;
-  fleet?: any;
+  repoOverview?: any;
   effective: Record<string, any>;
   ruleInfo: Record<string, any>;
   /** The Used in tab of agents and skills, by element id. */
@@ -101,7 +101,7 @@ export interface State {
   detailTabs: Record<string, string>;
   /** Elements opened by following a reference, newest last, for the detail page's back button. */
   history: string[];
-  fleetTimer?: ReturnType<typeof setTimeout>;
+  repoOverviewTimer?: ReturnType<typeof setTimeout>;
   repoHoverTimer?: ReturnType<typeof setTimeout>;
   repoHoverAt?: { x: number; y: number };
   timelineObserver?: ResizeObserver;

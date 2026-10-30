@@ -4,7 +4,7 @@
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { compareVersions } from './fleet';
+import { compareVersions } from './repos-overview';
 import { parseMarkdown, versionOf } from './harness';
 import { SkillOrigin, forgetOrigin, originsOf, recordOrigin } from './skill-lock';
 

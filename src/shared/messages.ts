@@ -238,7 +238,7 @@ export type ToHost =
   | { type: 'mcpSignIn'; id: string }
   | { type: 'mcpRetry'; id: string }
   | { type: 'command'; command: string; id?: string; kind?: string; scope?: string; rel?: string; /** For `openCowork`: the claude.ai page, `skills`, `plugins` or `connectors`; none opens Capabilities. */ target?: string; market?: string; /** `name@market` of the plugin a sync acts on. */ plugin?: string; /** For `pullToCode` of a project: `rules` (default) or a section of `claude-md`. */ into?: string }
-  | { type: 'fleet' }
+  | { type: 'repos' }
   | { type: 'effective'; scope: string }
   | { type: 'ruleInfo'; id: string }
   | { type: 'marketplaces' }
@@ -343,7 +343,7 @@ export type ToWebview =
   | ({ type: 'page' } & Page)
   | { type: 'mcpInfo'; id: string; info?: McpInfo }
   | { type: 'tools'; id: string; key: string; value: string }
-  | { type: 'fleet'; rows: unknown }
+  | { type: 'repos'; rows: unknown }
   | { type: 'effective'; scope: string; data: unknown }
   | { type: 'ruleInfo'; id: string; info: unknown }
   | { type: 'marketplaces'; list: unknown }

@@ -56,7 +56,7 @@ Two presets filter the page: **From a distributor** and **Update available**. A 
 
 **Check updates** in the Skills page header, or **Check update** on a skill's page, asks GitHub whether the skill's folder changed since it was installed. One request per repository answers for every skill from it, and nothing is downloaded. A change is found even when the SKILL.md carries no version number; when it does, the versions are shown, for example `copywriting (v2.2.0 to v2.3.1)`. The result is a line above the table with a dismiss button, and in the Sync column. **Sync** in the right-click menu of a skill that has a source does the check for that skill and, when it is newer, goes on to the update card.
 
-Checks are never made on their own. GitHub allows 60 requests an hour without a token, so a fleet of skills from many repos can use them up. Set the environment variable `GITHUB_TOKEN` (or `GH_TOKEN`) before you start VS Code to raise the limit; the extension then sends it with its requests. When the limit is reached, the line says so.
+Checks are never made on their own. GitHub allows 60 requests an hour without a token, so a large set of skills from many repos can use them up. Set the environment variable `GITHUB_TOKEN` (or `GH_TOKEN`) before you start VS Code to raise the limit; the extension then sends it with its requests. When the limit is reached, the line says so.
 
 ## Update
 

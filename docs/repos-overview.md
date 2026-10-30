@@ -10,7 +10,7 @@
 
 The GitHub Repo overview shows every repo in one table. Use it to compare line counts, plugins and copies. Clicking a row opens that repo's page. Provider features appear when a harness standard provider plugin is installed.
 
-![GitHub Repo overview table with one row per repo](images/fleet-overview.png)
+![GitHub Repo overview table with one row per repo](images/repos-overview.png)
 
 ## Search
 

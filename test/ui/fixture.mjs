@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 export const repoRoot = path.resolve(here, '..', '..');
-const { projectSlug } = createRequire(import.meta.url)(path.join(repoRoot, 'out', 'src', 'fleet.js'));
+const { projectSlug } = createRequire(import.meta.url)(path.join(repoRoot, 'out', 'src', 'repos-overview.js'));
 
 const write = (file, text) => {
   fs.mkdirSync(path.dirname(file), { recursive: true });

@@ -2,7 +2,7 @@ import * as os from 'os';
 import * as path from 'path';
 import { Asset, backupStamp } from './harness';
 import { Args, Io, Stop, World, emit, headline, load, one, table } from './cli-core';
-import { marketplaceHealth } from './fleet';
+import { marketplaceHealth } from './repos-overview';
 import { SyncFiles, syncApply, syncFiles, syncSource, updatePluginFromMarket } from './sync';
 
 // `sync`: the repo copies of skills and agents that differ from Global; `sync apply` syncs them, `sync plugin` updates a plugin from its marketplace.

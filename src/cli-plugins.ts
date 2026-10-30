@@ -3,7 +3,7 @@ import * as os from 'os';
 import * as path from 'path';
 import { applyEdits, modify, parse as parseJsonc } from 'jsonc-parser';
 import { knownRepos } from './harness';
-import { marketplaceHealth } from './fleet';
+import { marketplaceHealth } from './repos-overview';
 import { Args, Io, Stop, emit, headline, list, one, table } from './cli-core';
 import { Session, SkillChange, escape, isHistory } from './cli-skills';
 

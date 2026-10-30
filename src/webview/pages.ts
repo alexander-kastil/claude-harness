@@ -11,8 +11,8 @@ import { gridTable } from './tables';
 
 export const liveCheck = r => state.checks[r.id] || { state: r.checkState };
 
-export function renderFleet() {
-  const rows = state.fleet;
+export function renderRepoOverview() {
+  const rows = state.repoOverview;
   const body = el('div', { className: 'main-body' });
   if (!rows) body.append(el('div', { className: 'empty flush' }, 'Reading the repos...'));
   else {
@@ -33,7 +33,7 @@ export function renderFleet() {
     // The search on top filters the table by repo name or path as you type; only the table repaints, so the box keeps focus.
     const results = el('div', {});
     const paint = () => {
-      const q = state.fleetFilter.toLowerCase();
+      const q = state.repoOverviewFilter.toLowerCase();
       const hits = rows.filter(r => !q || r.label.toLowerCase().includes(q) || (r.path || '').toLowerCase().includes(q));
       results.replaceChildren(
         hits.length
@@ -50,12 +50,12 @@ export function renderFleet() {
               ),
               'GitHub Repo overview'
             )
-          : el('div', { className: 'empty flush' }, `No repo matches "${state.fleetFilter}"`)
+          : el('div', { className: 'empty flush' }, `No repo matches "${state.repoOverviewFilter}"`)
       );
     };
-    const input = el('input', { type: 'search', placeholder: 'Search repos by name or path', value: state.fleetFilter });
+    const input = el('input', { type: 'search', placeholder: 'Search repos by name or path', value: state.repoOverviewFilter });
     input.addEventListener('input', () => {
-      state.fleetFilter = input.value;
+      state.repoOverviewFilter = input.value;
       paint();
     });
     paint();
@@ -71,7 +71,7 @@ export function renderFleet() {
       std() ? iconBtn('checklist', 'Check every repo against the harness standard', () => command('checkRepos')) : null,
       std('fix') ? iconBtn('wrench', 'Fix settings and hooks...', () => command('fixSettings')) : null,
       confirmAt(iconBtn('archive', 'Retire clean copies...', () => command('retireCopies')), 'panel', 'retireCopies'),
-      iconBtn('refresh', 'Reload the table', () => vscode.postMessage({ type: 'fleet' }))
+      iconBtn('refresh', 'Reload the table', () => vscode.postMessage({ type: 'repos' }))
     ),
     body
   );

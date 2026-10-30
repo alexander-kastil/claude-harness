@@ -8,7 +8,7 @@ description: >-
   a plugin", "make a plugin from", "hunt create", "list the agents", "which agent would take this",
   "what did this chat cost", "how did this session delegate", "check this film", "media doctor",
   "marketplace health", "rename the marketplace", "check the harness of my repos", "fix settings and
-  hooks", "fleet overview", "sync from global", "update the plugin", "list the sessions", "rename this
+  hooks", "repo overview", "sync from global", "update the plugin", "list the sessions", "rename this
   session", "which mods fired", "what did the guards deny", "time ledger", "hours this week", "lessons
   about", "skill sources", "skill updates", "generate an agent", "generate a rule", "generate a skill",
   "generate a slash command", "add a hook", "add an MCP server", "add a plugin", "new repo harness",
@@ -41,7 +41,7 @@ first: it prints each action as `[dry-run] ...` and writes nothing.
 
 | You arrive with | Read |
 | --- | --- |
-| A question about the harness, its copies, agents, cost, delegation, a film or images folder, the repo checks, the fleet, sessions, mods, time, lessons or skill sources; shell completion | [references/read-views.md](references/read-views.md) |
+| A question about the harness, its copies, agents, cost, delegation, a film or images folder, the repo checks, the repos, sessions, mods, time, lessons or skill sources; shell completion | [references/read-views.md](references/read-views.md) |
 | A plugin to build from skills and agents, a marketplace to check or rename, an installed plugin to update | [references/plugins-and-marketplaces.md](references/plugins-and-marketplaces.md) |
 | A copy to retire, a skill or leaf to move, split, put, remove or repoint, copies to sync from Global, a sourced skill to update, settings and hooks to fix, a session to rename | [references/skills-and-copies.md](references/skills-and-copies.md) |
 | An agent, rule, skill, slash command, hook or MCP server to make sure of, a plugin to add, a new repo's harness, plugins and copies to update, a `.harness` script to validate or run, a repo's harness to validate | [references/build-the-harness.md](references/build-the-harness.md) |
@@ -53,7 +53,7 @@ Options for every command: `--root <dir>` (default `~/.claude`), `--repo <dir>` 
 Exit codes: 0 done, 1 error (for `hunt`, also a non-empty `problems`; for `validate`, a harness
 problem), 2 unknown flag or bad arguments (for `validate` and `run`, also a script error).
 
-In Claude Code the views that only read are also `@harness:<view>` mentions (inventory, consolidate, agents, usage, delegation, hunt, marketplaces, check, fleet, sync, sessions, mods, time, lessons, sources): on send the plugin runs each one and Claude reads its output as context, so a prompt that carries one already holds that output.
+In Claude Code the views that only read are also `@harness:<view>` mentions (inventory, consolidate, agents, usage, delegation, hunt, marketplaces, check, repos, sync, sessions, mods, time, lessons, sources): on send the plugin runs each one and Claude reads its output as context, so a prompt that carries one already holds that output.
 
 ## After a create
 

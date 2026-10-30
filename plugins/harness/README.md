@@ -8,7 +8,7 @@ The `harness` plugin is the harness standard provider for Claude Harness. It shi
 | [Manifest](#manifest) | The `harness-standard.json` fields and how the extension finds them |
 | [Contracts](#contracts) | The arguments and output of the check, fix and scaffold scripts, and the align prompt |
 | [Check Harness](#check-harness) | The check, its badges, the Problems panel and the repo page section |
-| [Fleet columns](#fleet-columns) | The Layout, Standard, Em dashes and Review columns |
+| [Repo overview columns](#repo-overview-columns) | The Layout, Standard, Em dashes and Review columns |
 | [CLAUDE.md lenses](#claude-md-lenses) | Restated rules, boilerplate headings and dead paths in CLAUDE.md |
 | [Owner agent check](#owner-agent-check) | The owner line check in the rules view |
 | [Fix Settings and Hooks](#fix-settings-and-hooks) | The preview and apply flow for settings and hooks |
@@ -61,7 +61,7 @@ The manifest is `.claude-plugin/harness-standard.json`. The extension reads it f
 
 | Field | Required | Meaning |
 | --- | --- | --- |
-| `name` | No | The label the extension uses, for example in the Fleet overview footnote and in messages. Defaults to the plugin folder name. |
+| `name` | No | The label the extension uses, for example in the GitHub Repo overview footnote and in messages. Defaults to the plugin folder name. |
 | `check` | Yes | Path to the check script. The extension ignores the manifest when this file does not exist. |
 | `fix` | No | Path to the fix script. Enables Fix Settings and Hooks. |
 | `scaffold` | No | Path to the scaffold script. Enables Scaffold Repo Harness. |
@@ -159,7 +159,7 @@ The badges show on the **Repositories** node in the activity bar and next to eac
 A check runs when:
 
 - You expand the **Repositories** node in the activity bar.
-- The Fleet overview opens.
+- The GitHub Repo overview opens.
 - A repo page opens.
 - A repo's root `CLAUDE.md` is opened or saved.
 - A file under the repo's `.claude` folder is saved.
@@ -171,11 +171,11 @@ A result stays until a file the check reads changes. Those files are `CLAUDE.md`
 
 If the manifest is missing or Python 3 is not on PATH, the check stays off. The badge shows a message that says what is missing.
 
-## Fleet columns
+## Repo overview columns
 
-When a provider is installed, the Fleet overview shows four more columns: Layout, Standard, Em dashes and Review. The footnote names the provider.
+When a provider is installed, the GitHub Repo overview shows four more columns: Layout, Standard, Em dashes and Review. The footnote names the provider.
 
-![Fleet overview with the Layout, Standard, Em dashes and Review columns](docs/images/fleet-standard.png)
+![GitHub Repo overview with the Layout, Standard, Em dashes and Review columns](docs/images/repos-standard.png)
 
 | Column | Source |
 | --- | --- |
@@ -184,7 +184,7 @@ When a provider is installed, the Fleet overview shows four more columns: Layout
 | Em dashes | `metrics.emDashes` from the check |
 | Review | `review` from the check |
 
-The Lines column turns yellow above 120 lines only when a provider is installed. The Fleet toolbar adds **Check every repo against the harness standard** and **Fix settings and hooks...** only with a provider.
+The Lines column turns yellow above 120 lines only when a provider is installed. The GitHub Repo overview toolbar adds **Check every repo against the harness standard** and **Fix settings and hooks...** only with a provider.
 
 ## CLAUDE.md lenses
 
@@ -220,7 +220,7 @@ The fix runs the `fix` script on a repo's `.claude` settings and hooks. It shows
 
 - The wrench button on a repo page.
 - **Fix Settings and Hooks...** in a repo row menu or in the Repositories node menu.
-- The wrench button on the Fleet overview, or the command in the palette. The command asks which repos to fix.
+- The wrench button on the GitHub Repo overview, or the command in the palette. The command asks which repos to fix.
 
 The bulk-edit guard (see the Claude Harness docs) may leave out repos before the preview runs.
 
@@ -281,7 +281,7 @@ The owner agent list shows the agents on disk. If an owner name is not on disk, 
 
 ## Mentions
 
-Type `@h` in a prompt to list the Claude Harness views: `@harness:inventory`, `@harness:consolidate`, `@harness:agents`, `@harness:usage`, `@harness:delegation`, `@harness:hunt`, `@harness:marketplaces`, `@harness:check`, `@harness:fleet`, `@harness:sync`, `@harness:sessions`, `@harness:mods`, `@harness:time`, `@harness:lessons` and `@harness:sources`. `@harness:u` narrows the list. When you send the prompt, each mention runs the matching command of the Claude Harness command line once, and Claude reads its output as context; the prompt keeps the text you typed. `usage`, `delegation` and `mods` read the latest session in the folder Claude Code runs in, and `sessions`, `time` and `lessons` read that folder.
+Type `@h` in a prompt to list the Claude Harness views: `@harness:inventory`, `@harness:consolidate`, `@harness:agents`, `@harness:usage`, `@harness:delegation`, `@harness:hunt`, `@harness:marketplaces`, `@harness:check`, `@harness:repos`, `@harness:sync`, `@harness:sessions`, `@harness:mods`, `@harness:time`, `@harness:lessons` and `@harness:sources`. `@harness:u` narrows the list. When you send the prompt, each mention runs the matching command of the Claude Harness command line once, and Claude reads its output as context; the prompt keeps the text you typed. `usage`, `delegation` and `mods` read the latest session in the folder Claude Code runs in, and `sessions`, `time` and `lessons` read that folder.
 
 The rows come after Claude Code's own rows for files, agents and MCP resources. Only views that read and need no arguments are mentions; the commands that write run from a terminal.
 

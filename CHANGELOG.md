@@ -6,7 +6,9 @@ All notable changes to Claude Harness are listed here, newest first. The format 
 
 ### Changed
 
+- `harness fleet` is `harness repos` and `@harness:fleet` is `@harness:repos`
 - The extension's description and the README banner speak of harness engineering, and the README shows how Cowork work continues in Code with Handover
+- The README opens with Quick start and Why Claude Harness, a table that links every section, and screenshots of Browser Automation Hunter and Cowork Handover
 
 ## [0.15.0] - 2026-10-30
 
@@ -482,7 +484,7 @@ All notable changes to Claude Harness are listed here, newest first. The format 
 ### Changed
 
 - Lane colors on the session page: a type without its own color takes a palette hue that no named type uses, while one is left. Types that share a hue get a lighter and a deeper shade. See [Sessions](docs/sessions.md#delegation-views).
-- The Fleet overview button in the activity bar uses the dashboard icon and sits before Open Claude. See [Fleet overview](docs/fleet-overview.md).
+- The Fleet overview button in the activity bar uses the dashboard icon and sits before Open Claude. See [Fleet overview](docs/repos-overview.md).
 - The Concurrency view draws one bar per agent run, in its agent type's color. See [Sessions](docs/sessions.md#delegation-views).
 - The Scatter view sizes each dot by the agent's cost instead of its tool uses. The costliest agent is drawn first, so the smaller dots stay on top. See [Sessions](docs/sessions.md#delegation-views).
 
@@ -536,7 +538,7 @@ All notable changes to Claude Harness are listed here, newest first. The format 
 - Effective harness section on each repo page, listing the memory, rules, plugins and hooks that a session loads. See [Effective harness](docs/effective-harness.md).
 - Duplicate finder covers hook scripts and copies inside plugins, and marks a copy as nearly identical when only whitespace or version lines differ. See [Duplicates](docs/duplicates.md).
 - Retire Copy and Retire Clean Copies back up a repo copy that matches a global or plugin copy, then delete it. See [Duplicates](docs/duplicates.md#retire-a-copy).
-- Fleet overview: one table of every repo. See [Fleet overview](docs/fleet-overview.md).
+- Fleet overview: one table of every repo. See [Fleet overview](docs/repos-overview.md).
 - Fix Settings and Hooks previews the settings and hook fixes of a repo, shows diffs, and applies after a confirmation, when a provider is installed.
 - Init Product Repo form with a preview, when a provider is installed. It creates only missing files.
 - Rules editor shows the files each rule path matches, and checks the owner agent on disk when a provider is installed. See [Rules editor](docs/rules-editor.md).

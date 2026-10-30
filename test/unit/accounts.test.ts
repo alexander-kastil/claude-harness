@@ -3,7 +3,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { test } from 'node:test';
 import * as os from 'node:os';
-import { projectSlug } from '../../src/fleet';
+import { projectSlug } from '../../src/repos-overview';
 import { PLANS, WEEK_MS, accountWeek, lastReset, parseWeekStart, addWeek, findAccountSession, listAccountSessions, listSessions, messageCost, parseAccounts, planLimit, planRewrites, renamedAccounts, renamedPlan, weekEntries, WeekModel } from '../../src/sessions';
 
 test('PLANS matches the BILLING table of the panel, ids, labels and figures', () => {

@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { Args, Io, Stop, emit, fmtCount, fmtPct, fmtUsd, headline, one, table } from './cli-core';
-import { projectSlug } from './fleet';
+import { projectSlug } from './repos-overview';
 import { Account, AgentRun, SessionSummary, WeekEntry, accountWeek, findSession, listSessions, messageCost, readRecords, readSession, weekEntries } from './sessions';
 
 // `usage` and `delegation --session`: one session's tokens, cost and agents, read from its transcript.

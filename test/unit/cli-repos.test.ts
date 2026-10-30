@@ -4,10 +4,10 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { test } from 'node:test';
 import { run } from '../../src/cli';
-import type { FleetLine, FleetOut } from '../../src/cli-fleet';
-import { standardText } from '../../src/cli-fleet';
+import type { RepoOverviewLine, ReposOut } from '../../src/cli-repos';
+import { standardText } from '../../src/cli-repos';
 
-const tmp = (what: string) => fs.mkdtempSync(path.join(os.tmpdir(), `fleet-${what}-`));
+const tmp = (what: string) => fs.mkdtempSync(path.join(os.tmpdir(), `repos-${what}-`));
 const write = (root: string, rel: string, text: string) => {
   fs.mkdirSync(path.dirname(path.join(root, rel)), { recursive: true });
   fs.writeFileSync(path.join(root, rel), text);
@@ -41,11 +41,11 @@ async function cli(argv: string[]) {
   return { code, out: out.join('\n'), err: err.join('\n') };
 }
 
-test('fleet --json has one row per repo, never the global scope, with the file counts', async () => {
+test('repos --json has one row per repo, never the global scope, with the file counts', async () => {
   const f = fixture();
-  const r = await cli(['fleet', ...f.base, '--json']);
+  const r = await cli(['repos', ...f.base, '--json']);
   assert.equal(r.code, 0);
-  const data = JSON.parse(r.out) as FleetOut & { applied: boolean };
+  const data = JSON.parse(r.out) as ReposOut & { applied: boolean };
   assert.equal(data.applied, false);
   assert.equal(data.standard, null);
   assert.deepEqual(data.rows.map(x => path.basename(x.path)).sort(), ['alpha', 'beta']);
@@ -63,36 +63,36 @@ test('fleet --json has one row per repo, never the global scope, with the file c
 
 test('the text form is a headline, then one table row per repo without the Standard columns', async () => {
   const f = fixture();
-  const r = await cli(['fleet', ...f.base]);
+  const r = await cli(['repos', ...f.base]);
   const lines = r.out.split('\n');
-  assert.equal(lines[0], '**Fleet · 2 repos · no standard provider**');
+  assert.equal(lines[0], '**Repos · 2 · no standard provider**');
   assert.ok(lines[2].startsWith('| Repo'));
   assert.ok(!lines[2].includes('Standard'));
   assert.ok(lines.some(l => /^\| alpha\s+\|/.test(l)));
   assert.ok(lines.some(l => /^\| beta\s+\|/.test(l)));
 });
 
-test('an empty fleet prints a (none) row', async () => {
+test('no repos prints a (none) row', async () => {
   const top = tmp('empty');
   const root = path.join(top, '.claude');
   write(root, 'agents/shared.md', agent('shared'));
-  const r = await cli(['fleet', '--root', root, '--user-config', path.join(top, 'missing.json'), '--json']);
-  const data = JSON.parse(r.out) as FleetOut;
+  const r = await cli(['repos', '--root', root, '--user-config', path.join(top, 'missing.json'), '--json']);
+  const data = JSON.parse(r.out) as ReposOut;
   assert.deepEqual(data.rows, []);
   assert.equal(data.counts.repos, 0);
-  const text = await cli(['fleet', '--root', root, '--user-config', path.join(top, 'missing.json')]);
+  const text = await cli(['repos', '--root', root, '--user-config', path.join(top, 'missing.json')]);
   assert.ok(text.out.includes('| (none)'));
 });
 
 test('a check error reads as its message, on one line', () => {
-  const row = { checkState: 'error', error: 'first line\nsecond line' } as FleetLine;
+  const row = { checkState: 'error', error: 'first line\nsecond line' } as RepoOverviewLine;
   assert.equal(standardText(row), 'first line second line');
 });
 
 test('a failing check reads as fail with its count, and a review as review with its count', () => {
-  const base = { checkState: 'fail', check: { fail: 3, review: 2, kind: 'x' } } as unknown as FleetLine;
+  const base = { checkState: 'fail', check: { fail: 3, review: 2, kind: 'x' } } as unknown as RepoOverviewLine;
   assert.equal(standardText(base), 'fail 3 · review 2');
-  const review = { checkState: 'review', check: { fail: 0, review: 4, kind: 'x' } } as unknown as FleetLine;
+  const review = { checkState: 'review', check: { fail: 0, review: 4, kind: 'x' } } as unknown as RepoOverviewLine;
   assert.equal(standardText(review), 'review 4');
-  assert.equal(standardText({ checkState: 'pass' } as FleetLine), 'pass');
+  assert.equal(standardText({ checkState: 'pass' } as RepoOverviewLine), 'pass');
 });

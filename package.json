@@ -488,7 +488,7 @@
         "icon": "$(settings-gear)"
       },
       {
-        "command": "claudeHarness.showFleet",
+        "command": "claudeHarness.showRepos",
         "title": "GitHub Repo Overview",
         "category": "Claude Harness",
         "icon": "$(github)"

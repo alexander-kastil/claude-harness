@@ -73,7 +73,7 @@ export const guardReasons = (g: GuardInfo): string[] =>
     g.worktrees.length ? `${g.worktrees.length} stale .claude/worktrees ${g.worktrees.length === 1 ? 'copy' : 'copies'}` : '',
   ].filter(Boolean);
 
-export interface FleetRow {
+export interface RepoOverviewRow {
   id: string;
   label: string;
   path: string;
@@ -87,7 +87,7 @@ export interface FleetRow {
   copies: number;
 }
 
-export function fleetRow(view: ScopeView, check: { state: string; result?: CheckResult }): FleetRow {
+export function repoOverviewRow(view: ScopeView, check: { state: string; result?: CheckResult }): RepoOverviewRow {
   const text = claudeMdText(view.path, false);
   const items = (kind: string) => view.categories.find(c => c.kind === kind)?.items ?? [];
   const enabled = ['settings.json', 'settings.local.json'].flatMap(f =>

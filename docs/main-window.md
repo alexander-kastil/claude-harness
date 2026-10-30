@@ -27,7 +27,7 @@ The sidebar has a search box and five buttons in its header: first the pages, in
 | --- | --- |
 | Overview (home icon) | Shows the overview page |
 | Marketplace health (package icon) | Shows the marketplaces and their plugins. See [Marketplace health](marketplace-health.md). |
-| GitHub Repo overview (GitHub icon) | Shows one table of every repo, with a search box. See [GitHub Repo overview](fleet-overview.md). |
+| GitHub Repo overview (GitHub icon) | Shows one table of every repo, with a search box. See [GitHub Repo overview](repos-overview.md). |
 | New (plus icon) | Creates an item. See [Editing](editing.md#create-rename-duplicate-and-delete). |
 | Refresh | Reloads the harness and the MCP server list |
 

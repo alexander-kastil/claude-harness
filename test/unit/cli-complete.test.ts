@@ -5,7 +5,7 @@ import * as path from 'node:path';
 import { test } from 'node:test';
 import { COMMANDS, candidates } from '../../src/cli-complete';
 import { run } from '../../src/cli';
-import { projectSlug } from '../../src/fleet';
+import { projectSlug } from '../../src/repos-overview';
 
 const write = (file: string, text: string) => {
   fs.mkdirSync(path.dirname(file), { recursive: true });

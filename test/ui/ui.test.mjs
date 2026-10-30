@@ -1229,7 +1229,7 @@ test('a marketplace row opens its page: the head counts its plugins, Draw with C
   // A stored drawing shows above the plugins, with the Harness | Process toggle; an attribute Claude wrote twice does not keep it out.
   const req = createRequire(import.meta.url);
   const { contentHash, marketText, writeDrawing } = req(path.join(repoRoot, 'out', 'src', 'drawing.js'));
-  const { marketplaceHealth } = req(path.join(repoRoot, 'out', 'src', 'fleet.js'));
+  const { marketplaceHealth } = req(path.join(repoRoot, 'out', 'src', 'repos-overview.js'));
   const market = marketplaceHealth(claude()).find(m => m.name === 'acme-market');
   writeDrawing(path.join(s.ud, 'User', 'globalStorage', 'integrations-at.claude-harness', 'drawings'), 'market:acme-market', contentHash(marketText(market.plugins)), SVG('acme-market').replace('fill="none"', 'fill="none" fill="none"'));
   await s.mouse('.sidebar [data-nav="k|acme-market"]');
@@ -1363,9 +1363,9 @@ test('every bar keeps its AI group last and at its right end: overview, Plugins,
 
 test('the GitHub Repo overview shows 0 or a dash in every cell, never a blank one', T, async () => {
   await home();
-  // The nav has no button for this page now (the head's GitHub button became Collapse all); the Show Fleet command reaches it with this message.
+  // The nav has no button for this page now (the head's GitHub button became Collapse all); the GitHub Repo Overview command reaches it with this message.
   await s.resize(1500);
-  await s.ev(D => D.defaultView.postMessage({ type: 'page', page: 'fleet' }, '*'));
+  await s.ev(D => D.defaultView.postMessage({ type: 'page', page: 'repos' }, '*'));
   await s.waitFor(D => D.querySelector('.main-head h1')?.textContent === 'GitHub Repo overview');
   const cells = await s.waitFor(D => {
     const rows = [...D.querySelectorAll('.main [role=row]:not(.at-head)')].filter(r => r.getClientRects().length);
@@ -1686,7 +1686,7 @@ test('a row pressed while the panel repaints opens its detail page, on the type 
 // hundred transcripts each, the panel is closed and opened again (a cold read), and a nav row is pressed at once.
 test('a nav row pressed right after the panel opens shows its details promptly while the host reads every repo\'s sessions', T, async t => {
   const projects = path.join(claude(), 'projects');
-  const { projectSlug } = createRequire(import.meta.url)(path.join(repoRoot, 'out', 'src', 'fleet.js'));
+  const { projectSlug } = createRequire(import.meta.url)(path.join(repoRoot, 'out', 'src', 'repos-overview.js'));
   const filler = JSON.stringify({ type: 'assistant', timestamp: new Date().toISOString(), message: { role: 'assistant', content: [{ type: 'text', text: 'x'.repeat(900) }] } });
   const made = [];
   for (const dir of s.fixture.repos) {
@@ -1739,7 +1739,7 @@ test('a nav row pressed right after the panel opens shows its details promptly w
 // fraction of a second here too (each repo's last use is read from them); the panel is left and entered through its tab, and a row is pressed right after.
 test('a nav row pressed right after the panel comes back into view shows its details promptly while the harness is read again', T, async t => {
   const projects = path.join(claude(), 'projects');
-  const { projectSlug } = createRequire(import.meta.url)(path.join(repoRoot, 'out', 'src', 'fleet.js'));
+  const { projectSlug } = createRequire(import.meta.url)(path.join(repoRoot, 'out', 'src', 'repos-overview.js'));
   const made = [];
   for (const dir of s.fixture.repos) {
     const folder = path.join(projects, projectSlug(dir));

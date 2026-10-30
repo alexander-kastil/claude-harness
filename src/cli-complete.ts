@@ -4,7 +4,7 @@ import * as path from 'path';
 import { Args, Io, Stop, one } from './cli-core';
 import { marketplacePlugins, pluginDirs } from './harness';
 import { HOOK_EVENTS, KNOWN_MODELS, KNOWN_TOOLS } from './cli-build';
-import { projectSlug } from './fleet';
+import { projectSlug } from './repos-overview';
 import { readMarkets } from './hunt-market';
 import { isPrompt, promptText } from './sessions';
 
@@ -96,7 +96,7 @@ export const COMMANDS: CommandSpec[] = [
   { path: 'marketplaces rename', flags: [{ name: 'from', takes: 'markets' }, { name: 'to', takes: [] }, DRY] },
   { path: 'check', flags: [REPO] },
   { path: 'check fix', flags: [REPO, DRY] },
-  { path: 'fleet', flags: [] },
+  { path: 'repos', flags: [] },
   { path: 'sync', flags: [REPO] },
   { path: 'sync apply', flags: [REPO, { name: 'name', takes: 'names' }, DRY] },
   { path: 'sync plugin', flags: [{ name: 'name', takes: [] }, DRY] },

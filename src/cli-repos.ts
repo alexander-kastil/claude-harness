@@ -1,17 +1,17 @@
 import { Args, Io, emit, headline, load, table } from './cli-core';
-import { FleetRow, fleetRow } from './fleet';
+import { RepoOverviewRow, repoOverviewRow } from './repos-overview';
 import { pluginDirs } from './harness';
 import { CheckResult, Provider, checkRepo, findProvider, findPython, needsPython } from './standard';
 
-// `fleet`: one row per repo, the Fleet Overview without VS Code: the same columns, read from the same files and checked by the same standard provider.
+// `repos`: one row per repo, the GitHub Repo overview without VS Code: the same columns, read from the same files and checked by the same standard provider.
 
-export interface FleetLine extends FleetRow {
+export interface RepoOverviewLine extends RepoOverviewRow {
   error?: string;
 }
 
-export interface FleetOut {
+export interface ReposOut {
   standard: string | null;
-  rows: FleetLine[];
+  rows: RepoOverviewLine[];
   counts: { repos: number; pass: number; review: number; fail: number; error: number };
 }
 
@@ -24,18 +24,18 @@ interface Checked {
 interface Column {
   head: string;
   right?: boolean;
-  cell: (r: FleetLine) => string | number;
+  cell: (r: RepoOverviewLine) => string | number;
 }
 
-/** The Standard cell, in the words the Fleet Overview shows for a check state. */
-export function standardText(r: FleetLine): string {
+/** The Standard cell, in the words the GitHub Repo overview shows for a check state. */
+export function standardText(r: RepoOverviewLine): string {
   if (r.checkState === 'pass') return 'pass';
   if (r.checkState === 'fail') return `fail ${r.check?.fail ?? 0}${r.check?.review ? ` · review ${r.check.review}` : ''}`;
   if (r.checkState === 'review') return `review ${r.check?.review ?? 0}`;
   return (r.error ?? r.checkState).replace(/\s+/g, ' ');
 }
 
-/** The Fleet Overview's columns; the Layout, Standard, Em dashes and Review columns appear only with a provider, as they do in the extension. */
+/** The GitHub Repo overview's columns; the Layout, Standard, Em dashes and Review columns appear only with a provider, as they do in the extension. */
 function columnsOf(standard: boolean): Column[] {
   const checked: Column[] = [
     { head: 'Layout', cell: r => r.layout ?? '' },
@@ -68,14 +68,14 @@ async function checkOf(provider: Provider | undefined, py: string[] | undefined,
   }
 }
 
-export async function fleetCommand(a: Args, io: Io): Promise<number> {
+export async function reposCommand(a: Args, io: Io): Promise<number> {
   const w = load(a);
   const provider = findProvider(pluginDirs(w.root, true));
   const py = provider && needsPython(provider.check) ? await findPython() : undefined;
-  const rows: FleetLine[] = [];
+  const rows: RepoOverviewLine[] = [];
   for (const view of w.views.filter(v => v.id !== 'global')) {
     const checked = await checkOf(provider, py, view.path);
-    rows.push({ ...fleetRow(view, checked), error: checked.error });
+    rows.push({ ...repoOverviewRow(view, checked), error: checked.error });
   }
   const state = (s: string) => rows.filter(r => r.checkState === s).length;
   const counts = {
@@ -85,12 +85,12 @@ export async function fleetCommand(a: Args, io: Io): Promise<number> {
     fail: state('fail'),
     error: rows.filter(r => r.checkState === 'error' || r.checkState === 'no-python').length,
   };
-  const out: FleetOut = { standard: provider?.name ?? null, rows, counts };
+  const out: ReposOut = { standard: provider?.name ?? null, rows, counts };
   const columns = columnsOf(!!provider);
   const body = rows.length ? rows.map(r => columns.map(c => c.cell(r))) : [['(none)', ...columns.slice(1).map(() => '')]];
   const summary = provider ? ` · ${counts.fail} fail · ${counts.review} review` : ' · no standard provider';
   emit(io, a, out, [
-    headline(`Fleet · ${rows.length} ${rows.length === 1 ? 'repo' : 'repos'}${summary}`),
+    headline(`Repos · ${rows.length}${summary}`),
     '',
     ...table(
       columns.map(c => c.head),

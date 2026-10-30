@@ -15,7 +15,7 @@ import { handoverHost } from './handover-host';
 import type { ScheduledTask } from './cowork-scheduled';
 import { consolidateApply, consolidatePlan, mergePrompt, routesOf } from './consolidate';
 import type { ConsolidateRoute, ConsolidateTarget } from './shared/messages';
-import { FileEdit, fleetRow, guardInfo, guardReasons, lastSessionSteps, marketplaceHealth, renameCatalog, renameCommands, renameInSettings } from './fleet';
+import { FileEdit, guardInfo, guardReasons, lastSessionSteps, marketplaceHealth, renameCatalog, renameCommands, renameInSettings, repoOverviewRow } from './repos-overview';
 import { browserHuntHost } from './browser-hunt-host';
 import { huntHost } from './hunt-host';
 import { keyChanges, mcpApply, mcpConfig, mcpVersions, syncApply, syncFiles, syncSource, updateMarketPlugins, updatePluginFromMarket } from './sync';
@@ -442,9 +442,9 @@ export function activate(context: vscode.ExtensionContext): void {
           }
         : undefined,
     ensureChecks: ids => constitution.ensure(ids.map(id => viewOfScope(id)?.path).filter((p): p is string => !!p && p !== global.base)),
-    fleet: () => {
+    repoOverview: () => {
       constitution.ensure(repoViews().map(v => v.path));
-      return repoViews().map(v => fleetRow(v, constitution.get(v.path)));
+      return repoViews().map(v => repoOverviewRow(v,constitution.get(v.path)));
     },
     effective: id => {
       const scope = scopes.find(s => s.id === id);
@@ -1630,9 +1630,9 @@ export function activate(context: vscode.ExtensionContext): void {
       constitution.ensure([repo.base]);
       HarnessPanel.showPage(context, host, { repo: repo.id });
     }),
-    vscode.commands.registerCommand('claudeHarness.showFleet', () => {
+    vscode.commands.registerCommand('claudeHarness.showRepos', () => {
       constitution.ensure(repoViews().map(v => v.path));
-      HarnessPanel.showPage(context, host, { page: 'fleet' });
+      HarnessPanel.showPage(context, host, { page: 'repos' });
     }),
     vscode.commands.registerCommand('claudeHarness.showMarketplaces', () => HarnessPanel.showPage(context, host, { page: 'marketplaces' })),
     vscode.commands.registerCommand('claudeHarness.showSession', (arg?: unknown, sessionId?: string) => {

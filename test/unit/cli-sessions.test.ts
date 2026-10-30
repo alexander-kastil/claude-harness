@@ -4,7 +4,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { test } from 'node:test';
 import { run } from '../../src/cli';
-import { projectSlug } from '../../src/fleet';
+import { projectSlug } from '../../src/repos-overview';
 
 const NOW = Date.now();
 /** A timestamp this many minutes before now. */

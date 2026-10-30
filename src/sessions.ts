@@ -3,7 +3,7 @@ import * as os from 'os';
 import * as path from 'path';
 import { Checkpoint, CheckpointFile, changedSince, checkpointsOf, historyDir, readSnapshots } from './checkpoints';
 import { TranscriptHook, hookFailures, transcriptHooks } from './events';
-import { projectSlug } from './fleet';
+import { projectSlug } from './repos-overview';
 import { EDIT_TOOLS, buildFindings } from './findings';
 import { sessionFlags } from './session-flags';
 

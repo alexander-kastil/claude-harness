@@ -24,7 +24,7 @@ Type `@h` in a prompt to list the views, or `@harness:u` to narrow them, then mo
 | `@harness:hunt` | `hunt catalog` | The skills and agents a plugin can be made from. |
 | `@harness:marketplaces` | `marketplaces` | Every marketplace with its plugins, and the plugins with an update or enabled without an install. |
 | `@harness:check` | `check` | The harness checks of the known repos against the harness standard, with the failed checks. |
-| `@harness:fleet` | `fleet` | One row per repo: its layout, its standard check, its CLAUDE.md lines, plugins and copies. |
+| `@harness:repos` | `repos` | One row per repo: its layout, its standard check, its CLAUDE.md lines, plugins and copies. |
 | `@harness:sync` | `sync` | The repo copies of skills and agents that differ from Global. |
 | `@harness:sessions` | `sessions` | The sessions of the folder Claude Code runs in, in /resume order, with their names, start, minutes and agents. |
 | `@harness:mods` | `mods --session latest` | The mods and guards that acted in the latest session, with what they denied or held. |
@@ -79,7 +79,7 @@ Each command follows `harness ` (or `node <extension folder>/out/src/cli.js `).
 | `marketplaces rename --from <name> --to <name> [--dry-run]` | Renames a directory marketplace in its catalog and in the settings that name it, and prints the `claude plugin marketplace` commands that register it again. |
 | `check [--repo <dir>]` | The harness checks of the known repos, or of one, against the harness standard, with each failed check and whether a fix exists. |
 | `check fix [--repo <dir>] [--dry-run]` | Applies the fixes the checks offer for settings and hooks; each repo's settings and hooks are backed up first. |
-| `fleet` | One row per repo: its layout, its standard check, its CLAUDE.md lines, plugins, hook copies and copies. |
+| `repos` | One row per repo: its layout, its standard check, its CLAUDE.md lines, plugins, hook copies and copies. |
 | `sync [--repo <dir>]` | The repo copies of skills and agents that differ from Global, with the files a sync would replace, add and delete. |
 | `sync apply [--repo <dir>] [--name <n>] [--dry-run]` | Syncs those copies from Global, all of them or only `--name`, backed up first. |
 | `sync plugin --name <plugin@market> [--dry-run]` | Updates an installed plugin from its marketplace when the marketplace has a newer version. |

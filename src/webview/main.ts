@@ -11,7 +11,7 @@ import { onHuntMessage, renderHunt } from './hunt';
 import { onBrowserHuntMessage, renderBrowserHunt } from './browser-hunt';
 import { onHandoverMessage, renderHandover } from './handover';
 import { onChatMessage, renderCoworkArtifacts, renderCoworkChat, renderCoworkChats } from './cowork-chats';
-import { renderFleet, renderInit, renderMarket, renderMarkets } from './pages';
+import { renderInit, renderMarket, renderMarkets, renderRepoOverview } from './pages';
 import { renderRepo } from './repo-page';
 import { renderScheduledList, renderScheduledTask } from './scheduled';
 import { redrawCheckpoint, renderSession } from './session-page';
@@ -26,8 +26,8 @@ export function renderMain() {
   const repo = state.repo && viewOf(state.repo);
   const main = state.detail
     ? renderDetail()
-    : state.page === 'fleet'
-      ? renderFleet()
+    : state.page === 'repos'
+      ? renderRepoOverview()
       : state.page === 'session' && state.session
         ? renderSession()
       : state.page === 'sessions' && state.sessionsPage
@@ -107,7 +107,7 @@ setInterval(() => {
   vscode.postMessage({ type: 'session', scope: s.scope, id: s.id });
 }, LIVE_MS);
 
-// New views or new check results: the sidebar, a repo page whose check finished and the fleet page follow; a type page shows
+// New views or new check results: the sidebar, a repo page whose check finished and the repo overview follow; a type page shows
 // no check, so it is drawn again for new views only. The host sends check changes at most every 250 ms, so a quick check can
 // start and finish between two messages: the repo page asks again whenever its repo's summary changed and is no longer running.
 function repaintForChecks(before: typeof state.checks, views: boolean) {
@@ -116,11 +116,11 @@ function repaintForChecks(before: typeof state.checks, views: boolean) {
   const now = state.repo ? state.checks[state.repo] : undefined;
   if (state.repo && before[state.repo] && now && JSON.stringify(before[state.repo]) !== JSON.stringify(now) && !['running', 'unchecked'].includes(now.state))
     vscode.postMessage({ type: 'effective', scope: state.repo });
-  if (state.page === 'fleet' && !state.detail) {
-    clearTimeout(state.fleetTimer);
-    state.fleetTimer = setTimeout(() => vscode.postMessage({ type: 'fleet' }), 400);
+  if (state.page === 'repos' && !state.detail) {
+    clearTimeout(state.repoOverviewTimer);
+    state.repoOverviewTimer = setTimeout(() => vscode.postMessage({ type: 'repos' }), 400);
   }
-  if (current && !state.detail && (state.repo || state.page === 'fleet')) renderMain();
+  if (current && !state.detail && (state.repo || state.page === 'repos')) renderMain();
   if (views && current && !state.detail && state.page === 'kind' && state.kindPage && state.kindPage.refresh) state.kindPage.refresh();
 }
 
@@ -149,9 +149,9 @@ onMessage(m => {
       state.effective[m.repo] = undefined;
       showRepo(m.repo);
     } else if (m.page) showPage(m.page, m.dir);
-  } else if (m.type === 'fleet') {
-    state.fleet = m.rows;
-    if (state.page === 'fleet' && !state.detail) renderMain();
+  } else if (m.type === 'repos') {
+    state.repoOverview = m.rows;
+    if (state.page === 'repos' && !state.detail) renderMain();
   } else if (m.type === 'marketplaces') {
     state.markets = m.list;
     // The nav lists the marketplaces too.

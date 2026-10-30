@@ -1,5 +1,5 @@
 import * as path from 'path';
-import { projectSlug } from './fleet';
+import { projectSlug } from './repos-overview';
 import { mcpToolPrefix } from './harness';
 import type { Asset, ScopeView } from './harness';
 import type { Hit, HitKind } from './usage-scan';

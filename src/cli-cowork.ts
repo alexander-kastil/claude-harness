@@ -149,11 +149,12 @@ export function renderTaskSkill(t: Pick<ScheduledTask, 'name' | 'instructions' |
 }
 
 /** The rules file a pull of the project writes. */
-export const renderProjectRules = (name: string, text: string): string => `# Cowork project: ${name}\n\n${text.trim()}\n`;
+const lf = (text: string): string => text.replace(/\r\n/g, '\n').trim();
+export const renderProjectRules = (name: string, text: string): string => `# Cowork project: ${name}\n\n${lf(text)}\n`;
 
 const markers = (slug: string) => [`<!-- cowork-pull:${slug} -->`, `<!-- /cowork-pull:${slug} -->`];
 /** The section a pull of the project writes into CLAUDE.md. */
-export const renderProjectSection = (slug: string, name: string, text: string): string => `${markers(slug)[0]}\n## Cowork project: ${name}\n\n${text.trim()}\n${markers(slug)[1]}\n`;
+export const renderProjectSection = (slug: string, name: string, text: string): string => `${markers(slug)[0]}\n## Cowork project: ${name}\n\n${lf(text)}\n${markers(slug)[1]}\n`;
 
 const sectionOf = (file: string, slug: string): string | null => {
   const [open, close] = markers(slug);

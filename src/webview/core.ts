@@ -16,7 +16,7 @@ export const state: State = {
   draft: undefined,
   filter: saved.filter || '',
   overviewFilter: '',
-  fleetFilter: '',
+  repoOverviewFilter: '',
   expanded: new Set(saved.expanded || []),
   listViews: Object.assign({ mcp: saved.mcpView, skill: saved.skillView }, saved.listViews),
   foldedGroups: new Set(saved.foldedGroups || []),
@@ -25,7 +25,7 @@ export const state: State = {
   mcpBusy: {},
   checks: {},
   page: undefined,
-  fleet: undefined,
+  repoOverview: undefined,
   effective: {},
   ruleInfo: {},
   usage: {},
@@ -257,7 +257,7 @@ export const showPage = (page, extra) => {
   state.page = page;
   state.repo = undefined;
   if (page === 'init') state.init = { dir: extra, form: { summary: '', areas: [{ name: '', globs: '', owner: '' }], rules: '' }, data: undefined, result: undefined };
-  if (page === 'fleet') vscode.postMessage({ type: 'fleet' });
+  if (page === 'repos') vscode.postMessage({ type: 'repos' });
   if (page === 'marketplaces' || page === 'market') vscode.postMessage({ type: 'marketplaces' });
   if (page === 'scheduled' || page === 'scheduled-task') vscode.postMessage({ type: 'scheduled' });
   if (page === 'init') vscode.postMessage({ type: 'initForm', dir: extra });

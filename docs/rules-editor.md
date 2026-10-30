@@ -2,7 +2,7 @@
 
 <table width="100%" border="1" cellpadding="10" cellspacing="0">
 <tr>
-<td align="left"><a href="fleet-overview.md">← Back to GitHub Repo overview</a></td>
+<td align="left"><a href="repos-overview.md">← Back to GitHub Repo overview</a></td>
 <td align="center"></td>
 <td align="right"><a href="marketplace-health.md">→ Next: Marketplace health</a></td>
 </tr>
@@ -37,7 +37,7 @@ Provider features appear when a harness standard provider plugin is installed.
 
 <table width="100%" border="1" cellpadding="10" cellspacing="0">
 <tr>
-<td align="left"><a href="fleet-overview.md">← Back to GitHub Repo overview</a></td>
+<td align="left"><a href="repos-overview.md">← Back to GitHub Repo overview</a></td>
 <td align="center"><a href="#rules-editor">↑ Back to top</a></td>
 <td align="right"><a href="marketplace-health.md">→ Next: Marketplace health</a></td>
 </tr>

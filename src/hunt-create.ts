@@ -7,7 +7,7 @@ import { SKIP, filesIn } from './consolidate';
 import { Asset, KeepCopies, ScopeView, keepsCopies, retireAsset } from './harness';
 import { assetAt, keyOf, pathOf, samePath } from './hunt-catalog';
 import { Entry, catalogFileOf, catalogOf, layoutOf, readJson, sourceFor, sourcesOf } from './hunt-market';
-import { compareVersions } from './fleet';
+import { compareVersions } from './repos-overview';
 import { rewriteSkillPaths } from './skill-paths';
 import type { HuntAsset, HuntMarket, HuntProposal } from './shared/hunt';
 

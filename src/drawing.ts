@@ -368,7 +368,7 @@ export function processPrompt(kind: DrawKind, name: string, source: string): str
 /** The drawing id of a marketplace: this prefix and its name; its Process perspective adds PROCESS_SUFFIX like a plugin's. */
 export const MARKET_PREFIX = 'market:';
 
-/** A plugin a marketplace lists, as its page shows it (`MarketPlugin` in fleet.ts). */
+/** A plugin a marketplace lists, as its page shows it (`MarketPlugin` in repos-overview.ts). */
 export interface MarketPart {
   name: string;
   dir?: string;

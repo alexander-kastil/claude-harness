@@ -31,7 +31,7 @@ import { buildCommand } from './cli-build';
 import { marketplacesCommand } from './cli-markets';
 import { pluginsCommand } from './cli-plugins';
 import { checkCommand } from './cli-check';
-import { fleetCommand } from './cli-fleet';
+import { reposCommand } from './cli-repos';
 import { syncCommand } from './cli-sync';
 import { sessionsCommand } from './cli-sessions';
 import { modsCommand } from './cli-mods';
@@ -108,7 +108,7 @@ Usage: node cli.js <command> [options]
   check [--repo <dir>]                The harness checks of the known repos (or one) against the harness standard, and whether git ignores and no longer tracks .time/, .claude/settings.local.json and .claude/scheduled_tasks.lock.
   check fix [--repo <dir>] [--dry-run]
                                       Apply the fixes the checks offer for settings and hooks, add the missing session files to .gitignore and untrack the tracked ones (they stay on disk).
-  fleet                               One row per repo: its harness, its checks and its CLAUDE.md.
+  repos                               One row per repo: its harness, its checks and its CLAUDE.md.
   sync [--repo <dir>]                 The repo copies of skills and agents that differ from Global.
   sync apply [--repo <dir>] [--name <n>] [--dry-run]
                                       Sync those copies from Global, backed up first.
@@ -498,8 +498,8 @@ export async function run(argv: string[], io: Io): Promise<number> {
       return await pluginsCommand(a, io);
     } else if (cmd === 'check') {
       return await checkCommand(a, io);
-    } else if (cmd === 'fleet') {
-      return await fleetCommand(a, io);
+    } else if (cmd === 'repos') {
+      return await reposCommand(a, io);
     } else if (cmd === 'sync') {
       return await syncCommand(a, io);
     } else if (cmd === 'sessions') {

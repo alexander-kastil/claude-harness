@@ -32,7 +32,7 @@ Every command is in the **Claude Harness** category. Commands marked *hidden* do
 | Install Plugin... | Picks a plugin from your marketplaces and the scope, then runs `claude plugin install` in a terminal | Palette, Plugins header, tree inline |
 | Uninstall Plugin... | Confirms, then runs `claude plugin uninstall` in a terminal | Palette, plugin page |
 | Open Settings File... | Picks any `settings.json` or `settings.local.json` and opens it in the editable JSON view | Palette, tree inline on Settings |
-| GitHub Repo Overview | Opens the table of every repo, with a search box. See [GitHub Repo overview](fleet-overview.md). | Palette, tree title bar, Repositories node, sidebar header |
+| GitHub Repo Overview | Opens the table of every repo, with a search box. See [GitHub Repo overview](repos-overview.md). | Palette, tree title bar, Repositories node, sidebar header |
 | Marketplace Health | Opens the marketplaces and their plugins. See [Marketplace health](marketplace-health.md). | Palette, Plugins header, Repositories node, sidebar header, Marketplaces header in the sidebar |
 | Retire Copy (*hidden*) | Backs up a repo copy of a skill or agent that matches a global or plugin copy, then deletes it. See [Duplicates](duplicates.md#retire-a-copy). | Retire button on an item page |
 | Consolidate into Global or Plugin... (*hidden*) | Moves a repo skill up to its plugin source or global and retires the repo copy. See [Duplicates](duplicates.md#consolidate). | Right-click on a repo skill row, skill page |

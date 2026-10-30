@@ -5,7 +5,7 @@ import * as path from 'node:path';
 import { test } from 'node:test';
 import { Io, Stop, parse } from '../../src/cli-core';
 import { modsCommand } from '../../src/cli-mods';
-import { projectSlug } from '../../src/fleet';
+import { projectSlug } from '../../src/repos-overview';
 
 const NOW = Date.now();
 /** A timestamp this many minutes before now. */

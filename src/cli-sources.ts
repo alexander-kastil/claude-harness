@@ -4,7 +4,7 @@ import * as os from 'os';
 import * as path from 'path';
 import { Args, Io, Stop, emit, headline, list, one, table } from './cli-core';
 import { Latest, discard, install, latest, latestTag, linkState, parseSource, resolve, resolveOrigin, stage, diffFolders } from './distributor';
-import { compareVersions } from './fleet';
+import { compareVersions } from './repos-overview';
 import { backupStamp, knownRepos, parseMarkdown, versionOf } from './harness';
 import { samePath } from './hunt-catalog';
 import { CreateCtx, CreatePlan, isInstalled, planBump, writeVersions } from './hunt-create';

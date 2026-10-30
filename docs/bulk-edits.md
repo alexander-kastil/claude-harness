@@ -4,7 +4,7 @@
 <tr>
 <td align="left"><a href="duplicates.md">← Back to Duplicates</a></td>
 <td align="center"></td>
-<td align="right"><a href="fleet-overview.md">→ Next: GitHub Repo overview</a></td>
+<td align="right"><a href="repos-overview.md">→ Next: GitHub Repo overview</a></td>
 </tr>
 </table>
 
@@ -31,6 +31,6 @@ To change a repo that has a reason, tick it. It is then included.
 <tr>
 <td align="left"><a href="duplicates.md">← Back to Duplicates</a></td>
 <td align="center"><a href="#bulk-edit-guard">↑ Back to top</a></td>
-<td align="right"><a href="fleet-overview.md">→ Next: GitHub Repo overview</a></td>
+<td align="right"><a href="repos-overview.md">→ Next: GitHub Repo overview</a></td>
 </tr>
 </table>

@@ -22,7 +22,7 @@ import type { CloudSessions } from './cowork-chats';
 export type { Detail, Page } from './shared/messages';
 
 /** Requests a page makes for its own data; none of them is an action the owner is waiting on. */
-const BACKGROUND = new Set<ToHost['type']>(['sessions', 'weekly', 'usage', 'usageMore', 'usageTotals', 'repoTrace', 'modActivity', 'slim', 'drawing', 'ruleInfo', 'effective', 'fleet', 'scheduled', 'scheduledRuns', 'coworkChats', 'coworkSessions', 'coworkChat', 'handoverInbox', 'handoverSeed']);
+const BACKGROUND = new Set<ToHost['type']>(['sessions', 'weekly', 'usage', 'usageMore', 'usageTotals', 'repoTrace', 'modActivity', 'slim', 'drawing', 'ruleInfo', 'effective', 'repos', 'scheduled', 'scheduledRuns', 'coworkChats', 'coworkSessions', 'coworkChat', 'handoverInbox', 'handoverSeed']);
 
 /** What a `panel` card answered: the button, and the text and the picked ids when the card had an input or choices. */
 export interface PanelAnswer {
@@ -91,7 +91,7 @@ export interface PanelHost {
   checks?(): Record<string, CheckSummary>;
   standard?(): Standard | undefined;
   ensureChecks?(scopeIds: string[]): void;
-  fleet?(): unknown;
+  repoOverview?(): unknown;
   effective?(scopeId: string): unknown;
   ruleInfo?(id: string): unknown;
   marketplaces?(): unknown;
@@ -464,8 +464,8 @@ export class HarnessPanel {
         if (tools) this.post({ type: 'tools', id: m.id, key: m.key, value: tools.join(', ') });
         return;
       }
-      case 'fleet':
-        this.post({ type: 'fleet', rows: this.host.fleet?.() ?? [] });
+      case 'repos':
+        this.post({ type: 'repos', rows: this.host.repoOverview?.() ?? [] });
         return;
       case 'effective':
         this.host.ensureChecks?.([m.scope]);

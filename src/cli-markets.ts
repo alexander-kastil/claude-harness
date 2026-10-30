@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { knownRepos } from './harness';
-import { FileEdit, MarketHealth, MarketPlugin, marketplaceHealth, renameCatalog, renameCommands, renameInSettings } from './fleet';
+import { FileEdit, MarketHealth, MarketPlugin, marketplaceHealth, renameCatalog, renameCommands, renameInSettings } from './repos-overview';
 import { Args, Io, Stop, emit, headline, list, one, table } from './cli-core';
 
 // `marketplaces`: every marketplace with its plugins and their health; `marketplaces rename` renames one, as the extension's Rename Marketplace does, without its dialogs.

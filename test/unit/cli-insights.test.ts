@@ -5,7 +5,7 @@ import * as path from 'node:path';
 import { test } from 'node:test';
 import { Io, Stop, parse } from '../../src/cli-core';
 import { delegationCommand, usageCommand } from '../../src/cli-insights';
-import { projectSlug } from '../../src/fleet';
+import { projectSlug } from '../../src/repos-overview';
 import { messageCost } from '../../src/sessions';
 
 const NOW = Date.now();

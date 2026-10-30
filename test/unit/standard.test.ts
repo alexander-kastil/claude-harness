@@ -3,7 +3,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { test } from 'node:test';
-import { compareVersions, projectSlug, renameInSettings } from '../../src/fleet';
+import { compareVersions, projectSlug, renameInSettings } from '../../src/repos-overview';
 import {
   closest,
   deadPointers,

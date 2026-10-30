@@ -5,7 +5,7 @@ import * as path from 'node:path';
 import { test } from 'node:test';
 import { run } from '../../src/cli';
 import type { MarketplacesOut } from '../../src/cli-markets';
-import { harnessState, marketplaceHealth } from '../../src/fleet';
+import { harnessState, marketplaceHealth } from '../../src/repos-overview';
 
 const tmp = (what: string) => fs.mkdtempSync(path.join(os.tmpdir(), `market-harness-${what}-`));
 const write = (root: string, rel: string, text: string) => {

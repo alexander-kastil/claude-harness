@@ -39,7 +39,7 @@ describe("harness-mentions: @harness mentions", () => {
     const { $, calls } = fakeProcess({ stdout: "[]" });
     const all = await h["prompt.autocomplete"]($, ask("why @h"), next);
     expect(all.suggestions[0]).toBe(base[0]);
-    expect(all.suggestions.slice(1).map((s: any) => s.text)).toEqual(["@harness:inventory", "@harness:consolidate", "@harness:agents", "@harness:usage", "@harness:delegation", "@harness:hunt", "@harness:marketplaces", "@harness:check", "@harness:fleet", "@harness:sync", "@harness:sessions", "@harness:mods", "@harness:time", "@harness:lessons", "@harness:sources"]);
+    expect(all.suggestions.slice(1).map((s: any) => s.text)).toEqual(["@harness:inventory", "@harness:consolidate", "@harness:agents", "@harness:usage", "@harness:delegation", "@harness:hunt", "@harness:marketplaces", "@harness:check", "@harness:repos", "@harness:sync", "@harness:sessions", "@harness:mods", "@harness:time", "@harness:lessons", "@harness:sources"]);
     const some = await h["prompt.autocomplete"]($, ask("@harness:u"), next);
     expect(some.suggestions.slice(1).map((s: any) => s.text)).toEqual(["@harness:usage"]);
     const bare = await h["prompt.autocomplete"]($, ask("look at @"), next);
