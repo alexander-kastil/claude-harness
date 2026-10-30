@@ -1,7 +1,7 @@
 {
   "name": "claude-harness",
   "displayName": "Claude Harness",
-  "description": "Visualize and edit your Claude Code harness in VS Code: memory, rules, agents, skills, commands, output styles, workflows, hooks, MCP servers and plugins, globally and per repository.",
+  "description": "Harness engineering for Claude Code: see how your agents, skills, hooks and rules work together in each session, shape the whole harness in one place, and carry Cowork work into Code.",
   "version": "0.15.0",
   "publisher": "integrations-at",
   "license": "SEE LICENSE IN LICENSE",

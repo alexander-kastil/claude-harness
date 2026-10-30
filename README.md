@@ -27,6 +27,7 @@ A harness grows one rule, hook and skill at a time. After a few months it is har
 | [Keep the harness lean](#keep-the-harness-lean) | Skill size and context cost, duplicate copies merged, dead pointers in CLAUDE.md |
 | [Edit everything in one place](#edit-everything-in-one-place) | One editor for all twelve kinds, globally and per repository |
 | [Build with Claude](#build-with-claude) | Plugin Hunter, drawings of every element, Claude actions in your own terminal |
+| [Continue Cowork work in Code](#continue-cowork-work-in-code) | Handover: a desktop chat or a Cowork session, with its files and rules, opened in a Claude terminal in your repo |
 | [Keep plugins current](#keep-plugins-current) | Every marketplace with one-press sync of the plugins that are ahead |
 | [Script it](#command-line-and-harness-mentions) | The `harness` command line, `.harness` scripts and `@harness` mentions in Claude Code |
 
@@ -83,6 +84,16 @@ Global `~/.claude`, each repository's `.claude/` and plugin-shipped items (read-
 ![Plugin Hunter with the chat and its message box on the left and the card of a proposed plugin on the right](docs/images/plugin-hunter.png)
 
 ![The Process perspective of a plugin drawing](docs/images/plugin-drawing-process.png)
+
+## Continue Cowork work in Code
+
+Work that started in Cowork, in the Claude desktop app or on claude.ai, continues in Claude Code through **Handover**: in the Cowork region of the sidebar, or with **Cowork Handover** in the Claude group of the overview.
+
+- **Inbox:** the desktop app's chats on this PC, your Cowork sessions on claude.ai, the app files of the last two weeks in Downloads, or a pasted claude.ai artifact link.
+- **Handover card:** **Draft with Claude** proposes the task in one sentence, the rules the chat set, what exists and what is still to write. You tick the files that come along (a missing one is flagged, with **Locate**) and pick the target repository and folder.
+- **Continue in terminal:** a confirm card lists every file and the first prompt. The files and a `CONTEXT.md` land in `handover/<chat>/` of the repository, and Claude Code opens there with that prompt.
+
+The chats of claude.ai itself are not on your PC and the Claude Code sign-in cannot read them, and an artifact link's content needs a browser sign-in: paste its text into the card's snapshot.
 
 ## Keep plugins current
 
