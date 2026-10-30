@@ -6,20 +6,18 @@ All notable changes to Claude Harness are listed here, newest first. The format 
 
 ### Added
 
-- Cowork is a region of its own in the left nav, beside Claude Code and GitHub, with links to Memory and Design systems on claude.ai and an eye button that hides or shows it (`claudeHarness.cowork.show`) (#35).
+- Cowork is a region of its own in the left nav, beside Claude Code and GitHub, with a link to Memory on claude.ai and an eye button that hides or shows it (`claudeHarness.cowork.show`) (#35).
 - Cowork scheduled tasks: the Scheduled node and a task page list each scheduled task with the connectors and plugins it uses, read-only.
 - The marketplace's plugin list has a Harness column that shows where each plugin is available; a Code only plugin carries Add to Cowork, which opens the claude.ai plugin settings (#37).
 - Pull to Code copies a skill, or the skills of a plugin, that Claude.ai synced into Global or a repo as a Code-owned copy; `harness cowork pull <name> [--repo <dir>] [--kind skill|plugin] [--dry-run]` does the same from the command line (#45).
 - Unit and UI tests for the Cowork views on synthetic fixtures; the UI tests never read the desktop app's real data (#40).
-- The mod-authoring skill says which mod UI (band, panes, hover, click, images) works on the main screen, in fullscreen and in Windows Terminal.
+- The mod-authoring skill says which mod UI (band, panes, hover, click, images) works on the main screen, in fullscreen and in Windows Terminal, and that a band control needs a hotkey and a toggle shows both states.
 - Pull to Code for scheduled tasks: a task's instructions become a skill; `harness cowork pull` takes `--kind task|project`, a project's CLAUDE.md becoming a rules file or a CLAUDE.md section (#46).
 - Chats, Artifacts and Handover in the Cowork region: the desktop app's chats with their files, the Cowork sessions on claude.ai, every file the chats produced, and a handover card that Claude drafts and Continue in terminal opens in the target repo (#47).
 - Browser Automation Hunter: a chat beside a procedure card, like Plugin Hunter, for the procedures of the browser-automations skill, with Create into the plugin's source in your marketplace.
 - Draw with Claude on every Cowork page: skill, plugin, connector, scheduled task and chat.
-- Design systems in the Cowork region, with a page per design system.
 - The scheduled task page lists every run on a Runs tab, newest first, with unread runs marked.
 - The nav's Claude Code, Cowork and Repositories headers fold on click, and Collapse all / Expand all takes the GitHub button's place.
-- Release build
 
 ### Changed
 

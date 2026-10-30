@@ -7,9 +7,6 @@ import { restoreFiles } from './checkpoints';
 import { Shell, addLine, hasLine, pathWith, pathWithout, profileLine, psProfileFiles, removeLine, shimDir, shimFiles } from './cli-install';
 import { applyPull, applyTextPull, coworkDrift, planPull, planTaskPull } from './cli-cowork';
 import { Constitution } from './constitution';
-import { fetchDesignSystems } from './cowork-design';
-import type { DesignSystem } from './cowork-design';
-import { designReader, withReads } from './design-read-host';
 import { fetchRuns, fetchScheduled } from './cowork-scheduled';
 import { connectorSource, coworkSource } from './cowork-draw';
 import type { CoworkSource } from './cowork-draw';
@@ -133,9 +130,6 @@ export function activate(context: vscode.ExtensionContext): void {
   let cowork: ScopeView | undefined;
   /** The scheduled tasks the panel last read, so a skill pulled from one can say whether the task changed. */
   let lastTasks: ScheduledTask[] | undefined;
-  /** The design systems the panel last listed, so a read names one the panel knows. */
-  let lastDesign: DesignSystem[] = [];
-  const readDesign = designReader({ state: context.globalState, find: id => lastDesign.find(d => d.id === id) });
   /** What each pulled copy would be made of now, by file, for Compare. */
   const driftByFile = new Map<string, { current?: string; kind: string }>();
   let provider: Provider | undefined;
@@ -488,12 +482,6 @@ export function activate(context: vscode.ExtensionContext): void {
     },
     weekly: () => Promise.all(accounts().map(a => accountWeek(a))),
     coworkSessions: () => fetchCloudSessions(global.root),
-    designSystems: async () => {
-      const list = await fetchDesignSystems(global.root);
-      if (list.state === 'ok') lastDesign = list.systems;
-      return withReads(list, context.globalState);
-    },
-    designRead: (id, answer, ask, post) => readDesign(id, answer, ask, post),
     scheduled: async () => {
       const list = await fetchScheduled(global.root);
       if (list.state === 'ok' && JSON.stringify(list.tasks) !== JSON.stringify(lastTasks)) {

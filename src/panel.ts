@@ -15,8 +15,6 @@ import type { Answer, Confirm, ConsolidateRoute,Detail, ModActivity, Page, Panel
 import { pickTools, splitTools } from './tools';
 import { SCHEDULED_TEMPLATES_URL, SCHEDULED_URL, projectUrl, runUrl, taskUrl } from './cowork-scheduled';
 import type { ScheduledList, ScheduledRuns } from './cowork-scheduled';
-import { DESIGN_STANDALONE_URL, DESIGN_SYSTEMS_URL, artifactUrl } from './cowork-design';
-import type { DesignList } from './cowork-design';
 import { chatById, insideData, loadChat, loadChats } from './cowork-chats';
 import type { DownloadFile, HandoverCard, HandoverRepo, HandoverSeed, HandoverSource } from './cowork-handover';
 import type { CloudSessions } from './cowork-chats';
@@ -24,7 +22,7 @@ import type { CloudSessions } from './cowork-chats';
 export type { Detail, Page } from './shared/messages';
 
 /** Requests a page makes for its own data; none of them is an action the owner is waiting on. */
-const BACKGROUND = new Set<ToHost['type']>(['sessions', 'weekly', 'usage', 'usageMore', 'usageTotals', 'repoTrace', 'modActivity', 'slim', 'drawing', 'ruleInfo', 'effective', 'fleet', 'scheduled', 'scheduledRuns', 'designSystems', 'coworkChats', 'coworkSessions', 'coworkChat', 'handoverInbox', 'handoverSeed']);
+const BACKGROUND = new Set<ToHost['type']>(['sessions', 'weekly', 'usage', 'usageMore', 'usageTotals', 'repoTrace', 'modActivity', 'slim', 'drawing', 'ruleInfo', 'effective', 'fleet', 'scheduled', 'scheduledRuns', 'coworkChats', 'coworkSessions', 'coworkChat', 'handoverInbox', 'handoverSeed']);
 
 /** What a `panel` card answered: the button, and the text and the picked ids when the card had an input or choices. */
 export interface PanelAnswer {
@@ -77,9 +75,8 @@ const colorBelowTools = (fields: Field[]): Field[] => {
 };
 
 /** The commands that only look at a Cowork item or open its page; every other command is refused for the Cowork scope. */
-/** The Cowork region's two entries that are not on disk: the claude.ai settings pages they open. */
+/** The Cowork region's Memory entry is not on disk: the claude.ai settings page it opens. */
 export const COWORK_URL_MEMORY = 'https://claude.ai/new#settings/memory';
-export const COWORK_URL_DESIGN_SYSTEMS = 'https://claude.ai/new#settings/design-systems';
 
 export const COWORK_READ_COMMANDS = ['openFile', 'reveal', 'refresh', 'openCowork', 'openConnectors', 'pullToCode'];
 
@@ -112,10 +109,6 @@ export interface PanelHost {
   scheduled?(): Promise<ScheduledList>;
   /** Every run of one scheduled task, read from claude.ai. */
   scheduledRuns?(id: string): Promise<ScheduledRuns>;
-  /** The Cowork design systems, listed from claude.ai with the Claude Code login (list and read calls only). */
-  designSystems?(): Promise<DesignList>;
-  /** Claude's read of one design system through the Artifact tool; asks first, replies `designRead`. */
-  designRead?(id: string, answer: Answer, ask: (c: Confirm) => void, post: (m: ToWebview) => void): Promise<void>;
   /** Asks first, then drafts an output style from the session's style scan; `started` fires once the user agreed. */
   /** Without a confirmed answer and a remembered one, asks in the panel through `ask` and returns idle. */
   draftStyle?(scopeId: string, id: string, model: string, started: () => void, answer: Answer, ask: (c: Confirm) => void): Promise<StyleDraft>;
@@ -513,19 +506,6 @@ export class HarnessPanel {
         this.post({ type: 'scheduledRuns', id: m.id, runs });
         return;
       }
-      case 'designRead':
-        await this.host.designRead?.(m.id, { confirmed: m.confirmed, remember: m.remember }, ask => this.post({ type: 'confirm', ask }), msg => this.post(msg));
-        return;
-      case 'designSystems': {
-        let list: DesignList;
-        try {
-          list = (await this.host.designSystems?.()) ?? { state: 'error', note: 'Design systems are not available here.', systems: [], holds: '', standalone: { state: 'ok', note: '' }, fetchedAt: Date.now() };
-        } catch {
-          list = { state: 'error', note: 'claude.ai could not be reached, so the design systems are not listed here.', systems: [], holds: '', standalone: { state: 'ok', note: '' }, fetchedAt: Date.now() };
-        }
-        this.post({ type: 'designSystems', list });
-        return;
-      }
       case 'coworkChats':
         this.post({ type: 'coworkChats', ...loadChats() });
         return;
@@ -778,14 +758,8 @@ export class HarnessPanel {
           void vscode.env.openExternal(vscode.Uri.parse(url));
           return;
         }
-        if (m.command === 'openDesignSystem') {
-          // `list` opens the settings page, a plain id its artifact; the standalone projects open Claude Design.
-          const url = m.target === 'standalone' ? DESIGN_STANDALONE_URL : m.id && m.target === 'system' ? artifactUrl(m.id) : DESIGN_SYSTEMS_URL;
-          void vscode.env.openExternal(vscode.Uri.parse(url));
-          return;
-        }
         if (m.command === 'openCowork') {
-          const url = { skills: COWORK_URL_SKILLS, plugins: COWORK_URL_PLUGINS, connectors: COWORK_URL_CONNECTORS, memory: COWORK_URL_MEMORY, 'design-systems': COWORK_URL_DESIGN_SYSTEMS }[m.target as string] ?? COWORK_URL_CAPABILITIES;
+          const url = { skills: COWORK_URL_SKILLS, plugins: COWORK_URL_PLUGINS, connectors: COWORK_URL_CONNECTORS, memory: COWORK_URL_MEMORY }[m.target as string] ?? COWORK_URL_CAPABILITIES;
           void vscode.env.openExternal(vscode.Uri.parse(url));
           return;
         }

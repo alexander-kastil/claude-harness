@@ -3,8 +3,6 @@
 import type { CheckSummary } from '../constitution';
 import type { Asset, Category, Field, ScopeView } from '../harness';
 import type { McpInfo } from '../probe';
-import type { DesignList } from '../cowork-design';
-import type { DesignRead } from '../cowork-design-read';
 import type { ScheduledList, ScheduledRuns } from '../cowork-scheduled';
 import type { SessionSummary } from '../sessions';
 import type { ScaffoldForm } from '../standard';
@@ -111,7 +109,6 @@ export type Confirm =
   | { kind: 'huntCreate'; id: string; key: string; name: string; market: string; location: string; problems: string[]; files: string[]; retired: string[]; kept: string[] }
   | { kind: 'handover'; id: string; key: string; title: string; cwd: string; folder: string; files: { name: string; missing: boolean }[]; prompt: string }
   | { kind: 'handoverDraft'; key: string; files: number; chars: number }
-  | { kind: 'designRead'; key: string; id: string; name: string }
   | ShareChoice
   | PanelAsk;
 
@@ -332,11 +329,7 @@ export type ToHost =
   /** Reads the Cowork scheduled tasks from claude.ai (one GET); the reply is `scheduled`. */
   | { type: 'scheduled' }
   /** Reads every run of one scheduled task from claude.ai; the reply is `scheduledRuns`. */
-  | { type: 'scheduledRuns'; id: string }
-  /** Lists the Cowork design systems from claude.ai (list and read calls only); the reply is `designSystems`. */
-  | { type: 'designSystems' }
-  /** Reads what a design system holds with one headless Claude run on the Artifact tool; asks first, then replies `designRead`. */
-  | ({ type: 'designRead'; id: string } & Answer);
+  | { type: 'scheduledRuns'; id: string };
 
 // Share and Import start from commands (`share`, `importSkill`, ...) posted as `command`; the right-click menu and the
 // palette run the same commands, and their questions come back as `confirm` cards answered with `answer`.
@@ -403,11 +396,7 @@ export type ToWebview =
   /** The Cowork scheduled tasks, or why they are not listed. */
   | { type: 'scheduled'; list: ScheduledList }
   /** The runs of one scheduled task, newest first, or why they are not listed. */
-  | { type: 'scheduledRuns'; id: string; runs: ScheduledRuns }
-  /** The Cowork design systems, or why they are not listed. */
-  | { type: 'designSystems'; list: DesignList }
-  /** For `designRead`: Claude is reading, the read, or why not. */
-  | { type: 'designRead'; id: string; state: 'running' | 'done' | 'error'; read?: DesignRead; error?: string };
+  | { type: 'scheduledRuns'; id: string; runs: ScheduledRuns };
 
 /** What the distributor said about a skill when it was last asked. `current`: the skill's folder is unchanged; `newer`: it changed; `gone`: the repo no longer has it. */
 export interface DistCheck {

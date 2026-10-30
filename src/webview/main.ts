@@ -13,7 +13,6 @@ import { onHandoverMessage, renderHandover } from './handover';
 import { onChatMessage, renderCoworkArtifacts, renderCoworkChat, renderCoworkChats } from './cowork-chats';
 import { renderFleet, renderInit, renderMarket, renderMarkets } from './pages';
 import { renderRepo } from './repo-page';
-import { onDesignRead, renderDesignSystem, renderDesignSystems } from './design-systems';
 import { renderScheduledList, renderScheduledTask } from './scheduled';
 import { redrawCheckpoint, renderSession } from './session-page';
 import { renderSessionsPage, showSession } from './sessions';
@@ -43,10 +42,6 @@ export function renderMain() {
         ? renderScheduledList()
       : state.page === 'scheduled-task'
         ? renderScheduledTask()
-      : state.page === 'design-systems'
-        ? renderDesignSystems()
-      : state.page === 'design-system'
-        ? renderDesignSystem()
       : state.page === 'cowork-handover'
         ? renderHandover()
       : state.page === 'cowork-chats'
@@ -169,12 +164,6 @@ onMessage(m => {
   } else if (m.type === 'scheduledRuns') {
     state.scheduledRuns = { ...state.scheduledRuns, [m.id]: m.runs };
     if (state.page === 'scheduled-task' && !state.detail && state.scheduledPage && state.scheduledPage.id === m.id) renderMain();
-  } else if (m.type === 'designSystems') {
-    state.designSystems = m.list;
-    render();
-  } else if (m.type === 'designRead') {
-    onDesignRead(m);
-    if (state.page === 'design-system' && !state.detail) keepMainScroll(renderMain);
   } else if (['handoverInbox', 'handoverSeed', 'handoverLocated', 'handoverDraft', 'handover'].includes(m.type)) {
     onHandoverMessage(m, () => {
       if (state.page === 'cowork-handover' && !state.detail) keepMainScroll(renderMain);

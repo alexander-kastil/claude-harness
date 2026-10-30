@@ -31,11 +31,9 @@ export function stylePrompt(scan: StyleScan): string {
 const quote = (arg: string) => (/^[\w@%+=:,./\-]+$/.test(arg) ? arg : `"${arg.replace(/"/g, '\\"')}"`);
 
 /** Runs `claude -p` on the user's own Claude login, with no tools, MCP servers, skills, CLAUDE.md or saved session, so Claude sees the prompt only. */
-export function draftStyle(prompt: string, model: StyleModel, cwd: string, timeoutMs = 300000, system = SYSTEM, opts: { tool?: string; env?: Record<string, string> } = {}): Promise<{ text: string; cost?: number } | { error: string }> {
-  // `opts.tool` lets the run use that one built-in tool (and nothing else); none is the default.
-  const tools = opts.tool ? ['--tools', opts.tool, '--allowedTools', opts.tool] : ['--tools', ''];
-  const args = ['-p', '--model', model, '--output-format', 'json', ...tools, '--strict-mcp-config', '--disable-slash-commands', '--no-session-persistence', '--setting-sources', 'project', '--system-prompt', system];
-  const env = { ...process.env, CLAUDE_CODE_DISABLE_CLAUDE_MDS: '1', ...opts.env };
+export function draftStyle(prompt: string, model: StyleModel, cwd: string, timeoutMs = 300000, system = SYSTEM): Promise<{ text: string; cost?: number } | { error: string }> {
+  const args = ['-p', '--model', model, '--output-format', 'json', '--tools', '', '--strict-mcp-config', '--disable-slash-commands', '--no-session-persistence', '--setting-sources', 'project', '--system-prompt', system];
+  const env = { ...process.env, CLAUDE_CODE_DISABLE_CLAUDE_MDS: '1' };
   const windows = process.platform === 'win32';
   return new Promise(resolve => {
     let child: ChildProcess;

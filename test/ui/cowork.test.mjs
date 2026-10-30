@@ -34,7 +34,7 @@ const labels = sel => s.ev((D, sel) => [...D.querySelectorAll(sel)].filter(e => 
 const text = (sel = '.main-body') => s.ev((D, sel) => D.querySelector(sel)?.innerText || '', sel);
 const coworkHead = () => s.ev(D => D.querySelector('.sidebar .cowork-region > .scope-head')?.innerText || '');
 // The Cowork region is always open: its head does not fold.
-const unfold = () => s.waitFor(D => D.querySelector('.sidebar .list')?.innerText.toLowerCase().includes('design systems'));
+const unfold = () => s.waitFor(D => D.querySelector('.sidebar .cowork-region .row.cowork-link'));
 
 test('a PC without synced items shows an empty Cowork scope with one line on why', T, async () => {
   await s.waitFor(D => D.querySelector('.sidebar .cowork-region > .scope-head'));

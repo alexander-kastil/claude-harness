@@ -191,18 +191,6 @@ const CARDS = {
     action: 'Draft',
     send: remember => vscode.postMessage({ type: 'handoverDraft', confirmed: true, remember }),
   }),
-  designRead: ask => ({
-    mark: claudeMark(18),
-    title: 'Read the design system with Claude',
-    sub: 'with Claude Haiku, in the background',
-    facts: [
-      ['account', 'Runs claude -p on your own Claude login, so it counts against your plan.'],
-      ['list-unordered', `Gives Claude the address of ${ask.name} and the Artifact tool, to list its files and read the README, the tokens and the components. Only reads: nothing is created, published or changed.`],
-      ['eye', 'The README, tokens, components and files appear on the page, kept until the design system has a newer version.'],
-    ],
-    action: 'Read',
-    send: remember => vscode.postMessage({ type: 'designRead', id: ask.id, confirmed: true, remember }),
-  }),
   // The page's own question, no host involved: dropping the edits of the open element. No Don't ask again switch.
   discard: ask => ({
     mark: icon('discard'),

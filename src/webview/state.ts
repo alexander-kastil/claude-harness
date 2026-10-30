@@ -57,12 +57,6 @@ export interface State {
   scheduledPage?: { id: string; tab?: string };
   /** The runs of each scheduled task already read, by task id. */
   scheduledRuns?: Record<string, any>;
-  /** The Cowork design systems as the host read them from claude.ai; null while they are read, undefined before the first ask. */
-  designSystems?: any;
-  /** The design system on screen. */
-  designPage?: { id: string };
-  /** Where Claude's read of each design system stands: running, or the error; a finished read lives in `designSystems.reads`. */
-  designReads?: Record<string, { state: string; error?: string }>;
   /** The marketplace page on screen: its name, and where its Back button goes when it was opened from the Plugins page. */
   marketPage?: { name: string; back?: { label: string; go: () => void } };
   init?: any;
