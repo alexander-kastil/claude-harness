@@ -3,6 +3,7 @@
 import type { CheckSummary } from '../constitution';
 import type { Field, ScopeView } from '../harness';
 import type { McpInfo } from '../probe';
+import type { CoworkProject, ProjectContents } from '../cowork-desktop';
 import type { Detail, DistCheck, DistNote, ListLimits, Progress, Standard, UsageSession } from '../shared/messages';
 
 export interface Draft {
@@ -35,6 +36,8 @@ export interface State {
   checks: Record<string, CheckSummary>;
   standard?: Standard;
   lists: ListLimits;
+  /** From the claudeHarness.cowork.show setting; false hides the Cowork region of the nav. */
+  coworkShow?: boolean;
   page?: string;
   fleet?: any;
   effective: Record<string, any>;
@@ -49,6 +52,10 @@ export interface State {
   /** The skill row to scroll to and highlight once, after the next repaint. */
   distScroll?: string;
   markets?: any;
+  /** The Cowork scheduled tasks as the host read them from claude.ai; null while they are read, undefined before the first ask. */
+  scheduled?: any;
+  /** The scheduled task on screen. */
+  scheduledPage?: { id: string };
   /** The marketplace page on screen: its name, and where its Back button goes when it was opened from the Plugins page. */
   marketPage?: { name: string; back?: { label: string; go: () => void } };
   init?: any;
@@ -58,6 +65,10 @@ export interface State {
   sessionsPage?: any;
   /** The weekly summary of every account; null while it is read. */
   weekly?: any;
+  /** The Cowork projects of the desktop app on this PC; undefined until the nav asks, `found` false when its data folder is absent. */
+  coworkProjects?: { found: boolean; list: CoworkProject[] };
+  /** The Cowork project page on screen: the local space id, its contents once read, and the Contents tab. */
+  coworkProject?: { id: string; data?: ProjectContents | null; tab: string };
   /** Redraws the overview's session and repository blocks in place; set while the overview is built. */
   overviewRefresh?: () => void;
   kindPage?: any;

@@ -18,6 +18,10 @@ export interface MarketRow {
   installed: number;
   enabled: number;
   updates: number;
+  /** Plugins available in Code only. */
+  notInCowork: number;
+  /** Every plugin with where it is available: code, cowork, both or none. */
+  harness: { plugin: string; state: string }[];
 }
 
 export interface MarketProblem {
@@ -71,10 +75,12 @@ function marketplacesList(a: Args, io: Io): number {
       installed: m.plugins.filter(p => p.installed).length,
       enabled: m.plugins.filter(p => p.enabled).length,
       updates: m.plugins.filter(p => p.ahead).length,
+      notInCowork: m.plugins.filter(p => p.harness === 'code').length,
+      harness: m.plugins.map(p => ({ plugin: p.name, state: p.harness ?? 'code' })),
     })),
     problems: markets.flatMap(m => m.plugins.map(p => problemOf(m.name, p)).filter((x): x is MarketProblem => !!x)),
   };
-  const rows = out.marketplaces.map(m => [m.name, m.kind, m.source, m.plugins, m.installed, m.enabled, m.updates]);
+  const rows = out.marketplaces.map(m => [m.name, m.kind, m.source, m.plugins, m.installed, m.enabled, m.updates, m.notInCowork]);
   const problems = out.problems.length
     ? [
         '',
@@ -89,7 +95,18 @@ function marketplacesList(a: Args, io: Io): number {
   emit(io, a, out, [
     headline(`Marketplaces: ${markets.length}, ${out.problems.length} problem${out.problems.length === 1 ? '' : 's'}`),
     '',
-    ...table(['Marketplace', 'Kind', 'Source', 'Plugins', 'Installed', 'Enabled', 'Updates'], rows.length ? rows : [['(none)', '', '', '', '', '', '']], [false, false, false, true, true, true, true]),
+    ...table(['Marketplace', 'Kind', 'Source', 'Plugins', 'Installed', 'Enabled', 'Updates', 'Not in Cowork'], rows.length ? rows : [['(none)', '', '', '', '', '', '', '']], [false, false, false, true, true, true, true, true]),
+    ...(markets.some(m => m.plugins.length)
+      ? [
+          '',
+          headline('Harness'),
+          '',
+          ...table(
+            ['Marketplace', 'Plugin', 'Harness'],
+            markets.flatMap(m => m.plugins.map(p => [m.name, p.name, { code: 'Code', cowork: 'Cowork', both: 'Both', none: 'None' }[p.harness ?? 'code']]))
+          ),
+        ]
+      : []),
     ...problems,
   ]);
   return 0;

@@ -93,6 +93,10 @@ export interface Asset {
   link?: string;
   /** A global skill installed from a distributor: its entry in the skills CLI's lock file. */
   origin?: SkillOrigin;
+  /** Cowork items: who provides it (the marketplace of a synced plugin, the source of a synced skill). */
+  owner?: string;
+  /** A skill pulled from Cowork: the synced folder it was copied from and whether the copy still matches it. */
+  coworkOrigin?: { item: string; from: string; state: 'same' | 'differs' | 'gone' };
   /** Names the body mentions as code spans or slash commands, and the agents and skills its frontmatter names. */
   refs?: string[];
   /** Lines of the file body, for the sidebar byline of memory, rules, output styles and hook scripts. */
@@ -145,6 +149,40 @@ export interface ScopeView {
   local?: boolean;
   lastUsed?: number;
   categories: Category[];
+  /** Only on the Cowork scope: what Claude.ai brings, read-only, and what is not on disk. */
+  cowork?: CoworkInfo;
+}
+
+/** The facts the Cowork views show beside the items. */
+export interface CoworkInfo {
+  /** Why the scope is empty; absent when something is synced. */
+  empty?: string;
+  /** The claude.ai page that manages the items. */
+  settingsUrl: string;
+}
+
+/** The Cowork scope: what the Cowork harness brings to this PC (synced skills, synced org plugins, claude.ai connectors). Always read-only. */
+export const COWORK_ID = 'cowork';
+// The claude.ai pages that manage Cowork items; each verified on a fresh load (the old /settings/capabilities landed on Settings > General).
+export const COWORK_URL_SKILLS = 'https://claude.ai/new#customize/skills/yours';
+export const COWORK_URL_PLUGINS = 'https://claude.ai/new#customize/plugins/yours';
+export const COWORK_URL_CONNECTORS = 'https://claude.ai/new#customize/connectors/yours';
+export const COWORK_URL_CAPABILITIES = 'https://claude.ai/new#settings/capabilities';
+export const COWORK_SETTINGS_URL = COWORK_URL_CAPABILITIES;
+export const COWORK_MANAGED = 'Managed by Claude.ai';
+export const isCoworkAsset = (a: Pick<Asset, 'scope'>): boolean => a.scope === COWORK_ID;
+
+/** Why a Cowork item or scope cannot be changed here, or undefined for any other scope. */
+export const coworkBlock = (scope: string, what = 'changed'): string | undefined =>
+  scope === COWORK_ID ? `${COWORK_MANAGED}: Claude.ai overwrites it on every sync, so it cannot be ${what} here. Change it on claude.ai.` : undefined;
+
+/** A file under the folders Claude.ai syncs into a Claude folder (skills/synced, plugins/synced). */
+export function isSyncedPath(root: string, file: string): boolean {
+  const f = path.resolve(file).toLowerCase();
+  return ['skills', 'plugins'].some(d => {
+    const s = path.resolve(root, d, 'synced').toLowerCase();
+    return f === s || f.startsWith(s + path.sep);
+  });
 }
 
 export const globalScope = (root?: string): HarnessScope => {
@@ -603,7 +641,7 @@ function workflowDescription(file: string): string {
   return m ? oneLine(m[2]) : '';
 }
 
-function skillAssets(scope: HarnessScope, skillsDir: string): Asset[] {
+export function skillAssets(scope: Pick<HarnessScope, 'id' | 'root'>, skillsDir: string): Asset[] {
   if (!fs.existsSync(skillsDir)) return [];
   const out: Asset[] = [];
   const origins = scope.id === 'global' ? originsOf(scope.root) : new Map<string, SkillOrigin>();
@@ -762,6 +800,8 @@ export function scan(scope: HarnessScope): Category[] {
 }
 
 export function setPluginEnabled(scope: HarnessScope, key: string, value: boolean): void {
+  const block = coworkBlock(scope.id, 'switched');
+  if (block) throw new Error(block);
   const file = path.join(scope.root, 'settings.json');
   const text = fs.existsSync(file) ? readText(file) : '{}';
   const edits = modify(text, ['enabledPlugins', key], value, { formattingOptions: { insertSpaces: true, tabSize: 2, eol: eolOf(text) } });
@@ -866,6 +906,8 @@ function template(kind: Kind, name: string): string {
 }
 
 export function createAsset(scope: HarnessScope, kind: Kind, name: string): string {
+  const block = coworkBlock(scope.id, 'added to');
+  if (block) throw new Error(block);
   const target = assetTarget(scope, kind, name);
   if (fs.existsSync(target.dir ?? target.file)) throw new Error(`${name} already exists.`);
   fs.mkdirSync(path.dirname(target.file), { recursive: true });
@@ -884,6 +926,8 @@ function renameInContent(file: string, kind: Kind, newName: string): void {
 }
 
 export function renameAsset(scope: HarnessScope, asset: Asset, newName: string): string {
+  const block = coworkBlock(scope.id, 'renamed') ?? coworkBlock(asset.scope, 'renamed');
+  if (block) throw new Error(block);
   const target = assetTarget(scope, asset.kind, newName);
   if (fs.existsSync(target.dir ?? target.file)) throw new Error(`${newName} already exists.`);
   fs.mkdirSync(path.dirname(target.dir ?? target.file), { recursive: true });
@@ -893,6 +937,8 @@ export function renameAsset(scope: HarnessScope, asset: Asset, newName: string):
 }
 
 export function duplicateAsset(scope: HarnessScope, asset: Asset, newName: string): string {
+  const block = coworkBlock(scope.id, 'duplicated in place') ?? coworkBlock(asset.scope, 'duplicated in place');
+  if (block) throw new Error(block);
   const target = assetTarget(scope, asset.kind, newName);
   if (fs.existsSync(target.dir ?? target.file)) throw new Error(`${newName} already exists.`);
   fs.mkdirSync(path.dirname(target.dir ?? target.file), { recursive: true });
@@ -995,6 +1041,93 @@ export function pluginViews(root: string): ScopeView[] {
       ],
     };
   });
+}
+
+export const COWORK_EMPTY = 'Nothing from Claude.ai is on this PC yet: no synced skills, plugins or connectors.';
+
+const MARKET_KINDS: Record<string, string> = { anthropic_catalog: 'Anthropic catalog' };
+
+/** The synced skills of one <org>_<user> folder; the manifest says who made each. */
+function coworkSkills(root: string): Asset[] {
+  const out = new Map<string, Asset>();
+  const base = path.join(root, 'skills', 'synced');
+  for (const folder of safeDirs(base)) {
+    const dir = path.join(base, folder);
+    const manifest = readJson(path.join(dir, 'manifest.json'));
+    const entries = (Array.isArray(manifest.skills) ? manifest.skills : []) as Record<string, unknown>[];
+    const plugins = (readJson(path.join(root, 'plugins', 'synced', folder, 'manifest.json')).plugins ?? []) as Record<string, unknown>[];
+    for (const a of skillAssets({ id: COWORK_ID, root }, dir)) {
+      const entry = entries.find(e => e.skillId === a.name || e.name === a.name);
+      const backing = plugins.find(p => p.pluginId === entry?.backingPluginId);
+      const owner = entry?.creatorType === 'anthropic' ? 'Anthropic' : backing ? `${oneLine(backing.name)} plugin` : entry?.source === 'plugin' ? 'A synced plugin' : 'Your account';
+      const updated = typeof entry?.updatedAt === 'string' ? Date.parse(entry.updatedAt) : NaN;
+      if (!out.has(a.name)) out.set(a.name, { ...a, owner, description: a.description || oneLine(entry?.description), mtime: Number.isNaN(updated) ? a.mtime : updated });
+    }
+  }
+  return [...out.values()].sort((x, y) => x.name.localeCompare(y.name));
+}
+
+/** The synced plugins of one <org> folder: a folder and a `<folder>.meta.json` per plugin, the version and owner from the meta files. */
+function coworkPlugins(root: string): Asset[] {
+  const out = new Map<string, Asset>();
+  const base = path.join(root, 'plugins', 'synced');
+  for (const org of safeDirs(base)) {
+    const manifest = readJson(path.join(base, org, 'manifest.json'));
+    const entries = (Array.isArray(manifest.plugins) ? manifest.plugins : []) as Record<string, unknown>[];
+    for (const folder of safeDirs(path.join(base, org))) {
+      const dir = path.join(base, org, folder);
+      const meta = readJson(path.join(base, org, `${folder}.meta.json`));
+      const info = readJson(path.join(dir, '.claude-plugin', 'plugin.json'));
+      const entry = entries.find(e => e.pluginId === meta.server_plugin_id);
+      const name = oneLine(entry?.name) || oneLine(info.name) || folder.replace(/~g\d+$/, '');
+      const market = oneLine(meta.marketplace_name) || oneLine(entry?.marketplaceName);
+      const kind = oneLine(meta.marketplace_kind) || oneLine(entry?.marketplaceKind);
+      const updated = typeof entry?.updatedAt === 'string' ? Date.parse(entry.updatedAt) : NaN;
+      const file = path.join(dir, '.claude-plugin', 'plugin.json');
+      if (out.has(name)) continue;
+      out.set(name, {
+        id: `${COWORK_ID}|plugin:${name}`,
+        scope: COWORK_ID,
+        kind: 'plugin',
+        name,
+        description: oneLine(entry?.description) || oneLine(info.description),
+        file,
+        dir,
+        files: listFiles(dir, () => true, true).map(f => f.split(path.sep).join('/')),
+        mtime: Number.isNaN(updated) ? mtimeOf(file) : updated,
+        // The meta files first (the meta file, then the manifest entry), the plugin's own manifest last.
+        version: oneLine(meta.version) || oneLine(entry?.version) || oneLine(info.version) || undefined,
+        owner: market || undefined,
+        about: MARKET_KINDS[kind] ?? (kind || undefined),
+        status: oneLine(meta.installation_preference) || oneLine(entry?.installationPreference) || undefined,
+      });
+    }
+  }
+  return [...out.values()].sort((x, y) => x.name.localeCompare(y.name));
+}
+
+/**
+ * The Cowork scope: the skills and org plugins Claude.ai syncs into the Claude folder and the claude.ai connectors (`connectors`, the
+ * MCP items whose source is claude.ai, re-homed here). Read-only; without any of them the scope is empty and says why.
+ */
+export function coworkView(root: string, connectors: Asset[] = []): ScopeView {
+  const skills = coworkSkills(root);
+  const plugins = coworkPlugins(root);
+  const mcp = connectors
+    .filter(c => c.source === 'claude.ai')
+    .map(c => ({ ...c, id: `${COWORK_ID}|mcp:${c.name}`, scope: COWORK_ID, owner: 'claude.ai' }));
+  const empty = !skills.length && !plugins.length && !mcp.length;
+  return {
+    id: COWORK_ID,
+    label: 'Cowork',
+    path: path.join(root, 'plugins', 'synced'),
+    categories: [
+      { ...kindInfo('skill'), items: skills },
+      { ...kindInfo('plugin'), items: plugins },
+      { ...kindInfo('mcp'), items: mcp },
+    ],
+    cowork: { ...(empty && { empty: COWORK_EMPTY }), settingsUrl: COWORK_SETTINGS_URL },
+  };
 }
 
 export interface Roster {
@@ -1276,6 +1409,8 @@ export function claudeMdText(dir: string, expand = true): string | undefined {
 
 export function retireBlock(asset: Asset, repoDir: string | undefined, keep?: KeepCopies): string | undefined {
   if (asset.kind !== 'skill' && asset.kind !== 'agent') return 'Only skills and agents are retired.';
+  const cowork = coworkBlock(asset.scope, 'retired');
+  if (cowork) return cowork;
   if (!repoDir || asset.scope === 'global' || asset.scope.startsWith('plugin:')) return 'Only a repo copy is retired.';
   if (!asset.copies?.some(c => c.same && (c.scope === 'global' || c.scope.startsWith('plugin:')))) return 'It has no identical global or plugin copy.';
   return keepsCopies(repoDir, keep);

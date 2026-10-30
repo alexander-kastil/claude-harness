@@ -544,6 +544,32 @@ pre.json {
   padding-left: 40px;
 }
 
+/* An entry of the Cowork region that opens claude.ai: glyph, name, the external-link mark at the end. */
+.row.cowork-link {
+  grid-template-columns: 16px 1fr 16px;
+  padding-left: 12px;
+}
+
+.row.cowork-link .codicon-link-external {
+  opacity: 0.6;
+}
+
+.sched-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+/* A scheduled task's instructions: the text as written, read-only. */
+.sched-instructions {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.5;
+  max-height: 480px;
+  overflow: auto;
+}
+
 .tag.scope {
   display: inline-flex;
   align-items: center;
@@ -3294,6 +3320,14 @@ mark {
   text-overflow: ellipsis;
 }
 
+/* A cell that holds a button (Harness: label and Add to Cowork) lays them out in a row instead of clipping the button behind the ellipsis. */
+.at-cell:has(> button) {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow: visible;
+}
+
 .at-muted {
   font-size: 12px;
   color: var(--vscode-descriptionForeground);
@@ -3649,6 +3683,67 @@ mark {
 
 .cmd-draft {
   margin-left: auto;
+}
+
+/* Pull to Code in the header bar: the target scope as a select in the same box, then the button; not an AI action, so it sits
+   left with the other groups. */
+.pull-to-code {
+  align-items: stretch;
+}
+
+.pull-to-code > select.pull-target {
+  width: auto;
+  min-width: 150px;
+  max-width: 240px;
+  min-height: 26px;
+  padding: 3px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+/* A server's status in the header bar: the line and its Retry, at the right end just before the AI group, which keeps the very
+   end (Sign in is one of its commands). */
+.cmd-bar > .cmd-status {
+  display: flex;
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  max-width: 100%;
+  order: 98;
+  margin-left: auto;
+}
+
+.cmd-bar:has(> .cmd-status) > .ai-group {
+  margin-left: 0;
+}
+
+.cmd-status .dv-notice {
+  flex: 0 1 auto;
+  min-width: 0;
+  padding: 3px 10px;
+  align-items: center;
+}
+
+.cmd-status .dv-notice > .codicon {
+  margin-top: 0;
+}
+
+.cmd-status .dv-notice > .dv-notice-text {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+/* A healthy status is a plain line, not a box. */
+.cmd-status .dv-notice.ok {
+  padding-left: 0;
+  border-color: transparent;
+  background: none;
+}
+
+.cmd-status .dv-notice.ok > .codicon {
+  color: var(--vscode-testing-iconPassed);
 }
 
 .view-tab:disabled {

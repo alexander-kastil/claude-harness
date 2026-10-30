@@ -37,6 +37,7 @@ import { sessionsCommand } from './cli-sessions';
 import { modsCommand } from './cli-mods';
 import { lessonsCommand, timeCommand } from './cli-learn';
 import { sourcesCommand } from './cli-sources';
+import { coworkCommand } from './cli-cowork';
 
 export { parse };
 
@@ -46,7 +47,7 @@ export const HELP = `claude-harness (preview): the Claude Harness features from 
 
 Usage: node cli.js <command> [options]
 
-  inventory [--repo <dir>]            The harness of Global or one repo: memory, rules, agents, skills, commands, hooks, MCP servers, plugins.
+  inventory [--repo <dir>] [--cowork] The harness of Global or one repo: memory, rules, agents, skills, commands, hooks, MCP servers, plugins. --cowork lists what Claude.ai synced into the root (skills/synced, plugins/synced), read-only.
   consolidate [--name <n>]            Every skill, agent, rule, command or workflow that exists in more than one place, with its copies.
   consolidate retire --name <n> --kind skill|agent --from <global|repo dir> [--dry-run]
                                       Retire one copy, backed up first (same backup as the extension).
@@ -128,6 +129,8 @@ Usage: node cli.js <command> [options]
                                       Update one skill from its source, backed up first. A plugin-linked skill is staged (its recorded command, else downloaded), compared with the plugin's copy and, when it differs, replaces the plugin's skill folder whole (backed up), bumps the plugin's patch version and updates the installed plugin.
   sources link --name <skill> --source <owner/repo> --plugin <plugin> [--market <dir>] [--stage "<command>"] [--version <v>] [--dry-run]
                                       Record the source of a skill a plugin of your marketplace ships, so sources check and sources update follow it. --stage is run in an empty folder and must leave .claude/skills/<skill> there (e.g. npx -y ui-ux-pro-max-cli@latest init --ai claude --force).
+  cowork pull <name> [--repo <dir>] [--kind skill|plugin] [--dry-run]
+                                      Copy a Cowork skill, or the skills of a Cowork plugin, from the folders Claude.ai synced into the root to Global, or to the repo's .claude/skills, as a copy of your own. An existing copy is backed up first, the origin and content hash are recorded in .cowork-origins.json, and the synced folders are never written.
   complete --line "<command line>" [--position <n>]
                                       The candidates for the word at the cursor, one per line (--json for a list); the shell completers call it.
   completion powershell|bash          The script a shell profile evaluates to register Tab completion for harness.
@@ -154,6 +157,8 @@ export interface InventoryItem {
   enabled?: boolean;
   source?: string;
   version?: string;
+  /** Cowork items only: who provides it. */
+  owner?: string;
   copies?: { label: string; state: 'identical' | 'nearly identical' | 'differs' }[];
 }
 export interface InventoryOut {
@@ -166,8 +171,8 @@ export interface InventoryOut {
 const stateOf = (c: { same: boolean; near?: boolean }) => (c.same ? 'identical' : c.near ? 'nearly identical' : 'differs');
 
 /** One scope's inventory: Global when no repo is named. */
-function inventoryOf(w: World, repo?: string): InventoryOut {
-  const view = repo ? w.views.find(v => v.id !== 'global' && samePath(v.path, repo)) : w.views[0];
+function inventoryOf(w: World, repo?: string, cowork = false): InventoryOut {
+  const view = cowork ? w.cowork : repo ? w.views.find(v => v.id !== 'global' && samePath(v.path, repo)) : w.views[0];
   if (!view) throw new Stop(`${repo} is not a repo with a .claude folder or a CLAUDE.md.`);
   return {
     scope: { id: view.id, label: view.label, path: view.path },
@@ -183,6 +188,7 @@ function inventoryOf(w: World, repo?: string): InventoryOut {
         ...(i.enabled !== undefined && { enabled: i.enabled }),
         ...(i.source && { source: i.source }),
         ...(i.version && { version: i.version }),
+        ...(i.owner && { owner: i.owner }),
         ...(i.copies?.length && { copies: i.copies.map(c => ({ label: c.label, state: stateOf(c) })) }),
       })),
     })),
@@ -194,6 +200,7 @@ function inventoryOf(w: World, repo?: string): InventoryOut {
 export function inventory(a: Args): InventoryOut | InventoryOut[] {
   const w = load(a);
   const repos = a.flags.get('repo') ?? [];
+  if (a.flags.has('cowork')) return inventoryOf(w, undefined, true);
   return repos.length > 1 ? repos.map(r => inventoryOf(w, r)) : inventoryOf(w, repos[0]);
 }
 
@@ -505,6 +512,8 @@ export async function run(argv: string[], io: Io): Promise<number> {
       return await lessonsCommand(a, io);
     } else if (cmd === 'sources') {
       return await sourcesCommand(a, io);
+    } else if (cmd === 'cowork') {
+      return await coworkCommand(a, io);
     } else if (cmd === 'consolidate' && sub === 'retire') {
       const w = load(a);
       const stamp = backupStamp();

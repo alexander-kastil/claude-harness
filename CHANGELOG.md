@@ -2,6 +2,24 @@
 
 All notable changes to Claude Harness are listed here, newest first. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions with no version change in the package.json history (0.1.3, 0.1.5 to 0.1.18, 0.1.20 to 0.1.24, 0.1.27, 0.2.1 and 0.2.3 to 0.2.11) and development builds (0.2.14 to 0.2.22, 0.2.24 to 0.2.30, 0.2.32 to 0.2.34, 0.2.36 to 0.2.44, 0.3.0, 0.3.2, 0.4.1 to 0.4.3, 0.5.2 and 0.5.3) have no entry.
 
+## [Unreleased]
+
+### Added
+
+- Cowork is a region of its own in the left nav, beside Claude Code and GitHub, with links to Memory and Design systems on claude.ai and an eye button that hides or shows it (`claudeHarness.cowork.show`) (#35).
+- Cowork projects: the Projects node lists the desktop app's Cowork projects, and a project page shows what its sessions used (skills, connectors with their tools, tools), its Memory, Instructions and Grounding, read from the app's data on this PC.
+- Cowork scheduled tasks: the Scheduled node and a task page list each scheduled task with the connectors and plugins it uses, read-only.
+- The marketplace's plugin list has a Harness column that shows where each plugin is available; a Code only plugin carries Add to Cowork, which opens the claude.ai plugin settings (#37).
+- Pull to Code copies a skill, or the skills of a plugin, that Claude.ai synced into Global or a repo as a Code-owned copy; `harness cowork pull <name> [--repo <dir>] [--kind skill|plugin] [--dry-run]` does the same from the command line (#45).
+- Unit and UI tests for the Cowork views on synthetic fixtures; the UI tests never read the desktop app's real data (#40).
+
+### Changed
+
+- The MCP detail page shows the server's status in its header bar.
+- claude.ai connectors are no longer probed: they show Claude Code's status, without Sign in or Retry.
+- The Cowork detail pages carry their commands in the header bar (Pull to Code after Manage on claude.ai), the notice box is gone and the plugin details are redesigned.
+- The Cowork pages link to the claude.ai pages for skills, plugins, connectors and capabilities.
+
 ## [0.13.21] - 2026-10-30
 
 ### Added

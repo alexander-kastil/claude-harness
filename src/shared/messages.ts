@@ -3,11 +3,13 @@
 import type { CheckSummary } from '../constitution';
 import type { Asset, Category, Field, ScopeView } from '../harness';
 import type { McpInfo } from '../probe';
+import type { ScheduledList } from '../cowork-scheduled';
 import type { SessionSummary } from '../sessions';
 import type { ScaffoldForm } from '../standard';
 import type { Progress } from '../usage';
 import type { SlimReport } from './slim';
 import type { UsageSession } from '../usage-rows';
+import type { CoworkProject, ProjectContents } from '../cowork-desktop';
 
 export type { Progress } from '../usage';
 export type { UsageSession } from '../usage-rows';
@@ -229,7 +231,7 @@ export type ToHost =
   | { type: 'configureTools'; id: string; key: string; value: string }
   | { type: 'mcpSignIn'; id: string }
   | { type: 'mcpRetry'; id: string }
-  | { type: 'command'; command: string; id?: string; kind?: string; scope?: string; rel?: string; market?: string; /** `name@market` of the plugin a sync acts on. */ plugin?: string }
+  | { type: 'command'; command: string; id?: string; kind?: string; scope?: string; rel?: string; /** For `openCowork`: the claude.ai page, `skills`, `plugins` or `connectors`; none opens Capabilities. */ target?: string; market?: string; /** `name@market` of the plugin a sync acts on. */ plugin?: string }
   | { type: 'fleet' }
   | { type: 'effective'; scope: string }
   | { type: 'ruleInfo'; id: string }
@@ -238,6 +240,10 @@ export type ToHost =
   | { type: 'initRun'; dir: string; form: ScaffoldForm; apply: boolean }
   | { type: 'sessions'; scope: string }
   | { type: 'weekly' }
+  /** The Cowork projects the desktop app keeps on this PC; answered by `coworkProjects`. */
+  | { type: 'coworkProjects' }
+  /** One Cowork project's sessions, usage, memory, instructions and context folder, by its local space id; answered by `coworkProject`. */
+  | { type: 'coworkProject'; id: string }
   | { type: 'session'; scope: string; id: string }
   | ({ type: 'draftStyle'; scope: string; id: string; model: string } & Answer)
   | { type: 'exportSession'; scope: string; id: string }
@@ -291,14 +297,16 @@ export type ToHost =
   /** Creates the saved card's plugin in a marketplace; always asks, listing every file written and every copy retired. */
   | ({ type: 'huntCreate'; id: string; market: string } & Answer)
   /** Consolidate's merge for a repo copy that differs from the global one. */
-  | { type: 'huntMerge'; path: string; kind: 'skill' | 'agent' };
+  | { type: 'huntMerge'; path: string; kind: 'skill' | 'agent' }
+  /** Reads the Cowork scheduled tasks from claude.ai (one GET); the reply is `scheduled`. */
+  | { type: 'scheduled' };
 
 // Share and Import start from commands (`share`, `importSkill`, ...) posted as `command`; the right-click menu and the
 // palette run the same commands, and their questions come back as `confirm` cards answered with `answer`.
 
 /** Host to webview. Payloads the host passes through from a reader stay `unknown` here. */
 export type ToWebview =
-  | { type: 'state'; views: ScopeView[]; checks: Record<string, CheckSummary>; standard?: Standard; /** From the settings; absent from hosts older than the list settings. */ lists?: ListLimits; /** From hosts older than the repo list. */ categories?: Category[] }
+  | { type: 'state'; views: ScopeView[]; checks: Record<string, CheckSummary>; standard?: Standard; /** From the settings; absent from hosts older than the list settings. */ lists?: ListLimits; /** From claudeHarness.cowork.show; false hides the Cowork region of the nav. Absent from older hosts, which show it. */ coworkShow?: boolean; /** The Cowork scope, read-only; absent from hosts older than the Cowork scope. */ cowork?: ScopeView; /** From hosts older than the repo list. */ categories?: Category[] }
   /** The standard checks alone, when a check starts or finishes: the views stay as the last `state` sent them. */
   | { type: 'checks'; checks: Record<string, CheckSummary> }
   | { type: 'detail'; detail?: Detail; external?: boolean; /** Sent after a save was written: the page returns to view mode. */ saved?: boolean }
@@ -313,6 +321,10 @@ export type ToWebview =
   | { type: 'initResult'; dir: string; apply: boolean; data: unknown }
   | { type: 'sessions'; scope: string; list: SessionSummary[] }
   | { type: 'weekly'; list: unknown }
+  /** For `coworkProjects`: `found` is false when the desktop app's data folder is not on this PC (the node then shows its two links only). */
+  | { type: 'coworkProjects'; found: boolean; list: CoworkProject[] }
+  /** For `coworkProject`: none when the space is gone. */
+  | { type: 'coworkProject'; id: string; data?: ProjectContents }
   | { type: 'session'; scope: string; id: string; data: unknown }
   | ({ type: 'styleDraft'; scope: string; id: string } & StyleDraft)
   /** For `checkpointFiles`; `restored` follows a restore, with the files that could not be written. */
@@ -337,7 +349,9 @@ export type ToWebview =
   /** For the skill distributor commands: what the last check found per skill id (merged into the page's), and whether a check is running. */
   | { type: 'distChecks'; checks: Record<string, DistCheck>; running?: boolean }
   /** What the last distributor command did, or none to clear the line. */
-  | { type: 'distNote'; note?: DistNote };
+  | { type: 'distNote'; note?: DistNote }
+  /** The Cowork scheduled tasks, or why they are not listed. */
+  | { type: 'scheduled'; list: ScheduledList };
 
 /** What the distributor said about a skill when it was last asked. `current`: the skill's folder is unchanged; `newer`: it changed; `gone`: the repo no longer has it. */
 export interface DistCheck {

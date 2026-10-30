@@ -7,6 +7,9 @@ export function intSetting(key: string, fallback: number, min: number, max: numb
   return typeof v === 'number' && Number.isFinite(v) ? Math.min(max, Math.max(min, Math.round(v))) : fallback;
 }
 
+/** Whether the Cowork region shows in the panel's nav (`claudeHarness.cowork.show`, on by default). */
+export const coworkShown = (): boolean => vscode.workspace.getConfiguration('claudeHarness').get<boolean>('cowork.show', true) !== false;
+
 /** How many rows each list shows before its "show all" control. */
 export function listLimits(): ListLimits {
   return {

@@ -2,7 +2,7 @@
   "name": "claude-harness",
   "displayName": "Claude Harness",
   "description": "Visualize and edit your Claude Code harness in VS Code: memory, rules, agents, skills, commands, output styles, workflows, hooks, MCP servers and plugins, globally and per repository.",
-  "version": "0.13.21",
+  "version": "0.13.24",
   "publisher": "integrations-at",
   "license": "SEE LICENSE IN LICENSE",
   "icon": "media/icon.png",
@@ -177,6 +177,12 @@
             "default": [],
             "markdownDescription": "More Claude accounts on this machine, each with its own config folder, for example `~/.claude-work`. Sessions of every account are listed, labeled with the account. The global harness folder stays the main account, labeled Default.",
             "order": 6
+          },
+          "claudeHarness.cowork.show": {
+            "type": "boolean",
+            "default": true,
+            "markdownDescription": "Show the Cowork region in the left navigation of the Claude Harness panel. The toggle in the panel's tab bar sets it. Cowork pages and data stay as they are.",
+            "order": 7
           }
         }
       },
@@ -321,6 +327,18 @@
       ]
     },
     "commands": [
+      {
+        "command": "claudeHarness.hideCowork",
+        "title": "Hide Cowork View",
+        "category": "Claude Harness",
+        "icon": "$(eye)"
+      },
+      {
+        "command": "claudeHarness.showCowork",
+        "title": "Show Cowork View",
+        "category": "Claude Harness",
+        "icon": "$(eye-closed)"
+      },
       {
         "command": "claudeHarness.pasteImage",
         "title": "Paste Image into Claude",
@@ -762,8 +780,18 @@
       ],
       "editor/title": [
         {
+          "command": "claudeHarness.hideCowork",
+          "when": "activeWebviewPanelId == 'claudeHarness.panel' && claudeHarness.coworkShown",
+          "group": "navigation@1"
+        },
+        {
+          "command": "claudeHarness.showCowork",
+          "when": "activeWebviewPanelId == 'claudeHarness.panel' && !claudeHarness.coworkShown",
+          "group": "navigation@1"
+        },
+        {
           "command": "claudeHarness.newClaudeTerminal",
-          "group": "navigation"
+          "group": "navigation@2"
         }
       ],
       "commandPalette": [

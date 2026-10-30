@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { applyEdits, modify, parse as parseJsonc } from 'jsonc-parser';
-import { Asset, ScopeView, claudeMdText } from './harness';
+import { Asset, ScopeView, claudeMdText, coworkView } from './harness';
 import { CheckResult, run } from './standard';
 
 const readJson = (file: string): Record<string, unknown> => {
@@ -123,6 +123,17 @@ export interface MarketPlugin {
   description?: string;
   /** The plugin's folder inside the marketplace. */
   dir?: string;
+  /** Where the plugin is available: Claude Code (the marketplace offers or installs it), Cowork (synced from Claude.ai), both or neither. */
+  harness?: HarnessState;
+}
+
+export type HarnessState = 'code' | 'cowork' | 'both' | 'none';
+
+export const HARNESS_LABELS: Record<HarnessState, string> = { code: 'Code', cowork: 'Cowork', both: 'Both', none: 'None' };
+
+/** The Cowork plugin a marketplace's plugin is: same name, from this marketplace, or an upload of the owner's (never another catalog's). */
+function coworkMatch(synced: Asset[], market: string, plugin: string): Asset | undefined {
+  return synced.find(a => a.name === plugin && (a.owner === market || a.about !== 'Anthropic catalog'));
 }
 
 export interface MarketHealth {
@@ -145,11 +156,15 @@ export function compareVersions(a: string, b: string): number {
   return 0;
 }
 
+export const harnessState = (code: boolean, cowork: boolean): HarnessState => (code && cowork ? 'both' : code ? 'code' : cowork ? 'cowork' : 'none');
+
 export function marketplaceHealth(root: string): MarketHealth[] {
   type Market = { source?: { source?: string; repo?: string; path?: string; url?: string }; installLocation?: string };
   const markets = readJson(path.join(root, 'plugins', 'known_marketplaces.json')) as Record<string, Market>;
   const installed = (readJson(path.join(root, 'plugins', 'installed_plugins.json')).plugins ?? {}) as Record<string, Array<{ scope?: string; version?: string }>>;
   const enabled = (readJson(path.join(root, 'settings.json')).enabledPlugins ?? {}) as Record<string, boolean>;
+  // Read only: the plugins Claude.ai synced into the Claude folder.
+  const synced = coworkView(root).categories.find(c => c.kind === 'plugin')?.items ?? [];
   return Object.entries(markets)
     .map(([name, m]) => {
       const location = m.installLocation ?? m.source?.path ?? '';
@@ -175,9 +190,9 @@ export function marketplaceHealth(root: string): MarketHealth[] {
             enabled: enabled[key] === true,
             description: entry?.description ?? (manifest.description as string | undefined),
             dir,
+            harness: harnessState(!!(entry || installedVersion), !!coworkMatch(synced, name, plugin)),
           };
         })
-        .filter(p => p.installed || p.enabled || kind === 'directory')
         .sort((a, b) => Number(b.ahead) - Number(a.ahead) || a.name.localeCompare(b.name));
       return { name, source, kind, location, plugins };
     })

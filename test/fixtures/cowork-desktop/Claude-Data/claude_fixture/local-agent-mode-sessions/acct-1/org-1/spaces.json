@@ -1,0 +1,36 @@
+{
+  "spaces": [
+    {
+      "id": "space-alpha",
+      "name": "Fixture Alpha",
+      "folders": [{ "path": "space-folders/alpha" }],
+      "projects": [],
+      "links": [],
+      "origin": "user",
+      "createdAt": 1790000000000,
+      "updatedAt": 1790000500000,
+      "migration": { "stage": "complete", "projectUuid": "11111111-2222-4333-8444-555555555555", "migratedAt": 1790000600000, "lastAttemptAt": 1790000600000, "attempts": 1 }
+    },
+    {
+      "id": "space-beta",
+      "name": "Fixture Beta",
+      "folders": [{ "path": "space-folders/beta-missing" }],
+      "projects": [],
+      "links": [],
+      "origin": "user",
+      "createdAt": 1790000000000,
+      "updatedAt": 1790001000000,
+      "migration": { "stage": "complete", "projectUuid": "66666666-7777-4888-8999-000000000000", "migratedAt": 1790001100000, "lastAttemptAt": 1790001100000, "attempts": 1 }
+    },
+    {
+      "id": "space-gamma",
+      "name": "Fixture Gamma",
+      "folders": [{ "path": "space-folders/gamma" }],
+      "projects": [],
+      "links": [],
+      "origin": "user",
+      "createdAt": 1790000000000,
+      "updatedAt": 1790002000000
+    }
+  ]
+}

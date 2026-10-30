@@ -1,0 +1,1 @@
+{ "sessionId": "local_aaaa0002", "userSelectedFolders": ["space-folders/alpha"], "createdAt": 1790005000000, "lastActivityAt": 1790006000000, "model": "claude-fixture-1", "isArchived": true, "title": "Fixture session two (archived)", "remoteMcpServersConfig": [{ "uuid": "cccc0000-1111-4222-8333-444444444444", "name": "Fixture Connector", "tools": [] }] }

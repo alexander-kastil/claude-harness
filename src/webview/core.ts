@@ -135,14 +135,16 @@ export const eventRank = e => (HOOK_EVENTS.includes(e) ? HOOK_EVENTS.indexOf(e) 
 export const marketOf = a => a.name.split('@')[1] || 'local';
 
 // Where an item lives, which decides where it loads: Global, an enabled plugin, a claude.ai connector, or a repo.
-export const whereOf = a => (a.source === 'plugin' || a.source === 'claude.ai' ? a.source : a.scope);
+export const whereOf = a => (a.scope === 'cowork' ? a.scope : a.source === 'plugin' || a.source === 'claude.ai' ? a.source : a.scope);
 
 // Global first, then the connectors and plugins it loads, then the repos in the sidebar's order, the open workspace first.
 export const whereGroups = items => {
   const ids = new Set(items.map(whereOf));
-  const [global, ...repos] = state.views;
+  const [global, ...others] = state.views;
+  const repos = others.filter(v => v.id !== 'cowork');
   const known = [
     global && [global.id, global.label, 'globe'],
+    ['cowork', 'Cowork', 'cloud'],
     ['claude.ai', 'claude.ai connectors', 'cloud'],
     ['plugin', 'From plugins', 'extensions'],
     ...repos.map(v => [v.id, v.local ? `This repo · ${v.label}` : v.label, 'repo']),
@@ -213,7 +215,8 @@ export const sortList = (kind, items) => {
 };
 
 // What a plugin ships is read-only: an update overwrites the installed copy.
-export const readOnly = a => !!a && (a.source === 'plugin' || String(a.scope).startsWith('plugin:'));
+// What Claude.ai brings (the Cowork scope) is read-only too: Claude.ai overwrites it on every sync.
+export const readOnly = a => !!a && (a.source === 'plugin' || String(a.scope).startsWith('plugin:') || a.scope === 'cowork');
 
 export const editable = () => state.detail && ['markdown', 'code', 'settings'].includes(state.detail.mode) && !readOnly(state.detail.asset);
 
@@ -255,6 +258,7 @@ export const showPage = (page, extra) => {
   if (page === 'init') state.init = { dir: extra, form: { summary: '', areas: [{ name: '', globs: '', owner: '' }], rules: '' }, data: undefined, result: undefined };
   if (page === 'fleet') vscode.postMessage({ type: 'fleet' });
   if (page === 'marketplaces' || page === 'market') vscode.postMessage({ type: 'marketplaces' });
+  if (page === 'scheduled' || page === 'scheduled-task') vscode.postMessage({ type: 'scheduled' });
   if (page === 'init') vscode.postMessage({ type: 'initForm', dir: extra });
   if (state.detail) select(undefined);
   else render();

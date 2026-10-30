@@ -2,6 +2,7 @@
 // The sidebar: global and repo categories, grouped lists, sessions, the repo hover card.
 import { LIST_VIEWS, SOURCES, agentColorClass, app, checkBadge, checkText, command, groupItems, isGrouped, labelOf, listMode, listModes, matches, metaOf, persist, select, showMarket, showPage, showRepo, sortList, state, std, tidyError, total, vscode } from './core';
 import { askCounted, bylineNodes } from './byline';
+import { renderCoworkRegion } from './cowork';
 import { repoContext, skillContext } from './context';
 import { aiGroup, el, fmtDate, icon, iconBtn, logo, plural } from './dom';
 import { hideHover, hover, placeCard } from './hover';
@@ -36,7 +37,7 @@ let revealedSig;
 let fresh = false;
 
 const selectionSig = () =>
-  JSON.stringify([state.detail ? state.detail.asset.id : [state.page, state.repo, state.kindPage && state.kindPage.kind, state.kindPage && state.kindPage.origin, state.session && state.session.id, state.sessionsPage && state.sessionsPage.scope, state.marketPage && state.marketPage.name]]);
+  JSON.stringify([state.detail ? state.detail.asset.id : [state.page, state.repo, state.kindPage && state.kindPage.kind, state.kindPage && state.kindPage.origin, state.session && state.session.id, state.sessionsPage && state.sessionsPage.scope, state.marketPage && state.marketPage.name, state.scheduledPage && state.scheduledPage.id, state.coworkProject && state.coworkProject.id]]);
 
 // The global sections in reading order: what every session loads, what Claude calls, what runs on its own, and where packaged parts
 // come from, which ends in the Marketplaces section. A kind not listed keeps its place after them.
@@ -210,13 +211,13 @@ export function renderCategories(list, view, q, nested) {
               command('openConnectors');
             })
           : null,
-        cat.kind === 'mcp' || cat.kind === 'plugin'
+        (cat.kind === 'mcp' || cat.kind === 'plugin') && view.id !== 'cowork'
           ? iconBtn('add', cat.kind === 'mcp' ? 'Add MCP server...' : 'Install plugin...', e => {
               e.stopPropagation();
               command(cat.kind === 'mcp' ? 'addMcp' : 'installPlugin', { scope: view.id });
             })
           : null,
-        cat.creatable
+        cat.creatable && view.id !== 'cowork'
           ? iconBtn('add', `New ${cat.label.replace(/s$/, '').toLowerCase()}`, e => {
               e.stopPropagation();
               command('create', { kind: cat.kind, scope: view.id });
@@ -230,7 +231,7 @@ export function renderCategories(list, view, q, nested) {
     if (!items.length) list.append(el('div', { className: 'empty' }, 'None'));
     const row = a => {
       const selected = state.detail && state.detail.asset.id === a.id;
-      const glyph = a.kind === 'plugin' ? (a.enabled ? 'pass-filled' : 'circle-large-outline') : a.kind === 'mcp' && SOURCES[a.source] ? SOURCES[a.source].icon : cat.icon;
+      const glyph = a.kind === 'plugin' ? (view.id === 'cowork' ? 'extensions' : a.enabled ? 'pass-filled' : 'circle-large-outline') : a.kind === 'mcp' && SOURCES[a.source] ? SOURCES[a.source].icon : cat.icon;
       const off = (a.kind === 'plugin' || a.kind === 'mcp') && a.enabled === false;
       const desc = bylineNodes(a);
       return treeItem(
@@ -454,13 +455,18 @@ export function renderSidebar() {
   const refocus = focused && focused.dataset.nav;
   const q = state.filter.toLowerCase();
   const list = el('div', { className: 'list', onscroll: hideHover });
-  const [global, ...repos] = state.views;
+  const [global, ...others] = state.views;
+  const repos = others.filter(v => v.id !== 'cowork');
   if (global) {
     const block = el('div', { className: 'scope-block' });
     renderCategories(block, inNavOrder(global), q, false);
     renderMarketsNode(block, q);
     list.append(block);
   }
+  // Cowork is a region of its own between the Code tree and Repositories; the Cowork setting hides it from the nav alone.
+  const cowork = others.find(v => v.id === 'cowork');
+  const region = cowork && state.coworkShow !== false ? renderCoworkRegion(cowork, q, renderCategories, treeItem, render) : null;
+  if (region) list.append(region);
   const visibleRepos = repos
     .filter(v => !q || v.categories.some(c => c.items.some(a => matches(a, q))))
     .sort((a, b) => Number(!!b.local) - Number(!!a.local) || (state.repoSort === 'recent' ? (b.lastUsed || 0) - (a.lastUsed || 0) : 0) || a.label.localeCompare(b.label));

@@ -8,8 +8,10 @@ import { refreshCard } from './hover';
 import { renderKindPage } from './kind-page';
 import { renderOverview } from './overview';
 import { onHuntMessage, renderHunt } from './hunt';
+import { renderCoworkProject } from './cowork-project';
 import { renderFleet, renderInit, renderMarket, renderMarkets } from './pages';
 import { renderRepo } from './repo-page';
+import { renderScheduledList, renderScheduledTask } from './scheduled';
 import { redrawCheckpoint, renderSession } from './session-page';
 import { renderSessionsPage, showSession } from './sessions';
 import { renderSidebar } from './sidebar';
@@ -32,6 +34,12 @@ export function renderMain() {
         ? renderKindPage()
       : state.page === 'hunt'
         ? renderHunt()
+      : state.page === 'scheduled'
+        ? renderScheduledList()
+      : state.page === 'scheduled-task'
+        ? renderScheduledTask()
+      : state.page === 'cowork-project' && state.coworkProject
+        ? renderCoworkProject()
       : state.page === 'marketplaces'
         ? renderMarkets()
       : state.page === 'market' && state.marketPage
@@ -109,10 +117,13 @@ function repaintForChecks(before: typeof state.checks, views: boolean) {
 onMessage(m => {
   if (m.type === 'state') {
     state.views = m.views || (m.categories ? [{ id: 'global', label: 'Global', path: '', categories: m.categories }] : []);
+    // The Cowork scope rides last so every lookup by scope id finds it; the lists of repos leave it out.
+    if (m.cowork) state.views = [...state.views, m.cowork];
     const before = state.checks;
     state.checks = m.checks || {};
     state.standard = m.standard;
     if (m.lists) state.lists = m.lists;
+    state.coworkShow = m.coworkShow !== false;
     repaintForChecks(before, true);
   } else if (m.type === 'checks') {
     // A check started or finished; the views are unchanged, and checks that read the same repaint nothing.
@@ -137,6 +148,19 @@ onMessage(m => {
     const current = app.querySelector('.sidebar');
     if (current) keepScroll(() => current.replaceWith(renderSidebar()));
     if ((state.page === 'marketplaces' || state.page === 'market') && !state.detail) renderMain();
+  } else if (m.type === 'scheduled') {
+    state.scheduled = m.list;
+    render();
+  } else if (m.type === 'coworkProjects') {
+    state.coworkProjects = { found: m.found, list: m.list || [] };
+    const current = app.querySelector('.sidebar');
+    if (current) keepScroll(() => current.replaceWith(renderSidebar()));
+    if (state.page === 'cowork-project' && !state.detail) renderMain();
+  } else if (m.type === 'coworkProject') {
+    if (state.coworkProject && state.coworkProject.id === m.id) {
+      state.coworkProject.data = m.data || null;
+      if (state.page === 'cowork-project' && !state.detail) keepMainScroll(renderMain);
+    }
   } else if (m.type === 'weekly') {
     state.weekly = m.list || [];
     if (!state.detail && state.repo && state.repoTab === 'models') renderMain();

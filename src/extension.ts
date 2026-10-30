@@ -5,7 +5,9 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { restoreFiles } from './checkpoints';
 import { Shell, addLine, hasLine, pathWith, pathWithout, profileLine, psProfileFiles, removeLine, shimDir, shimFiles } from './cli-install';
+import { applyPull, coworkDrift, planPull } from './cli-cowork';
 import { Constitution } from './constitution';
+import { fetchScheduled } from './cowork-scheduled';
 import { consolidateApply, consolidatePlan, mergePrompt, routesOf } from './consolidate';
 import type { ConsolidateRoute, ConsolidateTarget } from './shared/messages';
 import { FileEdit, fleetRow, guardInfo, guardReasons, lastSessionSteps, marketplaceHealth, renameCatalog, renameCommands, renameInSettings } from './fleet';
@@ -19,6 +21,7 @@ import { registerHarnessLanguage } from './harness-language';
 import { NO_PROVIDER, Provider, ScaffoldForm, applyFix, findProvider, parseScaffoldOutput, previewFix, runScript, scaffoldArgs } from './standard';
 import {
   Asset,
+  COWORK_URL_CONNECTORS,
   backupStamp,
   effectiveHarness,
   pluginDirs,
@@ -38,6 +41,9 @@ import {
   duplicateAsset,
   globalScope,
   isPluginCopy,
+  COWORK_ID,
+  coworkBlock,
+  coworkView,
   HarnessScope,
   Kind,
   KINDS,
@@ -62,6 +68,7 @@ import {
   validateName,
 } from './harness';
 import { HarnessPanel, PanelHost } from './panel';
+import { coworkShown } from './settings';
 import { mentionText, pathText, saveClipboardImage } from './image-paste';
 import { claudeCli, claudeCommand, claudeExecutable, defaultCwd, openTerminal, uniqueTerminalName } from './terminals';
 import { Account, accountWeek, checkpointFiles, findAccountSession, importTranscript, listAccountSessions, listAccountSessionsAsync, parseAccounts, readSession, renameSession } from './sessions';
@@ -90,6 +97,9 @@ const promptText = (text: string) => text.replace(/[\r\n]+/g, ' ').replace(/["`$
 const panelArg = (arg: unknown): { fromPanel: true; id?: string } | undefined => (arg && typeof arg === 'object' && 'fromPanel' in arg ? (arg as { fromPanel: true; id?: string }) : undefined);
 
 export function activate(context: vscode.ExtensionContext): void {
+  // The key the editor title toggle reads for its on and off state.
+  const setCoworkShown = () => void vscode.commands.executeCommand('setContext', 'claudeHarness.coworkShown', coworkShown());
+  setCoworkShown();
   let global: HarnessScope = globalScope(vscode.workspace.getConfiguration('claudeHarness').get<string>('root'));
   const accounts = (): Account[] => {
     const config = vscode.workspace.getConfiguration('claudeHarness');
@@ -98,6 +108,8 @@ export function activate(context: vscode.ExtensionContext): void {
   let scopes: HarnessScope[] = [global];
   let views: ScopeView[] = [];
   let plugins: ScopeView[] = [];
+  /** What Claude.ai brings (synced skills and plugins, claude.ai connectors): read-only, not one of `views`. */
+  let cowork: ScopeView | undefined;
   let provider: Provider | undefined;
   // Plugins that log events per session; each adds a layer to the session views.
   let eventSources: EventSource[] = [];
@@ -150,7 +162,7 @@ export function activate(context: vscode.ExtensionContext): void {
   };
 
   const assets = () => views.flatMap(v => v.categories.flatMap(c => c.items));
-  const find = (id: string): Asset | undefined => assets().find(a => a.id === id);
+  const find = (id: string): Asset | undefined => assets().find(a => a.id === id) ?? cowork?.categories.flatMap(c => c.items).find(a => a.id === id);
   const samePath = (a: string, b: string) => (process.platform === 'win32' ? a.toLowerCase() === b.toLowerCase() : a === b);
   const assetOfFile = (file: string) => assets().find(a => samePath(a.file, file));
   const lensesChanged = new vscode.EventEmitter<void>();
@@ -211,12 +223,24 @@ export function activate(context: vscode.ExtensionContext): void {
       globalMcp.items.push(...cliServers.filter(c => !globalMcp.items.some(a => a.name === c.name)).map(c => ({ ...c })));
     }
     applyMcpState(next, global.userConfig);
+    // The claude.ai connectors move to the Cowork scope, where they are read-only with the synced skills and plugins.
+    const nextCowork = coworkView(global.root, globalMcp?.items.filter(a => a.source === 'claude.ai') ?? []);
+    if (globalMcp) globalMcp.items = globalMcp.items.filter(a => a.source !== 'claude.ai');
     const nextPlugins = pluginViews(global.root);
     yield;
     yield* linkCopiesSteps(next, nextPlugins);
     // A newer refresh began while this one waited its turn: its views win.
     if (epoch !== refreshEpoch) return;
+    // A skill pulled from Cowork carries where it came from and whether it still matches.
+    for (const [i, s] of scopes.entries()) {
+      const drift = coworkDrift(s.root);
+      for (const a of next[i]?.categories.find(c => c.kind === 'skill')?.items ?? []) {
+        const d = drift.find(x => x.skill === a.name);
+        if (d) a.coworkOrigin = { item: d.item, from: d.from, state: d.state };
+      }
+    }
     views = next;
+    cowork = nextCowork;
     plugins = nextPlugins;
     loadProvider();
     // A plugin enabled in your settings runs its agents as global agents, so they join the global Agents list, read-only.
@@ -344,6 +368,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
   const host: PanelHost = {
     views: () => views,
+    cowork: () => cowork,
     find,
     refresh,
     refreshSoon,
@@ -413,6 +438,7 @@ export function activate(context: vscode.ExtensionContext): void {
       return view && view.id !== global.id ? listAccountSessionsAsync(view.path, accounts()) : [];
     },
     weekly: () => Promise.all(accounts().map(a => accountWeek(a))),
+    scheduled: () => fetchScheduled(global.root),
     session: async (id, sessionId) => {
       const view = viewOfScope(id);
       const summary = view && view.id !== global.id ? findAccountSession(view.path, accounts(), sessionId) : undefined;
@@ -820,6 +846,11 @@ export function activate(context: vscode.ExtensionContext): void {
 
   /** A copy a plugin ships is overwritten on update: it is not renamed, duplicated in place or deleted. Says so and returns true. */
   const readOnlyCopy = (asset: Asset, what: string) => {
+    const managed = coworkBlock(asset.scope, what);
+    if (managed) {
+      void vscode.window.showInformationMessage(managed);
+      return true;
+    }
     if (asset.kind === 'plugin' || !isPluginCopy(asset)) return false;
     void vscode.window.showInformationMessage(`${asset.name} comes from a plugin and cannot be ${what}: an update overwrites the installed copy.`);
     return true;
@@ -1134,6 +1165,10 @@ export function activate(context: vscode.ExtensionContext): void {
         refresh();
       }
       if (e.affectsConfiguration('claudeHarness.lists')) HarnessPanel.update();
+      if (e.affectsConfiguration('claudeHarness.cowork.show')) {
+        setCoworkShown();
+        HarnessPanel.update();
+      }
       if (e.affectsConfiguration('claudeHarness.accounts') || e.affectsConfiguration('claudeHarness.plan') || e.affectsConfiguration('claudeHarness.weekStart')) refresh();
       if (!e.affectsConfiguration('claudeHarness.root')) return;
       global = globalScope(vscode.workspace.getConfiguration('claudeHarness').get<string>('root'));
@@ -1146,6 +1181,8 @@ export function activate(context: vscode.ExtensionContext): void {
       refresh();
     }),
 
+    vscode.commands.registerCommand('claudeHarness.hideCowork', () => vscode.workspace.getConfiguration('claudeHarness').update('cowork.show', false, vscode.ConfigurationTarget.Global)),
+    vscode.commands.registerCommand('claudeHarness.showCowork', () => vscode.workspace.getConfiguration('claudeHarness').update('cowork.show', true, vscode.ConfigurationTarget.Global)),
     vscode.commands.registerCommand('claudeHarness.pasteImage', async () => {
       const paste = () => vscode.commands.executeCommand('workbench.action.terminal.paste');
       if (process.platform !== 'win32' || (await vscode.env.clipboard.readText())) return paste();
@@ -1431,7 +1468,28 @@ export function activate(context: vscode.ExtensionContext): void {
       const repo = asset.scope === global.id ? undefined : scopeOf(asset).base;
       run(() => setMcpEnabled(global.userConfig, asset, repo, !asset.enabled));
     }),
-    vscode.commands.registerCommand('claudeHarness.openConnectors', () => vscode.env.openExternal(vscode.Uri.parse('https://claude.ai/new#customize/connectors/yours'))),
+    // Pull to Code: a Code-owned copy of a synced skill or plugin's skills in Global or a repo; the synced folders are only read.
+    vscode.commands.registerCommand('claudeHarness.pullToCode', (arg?: { id?: string; scope?: string }) => {
+      const asset = arg?.id ? find(arg.id) : undefined;
+      if (!asset || asset.scope !== COWORK_ID || !cowork) return;
+      const target = scopes.find(s => s.id === arg?.scope) ?? global;
+      try {
+        const plan = planPull({ root: global.root, cowork }, asset.name, asset.kind, target === global ? undefined : target.base);
+        const out = applyPull({ root: global.root }, plan);
+        refresh();
+        void vscode.window.showInformationMessage(`Pulled ${out.rows.map(r => r.skill).join(', ')} to ${target.label}.`);
+      } catch (e) {
+        void vscode.window.showInformationMessage(e instanceof Error ? e.message : String(e));
+      }
+    }),
+    // Compare a pulled skill with its Cowork origin.
+    vscode.commands.registerCommand('claudeHarness.compareCowork', (arg?: unknown) => {
+      const asset = assetOf(arg);
+      if (!asset?.coworkOrigin || !asset.file) return;
+      const origin = vscode.Uri.file(path.join(asset.coworkOrigin.from, 'SKILL.md'));
+      void vscode.commands.executeCommand('vscode.diff', origin, vscode.Uri.file(asset.file), `${asset.name}: Cowork vs Code`);
+    }),
+    vscode.commands.registerCommand('claudeHarness.openConnectors', () => vscode.env.openExternal(vscode.Uri.parse(COWORK_URL_CONNECTORS))),
     vscode.commands.registerCommand('claudeHarness.togglePlugin', (arg?: unknown) => {
       const asset = assetOf(arg);
       if (asset?.kind === 'plugin') run(() => setPluginEnabled(scopeOf(asset), asset.name, !asset.enabled));

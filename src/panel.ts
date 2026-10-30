@@ -1,9 +1,9 @@
 import * as crypto from 'crypto';
 import * as os from 'os';
 import { openTerminal, claudeCommand } from './terminals';
-import { listLimits } from './settings';
+import { coworkShown, listLimits } from './settings';
 import * as vscode from 'vscode';
-import { Asset, Field, KindInfo, ScopeView, fromFields, globalScope, isPluginCopy, kindInfo, mcpToken, readMarkdown, readText, toFields, writeMarkdown, writeText } from './harness';
+import { Asset, COWORK_ID, COWORK_URL_CAPABILITIES, COWORK_URL_CONNECTORS, COWORK_URL_PLUGINS, COWORK_URL_SKILLS, Field, KindInfo, ScopeView, coworkBlock, fromFields, globalScope, isPluginCopy, kindInfo, mcpToken, readMarkdown, readText, toFields, writeMarkdown, writeText } from './harness';
 import { McpInfo, StdioConfig, probeHttp, probeStdio } from './probe';
 import type { CheckSummary } from './constitution';
 import type { ScaffoldForm } from './standard';
@@ -12,11 +12,14 @@ import type { SlimReport } from './shared/slim';
 import type { HuntInfo, HuntProposal } from './shared/hunt';
 import type { Answer, Confirm, ConsolidateRoute,Detail, ModActivity, Page, PanelAsk, Pending, Progress, RepoTrace, ShareChoice, ShareOption, Standard, StyleDraft, ToHost, ToWebview, UsageMoreReply, UsageReply, UsageTotal } from './shared/messages';
 import { pickTools, splitTools } from './tools';
+import { SCHEDULED_TEMPLATES_URL, SCHEDULED_URL, projectUrl, runUrl, taskUrl } from './cowork-scheduled';
+import type { ScheduledList } from './cowork-scheduled';
+import { PROJECTS_URL, loadCoworkProjects, loadProjectContents } from './cowork-desktop';
 
 export type { Detail, Page } from './shared/messages';
 
 /** Requests a page makes for its own data; none of them is an action the owner is waiting on. */
-const BACKGROUND = new Set<ToHost['type']>(['sessions', 'weekly', 'usage', 'usageMore', 'usageTotals', 'repoTrace', 'modActivity', 'slim', 'drawing', 'ruleInfo', 'effective', 'fleet']);
+const BACKGROUND = new Set<ToHost['type']>(['sessions', 'weekly', 'usage', 'usageMore', 'usageTotals', 'repoTrace', 'modActivity', 'slim', 'drawing', 'ruleInfo', 'effective', 'fleet', 'scheduled', 'coworkProjects', 'coworkProject']);
 
 /** What a `panel` card answered: the button, and the text and the picked ids when the card had an input or choices. */
 export interface PanelAnswer {
@@ -45,8 +48,17 @@ const colorBelowTools = (fields: Field[]): Field[] => {
   return rest;
 };
 
+/** The commands that only look at a Cowork item or open its page; every other command is refused for the Cowork scope. */
+/** The Cowork region's two entries that are not on disk: the claude.ai settings pages they open. */
+export const COWORK_URL_MEMORY = 'https://claude.ai/new#settings/memory';
+export const COWORK_URL_DESIGN_SYSTEMS = 'https://claude.ai/new#settings/design-systems';
+
+export const COWORK_READ_COMMANDS = ['openFile', 'reveal', 'refresh', 'openCowork', 'openConnectors', 'pullToCode'];
+
 export interface PanelHost {
   views(): ScopeView[];
+  /** The Cowork scope (synced skills and plugins, claude.ai connectors): read-only, not one of `views`. */
+  cowork?(): ScopeView | undefined;
   find(id: string): Asset | undefined;
   refresh(): void;
   /** Reads the harness again a few milliseconds at a time, for a change nobody is waiting on. */
@@ -64,6 +76,8 @@ export interface PanelHost {
   session?(scopeId: string, id: string): Promise<unknown>;
   /** The last 7 days of every account by model, over all repos. */
   weekly?(): Promise<unknown>;
+  /** The Cowork scheduled tasks, read from claude.ai with one GET. */
+  scheduled?(): Promise<ScheduledList>;
   /** Asks first, then drafts an output style from the session's style scan; `started` fires once the user agreed. */
   /** Without a confirmed answer and a remembered one, asks in the panel through `ask` and returns idle. */
   draftStyle?(scopeId: string, id: string, model: string, started: () => void, answer: Answer, ask: (c: Confirm) => void): Promise<StyleDraft>;
@@ -255,7 +269,7 @@ export class HarnessPanel {
 
   /** A refresh that found nothing new posts nothing: the panel would only rebuild its sidebar from 1.6 MB it already has. A panel that just loaded asks with `force`. */
   private postState(force = false): void {
-    const state: ToWebview = { type: 'state', views: this.host.views(), checks: this.host.checks?.() ?? {}, standard: this.host.standard?.(), lists: listLimits() };
+    const state: ToWebview = { type: 'state', views: this.host.views(), cowork: this.host.cowork?.(), checks: this.host.checks?.() ?? {}, standard: this.host.standard?.(), lists: listLimits(), coworkShow: coworkShown() };
     const key = JSON.stringify(state);
     if (!force && key === this.postedState) return;
     this.postedState = key;
@@ -290,6 +304,8 @@ export class HarnessPanel {
   private probes = new Map<string, Promise<McpInfo>>();
 
   private async probe(asset: Asset): Promise<void> {
+    // A claude.ai connector is signed in at claude.ai, never here: its own server would answer 401 to a probe. Its status is what `claude mcp list` says.
+    if (asset.source === 'claude.ai') return;
     if (!this.probes.has(asset.id)) {
       let config: { url?: string; headers?: Record<string, string> } & Partial<StdioConfig> = {};
       if (asset.file) {
@@ -347,6 +363,11 @@ export class HarnessPanel {
   private save(pending: Pending): boolean {
     const asset = this.host.find(pending.id);
     if (!asset) return false;
+    const cowork = coworkBlock(asset.scope, 'saved');
+    if (cowork) {
+      void vscode.window.showErrorMessage(cowork);
+      return false;
+    }
     if (isPluginCopy(asset)) {
       void vscode.window.showErrorMessage(`${asset.name} comes from a plugin and is read-only: an update overwrites the installed copy.`);
       return false;
@@ -432,6 +453,26 @@ export class HarnessPanel {
       case 'sessions':
         this.post({ type: 'sessions', scope: m.scope, list: (await this.host.sessions?.(m.scope)) ?? [] });
         return;
+      case 'scheduled': {
+        let list: ScheduledList;
+        try {
+          list = (await this.host.scheduled?.()) ?? { state: 'error', note: 'Scheduled tasks are not available here.', tasks: [], fetchedAt: Date.now() };
+        } catch {
+          list = { state: 'error', note: 'claude.ai could not be reached, so the tasks are not listed here.', tasks: [], fetchedAt: Date.now() };
+        }
+        this.post({ type: 'scheduled', list });
+        return;
+      }
+      case 'coworkProjects': {
+        const d = loadCoworkProjects();
+        this.post({ type: 'coworkProjects', found: !!d.dataRoot, list: d.projects });
+        return;
+      }
+      case 'coworkProject': {
+        const project = loadCoworkProjects().projects.find(p => p.id === m.id);
+        this.post({ type: 'coworkProject', id: m.id, data: project ? loadProjectContents(project) : undefined });
+        return;
+      }
       case 'weekly': {
         let list: unknown = [];
         try {
@@ -625,8 +666,33 @@ export class HarnessPanel {
           if (asset?.dir) await vscode.commands.executeCommand('vscode.open', vscode.Uri.joinPath(vscode.Uri.file(asset.dir), ...m.rel.split('/')));
           return;
         }
+        if (m.command === 'openScheduled') {
+          // Only a plain id reaches a URL.
+          const id = m.id && /^[\w-]+$/.test(m.id) ? m.id : undefined;
+          const url = m.target === 'templates' ? SCHEDULED_TEMPLATES_URL : id && m.target === 'task' ? taskUrl(id) : id && m.target === 'project' ? projectUrl(id) : id && m.target === 'run' ? runUrl(id) : SCHEDULED_URL;
+          void vscode.env.openExternal(vscode.Uri.parse(url));
+          return;
+        }
+        if (m.command === 'openCoworkProject') {
+          // The webview names a local space; the link and the folder come from the host's own read of it.
+          const project = m.target === 'list' ? undefined : loadCoworkProjects().projects.find(p => p.id === m.id);
+          if (m.target === 'list') void vscode.env.openExternal(vscode.Uri.parse(PROJECTS_URL));
+          else if (project && m.target === 'project' && project.projectUrl) void vscode.env.openExternal(vscode.Uri.parse(project.projectUrl));
+          else if (project && m.target === 'folder' && project.folder) void vscode.commands.executeCommand('revealFileInOS', vscode.Uri.file(project.folder));
+          return;
+        }
+        if (m.command === 'openCowork') {
+          const url = { skills: COWORK_URL_SKILLS, plugins: COWORK_URL_PLUGINS, connectors: COWORK_URL_CONNECTORS, memory: COWORK_URL_MEMORY, 'design-systems': COWORK_URL_DESIGN_SYSTEMS }[m.target as string] ?? COWORK_URL_CAPABILITIES;
+          void vscode.env.openExternal(vscode.Uri.parse(url));
+          return;
+        }
+        // Cowork items are managed by Claude.ai: only the read commands reach the extension for them.
+        if (!COWORK_READ_COMMANDS.includes(m.command) && (m.scope === COWORK_ID || (m.id && this.host.find(m.id)?.scope === COWORK_ID))) {
+          void vscode.window.showInformationMessage(coworkBlock(COWORK_ID, `changed (${m.command})`)!);
+          return;
+        }
         // These ask in the panel; the same commands from the left nav or a tree menu keep their dialog.
-        if (['delete', 'uninstallPlugin', 'retire', 'retireCopies', 'addSkillFromUrl', 'connectSkillSource', 'updateSkill', 'linkSkillToRepo', 'share', 'syncFromGlobal', 'syncPlugin', 'syncMarketplace', 'syncMcp'].includes(m.command) || /^import[A-Z]/.test(m.command)) {
+        if (['delete', 'uninstallPlugin', 'retire', 'retireCopies', 'addSkillFromUrl', 'connectSkillSource', 'updateSkill', 'linkSkillToRepo', 'share', 'syncFromGlobal', 'syncPlugin', 'syncMarketplace', 'syncMcp', 'pullToCode', 'compareCowork'].includes(m.command) || /^import[A-Z]/.test(m.command)) {
           await vscode.commands.executeCommand(`claudeHarness.${m.command}`, { fromPanel: true, id: m.id, scope: m.scope, plugin: m.plugin, market: m.market });
           return;
         }

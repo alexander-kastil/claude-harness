@@ -1,0 +1,187 @@
+import * as fs from 'fs';
+import * as path from 'path';
+
+/** Cowork scheduled tasks, read from the beta triggers API that claude.ai itself shows. Read only: one GET, never a write. */
+export const SCHEDULED_URL = 'https://claude.ai/scheduled-task';
+export const SCHEDULED_TEMPLATES_URL = 'https://claude.ai/scheduled-task?view=templates';
+const ENDPOINT = 'https://api.anthropic.com/v1/code/triggers';
+// Same reasoning as the quota endpoint: the API answers only a claude-code/* client.
+const HEADERS = { 'anthropic-beta': 'ccr-triggers-2026-01-30', 'anthropic-version': '2023-06-01', Accept: 'application/json', 'User-Agent': 'claude-code/2.1.0' };
+
+/** The UI tests point the read at a server on this PC; the token never goes to any other address than the API. */
+const endpoint = (): string => {
+  const own = process.env.CLAUDE_HARNESS_TRIGGERS_URL;
+  return own && /^http:\/\/(127\.0\.0\.1|localhost)[:/]/.test(own) ? own : ENDPOINT;
+};
+
+export const taskUrl =(id: string): string => `${SCHEDULED_URL}/${id}`;
+export const projectUrl = (id: string): string => `https://claude.ai/project/${id}`;
+export const runUrl = (sessionId: string): string => `https://claude.ai/cowork/${sessionId}`;
+
+export interface ScheduledTask {
+  id: string;
+  name: string;
+  /** Active, Paused, Auto-disabled ..., Waiting for Claude Desktop. */
+  status: string;
+  /** ok: running as scheduled; wait: suspended; off: paused or ended. */
+  statusKind: 'ok' | 'wait' | 'off';
+  cron: string;
+  repeats: string;
+  nextRunAt?: number;
+  lastRunAt?: number;
+  /** Status of the last run in words, e.g. "abandoned"; empty when it never ran. */
+  lastRunStatus: string;
+  lastRunSessionId?: string;
+  runsOn: string;
+  projectId?: string;
+  connectors: number;
+  /** Names of the connectors the task uses (mcp_connections), for linking to the Cowork connectors. */
+  connectorNames: string[];
+  /** Names of the plugins (enabled_plugins) and extra marketplaces the task uses. */
+  pluginNames: string[];
+  marketplaceNames: string[];
+  permissions: string;
+  source: 'Cowork' | 'Code';
+  instructions: string;
+}
+
+export type ScheduledState = 'ok' | 'noLogin' | 'expired' | 'denied' | 'error';
+export interface ScheduledList {
+  state: ScheduledState;
+  /** One short line why the list is empty, for every state but ok. */
+  note: string;
+  tasks: ScheduledTask[];
+  fetchedAt: number;
+}
+
+type Raw = Record<string, any>;
+
+/** ROUTINE_RUN_STATUS_ABANDONED -> abandoned; an UNSPECIFIED enum is nothing. */
+const enumWords = (s: unknown): string => {
+  if (typeof s !== 'string' || !s || /UNSPECIFIED$/.test(s)) return '';
+  return s.replace(/^ROUTINE_(?:RUN_)?(?:STATUS_|FAILURE_REASON_)/, '').replace(/_/g, ' ').toLowerCase();
+};
+const cap = (s: string): string => (s ? s[0].toUpperCase() + s.slice(1) : s);
+const time = (v: unknown): number | undefined => {
+  const t = typeof v === 'string' ? Date.parse(v) : NaN;
+  return Number.isFinite(t) ? t : undefined;
+};
+
+const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const localOffsetMin = (): number => -new Date().getTimezoneOffset();
+const pad = (n: number): string => String(n).padStart(2, '0');
+
+/** A five-field cron (UTC, as the API stores it) in plain words at the PC's own clock; anything it cannot read stays as written. */
+export function cronWords(cron: string, offsetMin: number = localOffsetMin()): string {
+  const f = cron.trim().split(/\s+/);
+  if (f.length !== 5) return cron;
+  const [mi, hr, dom, mon, dow] = f;
+  const num = /^\d+$/;
+  if (mi.startsWith('*/') && hr === '*' && dom === '*' && mon === '*' && dow === '*' && num.test(mi.slice(2))) return `Every ${mi.slice(2)} minutes`;
+  if (num.test(mi) && hr === '*' && dom === '*' && mon === '*' && dow === '*') return mi === '0' ? 'Every hour' : `Every hour at minute ${Number(mi)}`;
+  if (hr.startsWith('*/') && num.test(mi) && dom === '*' && mon === '*' && dow === '*' && num.test(hr.slice(2))) return `Every ${hr.slice(2)} hours`;
+  if (!num.test(mi) || !num.test(hr) || mon !== '*') return cron;
+  const total = Number(hr) * 60 + Number(mi) + offsetMin;
+  const shift = Math.floor(total / 1440);
+  const at = ((total % 1440) + 1440) % 1440;
+  const clock = `${pad(Math.floor(at / 60))}:${pad(at % 60)}`;
+  if (dom === '*' && dow === '*') return `Every day at ${clock}`;
+  if (dom === '*' && /^[0-7](,[0-7])*$/.test(dow)) {
+    const names = dow.split(',').map(d => DAYS[(((Number(d) % 7) + shift) % 7 + 7) % 7]);
+    return `Every ${names.join(', ')} at ${clock}`;
+  }
+  if (dow === '*' && num.test(dom) && shift === 0) return `Day ${Number(dom)} of every month at ${clock}`;
+  return cron;
+}
+
+const REASONS: Record<string, string> = {
+  device_absent: 'waiting for Claude Desktop',
+  auto_disabled_repo_access: 'lost access to its repository',
+};
+
+function statusOf(t: Raw): { status: string; statusKind: ScheduledTask['statusKind'] } {
+  const ended = typeof t.ended_reason === 'string' ? t.ended_reason : '';
+  const suspended = typeof t.suspension_reason === 'string' ? t.suspension_reason : '';
+  if (ended) return { status: `Auto-disabled, ${REASONS[ended] ?? ended.replace(/^auto_disabled_/, '').replace(/_/g, ' ')}`, statusKind: 'off' };
+  if (suspended) return { status: cap(REASONS[suspended] ?? suspended.replace(/_/g, ' ')), statusKind: 'wait' };
+  return t.enabled === false ? { status: 'Paused', statusKind: 'off' } : { status: 'Active', statusKind: 'ok' };
+}
+
+/** Names from a list of strings or objects (name, else id, else url); unnamed entries are dropped, repeats kept once. */
+function namesOf(list: unknown): string[] {
+  if (!Array.isArray(list)) return [];
+  const out = list.map(x => (typeof x === 'string' ? x : x && typeof x === 'object' ? x.name ?? x.id ?? x.url : undefined)).filter((x): x is string => typeof x === 'string' && !!x);
+  return [...new Set(out)];
+}
+
+/** One API item as the extension shows it. The instructions are derived_state.prompt. */
+export function parseTask(t: Raw): ScheduledTask {
+  const { status, statusKind } = statusOf(t);
+  const cron = typeof t.cron_expression === 'string' ? t.cron_expression : '';
+  const tools = t.job_config?.ccr?.session_context?.allowed_tools ?? t.session_request?.config?.allowed_tools;
+  const nTools = Array.isArray(tools) ? tools.length : 0;
+  const run = t.last_run && typeof t.last_run === 'object' ? t.last_run : undefined;
+  const tags: unknown[] = Array.isArray(t.job_config?.ccr?.tags) ? t.job_config.ccr.tags : [];
+  const cowork = t.created_kind === 'cowork_task' || tags.some(x => typeof x === 'string' && x.startsWith('cowork'));
+  const lastStatus = enumWords(run?.status);
+  const failure = enumWords(run?.failure_reason);
+  return {
+    id: String(t.id ?? ''),
+    name: typeof t.name === 'string' && t.name ? t.name : '(unnamed)',
+    status,
+    statusKind,
+    cron,
+    repeats: cron ? cronWords(cron) : '-',
+    nextRunAt: statusKind === 'ok' ? time(t.next_run_at) : undefined,
+    lastRunAt: time(run?.fired_at ?? t.last_fired_at),
+    lastRunStatus: lastStatus ? (failure ? `${lastStatus}, ${failure}` : lastStatus) : '',
+    lastRunSessionId: typeof run?.session_id === 'string' && run.session_id ? run.session_id : undefined,
+    runsOn: t.suspension_reason === 'device_absent' ? 'This PC (Claude Desktop)' : 'Cloud',
+    projectId: typeof t.chat_project_id === 'string' && t.chat_project_id ? t.chat_project_id : undefined,
+    connectors: Array.isArray(t.mcp_connections) ? t.mcp_connections.length : 0,
+    connectorNames: namesOf(t.mcp_connections),
+    pluginNames: namesOf(t.enabled_plugins),
+    marketplaceNames: namesOf(t.extra_marketplaces),
+    permissions: nTools ? `Manual, ${nTools} tools always allowed` : 'Manual',
+    source: cowork ? 'Cowork' : 'Code',
+    instructions: typeof t.derived_state?.prompt === 'string' ? t.derived_state.prompt : '',
+  };
+}
+
+export function parseTriggers(body: unknown): ScheduledTask[] {
+  const data = (body as Raw | undefined)?.data;
+  return Array.isArray(data) ? data.filter(x => x && typeof x === 'object' && typeof x.id === 'string').map(parseTask) : [];
+}
+
+const NOTES: Record<Exclude<ScheduledState, 'ok'>, string> = {
+  noLogin: 'Sign in to Claude Code with your claude.ai account to list the tasks here.',
+  expired: 'The Claude Code sign-in has expired; start Claude Code once to renew it.',
+  denied: 'claude.ai did not accept the sign-in, so the tasks are not listed here.',
+  error: 'claude.ai could not be reached, so the tasks are not listed here.',
+};
+
+export type Fetcher = (url: string, init: { method: 'GET'; headers: Record<string, string>; signal?: AbortSignal }) => Promise<{ status: number; json(): Promise<unknown> }>;
+
+/** Reads the OAuth token of Claude Code (never written, never refreshed, never logged) and lists the tasks with one GET. */
+export async function fetchScheduled(root: string, opts: { fetcher?: Fetcher; now?: number } = {}): Promise<ScheduledList> {
+  const now = opts.now ?? Date.now();
+  const fail = (state: Exclude<ScheduledState, 'ok'>): ScheduledList => ({ state, note: NOTES[state], tasks: [], fetchedAt: now });
+  let oauth: { accessToken?: string; expiresAt?: number } = {};
+  try {
+    oauth = (JSON.parse(fs.readFileSync(path.join(root, '.credentials.json'), 'utf8')) as Raw).claudeAiOauth ?? {};
+  } catch {
+    return fail('noLogin');
+  }
+  if (!oauth.accessToken) return fail('noLogin');
+  if (oauth.expiresAt && oauth.expiresAt <= now) return fail('expired');
+  const get: Fetcher = opts.fetcher ?? ((url, init) => fetch(url, init));
+  try {
+    const res = await get(endpoint(), { method: 'GET', headers: { ...HEADERS, Authorization: `Bearer ${oauth.accessToken}` }, signal: AbortSignal.timeout(20_000) });
+    if (res.status === 401) return fail('expired');
+    if (res.status === 403) return fail('denied');
+    if (res.status !== 200) return fail('error');
+    return { state: 'ok', note: '', tasks: parseTriggers(await res.json()), fetchedAt: now };
+  } catch {
+    return fail('error');
+  }
+}
