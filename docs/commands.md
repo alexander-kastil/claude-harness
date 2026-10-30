@@ -27,14 +27,14 @@ Every command is in the **Claude Harness** category. Commands marked *hidden* do
 | Enable / Disable Plugin (*hidden*) | Turns a plugin on or off | Tree inline, plugin page |
 | Add MCP Server... | Asks for the scope, a name, and a command line or URL, then adds the server to `~/.claude.json` or the repo's `.mcp.json` | Palette, MCP Servers header, tree inline |
 | Copy as claude mcp add Command (*hidden*) | Copies a `claude mcp add` line for the server to the clipboard | Tree right-click, server page |
-| Open Claude Here | Opens a terminal in a repo, or in your home folder, running `claude` (or the command set in `claudeHarness.terminal.command`). Every action that starts Claude sits in an AI group, led by the Claude mark. | Palette, tree title bar, repo rows |
+| Open Claude Here | Opens a terminal in a repo, or in your home folder, running `claude` (or the command set in `claudeHarness.terminal.command`). Every action that starts Claude sits in an AI group, led by the Claude mark, last at the right end of its bar. | Palette, tree title bar, repo rows |
 | New Claude Terminal | Opens a new terminal running `claude`, in the active editor's workspace folder. Each terminal gets its own name. See [Settings](settings.md#new-claude-terminal-and-image-paste). | Palette, Ctrl+F1, Claude mark button in the editor title bar |
 | Paste Image into Claude | Saves an image on the clipboard as a PNG and types its path into the terminal, so Claude Code reads it. Text on the clipboard pastes as usual. Windows only. See [Settings](settings.md#new-claude-terminal-and-image-paste). | Palette, Ctrl+V in a terminal |
 | Install Plugin... | Picks a plugin from your marketplaces and the scope, then runs `claude plugin install` in a terminal | Palette, Plugins header, tree inline |
 | Uninstall Plugin... | Confirms, then runs `claude plugin uninstall` in a terminal | Palette, tree right-click, plugin page |
 | Open Settings File... | Picks any `settings.json` or `settings.local.json` and opens it in the editable JSON view | Palette, tree inline on Settings |
-| Fleet Overview | Opens the table of every repo. See [Fleet overview](fleet-overview.md). | Palette, tree title bar, Repositories node |
-| Marketplace Health | Opens the marketplaces and their plugins. See [Marketplace health](marketplace-health.md). | Palette, Plugins header, Repositories node |
+| GitHub Repo Overview | Opens the table of every repo, with a search box. See [GitHub Repo overview](fleet-overview.md). | Palette, tree title bar, Repositories node, sidebar header |
+| Marketplace Health | Opens the marketplaces and their plugins. See [Marketplace health](marketplace-health.md). | Palette, Plugins header, Repositories node, sidebar header, Marketplaces header in the sidebar |
 | Retire Copy (*hidden*) | Backs up a repo copy of a skill or agent that matches a global or plugin copy, then deletes it. See [Duplicates](duplicates.md#retire-a-copy). | Retire button on an item page |
 | Consolidate into Global or Plugin... (*hidden*) | Moves a repo skill up to its plugin source or global and retires the repo copy. See [Duplicates](duplicates.md#consolidate). | Right-click on a repo skill row, skill page |
 | Add Skill from skills.sh or GitHub... | Asks for a skills.sh or GitHub address, then installs the skill into `~/.claude/skills` after a card. See [Skill sources](skill-sources.md#add-a-skill-from-skillssh-or-github). | Palette, Skills header |
@@ -44,12 +44,12 @@ Every command is in the **Claude Harness** category. Commands marked *hidden* do
 | Move Global Skill into a Repo... | Moves a global skill into the repo you pick; no link is made. See [Skill sources](skill-sources.md#move-a-global-skill-into-a-repo). | Palette, skill page |
 | Sync (*hidden*) | Checks a skill that has a source for a newer version and goes on to the update card. See [Skill sources](skill-sources.md#check-for-updates). | Right-click on a skill row with a source, sidebar tree |
 | Sync from Global... (*hidden*) | Overwrites a repo skill or agent with the Global version when the two differ, after a backup. See [Duplicates](duplicates.md#sync). | Right-click on the repo copy, item page |
-| Sync Plugin from Its Marketplace... (*hidden*) | Refreshes the marketplace and updates a plugin whose source is ahead. See [Marketplace health](marketplace-health.md). | Right-click on a plugin, Marketplace health |
+| Sync Plugin from Its Marketplace... (*hidden*) | Refreshes the marketplace and updates a plugin whose source is ahead. **Sync all** and **Sync N plugins** do it for every plugin of a marketplace that is ahead, after one card. See [Marketplace health](marketplace-health.md#sync-every-plugin-that-is-ahead). | Right-click on a plugin, Marketplace health, marketplace page |
 | Sync to Other Copies... (*hidden*) | Writes the chosen configuration of an MCP server into the other files that configure it. See [MCP servers](mcp-servers.md#share-and-sync). | Right-click on the server, server page |
 | Share... (*hidden*) | Saves an element as a file in your Downloads folder. See [Share and Import](#share-and-import). | Right-click on a row, sidebar tree |
 | Import Skill..., Import Plugin..., Import Agent..., Import Command..., Import Output Style..., Import Rule..., Import CLAUDE.md..., Import MCP Server..., Import Hook... | Takes a shared file back in. See [Share and Import](#share-and-import). | Palette, import button in the header of the type page |
-| Retire Clean Copies... | Retires identical repo copies of skills and agents after you pick them. See [Duplicates](duplicates.md#retire-clean-copies). | Palette, Repositories node, Fleet overview |
-| Rename Marketplace... | Renames a directory marketplace in the settings files, then re-registers it in a terminal. See [Marketplace health](marketplace-health.md#rename-a-directory-marketplace). | Palette, Marketplace health page |
+| Retire Clean Copies... | Retires identical repo copies of skills and agents after you pick them. See [Duplicates](duplicates.md#retire-clean-copies). | Palette, Repositories node, GitHub Repo overview |
+| Rename Marketplace... | Renames a directory marketplace in the settings files, then re-registers it in a terminal. See [Marketplace health](marketplace-health.md#rename-a-directory-marketplace). | Palette, Marketplace health page, marketplace page |
 | Open Repo (*hidden*) | Opens a repo's page | Right-click on a repo row |
 | Rename Session... | Renames a Claude Code session the way `/rename` does, so `/resume` shows the new name. See [Sessions](sessions.md#sessions-in-the-tree). | Palette, right-click on a session row |
 | Open Session (*hidden*) | Opens a Claude Code session's page. See [Sessions](sessions.md). | Session rows in the tree |

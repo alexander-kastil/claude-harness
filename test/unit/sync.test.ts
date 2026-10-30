@@ -4,7 +4,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { test } from 'node:test';
 import { Asset, globalScope, linkCopies, repoScope, scan } from '../../src/harness';
-import { keyChanges, mcpApply, mcpVersions, syncApply, syncFiles, syncSource, updatePluginFromMarket } from '../../src/sync';
+import { keyChanges, mcpApply, mcpVersions, syncApply, syncFiles, syncSource, updateMarketPlugins, updatePluginFromMarket } from '../../src/sync';
 
 const tmp = (what: string) => fs.mkdtempSync(path.join(os.tmpdir(), `sync-${what}-`));
 const write = (root: string, rel: string, text: string) => {
@@ -76,4 +76,25 @@ test('a plugin sync refreshes the marketplace, then updates, and checks the vers
   await updatePluginFromMarket('p@m', 'm', '2.0.0', root, run);
   assert.deepEqual(calls, ['plugin marketplace update m', 'plugin update p@m']);
   await assert.rejects(updatePluginFromMarket('p@m', 'm', '3.0.0', root, run), /installed 2\.0\.0/);
+});
+
+test('a marketplace sync refreshes the marketplace once, updates each plugin that is ahead, and goes on past a failure', async () => {
+  const root = tmp('root');
+  const calls: string[] = [];
+  const versions: Record<string, { scope: string; version: string }[]> = {};
+  const run = async (args: string[]) => {
+    calls.push(args.join(' '));
+    if (args[1] === 'update' && args[2] !== 'b@m') {
+      versions[args[2]] = [{ scope: 'user', version: '2.0.0' }];
+      write(root, 'plugins/installed_plugins.json', JSON.stringify({ plugins: versions }));
+    }
+    return { code: args[2] === 'b@m' ? 1 : 0, out: args[2] === 'b@m' ? 'b broke' : '' };
+  };
+  const steps: string[] = [];
+  const result = await updateMarketPlugins('m', [{ key: 'a@m', want: '2.0.0' }, { key: 'b@m', want: '2.0.0' }, { key: 'c@m', want: '2.0.0' }], root, run, (key, done) => steps.push(`${key}:${done}`));
+  assert.deepEqual(calls, ['plugin marketplace update m', 'plugin update a@m', 'plugin update b@m', 'plugin update c@m']);
+  assert.deepEqual(result.synced, ['a@m', 'c@m']);
+  assert.deepEqual(result.failed.map(f => f.key), ['b@m']);
+  assert.match(result.failed[0].error, /b broke/);
+  assert.deepEqual(steps, ['a@m:0', 'b@m:1', 'c@m:2']);
 });

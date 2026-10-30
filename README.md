@@ -18,146 +18,92 @@ Best of all: once you have visualized and configured a scenario, you continue th
 
 ## Why Claude Harness
 
-A harness grows one rule, hook and skill at a time. After a few months it is hard to say which parts still run, which ones load into every session, and why a session cost what it did. The files describe what should happen; the transcripts record what did. Claude Harness puts the two side by side.
+A harness grows one rule, hook and skill at a time. After a few months it is hard to say which parts still run, which ones load into every session, and why a session cost what it did. The files describe what should happen; the transcripts record what did. Claude Harness puts the two side by side, with no hook, proxy or server to install.
 
-### Execution analysis of every session
+| You want to | Claude Harness gives you |
+| --- | --- |
+| [See how a session ran](#see-how-a-session-ran) | Cost, KPIs and six views of the delegation, checkpoints to restore, findings with their token cost |
+| [Find what never runs](#find-what-never-runs) | Used in, Fired in and Loaded in tabs, with presets for what never ran |
+| [Keep the harness lean](#keep-the-harness-lean) | Skill size and context cost, duplicate copies merged, dead pointers in CLAUDE.md |
+| [Edit everything in one place](#edit-everything-in-one-place) | One editor for all twelve kinds, globally and per repository |
+| [Build with Claude](#build-with-claude) | Plugin Hunter, drawings of every element, Claude actions in your own terminal |
+| [Keep plugins current](#keep-plugins-current) | Every marketplace with one-press sync of the plugins that are ahead |
+| [Script it](#command-line-and-harness-mentions) | The `harness` command line, `.harness` scripts and `@harness` mentions in Claude Code |
 
-Reads Claude Code's session and subagent JSONL transcripts, with no hook, proxy or server to install, and shows how each session actually ran. Cost per session comes from each message's input, cache-write, cache-read and output tokens at API list prices. Below the cost and the KPIs, a **How the work ran** section has six views of the delegation behind one toggle bar. Click a lane or a node in a view to see that agent's brief, report, tools and tokens.
+## See how a session ran
+
+The session page reads Claude Code's session and subagent JSONL transcripts. Cost comes from each message's input, cache-write, cache-read and output tokens at API list prices. Under the cost and the KPIs, **How the work ran** has six views behind one toggle bar; click a lane or a node for that agent's brief, report, tools and tokens.
 
 ![A session page with the cost breakdown, the KPIs and the six views of how the work ran](docs/images/session-overview.png)
 
-#### Timeline
-
-When each agent ran, next to your prompts and the events of your hooks. Four agents started in one turn show as four overlapping lanes.
-
-![The timeline of a session: a lane per agent beside the prompts](docs/images/feature-timeline.png)
-
-#### Delegation map
-
-Who started which agent, with every agent launch and its tokens, and which agents worked as a team. Sum mode adds the runs up by type; Full timeline branches each prompt into the agents it started. A red stop sign on a step marks a tool call that a hook or mod denied; hover it for what was denied and the hook events around it.
+| View | Shows |
+| --- | --- |
+| Timeline | When each agent ran, beside your prompts and the events of your hooks |
+| Delegation map | Who started which agent, with its tokens; a red stop sign marks a tool call a hook or mod denied |
+| Decisions | What happened after each prompt: delegated, worked itself, followed up an agent, or answered |
+| Concurrency | How many agents ran at the same time, with the peak marked |
+| Token flow | The tokens from the session through the main thread and each agent type to the outcome |
+| Scatter | Each agent by run time and tokens, so the slow or costly ones stand out |
 
 ![The delegation map with the hover card of a stop sign: a mod denied a Read after four lookups](docs/images/feature-map-denied.png)
 
-#### Decisions
+- **Checkpoints:** a ring round a prompt in the Timeline marks one. Click it for the files changed since, each in a side-by-side diff. **Restore files to here** puts them back after a card that names every file; **Rewind the conversation** continues the session in a terminal, where Claude's own rewind takes it back to the prompt.
+- **Findings:** failed or silent agents, stopped runs, general-purpose runs where one of your agents fits, and failing hooks, each with its token cost and what to do.
+- **Cost per agent type and model:** the **Models** tab of a repo page sums the last 7 days of each account by model and by agent type, with the share of the weekly limit on a plan.
 
-What happened after each prompt: delegated, worked itself, followed up an agent, or answered.
+## Find what never runs
 
-![The Decisions view: each prompt, what the main thread did and the team it launched](docs/images/session-decisions.png)
-
-#### Concurrency
-
-The agents that ran at the same time. Each agent run is one bar, so the height is the number of agents running, and the peak is marked.
-
-![The Concurrency view of a session with a peak of four agents](docs/images/feature-concurrency.png)
-
-#### Token flow
-
-The tokens from the session, through the main thread and each agent type, to the outcome: reported back, no report or failed.
-
-![The Token flow view from the session to each agent type and its outcome](docs/images/session-flow.png)
-
-#### Scatter
-
-Each agent by run time and tokens. Dot area is the agent's cost, dashed lines are medians, and both scales are logarithmic, so the slow or costly agents stand out.
-
-Hover a dot for the agent's model, run time, tokens, prompt and report.
-
-![The Scatter view with the hover card of the costliest agent](docs/images/feature-scatter-hover.png)
-
-#### Findings with their token cost
-
-Failed or silent agents, stopped runs, general-purpose runs where one of your agents fits, and failing hooks, each with its token cost and what to do.
-
-![Findings on a session page: a failed agent, a missing report and a failing hook](docs/images/session-findings.png)
-
-### Used in: what never runs
-
-Used in for agents, skills, commands, plugins and output styles. Presets list what never runs.
+| Tab | On | Shows |
+| --- | --- | --- |
+| Used in | Agents, skills, commands, plugins, output styles | The sessions that used it; presets list what never ran |
+| Fired in | Hooks, MCP tools | Runs, exit codes and durations; call counts per tool |
+| Loaded in | Rules, CLAUDE.md | The sessions that loaded it, including path-scoped rules that never matched |
 
 ![The Agents page with the Used column and the Never used preset](docs/images/agents-used.png)
 
-### Fired in: hook runs and exit codes
+## Keep the harness lean
 
-Fired in for hooks, with run counts, exit codes and durations; call counts per MCP tool.
+- **Skill size and context cost:** a Size card flags descriptions over 200 tokens or 1024 characters and SKILL.md files over 500 lines, ranked by the context they cost; each finding has its own **Resolve with Claude**.
+- **Consolidate duplicates:** a copy identical to Global is retired with a backup; one that differs opens a side-by-side compare, or Merge with Claude.
+- **CLAUDE.md lenses:** dead pointers, such as an agent that no longer exists, with a quick fix to repoint or drop the line.
+- **Effective harness:** the memory, rules, plugins and hooks a session in a repo loads, with the rules that were not loaded and the hooks that fail.
 
-![A hook's Fired in tab with runs, failures and average time per session](docs/images/feature-hook-fired.png)
+## Edit everything in one place
 
-### Loaded in: rules that never matched
-
-Loaded in for rules and CLAUDE.md, including path-scoped rules that never matched.
-
-![A path-scoped rule marked Never matched on its Loaded in tab](docs/images/feature-rule-never-matched.png)
-
-### Skill size and context cost
-
-A Size card flags skill descriptions over 200 tokens or 1024 characters and SKILL.md files over 500 lines, ranked by the context they cost across sessions. Each finding shows its title above its text, and its own **Resolve with Claude** button opens a confirm card, then a terminal where Claude fixes that one finding.
-
-![The Size card of a skill with a long SKILL.md and its largest sections](docs/images/feature-skill-size.png)
-
-### One editor for all twelve kinds, across scopes
-
-Global `~/.claude`, each repository's `.claude/` and plugin-shipped items (read-only) in one tree, with frontmatter as typed fields and a tool picker.
+Global `~/.claude`, each repository's `.claude/` and plugin-shipped items (read-only) sit in one tree, all twelve kinds, with frontmatter as typed fields and a tool picker. The GitHub Repo overview puts every repository in one table, with a search.
 
 ![An agent open in the editor with typed frontmatter fields, a color picker and Configure Tools](docs/images/feature-editor.png)
 
-### The effective harness of a repository
+## Build with Claude
 
-The memory, rules, plugins and hooks a session in a repo loads, with the rules that were not loaded and the hooks that fail.
-
-![The effective harness of a repository: rules, plugins, hooks and the files the last session loaded](docs/images/repo-effective.png)
-
-### Lenses for dead pointers in CLAUDE.md
-
-Lenses flag dead pointers in CLAUDE.md, such as an agent it names that no longer exists, with a quick fix to repoint or drop the line.
-
-![A CLAUDE.md line that names an agent that was not found, with the Repoint and Drop line lens](docs/images/claude-md-lenses.png)
-
-### Consolidate duplicate skills
-
-Merges duplicate skills across scopes and plugins into one source. A copy identical to Global is retired with a backup; a copy that differs opens a side-by-side compare, or Merge with Claude.
-
-![The Consolidate card for a repo skill that differs from Global](docs/images/feature-consolidate.png)
-
-### Plugin Hunter
-
-Talk to Claude about the skills and agents you already have, and it proposes a plugin. The New hunt tab is half chat, with the message box pinned under the conversation (Hunt sends the message, Go sends it as a change to the ticked elements, for example a rename), and half findings and selections: the proposed card with the picker and Create. Create writes the plugin into a marketplace folder of yours, installs it and retires the copies you tick, with a backup. **Retire all** ticks the copies of the ticked elements at once. The History tab keeps every other card with the chat that made it, each collapsed until you click its header. The Enabled column of the Plugins page is a switch that enables or disables a plugin.
+- **Plugin Hunter:** talk to Claude about the skills and agents you have, and it proposes a plugin. Open it with the telescope button in the Claude group of the Plugins page or the overview. Create writes the plugin into a marketplace folder of yours, installs it and retires the copies you tick, with a backup; the History tab keeps every card with its chat.
+- **Drawings:** one press of **Draw with Claude** draws any skill, agent, command, workflow, hook, MCP server, plugin or marketplace twice: the Harness view, how its parts connect to a session, and the Process view, what runs in which order, drawn for its kind (for a marketplace, how its plugins hand work to each other). A toggle switches between them.
+- **Claude actions in your terminal:** Edit, Slim, Try it, Analyze, Continue and Merge with Claude start your `claude` CLI in a VS Code terminal with the prompt and the measured context filled in, after a confirm card. The terminals open in the editor area and run `claudeHarness.terminal.command`; Ctrl+F1 opens a new one. The runs count against your Claude plan, Claude Harness adds no charge, and the status bar shows your 5-hour and weekly limits live. See [Settings](docs/settings.md#terminals).
 
 ![Plugin Hunter with the chat and its message box on the left and the card of a proposed plugin on the right](docs/images/plugin-hunter.png)
 
-A plugin page can show a drawing of the plugin above its details, made with **Draw with Claude**. A toggle in the drawing switches between the Harness perspective (how its parts connect to a session) and the Process perspective (its stages in the order they run, with what each mod does).
-
 ![The Process perspective of a plugin drawing](docs/images/plugin-drawing-process.png)
 
-### Command line
+## Keep plugins current
 
-Run **Claude Harness: Install 'harness' Command Line** once to put `harness` on your PATH, with Tab completion in PowerShell and Git Bash; then run `harness <command>` in a terminal. Without it, run `node <extension folder>/out/src/cli.js <command>`. In Claude Code, with the [harness plugin](#install-the-harness-plugin) installed, type `@h` in a prompt for type-ahead on a view, such as `@harness:usage` or `@harness:inventory`: when you send the prompt, the view runs and Claude reads its output as context. See [Type-ahead](docs/type-ahead.md) for the mentions and [Command line](docs/command-line.md) for the commands.
+The Marketplaces section of the sidebar lists every marketplace with its plugin count and how many plugins have a newer version than the one installed. A marketplace page shows its source, its plugins with the installed and the latest version, and its drawings. **Sync all** updates every plugin that is ahead after one confirm card.
 
-- `inventory [--repo <dir>]`: the harness of Global, or of one repo.
-- `consolidate`: every skill, agent, rule, command or workflow that exists in more than one place.
-- `consolidate retire --name <n> --kind skill|agent --from <global|repo dir>`: retires one copy, backed up first.
-- `hunt catalog [--kind skill|agent] [--query <text>]`: the skills and agents that a plugin can be made from, optionally of one type or matching a text.
-- `hunt plan --name <plugin> --category <c> --skills a,b --agents x,y`: the plugin that `hunt create` would write.
-- `hunt create` with the same options: writes the plugin and installs it; `--retire` retires the copies.
-- `agents list`: the agents of Global, the plugins and the repos, with their copies that differ and the gated ones.
-- `agents route "<prompt>"`: the agents that the agent-control-plugin would route a prompt to, and the ones it drops.
-- `usage --session latest|previous|<id> [--week]`: a session's tokens and cost by model and by agent, and its share of the week.
-- `delegation --session latest|previous|<id>`: the agents a session launched, with their decisions, slips and findings.
-- `media doctor <dir>`: checks a film or images folder under `assets/films` or `assets/images`.
-- `marketplaces`: every marketplace with its plugins and their problems; `marketplaces rename --from <name> --to <name>` renames one.
-- `check [--repo <dir>]`: the harness checks of the known repos against the harness standard; `check fix` applies the fixes for settings and hooks.
-- `fleet`: one row per repo with its layout, standard check, CLAUDE.md lines, plugins and copies.
-- `sync [--repo <dir>]`: the repo copies that differ from Global; `sync apply` syncs them, `sync plugin --name <plugin@market>` updates a plugin from its marketplace.
-- `sessions [--repo <dir>]`: a repo's sessions in /resume order; `sessions rename --session <id> --title <t>` renames one.
-- `mods --session latest|previous|<id>`: the mods and guards that acted in a session, with what they denied or held.
-- `time [--repo <dir>] [--days <n>]`: the repo's time ledger by day, with the total.
-- `lessons [--repo <dir>] [--find <text>]`: the entries of the repo's `tasks/lessons.md`.
-- `sources`: the skills installed from a source; `sources check` finds newer versions, `sources update --name <skill>` installs one.
+## Command line and @harness mentions
 
-Add `--dry-run` to a command that writes, to print each action without writing it. With `--json`, a command prints one object, and its last key is `applied`: `true` when it wrote something, `false` otherwise. Exit codes: 0 done, 1 error or problems found, 2 bad arguments.
+Run **Claude Harness: Install 'harness' Command Line** once to put `harness` on your PATH, with Tab completion in PowerShell and Git Bash. In Claude Code, with the [harness plugin](#install-the-harness-plugin) installed, type `@h` in a prompt for a view such as `@harness:usage`: when you send the prompt, the view runs and Claude reads its output as context.
 
-### Build a harness from the command line
+| Area | Commands |
+| --- | --- |
+| Read the harness | `inventory`, `consolidate`, `agents list`, `agents route`, `marketplaces`, `fleet`, `check`, `sync`, `sources` |
+| Sessions | `usage`, `delegation`, `sessions`, `mods`, `time`, `lessons` |
+| Plugins | `hunt catalog`, `hunt plan`, `hunt create`, `hunt add`, `plugins rename`, `marketplaces rename`, `sync plugin` |
+| Skills and copies | `consolidate retire`, `skills move`, `split`, `put`, `remove`, `rename`, `repoint`, `fix-paths`, `sync apply` |
+| Build a harness | `generate`, `add`, `new`, `update`, `validate`, `run` |
+| Media | `media doctor` |
 
-`generate` (or `g`) makes sure that an agent, rule, skill, command, hook or MCP server exists, `add` installs a plugin, `new` scaffolds a repo and `update` brings plugins and the repo's copies up to date. A `.harness` script lists these commands, one per line, in a file you can keep in the repo and review. `harness validate` checks a script and writes nothing, and `harness run` applies it step by step. This script creates a poem writer and a poem reviewer agent, a style rule and a review command:
+Add `--dry-run` to a command that writes to print each action instead, and `--json` for one object whose last key is `applied`. Exit codes: 0 done, 1 error or problems found, 2 bad arguments. See [Command line](docs/command-line.md) and [Type-ahead](docs/type-ahead.md).
+
+A `.harness` script lists build commands, one per line, in a file you keep in the repo and review. `harness validate` checks it and writes nothing, and `harness run` applies it step by step:
 
 ```text
 # poems.harness: a poem writer and a poem reviewer
@@ -168,11 +114,11 @@ generate rule poem-style --paths poems/** --from templates/rules/poem-style.md
 generate command review-poem --description "Review the newest poem" --from templates/commands/review-poem.md
 ```
 
-Run `harness run harness/poems.harness --dry-run` to preview the changes first. The [Command line](docs/command-line.md) page lists every command and option, and [Harness scripts](docs/harness-scripts.md) describes the script format.
+See [Harness scripts](docs/harness-scripts.md) for the format.
 
 ### Install the harness plugin
 
-The harness plugin adds `@harness:` mentions to the Claude prompt box, with type-ahead, for the views above that only read. It needs Claude Harness 0.9.0 or later, and its version always matches the extension's. It ships from this repository as the `claude-harness` marketplace.
+The harness plugin adds `@harness:` mentions to the Claude prompt box, with type-ahead, for the views that only read. It needs Claude Harness 0.9.0 or later, and its version always matches the extension's. It ships from this repository as the `claude-harness` marketplace.
 
 In Claude Code:
 
@@ -189,20 +135,12 @@ claude plugin marketplace add alexander-kastil/claude-harness
 claude plugin install harness@claude-harness
 ```
 
-### Claude actions through your own CLI
-
-Review, Slim, Try it, Analyze, Continue and Merge with Claude start your `claude` CLI in a VS Code terminal with the prompt and the measured context filled in; Analyze works on a copy of the session. Each opens a confirm card first. Each finding on the Size card also has its own **Resolve with Claude** button, which asks Claude to fix only that finding. The runs count against your Claude plan, and Claude Harness adds no charge.
-
-![The confirm card of Slim with Claude, shown before a terminal opens](docs/images/feature-claude-slim.png)
-
-These terminals open in the editor area beside your files, run the command you set in `claudeHarness.terminal.command`, and start with the arguments of `claudeHarness.terminal.args`. Ctrl+F1 opens a new Claude terminal in the active workspace folder, and Ctrl+V in a terminal on Windows pastes an image from the clipboard into Claude Code. The status bar shows your 5-hour and weekly limits live, with bars and reset times in its hover card. See [Settings](docs/settings.md#terminals).
-
 ## Quick start
 
 Install Claude Harness: it opens on the `~/.claude` you already have.
 
 1. Open the Extensions view (Ctrl+Shift+X), search for **Claude Harness**, and click **Install**. You can also run `code --install-extension integrations-at.claude-harness` in a terminal.
-2. Click **Claude Harness** in the status bar, or its icon in the activity bar. The main window opens.
+2. Click **Claude Harness** in the status bar, or its icon in the activity bar. The main window opens; the activity bar icon opens it when it is not open yet.
 3. Pick an item in the sidebar to view and edit it. The global harness is read from `~/.claude`.
 
 > Note: Claude Harness needs Claude Code and VS Code 1.100 or newer. The global MCP server list comes from `claude mcp list`, so the `claude` command must be on your PATH.
@@ -222,13 +160,13 @@ Install Claude Harness: it opens on the `~/.claude` you already have.
 | [Share and Import](docs/commands.md#share-and-import) | Packs an agent, skill, command, rule, plugin, MCP server or hook into a file in your Downloads folder, and imports one that someone shared, with a backup of what it replaces |
 | [Sync](docs/duplicates.md#sync) | Brings a repo copy in step with Global, a plugin with its marketplace, a skill with its source, and an MCP server with its other copies |
 | [Bulk-edit guard](docs/bulk-edits.md) | Leaves out repos with uncommitted harness files, busy sessions or stale worktree copies before a bulk change |
-| [Fleet overview](docs/fleet-overview.md) | One table of every repo, with its lines, plugins and copies |
+| [GitHub Repo overview](docs/fleet-overview.md) | One table of every repo, with a search by name or path, its lines, plugins and copies |
 | [Rules editor](docs/rules-editor.md) | Shows which files a rule's paths match |
-| [Marketplace health](docs/marketplace-health.md) | Lists marketplaces and plugins, flags sources ahead of the installed copy, and renames directory marketplaces |
+| [Marketplace health](docs/marketplace-health.md) | Lists marketplaces and plugins, flags sources ahead of the installed copy, syncs every plugin that is ahead after one card, renames directory marketplaces, and gives each marketplace its own page, listed under Marketplaces in the sidebar |
 | [Configure Tools](docs/configure-tools.md) | Picks the tools an agent, skill or command may use |
 | [MCP servers](docs/mcp-servers.md) | Lists MCP servers with their source and status, sorts them, shows their tools, and adds, copies or deletes them |
 | [MCP switches](docs/mcp-toggles.md) | Turns an MCP server on or off for one repo or in every folder |
-| [Plugins](docs/plugins.md) | Enables, disables, installs and uninstalls plugins, marks mods, and builds a new plugin from your skills and agents with Plugin Hunter |
+| [Plugins](docs/plugins.md) | Enables, disables, installs and uninstalls plugins, marks mods, builds a new plugin from your skills and agents with Plugin Hunter, and draws a plugin as a Harness and a Process view |
 | [Skill sources](docs/skill-sources.md) | Adds skills from skills.sh or GitHub, checks them for a newer version, updates them in place, and moves a global skill into a repo |
 | [Settings](docs/settings.md) | Sets the global harness folder, the repo lists, where Claude terminals open and which command starts them, the Claude usage item in the status bar and the list lengths, and edits the settings files |
 | [Commands](docs/commands.md) | Every Claude Harness command, what it does and where to find it |

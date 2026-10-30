@@ -1,6 +1,6 @@
 // @ts-nocheck
 // Type pages: every element of one kind, with search, presets and facets.
-import { LIST_VIEWS, SOURCES, categoryOf, command, mcpFailed, tidyError, groupItems, labelOf, linkName, metaOf, pluginLabel, pluginOf, select, showRepo, singular, skillPluginOf, sourceName, state, twinText, twinsOf, viewOf } from './core';
+import { LIST_VIEWS, SOURCES, categoryOf, command, mcpFailed, tidyError, groupItems, labelOf, linkName, metaOf, pluginLabel, pluginOf, select, showMarket, showRepo, singular, skillPluginOf, sourceName, state, twinText, twinsOf, viewOf } from './core';
 import { countHead, el, highlight, icon, iconBtn, plural } from './dom';
 import { hideHover } from './hover';
 import { distButtons, distNotice, hasUpdate, isTracked, originText, originTip, sourceTone, syncText, syncTip } from './dist';
@@ -271,12 +271,17 @@ export function renderKindPage() {
     // Grouped lists get one table per group, in the sidebar's order: by default where each item lives.
     const groups = LIST_VIEWS[p.kind] && !ranked ? groupItems(p.kind, hits, e => e.a) : [];
     const scoped = new Set(hits.map(scopeOf)).size > 1;
+    // On the Plugins and Mods pages a heading is a marketplace: its name opens the marketplace's page, whose Back returns here.
+    const toMarket = id =>
+      p.kind === 'plugin' || p.kind === 'mod'
+        ? { title: `Open ${id}\nThe marketplace's page: its plugins and the drawing of what it offers.`, go: () => showMarket(id, { label: `Back to ${cat.label}`, go: () => ((state.page = 'kind'), (state.kindPage = p), hideHover(), render()) }) }
+        : undefined;
     const body =
       groups.length > 1
         ? groups.map(([[id, label, glyph], list]) => {
             const foldKey = `page|${p.kind}|${id}`;
             const folded = state.foldedGroups.has(foldKey);
-            return el('div', { className: 'origin-section' }, groupHead('origin-label', foldKey, folded, glyph, label, list.length, drawResults), folded ? null : assetTable(list, cols, textQ(), label, scoped, withDesc));
+            return el('div', { className: 'origin-section' }, groupHead('origin-label', foldKey, folded, glyph, label, list.length, drawResults, toMarket(id)), folded ? null : assetTable(list, cols, textQ(), label, scoped, withDesc));
           })
         : [assetTable(hits, cols, textQ(), cat.label, scoped, withDesc)];
     results.replaceChildren(
@@ -475,8 +480,9 @@ export function renderKindPage() {
       create,
       importBtn,
       countBtn,
-      p.kind === 'plugin' ? huntButton() : null,
-      ...(p.kind === 'skill' ? distButtons(entries.map(e => e.a)) : [])
+      ...(p.kind === 'skill' ? distButtons(entries.map(e => e.a)) : []),
+      // The AI group comes last, at the right end of the bar, as on every other bar.
+      p.kind === 'plugin' ? huntButton() : null
     ),
     el('div', { className: 'main-body', onscroll: hideHover }, p.kind === 'skill' ? distNotice() : null, el('div', { className: 'kind-search' }, el('div', { className: 'combo' }, icon('search'), input, suggest), filters), results)
   );

@@ -799,6 +799,48 @@ table.grid .cell {
   color: var(--vscode-descriptionForeground);
 }
 
+/* A marketplace's page: its source, the drawing, then its plugins, one under the other. */
+.market-page {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.market-page > .market-head {
+  margin-bottom: 0;
+}
+
+.market-page > .group-label {
+  margin-top: 4px;
+}
+
+/* A group heading whose name opens the group's own page (a marketplace on the Plugins page): the name reads as a link, the rest
+   of the bar still folds. */
+.origin-label .label.group-open {
+  flex: 0 1 auto;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.origin-label .label.group-open:hover {
+  color: var(--vscode-textLink-activeForeground, var(--vscode-textLink-foreground));
+  text-decoration: underline;
+}
+
+.origin-label .label.group-open:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: 1px;
+}
+
+.origin-label .label.group-open + .origin-n {
+  margin-left: auto;
+}
+
 .notice {
   padding: 8px 12px;
   border-left: 3px solid var(--vscode-focusBorder);
@@ -3279,6 +3321,16 @@ mark {
   color: inherit;
 }
 
+/* A button that heads its column (Sync all over the Sync column) reads as a button, not as the caps of a column name. */
+.at-head button.at-head-btn {
+  /* The row buttons' side padding, so its icon lines up with theirs. */
+  padding: 1px 12px;
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
 .at-row.disabled .at-label,
 .at-row.disabled .at-name {
   opacity: 0.6;
@@ -4590,7 +4642,7 @@ button.std-finding:hover {
   color: var(--vscode-descriptionForeground);
 }
 
-/* The perspective toggle in the drawing's top-left corner; the process drawing is a tall stack, so it is not capped at 180px. */
+/* The Harness | Process toggle in the drawing's top-left corner; the drawing starts below it. */
 .dv-persp {
   position: absolute;
   top: 8px;
@@ -4599,19 +4651,8 @@ button.std-finding:hover {
   margin: 0;
 }
 
-/* The tall process drawing starts below the toggle in the corner. */
-.dv-draw.dv-process {
-  padding-top: 42px;
-}
-
-.dv-draw.dv-process svg {
-  max-width: 900px;
-  max-height: none;
-  margin: 0 auto;
-}
-
 .dv-draw .dv-empty {
-  padding: 40px 0 24px;
+  padding: 6px 0 24px;
   text-align: center;
 }
 
@@ -5163,8 +5204,18 @@ input[type='search'] {
 }
 
 /* Overview: the lists behind tabs repeat the tab's name in their own heading. */
+/* The tabs at the left, the AI group with Plugin Hunter last and at the right end of the row. */
 .overview-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
   margin-top: 14px;
+}
+
+.overview-tabs > .ai-group {
+  order: 99;
+  margin-left: auto;
 }
 
 /* The three lists switch with one compact control at the left, not three bars across the page. */
@@ -6036,34 +6087,6 @@ body.vscode-high-contrast-light {
   overflow: hidden;
 }
 
-/* The Plugins page's main action: the page's one primary button, larger than its icon neighbours, with the Claude mark. */
-button.primary.hunt-cta {
-  gap: 8px;
-  padding: 6px 16px;
-  border-radius: 6px;
-  /* The theme's accent (the badge colour), not the button colour: some themes (Dracula) draw primary buttons as dim slate. */
-  border-color: transparent;
-  background: var(--vscode-activityBarBadge-background, var(--vscode-button-background));
-  color: var(--vscode-activityBarBadge-foreground, var(--vscode-button-foreground));
-  font-weight: 600;
-  box-shadow: 0 2px 10px color-mix(in srgb, var(--vscode-activityBarBadge-background, var(--vscode-button-background)) 45%, transparent);
-}
-
-button.primary.hunt-cta:hover {
-  background: var(--vscode-activityBarBadge-background, var(--vscode-button-hoverBackground));
-  filter: brightness(1.12);
-}
-
-button.primary.hunt-cta .claude-mark {
-  flex: none;
-}
-
-/* The mark takes the button's text colour: its own orange is unreadable on a pink or purple accent. */
-button.primary.hunt-cta .claude-mark,
-button.primary.hunt-cta .claude-mark path {
-  fill: currentColor;
-}
-
 /* The Plugin Hunter: half chat, half findings and selections; stacked when the page is narrow. */
 .hunt-body {
   container: hunt-body / inline-size;
@@ -6357,8 +6380,10 @@ button.primary.hunt-cta .claude-mark path {
   flex: 1 1 180px;
 }
 
+/* Icon buttons sit on the vertical centre of a taller neighbour such as the AI group. */
 .main-head > .toolbar {
   flex-wrap: wrap;
+  align-items: center;
   justify-content: flex-end;
   min-width: 0;
   margin-left: auto;
@@ -6499,11 +6524,12 @@ button.primary.hunt-cta .claude-mark path {
   padding: 10px 14px;
 }
 
-/* The drawing of what an element does, above the info card: scaled to the width, never taller than 180px. */
+/* The drawing of what an element does, above the info card: as wide as the figure and as tall as its shape, never larger than
+   its viewBox (the max-width `drawingFigure` sets), so the text stays the size Claude wrote it at. */
 .dv-draw {
   position: relative;
   margin: 0;
-  padding: 6px 14px;
+  padding: 42px 14px 10px;
   border: 1px solid var(--vscode-editorWidget-border, var(--vscode-panel-border));
   border-radius: 4px;
   color: var(--vscode-editor-foreground);
@@ -6513,7 +6539,7 @@ button.primary.hunt-cta .claude-mark path {
   display: block;
   width: 100%;
   height: auto;
-  max-height: 180px;
+  margin: 0 auto;
 }
 
 /* The drawing enlarged in the house hover card, as wide as the panel allows and at most three quarters of its height. */

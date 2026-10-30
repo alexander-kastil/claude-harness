@@ -16,3 +16,6 @@ export const syncableMcp = a => mcpFileCopies(a).length > 1;
 
 // A plugin in Marketplace health whose marketplace source is ahead of the installed copy.
 export const syncPlugin = key => command('syncPlugin', { plugin: key });
+
+// Every plugin of a marketplace whose source is ahead, in one go.
+export const syncMarket = name => command('syncMarketplace', { market: name });

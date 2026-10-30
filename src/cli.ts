@@ -122,10 +122,12 @@ Usage: node cli.js <command> [options]
   time [--repo <dir>] [--days <n>]    The repo's time ledger (.time/working-time.md) by day, with the total.
   lessons [--repo <dir>] [--find <text>]
                                       The entries of the repo's tasks/lessons.md, optionally only those that mention a text.
-  sources                             The skills installed from a source, with their source and version.
-  sources check                       Which of those skills have an update at their source.
-  sources update --name <skill> [--dry-run]
-                                      Update one skill from its source, backed up first.
+  sources                             The skills installed from a source, with their source and version, and the plugin that ships each one linked to a plugin.
+  sources check                       Which of those skills have an update at their source (a plugin's skill: a newer release tag than its recorded version).
+  sources update --name <skill> [--plugin <plugin>] [--dry-run]
+                                      Update one skill from its source, backed up first. A plugin-linked skill is staged (its recorded command, else downloaded), compared with the plugin's copy and, when it differs, replaces the plugin's skill folder whole (backed up), bumps the plugin's patch version and updates the installed plugin.
+  sources link --name <skill> --source <owner/repo> --plugin <plugin> [--market <dir>] [--stage "<command>"] [--version <v>] [--dry-run]
+                                      Record the source of a skill a plugin of your marketplace ships, so sources check and sources update follow it. --stage is run in an empty folder and must leave .claude/skills/<skill> there (e.g. npx -y ui-ux-pro-max-cli@latest init --ai claude --force).
   complete --line "<command line>" [--position <n>]
                                       The candidates for the word at the cursor, one per line (--json for a list); the shell completers call it.
   completion powershell|bash          The script a shell profile evaluates to register Tab completion for harness.

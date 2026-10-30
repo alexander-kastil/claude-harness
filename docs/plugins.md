@@ -40,7 +40,9 @@ In the activity bar, the right-click menu of a plugin agent shows **Open File** 
 
 Click the plus button on the **Plugins** header, or run **Claude Harness: Install Plugin...**, to install a plugin from your marketplaces. The **Uninstall** button on a plugin page, the tree's right-click menu and **Claude Harness: Uninstall Plugin...** uninstall it. From the plugin page a card under the button asks first; from the tree or the palette a VS Code dialog does. Both run the `claude plugin` command in a terminal. See [Commands](commands.md#install-and-uninstall-plugins).
 
-To see which installed plugins are behind their marketplace source, open [Marketplace health](marketplace-health.md). A plugin whose source is ahead of the installed copy is flagged there with `update` in the Sync column and a **Sync plugin** button, which refreshes the marketplace and updates the plugin. The right-click menu of a plugin has **Sync Plugin from Its Marketplace...** for the same. The same page renames a directory marketplace and re-registers its plugins.
+To see which installed plugins are behind their marketplace source, open [Marketplace health](marketplace-health.md). A plugin whose source is ahead of the installed copy has a **Sync plugin** button in the Sync column there, which refreshes the marketplace and updates the plugin, and **Sync all** in the column's header syncs every plugin that is ahead after one card. The right-click menu of a plugin has **Sync Plugin from Its Marketplace...** for one plugin. The same page renames a directory marketplace and re-registers its plugins.
+
+The Plugins page lists the plugins in one group per marketplace. The name in a group's heading is a link: it opens that [marketplace's page](marketplace-health.md#marketplace-page), whose **Back** button returns to the Plugins page. A click elsewhere on the heading folds or unfolds the group.
 
 ## Drawing a plugin
 
@@ -49,7 +51,7 @@ A plugin page shows a drawing above its details once Claude has drawn it. Press 
 A toggle in the top left corner of the drawing switches the perspective:
 
 - **Harness** shows how the plugin's skills, agents, scripts and hooks connect to a Claude session.
-- **Process** shows the plugin as a process. The stages stack in the order they run. Each card names the stage, says in a line what it does, where it runs and which condition ends it, and shows the file it writes. A Shared ledger column lists those files, with a solid arrow from the stage that writes one and a dashed arrow to the stage that reads it. An arrow in the accent colour leads back to the stage a fault came from, and a stage that repeats carries a loop mark. Under the stack, one line per mod (hook module) says what it does, read from the module's code.
+- **Process** shows the plugin as a process. The stages follow in the order they run, left to right across the page width. Each card names the stage, says in a line what it does, where it runs and which condition ends it, and shows the file it writes. A Shared ledger column lists those files, with a solid arrow from the stage that writes one and a dashed arrow to the stage that reads it. An arrow in the accent colour leads back to the stage a fault came from, and a stage that repeats carries a loop mark. Under the stages, one line per mod (hook module) says what it does, read from the module's code.
 
 ![The Harness perspective of a plugin drawing](images/plugin-drawing-harness.png)
 
@@ -59,7 +61,7 @@ Each perspective has its own drawing. The button draws the one that is shown, an
 
 ## Plugin Hunter
 
-The **Plugin Hunter** button in the header of the Plugins page opens a page that builds a new plugin from the skills and agents you already have. The button carries the Claude mark and is the page's main button, because the hunt is Claude's work and counts against your plan. Claude proposes the plugin; nothing is written until you press **Create** and agree.
+The **Plugin Hunter** button opens a page that builds a new plugin from the skills and agents you already have. It has a telescope icon and sits in the Claude group, because the hunt is Claude's work and counts against your plan: last, at the right end of the Plugins page header, and at the right end of the overview's tabs row. Claude proposes the plugin; nothing is written until you press **Create** and agree.
 
 The page has two tabs. **New hunt** is split in half. The left half is a chat like any other: the conversation in order with the newest message at the bottom, and the message box pinned under it. The right half holds the findings and selections: the proposed card with the skills and agents Claude found, the picker that adds or drops them, and Create. Each half scrolls on its own, and on a narrow panel the halves stack. **History** holds every other card, see below.
 

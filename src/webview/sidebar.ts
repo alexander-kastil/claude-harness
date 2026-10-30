@@ -1,12 +1,13 @@
 // @ts-nocheck
 // The sidebar: global and repo categories, grouped lists, sessions, the repo hover card.
-import { LIST_VIEWS, SOURCES, agentColorClass, app, checkBadge, checkText, command, groupItems, isGrouped, labelOf, listMode, listModes, matches, metaOf, persist, select, showPage, showRepo, sortList, state, std, tidyError, total, vscode } from './core';
+import { LIST_VIEWS, SOURCES, agentColorClass, app, checkBadge, checkText, command, groupItems, isGrouped, labelOf, listMode, listModes, matches, metaOf, persist, select, showMarket, showPage, showRepo, sortList, state, std, tidyError, total, vscode } from './core';
 import { askCounted, bylineNodes } from './byline';
 import { repoContext, skillContext } from './context';
-import { aiGroup, el, fmtDate, icon, iconBtn, logo } from './dom';
+import { aiGroup, el, fmtDate, icon, iconBtn, logo, plural } from './dom';
 import { hideHover, hover, placeCard } from './hover';
 import { showKindPage } from './kind-page';
 import { render } from './main';
+import { SOURCE_ICONS, sourceTip } from './pages';
 import { splitDescription } from './refs';
 import { sessionDesc, sessionIcon, showSession, showSessionsPage } from './sessions';
 import { groupHead, rowName } from './tables';
@@ -35,7 +36,13 @@ let revealedSig;
 let fresh = false;
 
 const selectionSig = () =>
-  JSON.stringify([state.detail ? state.detail.asset.id : [state.page, state.repo, state.kindPage && state.kindPage.kind, state.kindPage && state.kindPage.origin, state.session && state.session.id, state.sessionsPage && state.sessionsPage.scope]]);
+  JSON.stringify([state.detail ? state.detail.asset.id : [state.page, state.repo, state.kindPage && state.kindPage.kind, state.kindPage && state.kindPage.origin, state.session && state.session.id, state.sessionsPage && state.sessionsPage.scope, state.marketPage && state.marketPage.name]]);
+
+// The global sections in reading order: what every session loads, what Claude calls, what runs on its own, and where packaged parts
+// come from, which ends in the Marketplaces section. A kind not listed keeps its place after them.
+const NAV_ORDER = ['memory', 'rule', 'settings', 'outputStyle', 'agent', 'skill', 'command', 'workflow', 'mcp', 'hook', 'mod', 'plugin'];
+const navRank = kind => (NAV_ORDER.includes(kind) ? NAV_ORDER.indexOf(kind) : NAV_ORDER.length);
+const inNavOrder = view => ({ ...view, categories: [...view.categories].sort((a, b) => navRank(a.kind) - navRank(b.kind)) });
 
 // `fold` toggles a head without opening anything; an item without one is toggled or opened by its click.
 const treeItem = (node, key, level, expanded, fold) => {
@@ -259,6 +266,66 @@ export function renderCategories(list, view, q, nested) {
   }
 }
 
+// The marketplaces Claude Code knows, under the global sections. The head folds and opens Marketplace health, the way a global head
+// opens its type page; a row opens the marketplace's own page.
+function renderMarketsNode(list, q) {
+  if (state.markets === undefined) {
+    state.markets = null;
+    vscode.postMessage({ type: 'marketplaces' });
+  }
+  const all = (state.markets || []).filter(m => !q || m.name.toLowerCase().includes(q) || m.plugins.some(p => p.name.toLowerCase().includes(q)));
+  if (q && !all.length) return;
+  const key = 'markets';
+  const collapsed = !state.expanded.has(key) && !q;
+  const toggle = () => {
+    collapsed ? state.expanded.add(key) : state.expanded.delete(key);
+    persist();
+  };
+  const current = !state.detail && state.page === 'marketplaces';
+  list.append(
+    treeItem(
+      el(
+        'div',
+        { className: `section-head${current ? ' selected' : ''}`, onclick: () => (toggle(), showPage('marketplaces')) },
+        el('span', { className: 'twistie' }, icon(collapsed ? 'chevron-right' : 'chevron-down')),
+        el('span', { className: 'label' }, 'Marketplaces'),
+        el('span', { className: 'count' }, state.markets ? all.length : '...')
+      ),
+      's|markets',
+      1,
+      !collapsed,
+      () => (toggle(), render())
+    )
+  );
+  if (collapsed) return;
+  if (!state.markets || !all.length) {
+    list.append(el('div', { className: 'empty' }, state.markets ? 'None' : 'Reading the marketplaces...'));
+    return;
+  }
+  list.append(
+    ...all.map(m => {
+      const selected = !state.detail && state.page === 'market' && state.marketPage && state.marketPage.name === m.name;
+      const ahead = m.plugins.filter(p => p.ahead).length;
+      return treeItem(
+        el(
+          'div',
+          { className: `row${selected ? ' selected' : ''}`, title: `${m.name}\n${sourceTip(m)}`, onclick: () => showMarket(m.name) },
+          icon(SOURCE_ICONS[m.kind] ?? 'package'),
+          el('span', { className: 'name' }, m.name),
+          el(
+            'span',
+            { className: 'desc' },
+            el('span', { className: 'fact', title: `Plugins\n${m.kind === 'directory' ? 'Every plugin its catalog lists.' : 'The plugins installed or enabled from it.'}` }, plural(m.plugins.length, 'plugin')),
+            ahead ? [' · ', el('span', { className: 'fact warn', title: `Updates\n${plural(ahead, 'plugin')} with a source ahead of the installed copy.` }, `${ahead} ahead`)] : null
+          )
+        ),
+        `k|${m.name}`,
+        2
+      );
+    })
+  );
+}
+
 export const DAY = 864e5;
 
 export const startOfDay = () => new Date(new Date().toDateString()).getTime();
@@ -390,7 +457,8 @@ export function renderSidebar() {
   const [global, ...repos] = state.views;
   if (global) {
     const block = el('div', { className: 'scope-block' });
-    renderCategories(block, global, q, false);
+    renderCategories(block, inNavOrder(global), q, false);
+    renderMarketsNode(block, q);
     list.append(block);
   }
   const visibleRepos = repos
@@ -511,13 +579,14 @@ export function renderSidebar() {
       logo('logo-sm'),
       el('span', {}, 'Claude Harness'),
       el('span', { className: 'spacer' }),
-      // Home opens the overview with a clean search; Back to it keeps the search.
+      // The pages first, in the nav's order from top to bottom (the overview, the Marketplaces section, the Repositories), then the
+      // actions. Home opens the overview with a clean search; Back to it keeps the search.
       iconBtn('home', 'Overview', () => {
         state.overviewFilter = '';
         showRepo(undefined);
       }),
-      iconBtn('dashboard', 'Fleet overview', () => showPage('fleet')),
       iconBtn('package', 'Marketplace health', () => showPage('marketplaces')),
+      iconBtn('github', 'GitHub Repo overview', () => showPage('fleet')),
       iconBtn('add', 'New...', () => command('create')),
       iconBtn('refresh', 'Refresh', () => command('refresh'))
     ),

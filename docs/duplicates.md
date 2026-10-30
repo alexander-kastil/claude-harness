@@ -59,7 +59,7 @@ Sync brings one copy in step with another. Each variant asks first, and backs up
 | --- | --- | --- |
 | **Sync from Global...** | A repo skill or agent whose Global copy differs. Not for a skill linked to Global, which already is the Global version. | Lists the files, then overwrites the repo copy with the Global version. It is the **Sync from Global** button in the command bar of the copy, and in the right-click menu of its row. |
 | **Sync** | A skill that has a source on skills.sh or GitHub. | Checks the source and goes on to the update card when it is newer. See [Skill sources](skill-sources.md#check-for-updates). |
-| **Sync Plugin from Its Marketplace...** | A plugin whose marketplace source is ahead of the installed copy. | Refreshes the marketplace and updates the plugin. See [Marketplace health](marketplace-health.md). |
+| **Sync Plugin from Its Marketplace...** | A plugin whose marketplace source is ahead of the installed copy. | Refreshes the marketplace and updates the plugin. **Sync all** on Marketplace health and **Sync N plugins** on a marketplace's page do it for every plugin that is ahead, after one card. See [Marketplace health](marketplace-health.md#sync-every-plugin-that-is-ahead). |
 | **Sync to Other Copies...** | An MCP server configured differently in several files. | Asks which configuration to keep, then writes that entry into the other files. See [MCP servers](mcp-servers.md#share-and-sync). |
 
 ## Retire clean copies

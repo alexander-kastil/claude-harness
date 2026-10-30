@@ -51,7 +51,7 @@ Provider features appear when a harness standard provider plugin is installed.
 
 ## Activity bar node
 
-The activity bar tree has a **Repositories** node below the global sections. Its count is the number of repos. Expand it to list the repos, and click a repo to open its page. Expand a repo row to list its [sessions](sessions.md#sessions-in-the-tree), newest first. The node has a dashboard button that opens the [Fleet overview](fleet-overview.md), and the activity bar title bar has the same button.
+The activity bar tree has a **Repositories** node below the global sections. Its count is the number of repos. Expand it to list the repos, and click a repo to open its page. Expand a repo row to list its [sessions](sessions.md#sessions-in-the-tree), newest first. The node has a GitHub button that opens the [GitHub Repo overview](fleet-overview.md), and the activity bar title bar has the same button.
 
 A repo row's right-click menu has one command:
 

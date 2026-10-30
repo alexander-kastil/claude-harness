@@ -5,8 +5,9 @@ import { skillContext } from './context';
 import { el, highlight, icon, pressable } from './dom';
 
 // A group header: the whole bar folds and unfolds its group, by click or by Enter and Space. `redraw` repaints
-// the list, after which the header gets its focus back.
-export function groupHead(className, key, folded, glyph, label, count, redraw) {
+// the list, after which the header gets its focus back. With `open` ({ title, go }) the name is a link to the group's own page,
+// as a marketplace heading on the Plugins page opens the marketplace.
+export function groupHead(className, key, folded, glyph, label, count, redraw, open = undefined) {
   const toggle = () => {
     state.foldedGroups.has(key) ? state.foldedGroups.delete(key) : state.foldedGroups.add(key);
     persist();
@@ -31,7 +32,9 @@ export function groupHead(className, key, folded, glyph, label, count, redraw) {
     },
     icon(folded ? 'chevron-right' : 'chevron-down'),
     icon(glyph),
-    el('span', { className: 'label' }, label),
+    open
+      ? el('button', { type: 'button', className: 'label group-open', title: open.title, onclick: e => (e.stopPropagation(), open.go()), onkeydown: e => e.stopPropagation() }, label)
+      : el('span', { className: 'label' }, label),
     el('span', { className: 'origin-n' }, count)
   );
 }

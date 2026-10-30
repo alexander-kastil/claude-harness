@@ -25,6 +25,7 @@ export interface State {
   draft?: Draft;
   filter: string;
   overviewFilter: string;
+  fleetFilter: string;
   expanded: Set<string>;
   listViews: Record<string, string | undefined>;
   foldedGroups: Set<string>;
@@ -48,6 +49,8 @@ export interface State {
   /** The skill row to scroll to and highlight once, after the next repaint. */
   distScroll?: string;
   markets?: any;
+  /** The marketplace page on screen: its name, and where its Back button goes when it was opened from the Plugins page. */
+  marketPage?: { name: string; back?: { label: string; go: () => void } };
   init?: any;
   sessions: Record<string, any[] | null | undefined>;
   allSessions: Set<string>;

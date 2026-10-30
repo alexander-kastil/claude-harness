@@ -2,7 +2,7 @@
 
 All notable changes to Claude Harness are listed here, newest first. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions with no version change in the package.json history (0.1.3, 0.1.5 to 0.1.18, 0.1.20 to 0.1.24, 0.1.27, 0.2.1 and 0.2.3 to 0.2.11) and development builds (0.2.14 to 0.2.22, 0.2.24 to 0.2.30, 0.2.32 to 0.2.34, 0.2.36 to 0.2.44, 0.3.0, 0.3.2, 0.4.1 to 0.4.3, 0.5.2 and 0.5.3) have no entry.
 
-## [Unreleased]
+## [0.13.19] - 2026-10-30
 
 ### Added
 
@@ -16,6 +16,11 @@ All notable changes to Claude Harness are listed here, newest first. The format 
 - `harness media doctor` knows the production layout of a film folder (story.md, storyboard.json and .md, grounding.md, look.md, prompt.md, verdict.json, publish.md, ledger.jsonl, takes/ and evidence/) and no longer reports those files as loose or unknown. It runs the layout check of the producer plugin, or of film-producer when that is the one installed.
 - `harness hunt create` and `hunt add` write a copied skill's own absolute path as `<this skill>/` in the plugin copy and list the paths into other skills.
 - `harness skills move`, `split` and `remove` find a skill in the plugins of `--market` as well as in your skills, and `<plugin>:<skill>` picks a plugin's copy. A name found in two places stops and lists both.
+- A Marketplaces section in the side bar lists every marketplace Claude Code knows with its plugin count and how many plugins are ahead. Each opens a marketplace page: its source, a header like the Plugins page, Draw with Claude with the Harness and Process views, and its plugins with Description, Installed, Latest and Sync. The marketplace headings on the Plugins page open it too.
+- The marketplace page syncs every plugin that is ahead with one button, "Sync N plugins" in its header or Sync all over its Sync column: one confirm card lists them with their versions, then the marketplace is refreshed once and each plugin updated. A plugin that fails does not stop the others. The Sync column holds Sync plugin for a plugin that is ahead and "current" for the rest, on the marketplace page and in Marketplace health alike.
+- The overview page has Plugin Hunter in its Claude group at the right end of the row with the Last sessions, Repositories and Recently changed tabs.
+- The GitHub Repo overview, formerly the Fleet overview, has the GitHub icon and a search box on top that filters the repos by name or path.
+- Opening the Claude Harness view in the activity bar opens the main panel when it is not open yet.
 
 ### Changed
 
@@ -24,11 +29,18 @@ All notable changes to Claude Harness are listed here, newest first. The format 
 - `harness skills put` finds the skill in the plugins of `--market` as well, as `skills move` does.
 - A leaf that `harness skills move` puts into a plugin's skill is no longer named under `~/.claude/skills`: inside that skill an absolute mention becomes `<this skill>/<path>`, elsewhere `<skill>/<path>`.
 - The README film is new for 0.12.2: one panel for every repo, session replay with Restore, usage and cost, plugins built from your skills, plugin drawings, Resolve with Claude, `@harness` in the Claude prompt and the plan quota, with an MP4 of the same cut linked under it.
-- The Claude group sits at the right end of its bar on every view: detail page command bars, MCP sign-in rows, the map toggles, the session output-style draft, checkpoint and standard card actions, the repo page toolbar and the Plugin Hunter composer, also when the bar wraps or shows icons only.
+- The Claude group is last and at the right end of its bar on every view: detail page command bars, MCP sign-in rows, the map toggles, the session output-style draft, checkpoint and standard card actions, the repo page toolbar, the Plugins and marketplace page headers, the overview tabs and the Plugin Hunter composer, also when the bar wraps or shows icons only.
+- Plugin Hunter on the Plugins page is a button with the telescope icon in the Claude group, in place of the pink primary button.
+- The side bar runs Memory, Rules, Settings, Output Styles, Agents, Skills, Commands, Workflows, MCP Servers, Hooks, Mods, Plugins, Marketplaces, and its header buttons Home, Marketplace health, GitHub Repo overview, New, Refresh.
+- The icon buttons of a page header sit on the vertical centre of the Claude group beside them.
+- Draw with Claude draws a Harness and a Process view with one press for every kind that draws, skills, agents, commands, workflows, hooks, MCP servers, plugins and marketplaces, with the toggle in the figure. Each kind has its own Process prompt, no drawing is forced into a vertical stack, and each uses the width of the page. A marketplace's Process view shows how its plugins call, gate or plug into each other.
 - The README intro calls Claude Harness a first-class tool for harness engineering and says what it lets you do: replay a session to any checkpoint, see what each agent and skill cost, build plugins from your skills with Claude, open every view as an `@harness` mention, and continue the task in a Claude terminal that opens with that context already filled in.
 
 ### Fixed
 
+- A drawing whose svg repeats an attribute still shows, with its Harness | Process switch; before, the whole figure was hidden.
+- `harness hunt create --files` (and the Plugin Hunter) writes the mods layout: a hook module, listed under `modules` by a ride-along hooks.json or given as `hooks/<name>.mjs|js|ts` beside one, lands at `mods/<name>/<file>` with the files it imports by relative path, and `hooks/hooks.json` names it as `../mods/<name>/<file>`. A command-hook hooks.json and an `.mcp.json` stay where placed, and the dry-run `files` rows show the final paths.
+- `harness agents` reads the delegation plugin's routing pattern from `mods/orchestration/route.mjs` (agentic-orchestration, formerly agent-control-plugin) and falls back to `hooks/route.mjs` of older copies. The plugin's Process drawing reads the hook modules a plugin lists in `hooks/hooks.json` (`../mods/<mod>/register.ts`) and the files beside them, and a plugin's inventory counts those modules as hooks.
 - `harness plugins rename` finishes the identifiers it used to leave as check rows: the old name in quotes and `mcp__<old>__` in the plugin's own code, the `<old>:`, `<old>@<market>` and `plugins/<old>` forms in the other plugins' code files, and the label of a `[<old>](plugins/<old>)` link in the marketplace's README.
 - `harness skills repoint` no longer rewrites the plugin folder that ships the skill, nor the synced skills Claude.ai manages under `~/.claude/skills/synced`.
 - `harness plugins rename` rewrites `<old>:` only where a name follows it with no space (`old:skill-name`), so a YAML key or a JS object key named like the plugin (`  github:` or `github: {`) is left alone.

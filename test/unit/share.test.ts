@@ -246,3 +246,10 @@ test('freeName numbers a name that exists', () => {
   fs.writeFileSync(path.join(dir, 'x (2).zip'), '');
   assert.equal(freeName(dir, 'x.zip'), 'x (3).zip');
 });
+
+test('plugin inventory counts the hook modules of a mod plugin as hooks', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'inv-mods-'));
+  fs.mkdirSync(path.join(dir, 'hooks'), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'hooks', 'hooks.json'), '{"modules":["../mods/a/register.ts","../mods/b/register.ts"]}');
+  assert.equal(pluginInventory(dir).hooks, 2);
+});

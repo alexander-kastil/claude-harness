@@ -119,6 +119,10 @@ export interface MarketPlugin {
   source?: string;
   ahead: boolean;
   enabled: boolean;
+  /** What the catalog or the plugin's manifest says it does. */
+  description?: string;
+  /** The plugin's folder inside the marketplace. */
+  dir?: string;
 }
 
 export interface MarketHealth {
@@ -151,14 +155,15 @@ export function marketplaceHealth(root: string): MarketHealth[] {
       const location = m.installLocation ?? m.source?.path ?? '';
       const kind = m.source?.source ?? 'unknown';
       const source = m.source?.repo ?? m.source?.path ?? m.source?.url ?? location;
-      const catalog = (readJson(path.join(location, '.claude-plugin', 'marketplace.json')).plugins ?? []) as { name?: string; source?: unknown; version?: string }[];
+      const catalog = (readJson(path.join(location, '.claude-plugin', 'marketplace.json')).plugins ?? []) as { name?: string; source?: unknown; version?: string; description?: string }[];
       const keys = new Set([...catalog.filter(p => p.name).map(p => `${p.name}@${name}`), ...Object.keys(installed).filter(k => k.endsWith(`@${name}`))]);
       const plugins = [...keys]
         .map(key => {
           const plugin = key.slice(0, key.lastIndexOf('@'));
           const entry = catalog.find(p => p.name === plugin);
           const dir = entry && typeof entry.source === 'string' ? path.resolve(location, entry.source) : path.join(location, plugin);
-          const sourceVersion = entry?.version ?? (readJson(path.join(dir, '.claude-plugin', 'plugin.json')).version as string | undefined);
+          const manifest = readJson(path.join(dir, '.claude-plugin', 'plugin.json'));
+          const sourceVersion = entry?.version ?? (manifest.version as string | undefined);
           const list = installed[key] ?? [];
           const installedVersion = (list.find(e => e.scope === 'user') ?? list[0])?.version;
           return {
@@ -168,6 +173,8 @@ export function marketplaceHealth(root: string): MarketHealth[] {
             source: sourceVersion,
             ahead: !!(installedVersion && sourceVersion && compareVersions(sourceVersion, installedVersion) > 0),
             enabled: enabled[key] === true,
+            description: entry?.description ?? (manifest.description as string | undefined),
+            dir,
           };
         })
         .filter(p => p.installed || p.enabled || kind === 'directory')

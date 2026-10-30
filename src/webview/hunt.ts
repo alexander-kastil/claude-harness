@@ -1,7 +1,7 @@
 // @ts-nocheck
 // The Plugin Hunter page: a marketplace picker and two tabs. New hunt is a chat with Claude beside the card it proposes; History keeps the other cards with their chats.
 import { showPage, vscode } from './core';
-import { claudeMark, countHead, el, icon, iconBtn } from './dom';
+import { aiGroup, claudeMark, countHead, el, icon, iconBtn } from './dom';
 import { hideHover } from './hover';
 import { showKindPage } from './kind-page';
 import { card } from './hunt-card';
@@ -15,8 +15,8 @@ export const openHunt = () => {
   showPage('hunt');
 };
 
-// The Plugins page's header button, the page's main action: the primary button with the Claude mark, since the hunt is Claude's work and counts against the plan.
-export const huntButton = () => el('button', { className: 'primary hunt-cta', title: 'Plugin Hunter\nClaude proposes a plugin from the skills and agents you already have, and creates it in a marketplace you own. It counts against your plan.', onclick: openHunt }, claudeMark(16), 'Plugin Hunter');
+// The Plugin Hunter button, in the AI group since the hunt is Claude's work and counts against the plan; like every AI group it sits last, at the right end of its bar.
+export const huntButton = () => aiGroup('hunt-cta', el('button', { className: 'secondary', title: 'Plugin Hunter\nClaude proposes a plugin from the skills and agents you already have, and creates it in a marketplace you own. It counts against your plan.', onclick: openHunt }, icon('telescope'), 'Plugin Hunter'));
 
 export function onHuntMessage(m) {
   if (m.type === 'hunt') {

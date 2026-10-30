@@ -70,12 +70,28 @@ export class Session {
     );
   }
 
+  /** The window opens on the owner's second monitor, never the primary one where they type: VS Code restores the window state
+   *  stored in its user data, so the state points at the second screen's work area before the launch. */
+  windowOnSecondScreen() {
+    if (process.platform !== 'win32') return;
+    const ps = spawnSync('powershell', ['-NoProfile', '-Command', "Add-Type -AssemblyName System.Windows.Forms; $s = [System.Windows.Forms.Screen]::AllScreens | Where-Object { -not $_.Primary } | Select-Object -First 1; if ($s) { $a = $s.WorkingArea; '{0} {1} {2} {3}' -f $a.X, $a.Y, $a.Width, $a.Height }"], { encoding: 'utf8' });
+    const [x, y, w, h] = (ps.stdout || '').trim().split(/\s+/).map(Number);
+    if (!w || !h) return;
+    const uiState = { mode: 1, x: Math.round(x + Math.max(0, w - 1024) / 2), y: Math.round(y + Math.max(0, h - 768) / 2), width: 1024, height: 768 };
+    const file = path.join(this.ud, 'User', 'globalStorage', 'storage.json');
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    const current = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : {};
+    current.windowsState = { ...current.windowsState, lastActiveWindow: { uiState }, lastPluginDevelopmentHostWindow: { uiState }, openedWindows: [] };
+    fs.writeFileSync(file, JSON.stringify(current, null, 2));
+  }
+
   /** Builds the fixture, then starts VS Code; resolves when the workbench page answers. */
   async start() {
     if (await this.listening()) throw new Error(`Port ${this.port} is busy; set UI_PORT`);
     this.fixture = buildFixture(this.root, { livePid: this.livePid });
     fs.mkdirSync(this.ext, { recursive: true });
     this.settings();
+    this.windowOnSecondScreen();
     const env = { ...process.env, USERPROFILE: this.fixture.home, HOME: this.fixture.home };
     const args = [`--user-data-dir=${this.ud}`, `--extensions-dir=${this.ext}`, `--extensionDevelopmentPath=${repoRoot}`, `--remote-debugging-port=${this.port}`, '--new-window', '--skip-welcome', '--skip-release-notes', '--disable-workspace-trust', path.join(this.root, 'repos', 'shop-api')];
     spawn(this.code, args, { env, detached: true, stdio: 'ignore' }).unref();
