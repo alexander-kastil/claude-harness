@@ -863,6 +863,10 @@ table.grid .cell {
   font-weight: 600;
 }
 
+.recent > .market-head {
+  cursor: pointer;
+}
+
 .market-head .spacer {
   flex: 1;
 }
@@ -6176,7 +6180,7 @@ body.vscode-high-contrast-light {
   overflow-y: auto;
 }
 
-/* The conversation scrolls inside its column, the newest message at the bottom, and the composer stays under it. */
+/* The conversation scrolls inside its column, the oldest message at the top, and the composer stays pinned under it. */
 .hunt-chat-log {
   display: flex;
   flex-direction: column;
@@ -6184,10 +6188,6 @@ body.vscode-high-contrast-light {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-}
-
-.hunt-chat-log > :first-child {
-  margin-top: auto;
 }
 
 .hunt-chat-log > .empty {
@@ -7057,10 +7057,6 @@ body.vscode-high-contrast-light {
 .hunt-chat-log.chat-log {
   flex: none;
   overflow: visible;
-}
-
-.hunt-chat-log.chat-log > :first-child {
-  margin-top: 0;
 }
 
 .hunt-chat-log.chat-log .hunt-msg {

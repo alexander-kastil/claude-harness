@@ -10,6 +10,11 @@ All notable changes to Claude Harness are listed here, newest first. The format 
 - The extension's description and the README banner speak of harness engineering, and the README shows how Cowork work continues in Code with Handover
 - The README opens with Quick start and Why Claude Harness, a table that links every section, and screenshots of Browser Automation Hunter and Cowork Handover
 
+### Added
+
+- Top-align chat history in all chats: Every chat is now top-aligned, with the composer pinned at the bottom and the empty space between
+
+
 ## [0.15.0] - 2026-10-30
 
 ### Added
