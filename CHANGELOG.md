@@ -19,6 +19,7 @@ All notable changes to Claude Harness are listed here, newest first. The format 
 - Design systems in the Cowork region, with a page per design system.
 - The scheduled task page lists every run on a Runs tab, newest first, with unread runs marked.
 - The nav's Claude Code, Cowork and Repositories headers fold on click, and Collapse all / Expand all takes the GitHub button's place.
+- Release build
 
 ### Changed
 
