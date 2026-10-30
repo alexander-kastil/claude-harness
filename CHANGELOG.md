@@ -16,6 +16,7 @@ All notable changes to Claude Harness are listed here, newest first. The format 
 - CLI commands for Cowork and automation hunter: Progress: 6/6 · report
 - Render top 10 screens, inventory control styles: Everything is redone: dark is now your Dracula Theme Soft, light is Light Modern, and
 - Theme unit 2: every checkbox a toggle: Progress: 6/6 · report
+- Theme unit 3: one badge, one tag: Progress: 4/5 · type check passed (exit 0) after the last edit
 
 ### Fixed
 

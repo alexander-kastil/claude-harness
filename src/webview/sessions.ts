@@ -45,7 +45,7 @@ export const sessionTable = (list, scope, label, { q = '', analyze = false } = {
       { head: 'Started', track: '120px', num: true, cell: s => (s.start ? fmtDate(s.start) : '') },
       { head: 'Duration', track: '76px', num: true, cell: s => (s.start ? fmtDur(s.end - s.start) : '') },
       { head: 'Agents', track: '60px', num: true, cell: s => String(s.agents || 0), title: s => (s.types || []).join(', ') },
-      { head: 'State', track: '84px', muted: true, cell: s => s.live || (s.headless ? 'headless' : s.children && s.children.length ? `${s.children.length} headless` : '') },
+      { head: 'State', track: '84px', muted: true, cell: s => (s.live ? el('span', { className: 'tag state' }, s.live) : s.headless ? 'headless' : s.children && s.children.length ? `${s.children.length} headless` : '') },
       ...(analyze ? [{ head: '', track: '58px', cell: s => analyzeRowButton(scope, s.id) }] : []),
     ],
     list.map(s => Object.assign({ open: () => showSession(scope, s.id) }, s)),
