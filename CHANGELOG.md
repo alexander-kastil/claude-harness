@@ -18,6 +18,7 @@ All notable changes to Claude Harness are listed here, newest first. The format 
 - Theme unit 2: every checkbox a toggle: Progress: 6/6 · report
 - Theme unit 3: one badge, one tag: Progress: 4/5 · type check passed (exit 0) after the last edit
 - Drop "with Claude" from AI group labels: The "with Claude" labels are gone from every AI-group button, but the full UI suite is not green
+- Docs screenshots: docs/ pages images: Progress: 5/51 · overview-search.png
 
 ### Fixed
 
