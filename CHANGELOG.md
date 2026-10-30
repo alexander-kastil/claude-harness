@@ -12,6 +12,10 @@ All notable changes to Claude Harness are listed here, newest first. The format 
 - The marketplace's plugin list has a Harness column that shows where each plugin is available; a Code only plugin carries Add to Cowork, which opens the claude.ai plugin settings (#37).
 - Pull to Code copies a skill, or the skills of a plugin, that Claude.ai synced into Global or a repo as a Code-owned copy; `harness cowork pull <name> [--repo <dir>] [--kind skill|plugin] [--dry-run]` does the same from the command line (#45).
 - Unit and UI tests for the Cowork views on synthetic fixtures; the UI tests never read the desktop app's real data (#40).
+- Most here is ai :-) (v0.13.25)
+- "C:\Users\ALEXAN~1\AppData\Local\Temp\claude-harness-images\img_20261030_205810 (v0.13.26)
+- "C:\Users\ALEXAN~1\AppData\Local\Temp\claude-harness-images\img_20261030_210540 (v0.13.27)
+- "C:\Users\ALEXAN~1\AppData\Local\Temp\claude-harness-images\img_20261030_210540 (v0.13.28)
 
 ### Changed
 
