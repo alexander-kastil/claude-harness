@@ -15,6 +15,7 @@ All notable changes to Claude Harness are listed here, newest first. The format 
 - Top-align chat history in all chats: Every chat is now top-aligned, with the composer pinned at the bottom and the empty space between
 - CLI commands for Cowork and automation hunter: Progress: 6/6 · report
 - Render top 10 screens, inventory control styles: Everything is redone: dark is now your Dracula Theme Soft, light is Light Modern, and
+- Theme unit 2: every checkbox a toggle: Progress: 6/6 · report
 
 ### Fixed
 

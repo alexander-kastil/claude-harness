@@ -317,7 +317,7 @@ function stepRow(p, s, i) {
         repaint();
       },
     }),
-    el('label', { className: 'bh-manual', title: 'Manual step\nSign-in, invite acceptance, MFA or an approval: a person does this step, the automation waits.' }, el('input', { type: 'checkbox', checked: s.manual, 'aria-label': `Step ${i + 1} is manual`, onchange: e => ((s.manual = e.target.checked), saveSoon(), repaint()) })),
+    el('label', { className: 'bh-manual', title: 'Manual step\nSign-in, invite acceptance, MFA or an approval: a person does this step, the automation waits.' }, el('input', { type: 'checkbox', role: 'switch', checked: s.manual, 'aria-label': `Step ${i + 1} is manual`, onchange: e => ((s.manual = e.target.checked), saveSoon(), repaint()) })),
     iconBtn('close', `Remove step ${i + 1}`, () => ((p.steps = p.steps.filter(x => x !== s)), saveSoon(), repaint()))
   );
 }

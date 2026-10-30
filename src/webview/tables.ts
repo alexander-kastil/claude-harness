@@ -97,7 +97,7 @@ export const pluginSwitch = a =>
   el(
     'label',
     { className: 'dv-switch', onclick: e => e.stopPropagation(), onkeydown: e => e.stopPropagation() },
-    el('input', { type: 'checkbox', checked: !!a.enabled, title: a.enabled ? 'Enabled' : 'Disabled', 'aria-label': `${a.enabled ? 'Disable' : 'Enable'} ${a.name}`, onchange: () => command('togglePlugin', { id: a.id }) })
+    el('input', { type: 'checkbox', role: 'switch', checked: !!a.enabled, title: a.enabled ? 'Enabled' : 'Disabled', 'aria-label': `${a.enabled ? 'Disable' : 'Enable'} ${a.name}`, onchange: () => command('togglePlugin', { id: a.id }) })
   );
 
 // Only numbers are right-aligned; every other fact is a short left-aligned token with its details in the hover card.

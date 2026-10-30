@@ -646,7 +646,7 @@ function mcpView(d: Detail): Child[] {
   const enabled = el(
     'label',
     { className: 'dv-switch' },
-    el('input', { type: 'checkbox', checked: a.enabled !== false, onchange: () => command('toggleMcp', { id: a.id }) }),
+    el('input', { type: 'checkbox', role: 'switch', checked: a.enabled !== false, onchange: () => command('toggleMcp', { id: a.id }) }),
     el('span', {}, v && v.id !== 'global' ? `In ${v.label}` : 'In every folder')
   );
   const off = a.enabled === false;
@@ -756,7 +756,7 @@ function pluginView(d: Detail): Child[] {
   const toggle = el(
     'label',
     { className: 'dv-switch' },
-    el('input', { type: 'checkbox', checked: !!a.enabled, onchange: () => command('togglePlugin', { id: a.id }) }),
+    el('input', { type: 'checkbox', role: 'switch', checked: !!a.enabled, onchange: () => command('togglePlugin', { id: a.id }) }),
     el('span', {}, 'For your user')
   );
   // The counts are the Contains rows; the sentence they once repeated stays only for a disabled plugin, where it says why they are empty.
