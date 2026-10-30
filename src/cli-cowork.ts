@@ -5,6 +5,7 @@ import { Asset, backupStamp, isSyncedPath } from './harness';
 import { Args, Io, Stop, World, emit, headline, load, one, table } from './cli-core';
 import { ScheduledTask, fetchScheduled } from './cowork-scheduled';
 import { loadCoworkProjects } from './cowork-desktop';
+import { coworkPagesCommand } from './cli-cowork-chats';
 
 // `cowork pull`: copy a skill, or the skills of a plugin, that Claude.ai synced into ~/.claude into Global or a repo as a Code-owned copy.
 // The synced folders are only read; Claude.ai overwrites them on every sync.
@@ -271,7 +272,7 @@ const pullLines = (o: PullOut, dry: boolean): string[] => [
 
 export async function coworkCommand(a: Args, io: Io): Promise<number> {
   const [, sub, name] = a.words;
-  if (sub !== 'pull') throw new Stop('cowork needs a subcommand: cowork pull <name> [--repo <dir>] [--kind skill|plugin|task|project] [--into rules|claude-md] [--dry-run].', 2);
+  if (sub !== 'pull') return coworkPagesCommand(a, io);
   if (!name) throw new Stop('cowork pull needs the name of a Cowork skill, plugin, scheduled task or project.', 2);
   const kind = one(a, 'kind');
   if (kind && !['skill', 'plugin', 'task', 'project'].includes(kind)) throw new Stop(`cowork pull --kind takes skill, plugin, task or project, got "${kind}".`, 2);

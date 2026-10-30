@@ -38,6 +38,7 @@ import { modsCommand } from './cli-mods';
 import { lessonsCommand, timeCommand } from './cli-learn';
 import { sourcesCommand } from './cli-sources';
 import { coworkCommand } from './cli-cowork';
+import { browserHuntCommand } from './cli-browser-hunt';
 
 export { parse };
 
@@ -131,6 +132,22 @@ Usage: node cli.js <command> [options]
                                       Record the source of a skill a plugin of your marketplace ships, so sources check and sources update follow it. --stage is run in an empty folder and must leave .claude/skills/<skill> there (e.g. npx -y ui-ux-pro-max-cli@latest init --ai claude --force).
   cowork pull <name> [--repo <dir>] [--kind skill|plugin|task|project] [--into rules|claude-md] [--dry-run]
                                       Copy a Cowork skill, or the skills of a Cowork plugin, from the folders Claude.ai synced into the root to Global, or to the repo's .claude/skills, as a copy of your own. A scheduled task becomes a skill named after it (instructions, then the connectors and plugins it uses); a project's CLAUDE.md on this PC becomes a rules file, or with --into claude-md a section of CLAUDE.md. An existing target is backed up first, the origin and content hash are recorded in .cowork-origins.json, and Cowork data is never written.
+  cowork chats [--query <text>] [--limit <n>]
+                                      The Cowork chats of the Claude desktop app on this PC and the Cowork sessions claude.ai lists (the Claude Code sign-in reads the list). Read-only.
+  cowork chat <id> [--limit <n>]      One chat: its details, the files it produced and was given, and the conversation in words (id, the start of it, or the exact title). --limit caps the messages shown.
+  cowork artifacts [--query <text>] [--limit <n>]
+                                      The files the Cowork chats produced, newest first, with the chat, size and path.
+  cowork handover sources [--query <text>] [--limit <n>]
+                                      What a handover can start from: desktop chats, Cowork sessions and the files of the last 14 days in Downloads.
+  cowork handover plan --source chat|download|cloud|link --repo <dir> [--id <id>] [--link <url>] [--title <t>] [--folder <dir in the repo>] [--task <t>] [--rule <r>] [--exists <e>] [--todo <t>] [--snapshot <text>] [--skip <file>,...]
+                                      What a handover writes into the repo, nothing written: the files copied under <folder>/files beside a CONTEXT.md, and the first prompt for Claude Code. --rule, --exists and --todo repeat; --skip leaves files out; --id is a chat id, a session id or a Downloads file name.
+  cowork handover create <same options> [--dry-run]
+                                      Write the handover into the repo as plan shows it. The Cowork side is only read.
+  browser-hunt procedures             The procedures of the browser-automations skill (Global, a repo or an installed plugin) and how each is kept.
+  browser-hunt plan --name <procedure> --step <text> [--step <text>] [--goal <t>] [--keep api|cli|guided|tool] [--stage prototype|optimized]
+                                      The same as browser-hunt create --dry-run. A step ending in (manual) stays with the person.
+  browser-hunt create <same options> [--dry-run]
+                                      Write the procedure as a row of the skill's table and a leaf under references/, backed up first; in an installed plugin of your marketplace the plugin's patch version moves and it is updated.
   complete --line "<command line>" [--position <n>]
                                       The candidates for the word at the cursor, one per line (--json for a list); the shell completers call it.
   completion powershell|bash          The script a shell profile evaluates to register Tab completion for harness.
@@ -514,6 +531,8 @@ export async function run(argv: string[], io: Io): Promise<number> {
       return await sourcesCommand(a, io);
     } else if (cmd === 'cowork') {
       return await coworkCommand(a, io);
+    } else if (cmd === 'browser-hunt') {
+      return await browserHuntCommand(a, io);
     } else if (cmd === 'consolidate' && sub === 'retire') {
       const w = load(a);
       const stamp = backupStamp();

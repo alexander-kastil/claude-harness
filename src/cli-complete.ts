@@ -55,9 +55,31 @@ const HUNT: FlagSpec[] = [
   { name: 'files', takes: [] },
   { name: 'drop-files' },
 ];
+const HANDOVER: FlagSpec[] = [
+  { name: 'source', takes: ['chat', 'download', 'cloud', 'link'] },
+  REPO,
+  { name: 'id', takes: [] },
+  { name: 'link', takes: [] },
+  { name: 'title', takes: [] },
+  { name: 'folder', takes: [] },
+  { name: 'task', takes: [] },
+  { name: 'rule', takes: [] },
+  { name: 'exists', takes: [] },
+  { name: 'todo', takes: [] },
+  { name: 'snapshot', takes: [] },
+  { name: 'skip', takes: [] },
+];
+const BROWSER_CARD: FlagSpec[] = [
+  { name: 'name', takes: [] },
+  { name: 'step', takes: [] },
+  { name: 'goal', takes: [] },
+  { name: 'keep', takes: ['api', 'cli', 'guided', 'tool'] },
+  { name: 'stage', takes: ['prototype', 'optimized'] },
+  REPO,
+];
 const GLOBAL: FlagSpec[] = [{ name: 'root', takes: [] }, REPO, { name: 'repos', takes: [] }, { name: 'json' }, { name: 'help' }];
 /** Flags that may repeat on one line; they are offered again after use. */
-const REPEATABLE = new Set(['repo', 'repos', 'area', 'rule']);
+const REPEATABLE = new Set(['repo', 'repos', 'area', 'rule', 'exists', 'todo', 'step']);
 
 /** Every command HELP names. A test keeps this table and HELP in step. */
 export const COMMANDS: CommandSpec[] = [
@@ -110,6 +132,15 @@ export const COMMANDS: CommandSpec[] = [
   { path: 'sources update', flags: [{ name: 'name', takes: 'skills' }, { name: 'plugin', takes: [] }, DRY] },
   { path: 'sources link', flags: [{ name: 'name', takes: 'skills' }, { name: 'source', takes: [] }, { name: 'plugin', takes: [] }, { name: 'market', takes: 'markets' }, { name: 'stage', takes: [] }, { name: 'version', takes: [] }, DRY] },
   { path: 'cowork pull', flags: [REPO, { name: 'kind', takes: ['skill', 'plugin', 'task', 'project'] }, { name: 'into', takes: ['rules', 'claude-md'] }, DRY] },
+  { path: 'cowork chats', flags: [{ name: 'query', takes: [] }, { name: 'limit', takes: [] }] },
+  { path: 'cowork chat', flags: [{ name: 'limit', takes: [] }] },
+  { path: 'cowork artifacts', flags: [{ name: 'query', takes: [] }, { name: 'limit', takes: [] }] },
+  { path: 'cowork handover sources', flags: [{ name: 'query', takes: [] }, { name: 'limit', takes: [] }] },
+  { path: 'cowork handover plan', flags: HANDOVER },
+  { path: 'cowork handover create', flags: [...HANDOVER, DRY] },
+  { path: 'browser-hunt procedures', flags: [REPO] },
+  { path: 'browser-hunt plan', flags: BROWSER_CARD },
+  { path: 'browser-hunt create', flags: [...BROWSER_CARD, DRY] },
   { path: 'complete', flags: [{ name: 'line', takes: [] }, { name: 'position', takes: [] }] },
   { path: 'completion', flags: [], positional: ['powershell', 'bash'] },
 ];
@@ -295,8 +326,14 @@ function candidatesFor(done: string[], typed: string): Candidate[] {
     return top.map(commandOf);
   }
   const [head, second] = done;
-  const subs = COMMANDS.filter(c => c.path.startsWith(`${head} `)).map(c => c.path.slice(head.length + 1));
-  if (second !== undefined && subs.includes(second)) return argumentCandidates(COMMANDS.find(c => c.path === `${head} ${second}`)!, done.slice(2), typed);
+  const subs = [...new Set(COMMANDS.filter(c => c.path.startsWith(`${head} `)).map(c => c.path.slice(head.length + 1).split(' ')[0]))];
+  // A command of three words, `cowork handover plan`: the third word completes after the second, then its own arguments.
+  const deep = second === undefined ? [] : COMMANDS.filter(c => c.path.startsWith(`${head} ${second} `)).map(c => c.path.slice(head.length + second.length + 2));
+  if (deep.length) {
+    if (done.length === 2 && !typed.startsWith('-')) return deep.filter(s => s.startsWith(typed)).map(commandOf);
+    if (done[2] !== undefined && deep.includes(done[2])) return argumentCandidates(COMMANDS.find(c => c.path === `${head} ${second} ${done[2]}`)!, done.slice(3), typed);
+  }
+  if (second !== undefined && subs.includes(second) && !deep.length) return argumentCandidates(COMMANDS.find(c => c.path === `${head} ${second}`)!, done.slice(2), typed);
   const out: Candidate[] = [];
   if (done.length === 1 && !typed.startsWith('-')) out.push(...subs.filter(s => s.startsWith(typed)).map(commandOf));
   const own = COMMANDS.find(c => c.path === head);

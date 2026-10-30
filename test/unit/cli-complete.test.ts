@@ -61,6 +61,13 @@ test('agents completes its subcommands', () => {
   assert.deepEqual(texts('harness agents '), ['list', 'route']);
 });
 
+test('cowork and browser-hunt complete their subcommands and --source', () => {
+  assert.deepEqual(texts('harness cowork handover '), ['sources', 'plan', 'create']);
+  assert.ok(texts('harness cowork ').includes('chats'));
+  assert.deepEqual(texts('harness browser-hunt '), ['procedures', 'plan', 'create']);
+  assert.deepEqual(texts('harness cowork handover plan --source '), ['chat', 'download', 'cloud', 'link']);
+});
+
 test('--session completes latest, previous, then the repo sessions with their first prompt', () => {
   const f = fixture();
   const found = candidates(`harness usage ${f.base} --session `);
