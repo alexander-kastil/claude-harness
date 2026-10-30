@@ -9,26 +9,24 @@ All notable changes to Claude Harness are listed here, newest first. The format 
 - `harness fleet` is `harness repos` and `@harness:fleet` is `@harness:repos`
 - The extension's description and the README banner speak of harness engineering, and the README shows how Cowork work continues in Code with Handover
 - The README opens with Quick start and Why Claude Harness, a table that links every section, and screenshots of Browser Automation Hunter and Cowork Handover
+- One control set across the panel, from the approved look board: every tab, view switch, filter and plan picker is the same chip, every checkbox a slide toggle, every count one badge and every label one tag; buttons share one shape and the primary one takes the theme's accent
+- Status, state and source values in every table are tags, a dot giving the state
+- The AI group's buttons say only the verb: Edit, Slim, Draw, Draft, Fix, Resolve, Merge
+- The left nav uses one header style per level, Cowork's groups sit one level in, and the active sort toggle is quiet
+- Cowork has one icon everywhere, the briefcase
+- In the README each explanation sits above its screenshot, and the README and docs screenshots show the new look
 
 ### Added
 
-- Top-align chat history in all chats: Every chat is now top-aligned, with the composer pinned at the bottom and the empty space between
-- CLI commands for Cowork and automation hunter: Progress: 6/6 · report
-- Render top 10 screens, inventory control styles: Everything is redone: dark is now your Dracula Theme Soft, light is Light Modern, and
-- Theme unit 2: every checkbox a toggle: Progress: 6/6 · report
-- Theme unit 3: one badge, one tag: Progress: 4/5 · type check passed (exit 0) after the last edit
-- Drop "with Claude" from AI group labels: The "with Claude" labels are gone from every AI-group button, but the full UI suite is not green
-- Docs screenshots: docs/ pages images: Progress: 5/51 · overview-search.png
-- @harness:session-analyze opens current session: The root README.md now has the second example in "Command line and @harness mentions",
-- Release build
-- Docs screenshots: README images: The stop markers are not drawn at all in this mock: no dg-mark, dg-stop or dg-chip nodes in the DOM
-- One consistent Cowork icon everywhere: Progress: 4/4 · report
-- Docs screenshots: README images: Fitted all eight images to their content and copied them into docs/images
-- Collapse/expand the left nav to a rail: Already applied: line 63 now reads 72px (their message likely crossed mine)
+- The left nav collapses to a rail and expands from any rail icon (Alt+Shift+B)
+- `harness cowork chats`, `cowork chat`, `cowork artifacts` and `cowork handover sources|plan|create`, and `harness browser-hunt procedures|plan|create`
+- `harness sessions open` and the `@harness:session-analyze` mention open the current session on its session page
+- Claude-learn capture only: Progress: 6/7 · reconcile (plugin skills only, no global or repo copies to converge; audit not due, last run
 
 ### Fixed
 
-- Fix left nav group headers and rows: Progress: 6/6 · report
+- Every chat starts at the top, with the composer pinned at the bottom
+- The Marketplace health page no longer stays blank
 
 
 
