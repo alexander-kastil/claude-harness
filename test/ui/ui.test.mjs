@@ -788,19 +788,22 @@ test('agents, commands, workflows, mods, plugins, hooks and MCP servers have Dra
     await openRow(kind, name);
     const fig = await s.waitFor(D => {
       const f = D.querySelector('.main .dv > figure.dv-draw');
-      // A plugin's frame also holds the Harness | Process toggle, so the drawing's text is the svg's.
-      return f && { first: f === f.parentElement.firstElementChild, text: f.querySelector('svg').textContent, label: f.querySelector('svg').getAttribute('aria-label') };
+      // Every frame also holds the Harness | Process toggle, so the drawing's text is the svg's.
+      return f && { first: f === f.parentElement.firstElementChild, text: f.querySelector('svg').textContent, label: f.querySelector('svg').getAttribute('aria-label'), modes: [...f.querySelectorAll('.dv-persp button')].map(b => b.textContent.trim()), maxWidth: f.querySelector('svg').style.maxWidth };
     });
     assert.ok(fig.first, `${name}: the drawing sits above the details`);
     assert.equal(fig.text, name);
     assert.match(fig.label, new RegExp(name));
+    assert.deepEqual(fig.modes, ['Harness', 'Process'], `${name}: both perspectives`);
+    assert.equal(fig.maxWidth, '800px', `${name}: never drawn larger than its viewBox`);
     assert.ok((await barGroups()).claude.includes('Redraw with Claude'), `${name}: the button says Redraw`);
   }
-  // The card names what Claude gets for a plugin; Cancel starts nothing.
+  // The card names what Claude gets for a plugin and that it draws twice; Cancel starts nothing.
   await s.mouse('.main .cmd-bar button', 'Redraw with Claude');
   const c = await s.waitFor(D => !!D.querySelector('.cf')).then(card);
   assert.match(c.text, /Draw team-tools@acme-market with Claude/);
   assert.match(c.text, /manifest/);
+  assert.match(c.text, /twice/);
   await closeCard();
   // Edit with Claude reads the plugin's folder, the parts the drawing is made of, not the settings file that enables it.
   await s.mouse('.main .cmd-bar button', 'Edit with Claude');
@@ -827,7 +830,7 @@ test('hovering or focusing a drawing opens it large in the house hover card, and
     const large = card.querySelector('svg').getBoundingClientRect();
     const box = D.querySelector('.tl-hover').getBoundingClientRect();
     const fig = D.querySelector('.main .dv-draw').getBoundingClientRect();
-    // The figure's svg spans its width and draws the picture at most 180 px high, so the height says how large it is drawn.
+    // The figure's svg is drawn at most at its viewBox's size, the card's as wide as the panel allows, so the height says how large it is drawn.
     return { head: card.querySelector('.hc-head').textContent.trim(), text: card.querySelector('svg').textContent, ratio: large.height / small.height, under: box.top >= fig.bottom, inside: box.left >= 0 && box.right <= D.defaultView.innerWidth && box.top >= 0 && box.bottom <= D.defaultView.innerHeight };
   });
   assert.equal(big.head, 'What team-tools@acme-market does');
@@ -1188,9 +1191,165 @@ test('the Marketplace page lists the marketplaces on disk first, under their own
   }
 });
 
-test('the Fleet overview shows 0 or a dash in every cell, never a blank one', T, async () => {
+const unfoldMarkets = () => s.ev(D => { const h = D.querySelector('[data-nav="s|markets"]'); if (h.getAttribute('aria-expanded') !== 'true') h.fold(); return true; });
+
+test('the nav lists its sections in reading order with Marketplaces last above Repositories, and its head has the pages first, then the actions', T, async () => {
   await home();
-  await s.mouse('.sidebar-head [aria-label="Fleet overview"]');
+  assert.deepEqual(await labels('.sidebar .scope-block > .section-head .label'), ['Memory', 'Rules', 'Settings', 'Output Styles', 'Agents', 'Skills', 'Commands', 'Workflows', 'MCP Servers', 'Hooks', 'Mods', 'Plugins', 'Marketplaces']);
+  assert.deepEqual(await s.ev(D => [...D.querySelectorAll('.sidebar-head button')].map(b => b.getAttribute('aria-label'))), ['Overview', 'Marketplace health', 'GitHub Repo overview', 'New...', 'Refresh']);
+  // The Marketplaces head counts the marketplaces and opens Marketplace health, the way a global head opens its type page.
+  await s.waitFor(D => D.querySelector('[data-nav="s|markets"] .count')?.textContent === '1');
+  await go('.sidebar [data-nav="s|markets"]', '', D => D.querySelector('.main-head h1')?.textContent === 'Marketplace health');
+  await unfoldMarkets();
+  assert.deepEqual(await labels('.sidebar .scope-block .row[data-nav^="k|"] .name'), ['acme-market']);
+});
+
+test('a marketplace row opens its page: the head counts its plugins, Draw with Claude asks in a card, a stored drawing shows with both perspectives, and a plugin row comes back to it', T, async () => {
+  await home();
+  await unfoldMarkets();
+  await go('.sidebar [data-nav="k|acme-market"]', '', D => D.querySelector('.main-head h1')?.textContent === 'acme-market');
+  const head = await s.waitFor(D => D.querySelector('.main-head .toolbar > .ai-group') && {
+    sub: D.querySelector('.main-head .path').textContent,
+    glyph: !!D.querySelector('.main-head .big .codicon-package'),
+    ai: [...D.querySelectorAll('.main-head .toolbar > .ai-group button')].map(b => b.textContent.trim()),
+    mark: !!D.querySelector('.main-head .toolbar > .ai-group > .ai-mark'),
+    selected: D.querySelector('.sidebar .row.selected')?.dataset.nav,
+  });
+  assert.deepEqual(head, { sub: '3 plugins · 3 installed · 2 enabled', glyph: true, ai: ['Draw with Claude'], mark: true, selected: 'k|acme-market' });
+  assert.deepEqual(await labels('.main-body .at-row:not(.at-head) .at-label'), ['delegation-mod', 'old-helper', 'team-tools']);
+  // Draw asks first and names both drawings; Cancel starts nothing.
+  await s.mouse('.main-head .ai-group button', 'Draw with Claude');
+  const c = await s.waitFor(D => !!D.querySelector('.cf')).then(card);
+  assert.match(c.text, /Draw acme-market with Claude/);
+  assert.match(c.text, /twice/);
+  await closeCard();
+  // A stored drawing shows above the plugins, with the Harness | Process toggle; an attribute Claude wrote twice does not keep it out.
+  const req = createRequire(import.meta.url);
+  const { contentHash, marketText, writeDrawing } = req(path.join(repoRoot, 'out', 'src', 'drawing.js'));
+  const { marketplaceHealth } = req(path.join(repoRoot, 'out', 'src', 'fleet.js'));
+  const market = marketplaceHealth(claude()).find(m => m.name === 'acme-market');
+  writeDrawing(path.join(s.ud, 'User', 'globalStorage', 'integrations-at.claude-harness', 'drawings'), 'market:acme-market', contentHash(marketText(market.plugins)), SVG('acme-market').replace('fill="none"', 'fill="none" fill="none"'));
+  await s.mouse('.sidebar [data-nav="k|acme-market"]');
+  const fig = await s.waitFor(D => {
+    const f = D.querySelector('.main .market-page > figure.dv-draw');
+    return f && f.querySelector('svg') && { text: f.querySelector('svg').textContent, label: f.querySelector('svg').getAttribute('aria-label'), modes: [...f.querySelectorAll('.dv-persp button')].map(b => b.textContent.trim()) };
+  });
+  assert.deepEqual(fig, { text: 'acme-market', label: 'What acme-market offers', modes: ['Harness', 'Process'] });
+  assert.deepEqual(await s.ev(D => [...D.querySelectorAll('.main-head .ai-group button')].map(b => b.textContent.trim())), ['Redraw with Claude']);
+  // A plugin row opens the plugin's page, whose Back returns to the marketplace.
+  await go('.main-body .at-row', 'team-tools', D => D.querySelector('.main-head h1')?.textContent.startsWith('team-tools'));
+  await go('.main .cmd-bar button', 'Back', D => D.querySelector('.main-head h1')?.textContent === 'acme-market');
+});
+
+test('a marketplace heading on the Plugins page opens that marketplace, and its Back returns to the Plugins page', T, async () => {
+  // A second marketplace with an enabled plugin, so the Plugins page has a heading per marketplace.
+  const file = path.join(claude(), 'plugins', 'known_marketplaces.json');
+  const settings = path.join(claude(), 'settings.json');
+  const before = [fs.readFileSync(file, 'utf8'), fs.readFileSync(settings, 'utf8')];
+  const dir = path.join(s.root, 'local-kit-market');
+  fs.mkdirSync(path.join(dir, '.claude-plugin'), { recursive: true });
+  fs.writeFileSync(path.join(dir, '.claude-plugin', 'marketplace.json'), JSON.stringify({ name: 'local-kit', plugins: [{ name: 'kit', source: './kit', version: '0.1.0', description: 'The local kit' }] }));
+  fs.writeFileSync(file, JSON.stringify({ ...JSON.parse(before[0]), 'local-kit': { source: { source: 'directory', path: dir }, installLocation: dir } }));
+  const old = JSON.parse(before[1]);
+  fs.writeFileSync(settings, JSON.stringify({ ...old, enabledPlugins: { ...old.enabledPlugins, 'kit@local-kit': true } }, null, 2));
+  try {
+    await tile('Plugins');
+    const heads = await s.waitFor(D => { const l = [...D.querySelectorAll('.main .origin-label .group-open')].map(b => b.textContent); return l.includes('local-kit') && l; });
+    assert.deepEqual(heads, ['acme-market', 'local-kit']);
+    await go('.main .origin-label .group-open', 'local-kit', D => D.querySelector('.main-head h1')?.textContent === 'local-kit');
+    assert.equal(await s.waitFor(D => D.querySelector('.main-body .at-row:not(.at-head)') && D.querySelector('.main-head .path').textContent), '1 plugin · 1 enabled');
+    await go('.main-head .toolbar button', 'Back to Plugins', D => D.querySelector('.main-head h1')?.textContent === 'Plugins');
+  } finally {
+    fs.writeFileSync(file, before[0]);
+    fs.writeFileSync(settings, before[1]);
+  }
+});
+
+test('a marketplace with plugins ahead offers one Sync button whose card lists them, the AI group stays last, and Cancel runs nothing', T, async () => {
+  const file = path.join(claude(), 'plugins', 'marketplaces', 'acme-market', '.claude-plugin', 'marketplace.json');
+  const before = fs.readFileSync(file, 'utf8');
+  const catalog = JSON.parse(before);
+  fs.writeFileSync(file, JSON.stringify({ ...catalog, plugins: catalog.plugins.map(p => (p.name === 'old-helper' ? p : { ...p, version: '9.0.0' })) }));
+  try {
+    await home();
+    await unfoldMarkets();
+    await go('.sidebar [data-nav="k|acme-market"]', '', D => D.querySelector('.main-head h1')?.textContent === 'acme-market');
+    await s.mouse('.main-head [aria-label="Reload"]');
+    const label = await s.waitFor(D => [...D.querySelectorAll('.main-head .toolbar > button')].map(b => b.textContent.trim()).find(t => t.startsWith('Sync')));
+    assert.equal(label, 'Sync 2 plugins');
+    assert.ok(await s.ev(D => D.querySelector('.main-head .toolbar').lastElementChild.classList.contains('ai-group')), 'the AI group stays last');
+    await s.mouse('.main-head .toolbar > button', 'Sync 2 plugins');
+    const c = await s.waitFor(D => !!D.querySelector('.cf')).then(card);
+    assert.match(c.text, /Sync 2 plugins from acme-market/);
+    assert.match(c.text, /delegation-mod: 0\.4\.0 to 9\.0\.0/);
+    assert.match(c.text, /team-tools: 1\.2\.0 to 9\.0\.0/);
+    assert.ok(c.buttons.includes('Sync 2 plugins'), `the card's action: ${c.buttons}`);
+    await closeCard();
+    // One Sync column: Sync all in its header, Sync plugin on a plugin that is ahead, where it stands on the others.
+    const table = await s.ev(D => {
+      const heads = [...D.querySelectorAll('.market-page .at-head > span')];
+      const at = heads.findIndex(h => h.querySelector('button'));
+      return { heads: heads.map(h => h.textContent.trim()), at, cells: [...D.querySelectorAll('.market-page .at-row:not(.at-head)')].map(r => `${r.querySelector('.at-label').textContent}:${r.children[at]?.textContent.trim()}`) };
+    });
+    assert.deepEqual(table.heads.slice(-1), ['Sync all'], `the last column is Sync, headed by Sync all: ${table.heads}`);
+    assert.deepEqual(table.cells.sort(), ['delegation-mod:Sync plugin', 'old-helper:current', 'team-tools:Sync plugin']);
+    await s.mouse('.market-page .at-head button', 'Sync all');
+    assert.match((await s.waitFor(D => !!D.querySelector('.cf')).then(card)).text, /Sync 2 plugins from acme-market/);
+    await closeCard();
+    assert.match(read('plugins/installed_plugins.json'), /"version": ?"1\.2\.0"/, 'Cancel updated nothing');
+  } finally {
+    fs.writeFileSync(file, before);
+    await s.mouse('.main-head [aria-label="Reload"]').catch(() => {});
+  }
+});
+
+// Every bar that holds an AI group, with where the group sits: last means every other item of the bar is on an earlier line or to
+// its left, flush means its right edge is the bar's.
+const aiBars = () =>
+  s.ev(D =>
+    [...D.querySelectorAll('.toolbar > .ai-group, .cmd-bar > .ai-group, .cmd-row > .ai-group, .dg-bar > .ai-group, .style-draft > .ai-group, .cp-actions > .ai-group, .std-actions > .ai-group, .hunt-ask-actions > .ai-group, .overview-tabs > .ai-group')]
+      .filter(g => g.getClientRects().length)
+      .map(g => {
+        const r = g.getBoundingClientRect();
+        const bar = g.parentElement;
+        const cs = getComputedStyle(bar);
+        const b = bar.getBoundingClientRect();
+        const others = [...bar.children].filter(c => c !== g && c.getClientRects().length);
+        return {
+          bar: bar.className,
+          last: others.every(c => { const o = c.getBoundingClientRect(); return o.bottom <= r.top + 1 || o.right <= r.left + 1; }),
+          flush: Math.abs(b.right - parseFloat(cs.paddingRight) - parseFloat(cs.borderRightWidth) - r.right) <= 2,
+        };
+      })
+  );
+
+test('every bar keeps its AI group last and at its right end: overview, Plugins, a plugin, a repo and a session', T, async () => {
+  const check = async (where, need) => {
+    const bars = await aiBars();
+    if (need) assert.ok(bars.length, `${where}: a bar with an AI group`);
+    for (const b of bars) assert.ok(b.last && b.flush, `${where}: ${JSON.stringify(b)}`);
+  };
+  await home();
+  await check('overview');
+  await tile('Plugins');
+  await s.waitFor(D => D.querySelector('.main-head .toolbar > .ai-group'));
+  await check('Plugins', true);
+  await openRow('Plugins', 'team-tools');
+  await check('team-tools', true);
+  for (const width of [760, 0]) {
+    await s.resize(width);
+    await check(`team-tools at ${width || 'full'} width`, true);
+  }
+  await home();
+  await go('.sidebar .repo-head', 'shop-api', D => D.querySelector('.main-head h1')?.textContent === 'shop-api');
+  await check('shop-api');
+  await openSession();
+  await check('session');
+});
+
+test('the GitHub Repo overview shows 0 or a dash in every cell, never a blank one', T, async () => {
+  await home();
+  await s.mouse('.sidebar-head [aria-label="GitHub Repo overview"]');
   const cells = await s.waitFor(D => {
     const rows = [...D.querySelectorAll('.main [role=row]:not(.at-head)')].filter(r => r.getClientRects().length);
     return rows.length > 1 && rows.map(r => [...r.children].filter(c => c.getClientRects().length).map(c => c.textContent.trim()));
@@ -1363,7 +1522,9 @@ test('every section head of the nav stays on one line, the MCP one included', T,
       assert.ok(heads.some(h => /MCP/.test(h.label)), 'the MCP head is listed');
       for (const h of heads) assert.ok(h.lh <= 20 && h.h <= 31 && !h.over, `${h.label} is one line at width ${width || 'default'}: ${JSON.stringify(h)}`);
     }
-    // the many view modes of the MCP head sit in a menu that works
+    // the many view modes of the MCP head sit in a menu that works; the nav scrolls to the top first, so the head is not stuck
+    // under the sticky head of an open section below it (Hooks)
+    await s.ev(D => { D.querySelector('.sidebar .list').scrollTop = 0; return true; });
     await s.mouse('[data-nav="s|global|mcp"] button', 'View');
     await s.waitFor(D => D.querySelector('.nav-menu [role=menuitemradio]') && 'open');
     const modes = await labels('.nav-menu button');

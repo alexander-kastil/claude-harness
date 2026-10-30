@@ -5,6 +5,7 @@ import { bylineNodes } from './byline';
 import { kindLabel, labelOf, matches, persist, select, showRepo, state, total, vscode } from './core';
 import { el, fmtAgo, fmtDate, fmtDur, highlight, icon, logo, plural, pressable } from './dom';
 import { hideHover } from './hover';
+import { huntButton } from './hunt';
 import { showKindPage } from './kind-page';
 import { tabBar } from './repo-page';
 import { fmtUsd } from './session-page';
@@ -246,7 +247,7 @@ export function renderOverview() {
       hideHover();
       showTab(again);
     };
-    tabsBox.replaceChildren(tabBar(tabs, tab, pick, 'Overview lists'));
+    tabsBox.replaceChildren(tabBar(tabs, tab, pick, 'Overview lists'), huntButton());
     current = tab;
     syncLists();
     fit();

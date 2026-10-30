@@ -8,7 +8,8 @@ import { Args, Io, Stop, World, emit, headline, load, one, table } from './cli-c
 
 // `agents list` and `agents route`: the agents of Global, the plugins and the repos, and the delegation plugin's routing.
 
-const ROUTER = 'agent-control-plugin';
+// agent-control-plugin is the delegation plugin's former name; older installed copies still carry it.
+const ROUTERS = ['agentic-orchestration', 'agent-control-plugin'];
 
 export type CopyState = 'identical' | 'nearly identical' | 'differs';
 
@@ -56,15 +57,15 @@ const esmImport = new Function('specifier', 'return import(specifier)') as (spec
 /** The delegation plugin's folders: the directory source first, then the installed copy in the cache. */
 function routerDirs(root: string): string[] {
   return pluginDirs(root, true)
-    .filter(p => p.plugin === ROUTER)
+    .filter(p => ROUTERS.includes(p.plugin))
     .sort((x, y) => Number(x.installed) - Number(y.installed))
     .map(p => p.dir);
 }
 
-/** The plugin's routing pattern, from its single source; undefined when no copy has hooks/route.mjs. */
+/** The plugin's routing pattern, from its single source; undefined when no copy has mods/orchestration/route.mjs or hooks/route.mjs. */
 async function gatedPattern(root: string): Promise<RegExp | undefined> {
   const file = routerDirs(root)
-    .map(dir => path.join(dir, 'hooks', 'route.mjs'))
+    .flatMap(dir => [path.join(dir, 'mods', 'orchestration', 'route.mjs'), path.join(dir, 'hooks', 'route.mjs')])
     .find(f => fs.existsSync(f));
   if (!file) return undefined;
   return (await esmImport(pathToFileURL(file).href)).GATED;
@@ -159,7 +160,7 @@ async function agentsRoute(a: Args, io: Io): Promise<number> {
   const root = path.resolve(one(a, 'root') ?? path.join(os.homedir(), '.claude'));
   const repo = path.resolve(one(a, 'repo') ?? process.cwd());
   const dirs = routerDirs(root);
-  if (!dirs.length) throw new Stop(`${ROUTER} is not installed under ${root}: no scripts/route.mjs to run.`, 1);
+  if (!dirs.length) throw new Stop(`${ROUTERS[0]} is not installed under ${root}: no scripts/route.mjs to run.`, 1);
   const script = dirs.map(dir => path.join(dir, 'scripts', 'route.mjs')).find(f => fs.existsSync(f));
   if (!script) throw new Stop(`Missing ${path.join(dirs[0], 'scripts', 'route.mjs')}.`, 1);
   const stdout = await runRoute(script, ['--prompt', prompt, '--repo', repo, '--root', root, '--json']);

@@ -8,7 +8,7 @@ import { refreshCard } from './hover';
 import { renderKindPage } from './kind-page';
 import { renderOverview } from './overview';
 import { onHuntMessage, renderHunt } from './hunt';
-import { renderFleet, renderInit, renderMarkets } from './pages';
+import { renderFleet, renderInit, renderMarket, renderMarkets } from './pages';
 import { renderRepo } from './repo-page';
 import { redrawCheckpoint, renderSession } from './session-page';
 import { renderSessionsPage, showSession } from './sessions';
@@ -34,6 +34,8 @@ export function renderMain() {
         ? renderHunt()
       : state.page === 'marketplaces'
         ? renderMarkets()
+      : state.page === 'market' && state.marketPage
+        ? renderMarket()
         : state.page === 'init' && state.init
           ? renderInit()
           : repo
@@ -131,7 +133,10 @@ onMessage(m => {
     if (state.page === 'fleet' && !state.detail) renderMain();
   } else if (m.type === 'marketplaces') {
     state.markets = m.list;
-    if (state.page === 'marketplaces' && !state.detail) renderMain();
+    // The nav lists the marketplaces too.
+    const current = app.querySelector('.sidebar');
+    if (current) keepScroll(() => current.replaceWith(renderSidebar()));
+    if ((state.page === 'marketplaces' || state.page === 'market') && !state.detail) renderMain();
   } else if (m.type === 'weekly') {
     state.weekly = m.list || [];
     if (!state.detail && state.repo && state.repoTab === 'models') renderMain();
@@ -246,7 +251,10 @@ onMessage(m => {
   } else if (m.type === 'slim') {
     if (storeSlim(m) && state.detail && state.detail.asset.id === m.id && state.detailMode !== 'edit') keepMainScroll(renderMain);
   } else if (m.type === 'drawing') {
-    if (storeDrawing(m) && state.detail && state.detail.asset.id === m.id.replace(/#process$/, '') && state.detailMode !== 'edit') keepMainScroll(renderMain);
+    const changed = storeDrawing(m);
+    if (changed && state.detail && state.detail.asset.id === m.id.replace(/#process$/, '') && state.detailMode !== 'edit') keepMainScroll(renderMain);
+    // A marketplace's page draws under `market:<name>`.
+    else if (changed && !state.detail && state.page === 'market' && state.marketPage && m.id.replace(/#process$/, '') === `market:${state.marketPage.name}`) keepMainScroll(renderMain);
   } else if (m.type === 'mcpInfo') {
     // A retry keeps the old banner, busy, until the new answer comes in.
     if (m.info === undefined && state.mcpBusy[m.id] === 'busy') return;

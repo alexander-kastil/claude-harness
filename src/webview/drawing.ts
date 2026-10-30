@@ -20,46 +20,82 @@ const asked = new WeakSet<object>();
 export const drawingOf = (id: string): Drawing | undefined => drawings.get(id);
 
 // The kinds a drawing helps with (a mod is a plugin, a hook is an entry in a settings file), each with what Claude draws and
-// from what: the Draw button's hover card.
+// from what (the Draw button's hover card), and what each perspective shows (the toggle's hover cards).
 // The other kinds have no Draw with Claude and no drawing.
-const DRAWS: Record<string, string> = {
-  skill: 'what this skill does, from its SKILL.md',
-  agent: 'what this agent does and what it works with, from its file',
-  command: 'what this command does, from its file',
-  workflow: 'the steps of this workflow, from its script',
-  plugin: 'what this plugin brings and how its skills, agents, servers and hooks connect (Harness), and what runs in which order with what its mods do (Process), two drawings from its manifest, contents and hook modules',
-  hook: 'when this hook runs and what it does, from its entry in the settings file',
-  mcp: 'what this server is and what it connects to, from its entry',
+const DRAWS: Record<string, { what: string; harness: string; process: string }> = {
+  skill: {
+    what: 'what this skill does and how its parts connect (Harness), and the steps it makes Claude take in run order (Process), two drawings from its SKILL.md',
+    harness: 'What the skill does: when it applies, its decisions and what each branch produces.',
+    process: 'The steps it makes Claude take, in the order they run.',
+  },
+  agent: {
+    what: 'what this agent does and what it works with (Harness), and its run from the hand-off to the report (Process), two drawings from its file',
+    harness: 'What the agent does and the tools, skills and servers it works with.',
+    process: 'Its run from the moment Claude hands work to it until it reports back.',
+  },
+  command: {
+    what: 'what this command does (Harness), and what happens from typing it to its result (Process), two drawings from its file',
+    harness: 'What the command does and what it uses.',
+    process: 'What happens from typing it to its result, step by step.',
+  },
+  workflow: {
+    what: 'the parts of this workflow (Harness), and its phases in run order with what runs in parallel (Process), two drawings from its script',
+    harness: 'Its phases, the agents it starts and what it returns.',
+    process: 'Its phases in run order, and what runs in parallel.',
+  },
+  plugin: {
+    what: 'what this plugin brings and how its skills, agents, servers and hooks connect (Harness), and what runs in which order with what its mods do (Process), two drawings from its manifest, contents and hook modules',
+    harness: 'How the plugin connects to a Claude session.',
+    process: 'What runs in which order, and what its mods do.',
+  },
+  hook: {
+    what: 'when this hook runs and what it does (Harness), and what happens from its event to what Claude Code does next (Process), two drawings from its entry in the settings file',
+    harness: 'When the hook runs and what it does.',
+    process: 'What happens from its event to what Claude Code does next.',
+  },
+  mcp: {
+    what: 'what this server is and what it connects to (Harness), and how a session starts it and calls it (Process), two drawings from its entry',
+    harness: 'What the server is and what it connects to.',
+    process: 'How a session starts or reaches it, calls a tool and gets the answer.',
+  },
+  market: {
+    what: "what this marketplace's plugins bring (Harness), and how they call, feed, gate and extend each other (Process), two drawings from its plugins' contents and the lines where one plugin names another",
+    harness: 'What its plugins bring to a Claude session, grouped by what they are for.',
+    process: 'How its plugins work with each other: which one calls, feeds, gates or extends which.',
+  },
 };
 
-export const canDraw = (a: Asset): boolean => a.kind in DRAWS;
+// What can be drawn: an element, or a marketplace's page (`market:<name>`, kind `market`), which is no element of a scope.
+type Drawn = Pick<Asset, 'id' | 'name'> & { kind: string };
 
-export const drawsWhat = (kind: string): string => DRAWS[kind];
+export const canDraw = (a: Drawn): boolean => a.kind in DRAWS;
 
-// A plugin has two drawings: the harness perspective (how its parts connect to a session) and the process perspective (what runs
-// in which order). The process one is stored under the plugin's id plus this suffix; the toggle in the figure picks the one shown.
+export const drawsWhat = (kind: string): string => DRAWS[kind].what;
+
+// Every drawing has two perspectives: the harness one (its parts and how they connect) and the process one (what runs in which
+// order). The process one is stored under the id plus this suffix; the toggle in the figure picks the one shown.
 const PROCESS = '#process';
 let processFor: string | undefined;
 
-/** Whether the page of this plugin shows the process perspective. */
-export const processOf = (a: Asset): boolean => a.kind === 'plugin' && processFor === a.id;
+/** Whether the page of this element or marketplace shows the process perspective. */
+export const processOf = (a: Drawn): boolean => canDraw(a) && processFor === a.id;
 
-/** The id the element's drawing is stored and asked under: the plugin's process perspective has its own. */
-export const drawingId = (a: Asset): string => (processOf(a) ? a.id + PROCESS : a.id);
+/** The id the element's drawing is stored and asked under: the process perspective has its own. */
+export const drawingId = (a: Drawn): string => (processOf(a) ? a.id + PROCESS : a.id);
 
-/** What Draw with Claude shows for an element: a plugin has two drawings, so it counts as running while either runs, and as drawn once either exists. */
-export function drawState(a: Asset): { running: boolean; drawn: boolean; error?: string } {
-  const all = [drawingOf(a.id), a.kind === 'plugin' ? drawingOf(a.id + PROCESS) : undefined];
+/** What Draw with Claude shows: two drawings, so it counts as running while either runs, and as drawn once either exists. */
+export function drawState(a: Drawn): { running: boolean; drawn: boolean; error?: string } {
+  const all = [drawingOf(a.id), drawingOf(a.id + PROCESS)];
   return { running: all.some(d => d?.running), drawn: all.some(d => d?.svg), error: all.find(d => d?.error)?.error };
 }
 
-/** Asks for the stored drawing once per loaded detail; the page repaints when the answer differs. */
-export function askDrawing(a: Asset): void {
-  const d = state.detail;
+/** Asks for both stored drawings once per loaded detail, or per opening of `page` (a marketplace's page); the page repaints when the answer differs. */
+export function askDrawing(a: Drawn, page?: object): void {
+  const d = page ?? state.detail;
   if (!canDraw(a) || !d || asked.has(d)) return;
   asked.add(d);
   vscode.postMessage({ type: 'drawing', id: a.id });
-  if (a.kind === 'plugin') vscode.postMessage({ type: 'drawing', id: a.id + PROCESS });
+  vscode.postMessage({ type: 'drawing', id: a.id + PROCESS });
 }
 
 /** Stores the host's answer; true when the page showing the element has something new to draw. */
@@ -75,9 +111,19 @@ const DROP = new Set(['script', 'foreignobject', 'iframe', 'object', 'embed', 'i
 // A value may point at the svg itself (`url(#arrow)`) and nothing else.
 const external = (v: string) => /javascript:|data:|expression\(|@import|&#|url\(\s*(?!['"]?#)/i.test(v);
 
+// Claude now and then writes an attribute twice on one element (two d= on a path), which no XML parser takes: the first one stays.
+const firstAttributes = (text: string) =>
+  text.replace(/<([A-Za-z][\w:.-]*)(\s[^<>]*?)?(\/?)>/g, (_tag: string, name: string, attrs = '', end: string) => {
+    const seen = new Set<string>();
+    const kept = attrs.replace(/\s+([^\s=/>]+)(\s*=\s*(?:"[^"]*"|'[^']*'))?/g, (all: string, key: string) => (seen.has(key) ? '' : (seen.add(key), all)));
+    return `<${name}${kept}${end}>`;
+  });
+
 /** The svg as an element with nothing executable or external in it, or undefined when the text is not a plain svg. */
 export function cleanSvg(text: string): SVGSVGElement | undefined {
-  const doc = new DOMParser().parseFromString(text, 'image/svg+xml');
+  const parse = (t: string) => new DOMParser().parseFromString(t, 'image/svg+xml');
+  let doc = parse(text);
+  if (doc.querySelector('parsererror')) doc = parse(firstAttributes(text));
   const root = doc.documentElement;
   if (!root || root.localName !== 'svg' || doc.querySelector('parsererror')) return undefined;
   const walk = (node: Element) => {
@@ -117,23 +163,33 @@ export function cleanSvg(text: string): SVGSVGElement | undefined {
 const bigCard = (title: string, svg: SVGSVGElement) => el('div', { className: 'hc hc-draw' }, el('div', { className: 'hc-head' }, icon('brush'), el('span', { className: 'hc-type' }, title)), svg);
 
 /** The figure above the info card: the drawing, or nothing at all. Hovered or focused, it opens the drawing large. */
-export function drawingFigure(a: Asset): HTMLElement | null {
-  const plugin = a.kind === 'plugin';
+export function drawingFigure(a: Drawn): HTMLElement | null {
+  const market = a.kind === 'market';
   const process = processOf(a);
   const svg = drawingOf(drawingId(a))?.svg;
-  // A plugin keeps its figure while either perspective has a drawing, so the toggle stays reachable; the shown one may be empty.
-  if (!canDraw(a) || (!svg && !(plugin && (drawingOf(a.id)?.svg || drawingOf(a.id + PROCESS)?.svg)))) return null;
+  // The figure stays while either perspective has a drawing, so the toggle stays reachable; the shown one may be empty.
+  if (!canDraw(a) || (!svg && !drawingOf(a.id)?.svg && !drawingOf(a.id + PROCESS)?.svg)) return null;
   const clean = svg ? cleanSvg(svg) : undefined;
-  if (svg && !clean) return null;
-  const title = process ? `How ${a.name} runs` : `What ${a.name} does`;
+  const title = market ? (process ? `When the plugins of ${a.name} act` : `What ${a.name} offers`) : process ? `How ${a.name} runs` : `What ${a.name} does`;
   clean?.setAttribute('aria-label', title);
+  // Spread over the figure's width, but never drawn larger than Claude drew it, so its text stays the size it was written at.
+  const width = clean?.viewBox.baseVal?.width;
+  if (clean && width) clean.style.setProperty('max-width', `${width}px`);
   const pick = (to: boolean, label: string, tip: string) =>
     el('button', { type: 'button', className: `view-tab dg-mode${process === to ? ' active' : ''}`, title: tip, 'aria-pressed': String(process === to), onclick: () => ((processFor = to ? a.id : undefined), hideHover(), renderMain()) }, el('span', {}, label));
-  const toggle = plugin
-    ? el('div', { className: 'dg-modes dv-persp', role: 'group', 'aria-label': 'Perspective' }, pick(false, 'Harness', 'Harness\nHow the plugin connects to a Claude session.'), pick(true, 'Process', 'Process\nWhat runs in which order, and what its mods do.'))
-    : null;
-  const fig = el('figure', { className: `dv-draw${process ? ' dv-process' : ''}`, tabindex: svg ? '0' : undefined }, toggle, clean ?? el('div', { className: 'dv-empty' }, 'Not drawn yet. Draw with Claude in the bar above.'));
-  if (!svg) return fig;
+  const toggle = el(
+    'div',
+    { className: 'dg-modes dv-persp', role: 'group', 'aria-label': 'Perspective' },
+    pick(false, 'Harness', `Harness\n${DRAWS[a.kind].harness}`),
+    pick(true, 'Process', `Process\n${DRAWS[a.kind].process}`)
+  );
+  const fig = el(
+    'figure',
+    { className: 'dv-draw', tabindex: clean ? '0' : undefined },
+    toggle,
+    clean ?? el('div', { className: 'dv-empty' }, svg ? "Claude's drawing could not be read. Redraw with Claude in the bar above." : 'Not drawn yet. Draw with Claude in the bar above.')
+  );
+  if (!svg || !clean) return fig;
   let timer: ReturnType<typeof setTimeout> | undefined;
   const open = (delay: number) => {
     clearTimeout(timer);

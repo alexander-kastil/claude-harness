@@ -83,6 +83,46 @@ export function originsOf(claudeRoot: string): Map<string, SkillOrigin> {
   return origins;
 }
 
+/** A skill a marketplace plugin ships whose source is a GitHub repo: kept apart from `skills` because the plugin, not ~/.claude/skills, holds the copy. */
+export interface PluginLink {
+  name: string;
+  plugin: string;
+  /** The marketplace's name. */
+  market: string;
+  /** `owner/repo`. */
+  source: string;
+  url: string;
+  /** The command that stages the skill in an empty folder, which then holds `.claude/skills/<name>`; without it the repo's own skill folder is downloaded. */
+  stage?: string;
+  /** The source's version the plugin's copy was taken from. */
+  version?: string;
+  linkedAt?: string;
+  updatedAt?: string;
+}
+
+const linkKey = (plugin: string, name: string) => `${plugin}/${name}`;
+
+/** Every plugin-linked skill in the extension's record. */
+export function linksOf(claudeRoot: string): PluginLink[] {
+  const links = (read(recordFile(claudeRoot)) as { links?: Record<string, unknown> } | undefined)?.links ?? {};
+  return Object.values(links).filter((l): l is PluginLink => !!l && typeof l === 'object' && typeof (l as PluginLink).name === 'string' && typeof (l as PluginLink).plugin === 'string' && typeof (l as PluginLink).source === 'string');
+}
+
+/** Adds or updates one plugin-linked skill, keeping every other entry; the first link time survives an update. */
+export function recordLink(claudeRoot: string, link: PluginLink, now = new Date()): void {
+  const file = recordFile(claudeRoot);
+  const data = (read(file) ?? { version: VERSION, skills: {} }) as Record_ & { links?: Record<string, PluginLink> };
+  const stamp = now.toISOString();
+  const key = linkKey(link.plugin, link.name);
+  const before = data.links?.[key];
+  data.links = { ...data.links, [key]: { ...link, linkedAt: before?.linkedAt ?? stamp, updatedAt: stamp } };
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  const temp = `${file}.${process.pid}.tmp`;
+  fs.writeFileSync(temp, JSON.stringify(data, null, 2), 'utf8');
+  fs.renameSync(temp, file);
+  cache = undefined;
+}
+
 /** Drops one skill's entry from the extension's record (the skills CLI's lock is never touched). */
 export function forgetOrigin(claudeRoot: string, name: string): void {
   const file = recordFile(claudeRoot);

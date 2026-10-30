@@ -16,6 +16,7 @@ export const state: State = {
   draft: undefined,
   filter: saved.filter || '',
   overviewFilter: '',
+  fleetFilter: '',
   expanded: new Set(saved.expanded || []),
   listViews: Object.assign({ mcp: saved.mcpView, skill: saved.skillView }, saved.listViews),
   foldedGroups: new Set(saved.foldedGroups || []),
@@ -253,10 +254,16 @@ export const showPage = (page, extra) => {
   state.repo = undefined;
   if (page === 'init') state.init = { dir: extra, form: { summary: '', areas: [{ name: '', globs: '', owner: '' }], rules: '' }, data: undefined, result: undefined };
   if (page === 'fleet') vscode.postMessage({ type: 'fleet' });
-  if (page === 'marketplaces') vscode.postMessage({ type: 'marketplaces' });
+  if (page === 'marketplaces' || page === 'market') vscode.postMessage({ type: 'marketplaces' });
   if (page === 'init') vscode.postMessage({ type: 'initForm', dir: extra });
   if (state.detail) select(undefined);
   else render();
+};
+
+// One marketplace's page, opened from its row in the nav or its heading on the Plugins page; `back` names the page to return to.
+export const showMarket = (name, back) => {
+  state.marketPage = { name, back };
+  showPage('market');
 };
 
 export const CHECK = {

@@ -18,7 +18,7 @@ These commands change nothing. Run them with `--json` and report from the result
 | `mods --session latest\|previous\|<id> [--repo <dir>]` | `{session, mods: [{name, plugin, events, allowed, denied, held, context, failed, other, last}], denials: [{at, mod, decision, hook, reason}], applied}`; `decision` is `denied` or `held` |
 | `time [--repo <dir>] [--days <n>]` | `{ledger, window_days, window_hours, total_hours, days: [{date, sessions, hours, work}], applied}`; the last 14 days of `.time/working-time.md` by default, counted back from its newest day; exit 1 without a ledger |
 | `lessons [--repo <dir>] [--find <text>]` | `{file, find, total, entries: [{line, title, date}], applied}`; the `## ` entries of `tasks/lessons.md`, `--find` matches title and body; exit 1 without the file |
-| `sources` | `{skills: [{name, source, ref, version, installedAt, repos}], applied}`; the skills installed from a source and the repos they are linked into |
-| `sources check` | `{checked, newer, skills: [{name, source, state, installed, newerVersion, error}], applied}`; asks each source over the network; exit 1 when no source answers |
+| `sources` | `{skills: [{name, source, ref, version, installedAt, repos, plugin}], applied}`; the skills installed from a source and the repos they are linked into; `plugin` is the plugin that ships a plugin-linked skill, else null |
+| `sources check` | `{checked, newer, skills: [{name, source, plugin, state, installed, newerVersion, error}], applied}`; asks each source over the network (a plugin-linked skill: `newerVersion` is the newest release tag when higher than the recorded version); exit 1 when no source answers |
 | `complete --line "<command line>" [--position <n>] --json` | A JSON array of `{text, kind, description}` (no `applied`); `kind` is `command`, `flag` or `value` |
 | `completion powershell\|bash` | no JSON: prints the script a shell profile evaluates to register Tab completion for `harness` |

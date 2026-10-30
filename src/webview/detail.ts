@@ -9,7 +9,7 @@ import { hideHover } from './hover';
 import { renderMain } from './main';
 import { goBack, historyLabel } from './refs';
 import { slimOf } from './slim';
-import { canDraw, drawState, drawsWhat } from './drawing';
+import { canDraw, drawState, drawingId, drawsWhat } from './drawing';
 import { syncableFromGlobal, syncableMcp } from './sync';
 
 // The kinds Edit with Claude and Try it apply to.
@@ -298,6 +298,8 @@ function commandBar(d, dirty) {
     ? cmd('arrow-left', 'Back', `Back to ${historyLabel()}`, goBack)
     : state.page === 'kind' && state.kindPage
       ? cmd('arrow-left', 'Back', `Back to ${categoryOf(state.kindPage.kind) ? categoryOf(state.kindPage.kind).label : 'the list'}`, () => select(undefined))
+      : state.page === 'market' && state.marketPage
+        ? cmd('arrow-left', 'Back', `Back to ${state.marketPage.name}`, () => select(undefined))
       : !state.page && !state.repo && state.overviewFilter
         ? cmd('arrow-left', 'Back', 'Back to the search results on the home page', () => select(undefined))
         : null;
@@ -327,8 +329,8 @@ function commandBar(d, dirty) {
               cmd(
                 'brush',
                 running ? 'Drawing...' : drawn ? 'Redraw with Claude' : 'Draw with Claude',
-                `${drawn ? 'Redraw' : 'Draw'} with Claude\nClaude draws ${drawsWhat(a.kind)}, and the drawing shows above the details as soon as it is ready. It runs in the background and counts against your plan.${error ? `\nLast try failed: ${error}` : ''}`,
-                () => (hideHover(), vscode.postMessage({ type: 'drawAsset', id: a.id })),
+                `${drawn ? 'Redraw' : 'Draw'} with Claude\nClaude draws ${drawsWhat(a.kind)}, and each drawing shows above the details as soon as it is ready. It runs in the background and counts against your plan.${error ? `\nLast try failed: ${error}` : ''}`,
+                () => (hideHover(), vscode.postMessage({ type: 'drawAsset', id: drawingId(a) })),
                 { disabled: running }
               ),
               'draw'

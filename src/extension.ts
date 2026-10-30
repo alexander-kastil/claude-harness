@@ -10,7 +10,7 @@ import { consolidateApply, consolidatePlan, mergePrompt, routesOf } from './cons
 import type { ConsolidateRoute, ConsolidateTarget } from './shared/messages';
 import { FileEdit, fleetRow, guardInfo, guardReasons, lastSessionSteps, marketplaceHealth, renameCatalog, renameCommands, renameInSettings } from './fleet';
 import { huntHost } from './hunt-host';
-import { keyChanges, mcpApply, mcpConfig, mcpVersions, syncApply, syncFiles, syncSource, updatePluginFromMarket } from './sync';
+import { keyChanges, mcpApply, mcpConfig, mcpVersions, syncApply, syncFiles, syncSource, updateMarketPlugins, updatePluginFromMarket } from './sync';
 import { registerDistributor } from './dist-host';
 import { registerShare } from './share-host';
 import { EventSource, eventLayers, findEventSources, transcriptLayers } from './events';
@@ -75,7 +75,7 @@ import type { Progress } from './usage';
 import { hookRows, hookTarget } from './usage-hooks';
 import { registerQuota } from './quota';
 import { analyzeSkill, resolvePrompt, slimPrompt } from './slim';
-import { DRAW_SYSTEM, PROCESS_SUFFIX, PROCESS_SYSTEM, contentHash, drawPrompt, drawSource, drawable, extractSvg, processPrompt, processText, readDrawing, writeDrawing } from './drawing';
+import { DRAW_SYSTEM, MARKET_PREFIX, PROCESS_SUFFIX, PROCESS_SYSTEM, contentHash, drawPrompt, drawSource, drawable, extractSvg, marketProcessPrompt, marketProcessText, marketText, processPrompt, processSource, readDrawing, writeDrawing } from './drawing';
 import type { SlimReport } from './shared/slim';
 import { usageMore, usageRows, usageTarget, usageTotals } from './usage-rows';
 import type { UsageTarget } from './usage-rows';
@@ -128,6 +128,8 @@ export function activate(context: vscode.ExtensionContext): void {
   const drawingsDir = path.join(context.globalStorageUri.fsPath, 'drawings');
   // A plugin is drawn from its folder: the installed copy, or the source folder of a directory marketplace.
   const pluginDirOf = (asset: Asset) => (asset.kind === 'plugin' ? pluginDirs(global.root).find(p => p.key === asset.name)?.dir : undefined);
+  // A marketplace's page draws it under `market:<name>`, from the plugins it lists.
+  const marketToDraw = (id: string) => (id.startsWith(MARKET_PREFIX) ? marketplaceHealth(global.root).find(m => m.name === id.slice(MARKET_PREFIX.length)) : undefined);
   const usageIndex = new UsageIndex(path.join(context.globalStorageUri.fsPath, 'usage-index.json'));
   // The target of an element for the pages that read beyond the session list; an output style is matched by its frontmatter name.
   const targetOf = (asset: Asset): UsageTarget | undefined => usageTarget(asset, views, asset.kind === 'outputStyle' ? String(readMarkdown(asset.file).data.name ?? '') || undefined : undefined);
@@ -191,6 +193,8 @@ export function activate(context: vscode.ExtensionContext): void {
   // The work of a refresh, yielding after each repo it scans and each group of copies it compares. The views are built
   // on the side and swapped in at the end, so a click answered between two steps still finds the previous views whole.
   let refreshEpoch = 0;
+  // The marketplaces last sent to the panel, so a refresh that changed none of them sends nothing.
+  let postedMarkets: string | undefined;
   const refreshSteps = function* (): Generator<void> {
     const epoch = ++refreshEpoch;
     const folders = (vscode.workspace.workspaceFolders ?? []).map(f => f.uri.fsPath);
@@ -233,6 +237,12 @@ export function activate(context: vscode.ExtensionContext): void {
     for (const a of views.flatMap(v => v.categories.find(c => c.kind === 'plugin')?.items ?? [])) if (pluginIsMod(global.root, a.name)) a.description += ' · mod';
     tree.setCategories(views[0].categories, views.slice(1));
     HarnessPanel.update();
+    // The panel's nav lists the marketplaces: one added, removed or renamed, or a plugin installed from one, reaches it.
+    const markets = JSON.stringify(marketplaceHealth(global.root));
+    if (markets !== postedMarkets) {
+      postedMarkets = markets;
+      HarnessPanel.post({ type: 'marketplaces', list: JSON.parse(markets) });
+    }
     lensesChanged.fire();
   };
   /** For a change made by this extension: the views are current when it returns. */
@@ -669,34 +679,59 @@ export function activate(context: vscode.ExtensionContext): void {
     },
     drawing: id => {
       const process = id.endsWith(PROCESS_SUFFIX);
+      const market = marketToDraw(process ? id.slice(0, -PROCESS_SUFFIX.length) : id);
+      if (market) return readDrawing(drawingsDir, id, contentHash(process ? marketProcessText(market.plugins) : marketText(market.plugins)));
       const asset = find(process ? id.slice(0, -PROCESS_SUFFIX.length) : id);
       const dir = asset && pluginDirOf(asset);
-      const source = process ? (dir && asset.kind === 'plugin' ? { text: processText(dir) } : undefined) : asset && drawSource(asset, dir);
+      const source = asset && (process ? processSource(asset, dir) : drawSource(asset, dir));
       return source ? readDrawing(drawingsDir, id, contentHash(source.text)) : undefined;
     },
     drawAsset: async (id, answer, ask, started, done) => {
       const process = id.endsWith(PROCESS_SUFFIX);
       const base = process ? id.slice(0, -PROCESS_SUFFIX.length) : id;
+      // A marketplace is drawn like a plugin, in both perspectives, from the plugins its page lists.
+      const market = marketToDraw(base);
+      if (market) {
+        if (!market.plugins.length) return done(id, { error: 'The marketplace lists no plugins to draw.' });
+        const drawn = [id, process ? base : base + PROCESS_SUFFIX].map(drawId => {
+          const proc = drawId.endsWith(PROCESS_SUFFIX);
+          return { drawId, proc, text: proc ? marketProcessText(market.plugins) : marketText(market.plugins) };
+        });
+        if (!answer.confirmed && !context.globalState.get<boolean>('drawRemembered')) {
+          const chars = drawn.reduce((sum, s) => sum + Math.min(s.text.length, 30000), 0);
+          return ask({ kind: 'draw', id: base, name: market.name, file: market.location, chars, source: "the marketplace's plugins: their descriptions, the names of their parts, and the lines where one plugin names another", both: true });
+        }
+        if (answer.remember) await context.globalState.update('drawRemembered', true);
+        drawn.forEach(s => started(s.drawId));
+        for (const { drawId, proc, text } of drawn) {
+          const result = proc
+            ? await draftStyle(marketProcessPrompt(market.name, text), 'sonnet', os.tmpdir(), 300000, PROCESS_SYSTEM)
+            : await draftStyle(drawPrompt('market', market.name, text), 'sonnet', os.tmpdir(), 300000, DRAW_SYSTEM);
+          const svg = 'error' in result ? undefined : extractSvg(result.text);
+          if (svg) writeDrawing(drawingsDir, drawId, contentHash(text), svg);
+          done(drawId, svg ? { svg } : { error: 'error' in result ? result.error : 'Claude did not answer with an svg drawing.' });
+        }
+        return;
+      }
       const asset = find(base);
-      if (!asset || !drawable(asset.kind) || (process && asset.kind !== 'plugin')) return;
+      if (!asset || !drawable(asset.kind)) return;
       const dir = pluginDirOf(asset);
-      // A plugin is drawn in both perspectives, the shown one first, so one press fills the toggle's two sides.
-      const sources = (asset.kind === 'plugin' ? [id, process ? base : base + PROCESS_SUFFIX] : [id]).map(drawId => {
+      // Every element is drawn in both perspectives, the shown one first, so one press fills the toggle's two sides.
+      const sources = [id, process ? base : base + PROCESS_SUFFIX].map(drawId => {
         const proc = drawId.endsWith(PROCESS_SUFFIX);
-        const source = proc ? (dir && fs.existsSync(dir) ? { text: processText(dir), from: "the plugin's manifest, contents and hook modules" } : undefined) : drawSource(asset, dir);
-        return { drawId, proc, source };
+        return { drawId, proc, source: proc ? processSource(asset, dir) : drawSource(asset, dir) };
       });
       if (sources.some(s => !s.source)) return done(id, { error: 'Nothing on disk to draw from.' });
       if (!answer.confirmed && !context.globalState.get<boolean>('drawRemembered')) {
         const chars = sources.reduce((sum, s) => sum + Math.min(s.source!.text.length, 30000), 0);
-        return ask({ kind: 'draw', id: base, name: asset.name, file: asset.file, chars, source: sources[0].source!.from, both: sources.length > 1 });
+        return ask({ kind: 'draw', id: base, name: asset.name, file: asset.file, chars, source: sources.find(s => !s.proc)!.source!.from, both: true });
       }
       if (answer.remember) await context.globalState.update('drawRemembered', true);
       sources.forEach(s => started(s.drawId));
       for (const { drawId, proc, source } of sources) {
         const text = source!.text;
         const result = proc
-          ? await draftStyle(processPrompt(asset.name, text), 'sonnet', os.tmpdir(), 300000, PROCESS_SYSTEM)
+          ? await draftStyle(processPrompt(asset.kind, asset.name, text), 'sonnet', os.tmpdir(), 300000, PROCESS_SYSTEM)
           : await draftStyle(drawPrompt(asset.kind, asset.name, text), 'sonnet', os.tmpdir(), 300000, DRAW_SYSTEM);
         const svg = 'error' in result ? undefined : extractSvg(result.text);
         if (svg) writeDrawing(drawingsDir, drawId, contentHash(text), svg);
@@ -822,7 +857,7 @@ export function activate(context: vscode.ExtensionContext): void {
   };
 
   /** A sync question: a card in the panel pointing at what was pressed, the modal dialog from the palette or a tree menu. */
-  const askSync = async (arg: unknown, card: { title: string; sub: string; facts: string[]; action: string }): Promise<boolean> => {
+  const askSync = async (arg: unknown, card: { title: string; sub: string; facts: string[]; action: string; scroll?: boolean }): Promise<boolean> => {
     const inPanel = panelArg(arg) || (arg && typeof arg === 'object' && 'assetId' in arg) ? HarnessPanel.ask({ key: 'click', glyph: 'sync', ...card }) : undefined;
     return inPanel ? (await inPanel) === 'ok' : (await vscode.window.showWarningMessage(card.title, { modal: true, detail: card.facts.join('\n') }, card.action)) === card.action;
   };
@@ -871,6 +906,34 @@ export function activate(context: vscode.ExtensionContext): void {
       refresh();
       HarnessPanel.post({ type: 'marketplaces', list: marketplaceHealth(global.root) });
       void vscode.window.showInformationMessage(`${plugin.name} is now ${plugin.source}. Restart Claude Code sessions to use it.`);
+    } catch (e) {
+      void vscode.window.showErrorMessage((e as Error).message);
+    }
+  };
+
+  /** Every plugin of a marketplace whose source is ahead, after one card that lists them: the marketplace is refreshed once, then each plugin updated. */
+  const syncMarketplaceCommand = async (arg: unknown) => {
+    const name = arg && typeof arg === 'object' ? (arg as { market?: string }).market : typeof arg === 'string' ? arg : undefined;
+    const market = marketplaceHealth(global.root).find(m => m.name === name);
+    if (!market) return void vscode.window.showInformationMessage(`${name ?? 'That marketplace'} is not a registered marketplace.`);
+    const ahead = market.plugins.filter(p => p.ahead);
+    if (!ahead.length) return void vscode.window.showInformationMessage(`Every plugin of ${market.name} is current.`);
+    const count = `${ahead.length} ${ahead.length === 1 ? 'plugin' : 'plugins'}`;
+    const facts = [
+      ...ahead.map(p => `${p.name}: ${p.installed} to ${p.source}`),
+      `Runs claude plugin marketplace update ${market.name} once, then claude plugin update for each of them.`,
+      'Claude Code sessions that are open pick them up after a restart.',
+    ];
+    // The card lists every plugin, in a scrolling list when there are more than ten.
+    if (!(await askSync(arg, { title: `Sync ${count} from ${market.name}?`, sub: 'Every plugin whose source is ahead', facts, action: `Sync ${count}`, scroll: true }))) return;
+    try {
+      const result = await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: `Syncing ${count} from ${market.name}` }, progress =>
+        updateMarketPlugins(market.name, ahead.map(p => ({ key: p.key, want: p.source })), global.root, undefined, (key, done) => progress.report({ message: `${key.split('@')[0]} (${done + 1} of ${ahead.length})`, increment: 100 / ahead.length }))
+      );
+      refresh();
+      HarnessPanel.post({ type: 'marketplaces', list: marketplaceHealth(global.root) });
+      if (!result.failed.length) void vscode.window.showInformationMessage(`Synced ${count} from ${market.name}. Restart Claude Code sessions to use them.`);
+      else void vscode.window.showErrorMessage(`Synced ${result.synced.length} of ${ahead.length} from ${market.name}. ${result.failed.map(f => f.error).join(' ')}`);
     } catch (e) {
       void vscode.window.showErrorMessage((e as Error).message);
     }
@@ -1014,6 +1077,15 @@ export function activate(context: vscode.ExtensionContext): void {
     },
   };
 
+  // Switching to the Claude Harness view in the activity bar opens the main panel, unless it is already open.
+  const treeView = vscode.window.createTreeView('claudeHarness.tree', { treeDataProvider: tree, showCollapseAll: true });
+  context.subscriptions.push(
+    treeView,
+    treeView.onDidChangeVisibility(e => {
+      if (e.visible) HarnessPanel.ensure(context, host);
+    })
+  );
+
   context.subscriptions.push(
     ...registerQuota({ root: () => global.root, state: context.globalState }),
     ...registerShare({ root: () => global.root, scopes: () => scopes, assetOf, refresh, backupRoot }),
@@ -1050,7 +1122,6 @@ export function activate(context: vscode.ExtensionContext): void {
       edit.replace(uri, new vscode.Range(doc.positionAt(start), doc.positionAt(old.length - end)), next.slice(start, next.length - end));
       await vscode.workspace.applyEdit(edit);
     }),
-    vscode.window.createTreeView('claudeHarness.tree', { treeDataProvider: tree, showCollapseAll: true }),
     { dispose: () => watcher?.dispose() },
     vscode.workspace.onDidChangeConfiguration(e => {
       if (e.affectsConfiguration('claudeHarness.repoFolders') || e.affectsConfiguration('claudeHarness.removedRepos')) {
@@ -1559,6 +1630,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
     vscode.commands.registerCommand('claudeHarness.syncFromGlobal', syncFromGlobal),
     vscode.commands.registerCommand('claudeHarness.syncPlugin', syncPluginCommand),
+    vscode.commands.registerCommand('claudeHarness.syncMarketplace', syncMarketplaceCommand),
     vscode.commands.registerCommand('claudeHarness.syncMcp', syncMcp),
 
     // From the tree: the target is picked when there is more than one, and the native dialog asks, like the other destructive tree commands.

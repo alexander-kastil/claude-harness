@@ -1,4 +1,4 @@
-# Fleet overview
+# GitHub Repo overview
 
 <table width="100%" border="1" cellpadding="10" cellspacing="0">
 <tr>
@@ -8,9 +8,13 @@
 </tr>
 </table>
 
-The Fleet overview shows every repo in one table. Use it to compare line counts, plugins and copies. Clicking a row opens that repo's page. Provider features appear when a harness standard provider plugin is installed.
+The GitHub Repo overview shows every repo in one table. Use it to compare line counts, plugins and copies. Clicking a row opens that repo's page. Provider features appear when a harness standard provider plugin is installed.
 
-![Fleet overview table with one row per repo](images/fleet-overview.png)
+![GitHub Repo overview table with one row per repo](images/fleet-overview.png)
+
+## Search
+
+The search box above the table filters the repos by name or path as you type. When no repo matches, the page says so.
 
 ## Columns
 
@@ -29,18 +33,18 @@ The Fleet overview shows every repo in one table. Use it to compare line counts,
 | Retire clean copies | Starts [Retire Clean Copies](duplicates.md#retire-clean-copies) |
 | Reload | Reloads the table |
 
-## Open the Fleet overview
+## Open the GitHub Repo overview
 
-- The dashboard icon in the main window sidebar header.
-- The dashboard icon in the activity bar title bar, before Open Claude Here, and on the **Repositories** node.
-- **Claude Harness: Fleet Overview** in the command palette.
+- The GitHub icon in the main window sidebar header.
+- The GitHub icon in the activity bar title bar, before Open Claude Here, and on the **Repositories** node.
+- **Claude Harness: GitHub Repo Overview** in the command palette.
 
 ---
 
 <table width="100%" border="1" cellpadding="10" cellspacing="0">
 <tr>
 <td align="left"><a href="bulk-edits.md">← Back to Bulk-edit guard</a></td>
-<td align="center"><a href="#fleet-overview">↑ Back to top</a></td>
+<td align="center"><a href="#github-repo-overview">↑ Back to top</a></td>
 <td align="right"><a href="rules-editor.md">→ Next: Rules editor</a></td>
 </tr>
 </table>

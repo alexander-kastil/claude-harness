@@ -153,13 +153,16 @@ export interface PluginInventory {
 export function pluginInventory(dir: string): PluginInventory {
   const files = filesIn(dir);
   const count = (re: RegExp) => files.filter(f => re.test(f)).length;
-  const hooksFile = readJson(path.join(dir, 'hooks', 'hooks.json')).hooks ?? readJson(path.join(dir, '.claude-plugin', 'hooks.json')).hooks ?? {};
+  const hooksJson = readJson(path.join(dir, 'hooks', 'hooks.json'));
+  const hooksFile = hooksJson.hooks ?? readJson(path.join(dir, '.claude-plugin', 'hooks.json')).hooks ?? {};
+  // A mod plugin lists hook modules (`../mods/<mod>/register.ts`) instead of hook groups; each module counts as one hook.
+  const modules = Array.isArray(hooksJson.modules) ? hooksJson.modules.length : 0;
   const mcp = readJson(path.join(dir, '.mcp.json'));
   return {
     skills: count(/^skills\/[^/]+\/SKILL\.md$/),
     agents: count(/^agents\/.+\.md$/),
     commands: count(/^commands\/.+\.md$/),
-    hooks: Object.values(hooksFile as Record<string, unknown[]>).reduce((n, groups) => n + (Array.isArray(groups) ? groups.length : 0), 0),
+    hooks: modules + Object.values(hooksFile as Record<string, unknown[]>).reduce((n, groups) => n + (Array.isArray(groups) ? groups.length : 0), 0),
     mcp: Object.keys(mcp.mcpServers ?? mcp ?? {}).filter(k => k !== 'mcpServers').length,
     styles: count(/^output-styles\/.+\.md$/),
     files: files.length,

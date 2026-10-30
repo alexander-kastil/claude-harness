@@ -14,7 +14,7 @@ const write = (root: string, rel: string, text: string) => {
 };
 const agent = (name: string, description: string, body = 'Body', extra = '') => `---\nname: ${name}\ndescription: ${description}\n${extra}---\n\n${body}\n`;
 
-/** A fake delegation plugin: hooks/route.mjs exports its routing pattern, "manual-only"; scripts/route.mjs prints a fixed object with what it was given. */
+/** A fake delegation plugin: mods/orchestration/route.mjs (hooks/route.mjs in older copies) exports its routing pattern, "manual-only"; scripts/route.mjs prints a fixed object with what it was given. */
 const GATED_JS = 'export const GATED = /manual-only/i;\n';
 const ROUTE_JS = `const at = flag => process.argv[process.argv.indexOf(flag) + 1];
 const prompt = at('--prompt');
@@ -32,7 +32,7 @@ console.log(JSON.stringify({
  * A fake Claude folder: Global has helper, shared and moved agents; a repo has shared (identical), moved (changed),
  * routed (gated by its routing.json) and flagged (gated by its frontmatter); the helpers plugin has plugged (gated by the router's pattern).
  */
-function fixture(withRouter = true) {
+function fixture(withRouter = true, gatedAt = 'hooks/route.mjs') {
   const root = tmp('root');
   const repo = tmp('repo');
   const userConfig = path.join(tmp('cfg'), '.claude.json');
@@ -41,10 +41,10 @@ function fixture(withRouter = true) {
   const source = path.join(market, 'plugins', 'agent-control-plugin');
   const helpers = path.join(root, 'plugins', 'cache', 'helpers');
   // The cache copy predates scripts/route.mjs; the directory source has both files.
-  if (withRouter) write(router, 'hooks/route.mjs', GATED_JS);
+  if (withRouter) write(router, gatedAt, GATED_JS);
   else write(router, 'README.md', 'no route script\n');
   if (withRouter) {
-    write(source, 'hooks/route.mjs', GATED_JS);
+    write(source, gatedAt, GATED_JS);
     write(source, 'scripts/route.mjs', ROUTE_JS);
   }
   write(market, '.claude-plugin/marketplace.json', JSON.stringify({ name: 'own', plugins: [{ name: 'agent-control-plugin', source: './plugins/agent-control-plugin' }] }));
@@ -118,6 +118,13 @@ test('the plugin gate comes from the router pattern; without a route.mjs only th
   assert.equal(o.counts.gated, 2);
 });
 
+test('the plugin gate is read from mods/orchestration/route.mjs as well as the older hooks/route.mjs', async () => {
+  const f = fixture(true, 'mods/orchestration/route.mjs');
+  const o = JSON.parse((await cli(['agents', 'list', '--json', ...f.base])).out) as AgentsListOut;
+  assert.equal(o.agents.find(a => a.name === 'plugged')!.gated, true);
+  assert.equal(fs.existsSync(path.join(f.source, 'hooks', 'route.mjs')), false);
+});
+
 test('agents route runs route.mjs with the prompt as one argument and emits its object with applied false', async () => {
   const f = fixture();
   const prompt = 'docs; echo hacked && rm -rf x';
@@ -169,7 +176,7 @@ test('agents route without an installed router exits 1 and names it', async () =
   fs.rmSync(path.join(f.root, 'plugins', 'known_marketplaces.json'));
   const r = await cli(['agents', 'route', 'docs', ...f.base]);
   assert.equal(r.code, 1);
-  assert.match(r.err, /agent-control-plugin is not installed/);
+  assert.match(r.err, /agentic-orchestration is not installed/);
 });
 
 test('agents route with a router that has no scripts/route.mjs exits 1 and names the file', async () => {

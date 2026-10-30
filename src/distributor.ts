@@ -4,6 +4,7 @@
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
+import { compareVersions } from './fleet';
 import { parseMarkdown, versionOf } from './harness';
 import { SkillOrigin, forgetOrigin, originsOf, recordOrigin } from './skill-lock';
 
@@ -287,6 +288,20 @@ export async function latest(items: { name: string; origin: SkillOrigin }[]): Pr
     })
   );
   return out;
+}
+
+/** The newest release tag of a repo (its latest release, else the highest version among its tags) without a leading `v`, or undefined when it has neither. */
+export async function latestTag(owner: string, repo: string): Promise<string | undefined> {
+  const plain = (t: unknown) => (typeof t === 'string' ? t.replace(/^v(?=\d)/i, '') : undefined);
+  const release = await get(`https://api.github.com/repos/${owner}/${repo}/releases/latest`);
+  if (release.ok) {
+    const tag = plain(((await release.json()) as { tag_name?: string }).tag_name);
+    if (tag) return tag;
+  } else if (release.status !== 404) throw new Error(`GitHub answered ${release.status} for the releases of ${owner}/${repo}.`);
+  const tags = await get(`https://api.github.com/repos/${owner}/${repo}/tags?per_page=100`);
+  if (!tags.ok) throw new Error(`GitHub answered ${tags.status} for the tags of ${owner}/${repo}.`);
+  const names = ((await tags.json()) as { name?: string }[]).map(t => plain(t.name)).filter((t): t is string => !!t && /^\d+\.\d+/.test(t));
+  return names.sort(compareVersions).pop();
 }
 
 const filesOf = (dir: string): string[] =>

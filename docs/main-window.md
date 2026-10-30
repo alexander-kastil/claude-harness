@@ -15,21 +15,23 @@ The main window shows your global harness and each repository in one place. The 
 | Method | Result |
 | --- | --- |
 | **Claude Harness** in the status bar (bottom bar) | Opens the main window |
-| Claude Harness icon in the activity bar | Opens the activity bar view. Click an item there to open it in the main window. |
+| Claude Harness icon in the activity bar | Opens the activity bar view, and the main window too when it is not open. Click an item there to open it in the main window. |
 | **Claude Harness: Open Claude Harness** in the command palette | Opens the main window |
 | Ctrl+Alt+A | Opens the main window |
 
 ## Sidebar
 
-The sidebar has a search box and five buttons in its header:
+The sidebar has a search box and five buttons in its header: first the pages, in the order of the sidebar from top to bottom, then the actions.
 
 | Control | What it does |
 | --- | --- |
 | Overview (home icon) | Shows the overview page |
-| Fleet overview (dashboard icon) | Shows one table of every repo. See [Fleet overview](fleet-overview.md). |
 | Marketplace health (package icon) | Shows the marketplaces and their plugins. See [Marketplace health](marketplace-health.md). |
+| GitHub Repo overview (GitHub icon) | Shows one table of every repo, with a search box. See [GitHub Repo overview](fleet-overview.md). |
 | New (plus icon) | Creates an item. See [Editing](editing.md#create-rename-duplicate-and-delete). |
 | Refresh | Reloads the harness and the MCP server list |
+
+The global sections come in this order: **Memory**, **Rules**, **Settings**, **Output Styles**, then **Agents**, **Skills**, **Commands**, **Workflows**, **MCP Servers**, then **Hooks**, **Mods**, **Plugins** and **Marketplaces**. That is what every session loads, what Claude calls, what runs on its own, and where packaged parts come from. **Marketplaces** lists every marketplace Claude Code knows; a row opens the marketplace's page and the header opens Marketplace health. See [Marketplace page](marketplace-health.md#marketplace-page). The sections of a repo keep their own order.
 
 The sidebar is a tree you can use from the keyboard. Tab moves into it, then Up and Down move between rows, Home and End jump to the first and last row, Right opens a section or moves into it, Left closes it or moves to its parent, and Enter opens the row. Space folds or unfolds a section. The row you open is scrolled into view, and Overview (the home icon) opens the overview with an empty search box.
 
@@ -47,11 +49,13 @@ A repo page has four tabs: **Overview**, with one tile for each section (in the 
 
 Right-clicking a row in the main window's tables and sidebar opens the same kind of menu: besides Open, Rename and Duplicate it can offer **Share...**, **Sync**, **Sync from Global...**, **Sync to Other Copies...** or **Sync Plugin from Its Marketplace...**, each only where it applies. Under each name, the sidebar row has a second line of at most three facts for its kind: when it changed, how often it was used and its size or state. Each fact has a hover card.
 
+Actions that start Claude sit in a Claude group, a box led by the Claude mark with one button per action. On every bar of the main window, page headers and command bars alike, the Claude group is the last item, at the right end, also when the bar wraps. Buttons inside a table row or a card stay where they are.
+
 ## Overview
 
 The overview shows the number of global assets and repositories. It has one tile for each global section, on one line: the icon, the label and the count beside them. A count of zero is dimmed. Click a tile to open that section's type page: its items, with a search box and filters.
 
-Below the tiles, three tabs, and under them the search box. The tab you picked last is remembered. While you search, the results replace the list of the open tab; clear the search to bring the list back.
+Below the tiles, three tabs, and under them the search box. The tab you picked last is remembered. At the right end of the tabs row, the Claude group holds **Plugin Hunter** (telescope icon), which opens the [Plugin Hunter](plugins.md#plugin-hunter). While you search, the results replace the list of the open tab; clear the search to bring the list back.
 
 - **Last sessions** (the default tab): the newest sessions across all repos, newest first: at least 10, and as many as fit the panel height, up to 100. Each row shows the title (the first prompt), the repository, the branch, the start, the duration, the number of agents and whether the session is live or headless. Click a row to open the session.
 - **Repositories** (the tab shows the repo count): one row per repo, across the full width, in columns: its memory, rules, agents, skills and MCP counts, the sessions of the last 7 days, the cost of the last 7 days and the time since its last session. Click a row to open the repo. Below about 620 px wide only the three 7-day columns remain. For the cost and the plan limits behind them, see [Last 7 days](sessions.md#last-7-days).
@@ -77,7 +81,7 @@ The activity bar view shows the global harness as a tree. Expand a section to se
 | Click an item | Opens it in the main window |
 | Right-click an item | Opens the file, reveals it, and for editable items renames, duplicates or deletes it. **Share...** saves most kinds as a file, and a skill with a source offers **Sync**. See [Share and Import](commands.md#share-and-import). |
 | Plugin row button | Enables or disables the plugin. See [Plugins](plugins.md). |
-| Title bar buttons | Open the main window, create an item, refresh, open the Fleet overview and open Claude Here |
+| Title bar buttons | Open the main window, create an item, refresh, open the GitHub Repo overview and open Claude Here |
 
 ---
 

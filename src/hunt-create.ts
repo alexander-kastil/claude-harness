@@ -29,7 +29,7 @@ export interface CreateCtx {
 
 export interface CreatePlan {
   /** The ride-along files, resolved and checked. */
-  extra?: { from: string; to: string; drop: boolean }[];
+  extra?: { from: string; to: string; drop: boolean; content?: string }[];
   problems: string[];
   /** Every file written, relative to the marketplace folder. */
   files: string[];
@@ -102,10 +102,11 @@ export function planCreate(p: HuntProposal, ctx: CreateCtx): CreatePlan {
     else if (!to || to.startsWith('/') || to.split('/').includes('..')) problems.push(`${f.to} is not a path inside the plugin.`);
     else {
       plan.extra.push({ from, to, drop: !!f.drop });
-      plan.files.push(rel(...to.split('/')));
       if (f.drop) plan.retired.push(`file ${from}`);
     }
   }
+  plan.extra = modLayout(plan.extra);
+  for (const f of plan.extra) plan.files.push(rel(...f.to.split('/')));
   plan.files.push(`${path.basename(ctx.market.location)}/.claude-plugin/marketplace.json (adds ${p.name})`);
   return plan;
 }
@@ -203,7 +204,7 @@ const bumpPatch = (v: string) => {
  * A plugin's patch bump: from plugin.json's version or the catalog entry's, the higher; written where either carries one, and in the
  * marketplace repo's package.json and lock file when they were in step with it. Each file changed is a row of `plan.files`.
  */
-function planBump(name: string, entries: Entry[], ctx: CreateCtx, plan: CreatePlan): Bump {
+export function planBump(name: string, entries: Entry[], ctx: CreateCtx, plan: CreatePlan): Bump {
   const entry = entries.findIndex(e => e.name === name);
   const source = String(entries[entry]?.source ?? '');
   const bump: Bump = { name, dir: path.resolve(ctx.market.location, source), entry, from: null, version: null };
@@ -230,7 +231,7 @@ function planBump(name: string, entries: Entry[], ctx: CreateCtx, plan: CreatePl
 }
 
 /** Writes the version bumps into plugin.json, the catalog entries and a package.json in step; returns the files as they were, for an undo. */
-function writeVersions(bumps: Bump[], market: HuntMarket): { file: string; text: string }[] {
+export function writeVersions(bumps: Bump[], market: HuntMarket): { file: string; text: string }[] {
   const places = new Map<string, { at: (string | number)[]; value: string }[]>();
   const put = (file: string, at: (string | number)[], value: string) => places.set(file, [...(places.get(file) ?? []), { at, value }]);
   for (const b of bumps) {
@@ -358,7 +359,8 @@ export async function writePlugin(p: HuntProposal, plan: CreatePlan, market: Hun
     await copyElements(plan);
     for (const f of plan.extra ?? []) {
       await fs.promises.mkdir(path.dirname(path.join(plan.dir, f.to)), { recursive: true });
-      await fs.promises.copyFile(f.from, path.join(plan.dir, f.to));
+      if (f.content !== undefined) await fs.promises.writeFile(path.join(plan.dir, f.to), f.content);
+      else await fs.promises.copyFile(f.from, path.join(plan.dir, f.to));
     }
     const edits = modify(catalogText, ['plugins', entries.length], { name: p.name, source: plan.source, description: p.description }, { isArrayInsertion: true, formattingOptions: format(catalogText) });
     await fs.promises.writeFile(catalogFile, applyEdits(catalogText, edits));
@@ -366,6 +368,78 @@ export async function writePlugin(p: HuntProposal, plan: CreatePlan, market: Hun
     await fs.promises.rm(plan.dir, { recursive: true, force: true });
     throw e;
   }
+}
+
+const MOD_EXT = /\.(mjs|cjs|js|ts|mts)$/i;
+const IMPORT_RE = /(?:\bfrom\s*|\bimport\s*\(?\s*|\brequire\s*\(\s*)(['"])(\.{1,2}\/[^'"]+)\1/g;
+
+/** The file a relative import specifier names, trying the spelled name, a .ts source for a .js import, and an extension. */
+function importedFile(fromFile: string, spec: string): string | undefined {
+  const base = path.resolve(path.dirname(fromFile), spec);
+  const candidates = [base, base.replace(/\.m?js$/i, '.ts'), base.replace(/\.mjs$/i, '.mts'), ...['.mjs', '.js', '.ts'].map(e => base + e)];
+  return candidates.find(c => fs.existsSync(c) && fs.statSync(c).isFile());
+}
+
+/**
+ * The mods layout: a ride-along that is a hook module (listed under "modules" by a ride-along hooks.json, or a script that
+ * targets hooks/<name>.<ext> beside such a hooks.json) lands at mods/<name>/<file>, the files it imports by relative path
+ * go into the same folder, and hooks/hooks.json is written with "modules": ["../mods/<name>/<file>"]. A command-hook
+ * hooks.json and an .mcp.json stay where they were placed.
+ */
+export function modLayout(extra: NonNullable<CreatePlan['extra']>): NonNullable<CreatePlan['extra']> {
+  const isHooksJson = (e: { to: string }) => /(^|\/)hooks\/hooks\.json$/.test(e.to) || e.to === 'hooks.json';
+  const manifest = extra.find(e => {
+    if (!isHooksJson(e)) return false;
+    try {
+      return Array.isArray((parseJsonc(fs.readFileSync(e.from, 'utf8')) as { modules?: unknown })?.modules);
+    } catch {
+      return false;
+    }
+  });
+  if (!manifest) return extra;
+  const json = parseJsonc(fs.readFileSync(manifest.from, 'utf8')) as { modules: unknown[] } & Record<string, unknown>;
+  const listed = json.modules.map(String);
+  const sourceOf = (m: string) => path.resolve(path.dirname(manifest.from), m);
+  const out = extra.filter(e => e !== manifest);
+  const modules: { entry: string; file: typeof extra[number] | undefined }[] = listed.map(entry => ({ entry, file: out.find(e => path.resolve(e.from).toLowerCase() === sourceOf(entry).toLowerCase() && MOD_EXT.test(e.to)) }));
+  // A script placed at hooks/<name>.<ext> beside the manifest is a module too, listed if the manifest does not name it.
+  for (const e of out)
+    if (/^hooks\/[^/]+$/.test(e.to) && MOD_EXT.test(e.to) && !modules.some(m => m.file === e)) modules.push({ entry: '', file: e });
+  const laid: NonNullable<CreatePlan['extra']> = [];
+  const taken = new Set<typeof extra[number]>();
+  const entries: string[] = [];
+  for (const m of modules) {
+    if (!m.file) {
+      entries.push(m.entry);
+      continue;
+    }
+    const file = m.file;
+    const name = path.posix.basename(file.to).replace(MOD_EXT, '');
+    const dir = `mods/${name}`;
+    taken.add(file);
+    laid.push({ ...file, to: `${dir}/${path.posix.basename(file.to)}` });
+    entries.push(`../${dir}/${path.posix.basename(file.to)}`);
+    const seen = new Set([path.resolve(file.from).toLowerCase()]);
+    const queue = [path.resolve(file.from)];
+    while (queue.length) {
+      const at = queue.shift()!;
+      for (const spec of [...fs.readFileSync(at, 'utf8').matchAll(IMPORT_RE)].map(x => x[2])) {
+        const dep = importedFile(at, spec);
+        if (!dep || seen.has(dep.toLowerCase())) continue;
+        seen.add(dep.toLowerCase());
+        queue.push(dep);
+        const inside = path.relative(path.dirname(file.from), dep).split(path.sep).join('/');
+        const to = `${dir}/${inside.startsWith('..') ? path.basename(dep) : inside}`;
+        const placed = out.find(e => path.resolve(e.from).toLowerCase() === dep.toLowerCase());
+        if (placed) taken.add(placed);
+        if (!laid.some(l => l.to === to)) laid.push({ from: dep, to, drop: placed?.drop ?? false });
+      }
+    }
+  }
+  const hooksTo = isHooksJson(manifest) ? manifest.to : 'hooks/hooks.json';
+  const written = { ...json, modules: entries };
+  return [{ from: manifest.from, to: hooksTo, drop: manifest.drop, content: `${JSON.stringify(written, null, 2)}
+` }, ...out.filter(e => !taken.has(e)), ...laid];
 }
 
 export interface CliResult {

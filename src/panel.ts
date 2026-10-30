@@ -87,7 +87,7 @@ export interface PanelHost {
   /** The stored drawing of an element when it was made from its source as it is now (a skill's SKILL.md, a plugin's folder). */
   drawing?(id: string): string | undefined;
   /**
-   * Has the user's claude draw what the element is and stores it; asks first. A plugin is drawn in both perspectives, whichever the
+   * Has the user's claude draw what the element is and stores it; asks first. Every element is drawn in both perspectives, whichever the
    * id names: `started` fires for each drawing as the run begins, `done` for each as it is ready or fails.
    */
   drawAsset?(id: string, answer: Answer, ask: (c: Confirm) => void, started: (id: string) => void, done: (id: string, result: { svg: string } | { error: string }) => void): Promise<void>;
@@ -143,6 +143,11 @@ export class HarnessPanel {
   static updateChecks(): void {
     const panel = HarnessPanel.current;
     panel?.post({ type: 'checks', checks: panel.host.checks?.() ?? {} });
+  }
+
+  /** Opens the panel when it is not open yet; an open panel is left where it is. */
+  static ensure(context: vscode.ExtensionContext, host: PanelHost): void {
+    if (!HarnessPanel.current) HarnessPanel.show(context, host);
   }
 
   static showPage(context: vscode.ExtensionContext, host: PanelHost, page: Page): void {
@@ -626,8 +631,8 @@ export class HarnessPanel {
           return;
         }
         // These ask in the panel; the same commands from the left nav or a tree menu keep their dialog.
-        if (['delete', 'uninstallPlugin', 'retire', 'retireCopies', 'addSkillFromUrl', 'connectSkillSource', 'updateSkill', 'linkSkillToRepo', 'share', 'syncFromGlobal', 'syncPlugin', 'syncMcp'].includes(m.command) || /^import[A-Z]/.test(m.command)) {
-          await vscode.commands.executeCommand(`claudeHarness.${m.command}`, { fromPanel: true, id: m.id, scope: m.scope, plugin: m.plugin });
+        if (['delete', 'uninstallPlugin', 'retire', 'retireCopies', 'addSkillFromUrl', 'connectSkillSource', 'updateSkill', 'linkSkillToRepo', 'share', 'syncFromGlobal', 'syncPlugin', 'syncMarketplace', 'syncMcp'].includes(m.command) || /^import[A-Z]/.test(m.command)) {
+          await vscode.commands.executeCommand(`claudeHarness.${m.command}`, { fromPanel: true, id: m.id, scope: m.scope, plugin: m.plugin, market: m.market });
           return;
         }
         await vscode.commands.executeCommand(`claudeHarness.${m.command}`, m.id ?? m.market ?? (m.kind || m.scope ? { kind: m.kind, scope: m.scope } : undefined));

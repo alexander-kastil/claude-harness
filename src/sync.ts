@@ -76,13 +76,43 @@ export const installedVersion = (root: string, key: string): string | undefined 
   return (list.find(e => e.scope === 'user') ?? list[0])?.version;
 };
 
-/** Refreshes the marketplace, then updates the plugin from it. Throws with the CLI's last line when it does not end on `want`. */
-export async function updatePluginFromMarket(key: string, market: string, want: string | undefined, root: string, run: (args: string[], root: string) => Promise<CliResult> = runClaude): Promise<void> {
+/** Refreshes a marketplace from its source. Throws with the CLI's last line when it fails. */
+export async function refreshMarket(market: string, root: string, run: (args: string[], root: string) => Promise<CliResult> = runClaude): Promise<void> {
   const refreshed = await run(['plugin', 'marketplace', 'update', market], root);
   if (refreshed.code !== 0) throw new Error(`claude plugin marketplace update ${market} failed: ${lastLine(refreshed)}`);
+}
+
+/** Updates a plugin from its marketplace as last refreshed. Throws with the CLI's last line when it does not end on `want`. */
+export async function updatePlugin(key: string, want: string | undefined, root: string, run: (args: string[], root: string) => Promise<CliResult> = runClaude): Promise<void> {
   const updated = await run(['plugin', 'update', key], root);
   const now = installedVersion(root, key);
   if (updated.code !== 0 || (want && now !== want)) throw new Error(`claude plugin update ${key} failed: ${lastLine(updated)}${now ? ` (installed ${now})` : ''}`);
+}
+
+/** Refreshes the marketplace, then updates the plugin from it. Throws with the CLI's last line when it does not end on `want`. */
+export async function updatePluginFromMarket(key: string, market: string, want: string | undefined, root: string, run: (args: string[], root: string) => Promise<CliResult> = runClaude): Promise<void> {
+  await refreshMarket(market, root, run);
+  await updatePlugin(key, want, root, run);
+}
+
+/**
+ * Syncs every plugin of a marketplace whose source is ahead: one refresh of the marketplace, then one update per plugin. A plugin
+ * that fails does not stop the others; the failures come back with the CLI's last line each.
+ */
+export async function updateMarketPlugins(market: string, plugins: { key: string; want?: string }[], root: string, run: (args: string[], root: string) => Promise<CliResult> = runClaude, step?: (key: string, done: number) => void): Promise<{ synced: string[]; failed: { key: string; error: string }[] }> {
+  await refreshMarket(market, root, run);
+  const synced: string[] = [];
+  const failed: { key: string; error: string }[] = [];
+  for (const p of plugins) {
+    step?.(p.key, synced.length + failed.length);
+    try {
+      await updatePlugin(p.key, p.want, root, run);
+      synced.push(p.key);
+    } catch (e) {
+      failed.push({ key: p.key, error: (e as Error).message });
+    }
+  }
+  return { synced, failed };
 }
 
 const lastLine = (r: CliResult) => r.out.split('\n').filter(Boolean).slice(-1)[0] ?? `exit ${r.code}`;
