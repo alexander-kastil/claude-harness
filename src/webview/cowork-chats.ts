@@ -56,7 +56,7 @@ function chatsNode(list, q, { treeItem }) {
           el('span', { className: 'count' }, state.coworkChats === null ? '...' : n)
         ),
         `n|cowork|${id}`,
-        1
+        2
       )
     );
     if (!q) continue;

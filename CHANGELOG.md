@@ -14,6 +14,11 @@ All notable changes to Claude Harness are listed here, newest first. The format 
 
 - Top-align chat history in all chats: Every chat is now top-aligned, with the composer pinned at the bottom and the empty space between
 
+### Fixed
+
+- Fix left nav group headers and rows: Progress: 6/6 · report
+
+
 
 ## [0.15.0] - 2026-10-30
 

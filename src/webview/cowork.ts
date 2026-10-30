@@ -40,14 +40,14 @@ export function renderCoworkRegion(view, q, renderCategories, treeItem, render, 
   );
   region.append(head);
   if (folded) return region;
-  renderCategories(region, { ...view, categories: view.categories.filter(c => c.items.length) }, q, false);
+  renderCategories(region, { ...view, categories: view.categories.filter(c => c.items.length) }, q, true);
   for (const node of COWORK_NODES) node(region, q, { treeItem, render });
   region.append(
     ...links.map(l =>
       treeItem(
         el('div', { className: 'row cowork-link', title: `${l.label}\n${l.tip}`, onclick: () => command('openCowork', { target: l.target }) }, icon(l.glyph), el('span', { className: 'name' }, l.label), icon('link-external')),
         `l|cowork|${l.id}`,
-        1
+        2
       )
     )
   );

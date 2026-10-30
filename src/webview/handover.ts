@@ -211,7 +211,7 @@ export function renderHandover() {
   const split = el('div', { className: 'hunt-split' }, inbox(), h.card ? card() : el('div', { className: 'hunt-col hunt-col-find hv-card' }, el('div', { className: 'hunt-col-head' }, icon('arrow-swap'), el('span', {}, 'Handover card')), el('div', { className: 'empty flush' }, 'Pick a source from the inbox.')));
   const c = h.card;
   const draft = confirmAt(
-    cmd('sparkle', h.drafting ? 'Drafting...' : 'Draft with Claude', 'Draft with Claude\nClaude reads the snapshot and the file names and drafts the task, the rules the chat set, and what exists and what is still to write. It counts against your plan.', () => ((h.draftError = ''), vscode.postMessage({ type: 'handoverDraft', card: cardOf(c) })), { disabled: !c || h.drafting }),
+    cmd('sparkle', h.drafting ? 'Drafting...' : 'Draft', 'Draft\nClaude reads the snapshot and the file names and drafts the task, the rules the chat set, and what exists and what is still to write. It counts against your plan.', () => ((h.draftError = ''), vscode.postMessage({ type: 'handoverDraft', card: cardOf(c) })), { disabled: !c || h.drafting }),
     'handoverDraft',
     'draft'
   );
@@ -275,7 +275,7 @@ function handoverNode(list, q, { treeItem }) {
     treeItem(
       el('div', { className: `row cowork-link${!state.detail && state.page === PAGE ? ' selected' : ''}`, title: 'Handover\nHand a chat, an artifact link or a file of the apps to Claude Code in a terminal: Claude drafts the card, you tick what comes along.', onclick: () => showHandover() }, icon('arrow-swap'), el('span', { className: 'name' }, 'Handover')),
       'n|cowork|handover',
-      1
+      2
     )
   );
 }

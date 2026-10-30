@@ -489,18 +489,19 @@ pre.json {
   color: var(--vscode-descriptionForeground);
 }
 
+/* A region head is a top-level head like the section heads: same height, indent, weight, case and background, with no gap before it. */
 .scope-head {
   display: flex;
   align-items: center;
   gap: 4px;
-  margin-top: 14px;
-  padding: 6px 8px 4px 12px;
+  height: 30px;
+  padding: 0 8px 0 4px;
   font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
+  font-weight: 700;
   text-transform: uppercase;
-  color: var(--vscode-sideBarTitle-foreground, var(--vscode-foreground));
-  border-top: 1px solid var(--vscode-sideBar-border, var(--vscode-panel-border));
+  color: var(--vscode-sideBarSectionHeader-foreground, var(--vscode-foreground));
+  background: var(--vscode-sideBarSectionHeader-background);
+  border-top: 1px solid var(--vscode-sideBarSectionHeader-border, transparent);
 }
 
 .scope-head .label {
@@ -566,8 +567,10 @@ pre.json {
 
 /* An entry of the Cowork region that opens claude.ai: glyph, name, the external-link mark at the end. */
 .row.cowork-link {
-  grid-template-columns: 16px 1fr 16px;
-  padding-left: 12px;
+  grid-template-columns: 16px 1fr auto;
+  padding-left: 22px;
+  padding-right: 8px;
+  align-items: center;
 }
 
 .row.cowork-link .codicon-link-external {

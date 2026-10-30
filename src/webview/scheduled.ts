@@ -47,7 +47,7 @@ function renderNode(list, q, { treeItem, render }) {
     treeItem(
       el(
         'div',
-        { className: `section-head${current ? ' selected' : ''}`, title: 'Scheduled\nThe Cowork tasks that run on a schedule, read from claude.ai. Read-only here.', onclick: () => showPage('scheduled') },
+        { className: `section-head nested${current ? ' selected' : ''}`, title: 'Scheduled\nThe Cowork tasks that run on a schedule, read from claude.ai. Read-only here.', onclick: () => showPage('scheduled') },
         el('span', { className: 'twistie', onclick: stop(() => (toggle(), render())) }, icon(folded ? 'chevron-right' : 'chevron-down')),
         el('span', { className: 'label' }, 'Scheduled'),
         iconBtn('link-external', 'Open on claude.ai', stop(() => open('list'))),
@@ -55,7 +55,7 @@ function renderNode(list, q, { treeItem, render }) {
         el('span', { className: 'count' }, state.scheduled ? all.length : '...')
       ),
       's|cowork-scheduled',
-      1,
+      2,
       !folded,
       () => (toggle(), render())
     )
@@ -68,9 +68,9 @@ function renderNode(list, q, { treeItem, render }) {
     ...all.map(t => {
       const selected = !state.detail && state.page === 'scheduled-task' && state.scheduledPage && state.scheduledPage.id === t.id;
       return treeItem(
-        el('div', { className: `row${selected ? ' selected' : ''}`, title: `${t.name}\n${t.status} · ${t.repeats}`, onclick: () => openTask(t.id) }, icon(STATUS_GLYPH[t.statusKind]), el('span', { className: 'name' }, t.name), el('span', { className: 'desc' }, t.status)),
+        el('div', { className: `row nested${selected ? ' selected' : ''}`, title: `${t.name}\n${t.status} · ${t.repeats}`, onclick: () => openTask(t.id) }, icon(STATUS_GLYPH[t.statusKind]), el('span', { className: 'name' }, t.name), el('span', { className: 'desc' }, t.status)),
         `k|cowork-scheduled|${t.id}`,
-        2
+        3
       );
     })
   );
