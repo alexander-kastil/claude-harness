@@ -144,25 +144,38 @@ export function renderMarkets() {
         el(
           'div',
           { className: 'recent' },
-          el('div', { className: 'market-head' }, icon('package'), el('span', { className: 'label' }, m.name), el('span', { className: 'market-source', title: sourceTip(m) }, icon(SOURCE_ICONS[m.kind] ?? 'question'), `${sourceToken(m)} · ${sourceName(m)}`), ahead ? el('span', { className: 'tag warn' }, `${ahead} ahead`) : null, el('span', { className: 'spacer' }),
+          el('div', { className: 'market-head', onclick: e => (e.target.closest('button') ? undefined : (foldedMarkets.has(m.name) ? foldedMarkets.delete(m.name) : foldedMarkets.add(m.name), renderMain())) }, icon('package'), el('span', { className: 'label' }, m.name), el('span', { className: 'market-source', title: sourceTip(m) }, icon(SOURCE_ICONS[m.kind] ?? 'question'), `${sourceToken(m)} · ${sourceName(m)}`), ahead ? el('span', { className: 'tag warn' }, `${ahead} ahead`) : null, el('span', { className: 'spacer' }),
             m.kind === 'directory' ? el('button', { className: 'secondary', onclick: () => command('renameMarketplace', { market: m.name }) }, icon('edit'), 'Rename...') : null),
-          m.plugins.length
-            ? gridTable(
-                [{ head: 'Plugin', track: 'minmax(120px, 2fr)', cls: 'at-name', cell: p => [icon('extensions'), el('span', { className: 'at-label' }, p.name)] }, harnessCol, ...syncCols(m)],
-                m.plugins,
-                `Plugins of ${m.name}`
-              )
-            : el('div', { className: 'empty flush' }, 'None installed')
+          foldedMarkets.has(m.name)
+            ? null
+            : m.plugins.length
+              ? gridTable(
+                  [{ head: 'Plugin', track: 'minmax(120px, 2fr)', cls: 'at-name', cell: p => [icon('extensions'), el('span', { className: 'at-label' }, p.name)] }, ...syncCols(m)],
+                  m.plugins.map(p => {
+                    const a = pluginAsset(p.key);
+                    return a ? Object.assign({}, p, { open: () => select(a.id) }) : p;
+                  }),
+                  `Plugins of ${m.name}`
+                )
+              : el('div', { className: 'empty flush' }, 'None installed')
         )
       );
       }
     }
   }
-  return el('section', { className: 'main' }, countHead('package', 'Marketplace health', list ? [plural(list.length, 'marketplace'), notInCoworkText(notInCowork(list.flatMap(m => m.plugins)))].filter(Boolean).join(' · ') : 'Reading...', iconBtn('refresh', 'Reload', () => vscode.postMessage({ type: 'marketplaces' }))), body);
+  return el('section', { className: 'main' }, countHead('package', 'Marketplace health', list ? plural(list.length, 'marketplace') : 'Reading...', list && list.length ? foldAll(list) : null, iconBtn('refresh', 'Reload', () => vscode.postMessage({ type: 'marketplaces' }))), body);
 }
 
-// The installed plugin of a key (`name@market`), Global's first: a row on the marketplace page opens its page.
-const pluginAsset = key => state.views.flatMap(v => (v.categories.find(c => c.kind === 'plugin') || { items: [] }).items).find(a => a.name === key);
+// One toggle for the page head: folds every marketplace while any is open, else opens them all.
+function foldAll(list) {
+  const anyOpen = list.some(m => !foldedMarkets.has(m.name));
+  return iconBtn(anyOpen ? 'collapse-all' : 'expand-all', anyOpen ? 'Collapse all' : 'Expand all', () => {
+    hideHover();
+    if (anyOpen) list.forEach(m => foldedMarkets.add(m.name));
+    else foldedMarkets.clear();
+    renderMain();
+  });
+}
 
 // One marketplace: a head like the Plugins page's, the drawing of what it offers with its Harness and Process toggle, and its plugins.
 export function renderMarket() {
@@ -186,7 +199,6 @@ export function renderMarket() {
               [
                 { head: 'Plugin', track: 'minmax(140px, 2fr)', cls: 'at-name', cell: p => [icon(p.enabled ? 'pass-filled' : 'circle-large-outline'), el('span', { className: 'at-label' }, p.name)], title: p => `${p.name}\n${p.enabled ? 'Enabled' : p.installed ? 'Installed, disabled' : 'Not installed'}` },
                 ...(m.plugins.some(p => p.description) ? [{ head: 'Description', track: 'minmax(100px, 3fr)', muted: true, wide: true, cell: p => p.description || '', title: p => p.description }] : []),
-                harnessCol,
                 ...syncCols(m),
               ],
               m.plugins.map(p => {
@@ -206,7 +218,7 @@ export function renderMarket() {
   const head = countHead(
     'package',
     page.name,
-    m ? [plural(m.plugins.length, 'plugin'), installed ? `${installed} installed` : '', enabled ? `${enabled} enabled` : '', ahead ? `${ahead} ahead` : '', notInCoworkText(notInCowork(m.plugins))].filter(Boolean).join(' · ') : state.markets ? 'Not registered' : 'Reading...',
+    m ? [plural(m.plugins.length, 'plugin'), installed ? `${installed} installed` : '', enabled ? `${enabled} enabled` : '', ahead ? `${ahead} ahead` : ''].filter(Boolean).join(' · ') : state.markets ? 'Not registered' : 'Reading...',
     back,
     m && m.kind === 'directory' ? iconBtn('edit', 'Rename marketplace...', () => command('renameMarketplace', { market: m.name })) : null,
     iconBtn('refresh', 'Reload', () => vscode.postMessage({ type: 'marketplaces' })),
@@ -228,11 +240,11 @@ export function renderMarket() {
               {
                 className: 'secondary',
                 disabled: running,
-                title: `${done ? 'Redraw' : 'Draw'} with Claude\nClaude draws ${drawsWhat('market')}. The drawing shows above the plugins as soon as it is ready. It runs in the background and counts against your plan.${error ? `\nLast try failed: ${error}` : ''}`,
+                title: `${done ? 'Redraw' : 'Draw'}\nClaude draws ${drawsWhat('market')}. The drawing shows above the plugins as soon as it is ready. It runs in the background and counts against your plan.${error ? `\nLast try failed: ${error}` : ''}`,
                 onclick: () => (hideHover(), vscode.postMessage({ type: 'drawAsset', id: drawingId(drawn) })),
               },
               icon('brush'),
-              running ? 'Drawing...' : done ? 'Redraw with Claude' : 'Draw with Claude'
+              running ? 'Drawing...' : done ? 'Redraw' : 'Draw'
             ),
             'draw'
           )

@@ -184,7 +184,7 @@ test('a type page lists every skill of the scope, with a heading per origin and 
 test('detail page of a skill: the command bar, the header tiles and the size flag', T, async () => {
   await openRow('Skills', 'release-playbook');
   await notBlank('skill page');
-  assert.deepEqual(await labels('.main .view-tab').then(l => l.slice(0, 13)), ['Back', 'View', 'Edit', 'Open in editor', 'Reveal', 'Edit with Claude', 'Slim with Claude', 'Draw with Claude', 'Try it', 'Connect to source', 'Move into repo', 'Rename', 'Duplicate']);
+  assert.deepEqual(await labels('.main .view-tab').then(l => l.slice(0, 13)), ['Back', 'View', 'Edit', 'Open in editor', 'Reveal', 'Edit', 'Slim', 'Draw', 'Try it', 'Connect to source', 'Move into repo', 'Rename', 'Duplicate']);
   await s.mouse('.view-tab', 'Instructions');
   const body = await text();
   assert.match(body, /SKILL\.md is long/);
@@ -254,7 +254,7 @@ test('the Save choice of that card writes the file, then opens the next page', T
 
 test('Slim with Claude asks in a card: keyboard focus on the action, Tab stays inside, Esc and Cancel close it', T, async () => {
   await openRow('Skills', 'release-playbook');
-  await s.mouse('.main button', 'Slim with Claude');
+  await s.mouse('.main button', 'Slim');
   const c = await s.waitFor(D => !!D.querySelector('.cf')).then(card);
   assert.equal(c.role, 'dialog');
   assert.match(c.text, /Slim release-playbook with Claude/);
@@ -266,7 +266,7 @@ test('Slim with Claude asks in a card: keyboard focus on the action, Tab stays i
     assert.ok(await s.ev(D => !!D.activeElement.closest('.cf')), 'focus stays in the card');
   }
   await closeCard();
-  await s.mouse('.main button', 'Slim with Claude');
+  await s.mouse('.main button', 'Slim');
   await s.waitFor(D => D.querySelector('.cf'));
   await s.mouse('.cf button', 'Cancel');
   await s.waitFor(D => !D.querySelector('.cf'));
@@ -275,7 +275,7 @@ test('Slim with Claude asks in a card: keyboard focus on the action, Tab stays i
 test('Edit with Claude and Try it ask too; nothing starts a terminal without the card', T, async () => {
   await openRow('Skills', 'release-playbook');
   const before = await s.pageEv(() => document.querySelectorAll('.terminal-tab, .terminal-tabs-entry').length);
-  await s.mouse('.main button', 'Edit with Claude');
+  await s.mouse('.main .ai-group button', 'Edit');
   const c = await s.waitFor(D => !!D.querySelector('.cf')).then(card);
   assert.match(c.text, /Edit release-playbook with Claude/);
   assert.match(c.text, /changes nothing until you agree/);
@@ -600,8 +600,8 @@ const barRows = () => s.ev(D => new Set([...D.querySelectorAll('.cmd-bar .dg-mod
 test('Try it asks in a card with its own switch; Edit, Slim and Try it cards open with Don\'t ask again off', T, async () => {
   await openRow('Skills', 'release-playbook');
   const before = await s.pageEv(() => document.querySelectorAll('.terminal-tab, .terminal-tabs-entry').length);
-  for (const [button, title] of [['Try it', /Try release-playbook in Claude/], ['Edit with Claude', /Edit release-playbook with Claude/], ['Slim with Claude', /Slim release-playbook with Claude/]]) {
-    await s.mouse('.main button', button);
+  for (const [button, title] of [['Try it', /Try release-playbook in Claude/], ['Edit', /Edit release-playbook with Claude/], ['Slim', /Slim release-playbook with Claude/]]) {
+    await s.mouse('.main .ai-group button', button);
     const c = await s.waitFor(D => !!D.querySelector('.cf')).then(card);
     assert.match(c.text, title);
     assert.equal(c.switches, 1, `${button}: the switch is there`);
@@ -618,8 +618,9 @@ test('a skill that comes from a plugin is read-only: no Edit, Rename, Duplicate 
   await go('.recent .row', 'estimate', D => D.querySelector('.main-head h1')?.textContent === 'estimate');
   await notBlank('plugin skill page');
   const bar = await labels('.main .cmd-bar .view-tab');
-  for (const gone of ['View', 'Edit', 'Rename', 'Duplicate', 'Delete', 'Revert', 'Save']) assert.ok(!bar.includes(gone), `${gone} is hidden: ${bar}`);
-  for (const kept of ['Open in editor', 'Reveal', 'Edit with Claude', 'Try it']) assert.ok(bar.includes(kept), `${kept} stays: ${bar}`);
+  assert.ok(!(await labels('.main .cmd-bar .view-tab:not(.ai-group .view-tab)')).includes('Edit'), 'the Edit tab is hidden');
+  for (const gone of ['View', 'Rename', 'Duplicate', 'Delete', 'Revert', 'Save']) assert.ok(!bar.includes(gone), `${gone} is hidden: ${bar}`);
+  for (const kept of ['Open in editor', 'Reveal', 'Edit', 'Try it']) assert.ok(bar.includes(kept), `${kept} stays: ${bar}`);
   assert.ok(!(await labels('.main .dv-card-head button')).some(t => /Edit/.test(t)), 'the document card has no Edit link');
 });
 
@@ -750,7 +751,7 @@ test('a plugin page has the labelled command bar in the skill page groups, wide 
       await openRow('Plugins', 'team-tools');
       await notBlank('plugin page');
       const bar = await barGroups();
-      assert.deepEqual(bar.groups, [['Back'], ['Open in editor', 'Reveal'], ['Edit with Claude', 'Draw with Claude'], ['Disable', 'Uninstall']], `${width || 'wide'}: Page, File, Claude and Item boxes`);
+      assert.deepEqual(bar.groups, [['Back'], ['Open in editor', 'Reveal'], ['Edit', 'Draw'], ['Disable', 'Uninstall']], `${width || 'wide'}: Page, File, Claude and Item boxes`);
       assert.ok(!bar.icons && bar.labels === bar.buttons, `${width || 'wide'}: every button shows its label: ${JSON.stringify(bar)}`);
       assert.ok(bar.mark, 'the Claude actions sit in the Claude group');
     }
@@ -767,15 +768,15 @@ const storeDrawing = (a, svg, pluginDir) => {
 const SVG = name => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 240"><rect x="20" y="20" width="240" height="60" fill="none" stroke="currentColor"/><text x="36" y="56" fill="currentColor">${name}</text></svg>`;
 
 test('agents, commands, workflows, mods, plugins, hooks and MCP servers have Draw with Claude in their Claude group, and a stored drawing of an agent or a plugin shows above its details', T, async () => {
-  const both = ['Edit with Claude', 'Draw with Claude'];
-  for (const [kind, name, claudeActions] of [['Agents', 'code-reviewer', [...both, 'Try it']], ['Commands', 'review', [...both, 'Try it']], ['Workflows', 'fan-out', both], ['Mods', 'delegation-mod', both], ['Plugins', 'old-helper', both], ['Hooks', 'Stop', ['Draw with Claude']], ['MCP Servers', 'filesystem', ['Draw with Claude']]]) {
+  const both = ['Edit', 'Draw'];
+  for (const [kind, name, claudeActions] of [['Agents', 'code-reviewer', [...both, 'Try it']], ['Commands', 'review', [...both, 'Try it']], ['Workflows', 'fan-out', both], ['Mods', 'delegation-mod', both], ['Plugins', 'old-helper', both], ['Hooks', 'Stop', ['Draw']], ['MCP Servers', 'filesystem', ['Draw']]]) {
     await openRow(kind, name);
     const bar = await barGroups();
     assert.deepEqual(bar.claude, claudeActions, `${kind} ${name}: the Claude group`);
     assert.ok(bar.mark, `${kind} ${name}: the Claude mark leads the group`);
   }
   // Where a drawing does not help there is no Draw, and no Claude group where it would have been the only action.
-  for (const [kind, name, claudeActions] of [['Memory', 'CLAUDE.md', []], ['Rules', 'style', ['Edit with Claude']], ['Output Styles', 'terse', ['Edit with Claude']], ['Settings', 'settings.json', []]]) {
+  for (const [kind, name, claudeActions] of [['Memory', 'CLAUDE.md', []], ['Rules', 'style', ['Edit']], ['Output Styles', 'terse', ['Edit']], ['Settings', 'settings.json', []]]) {
     await openRow(kind, name);
     const bar = await barGroups();
     assert.deepEqual(bar.claude, claudeActions, `${kind} ${name}: the Claude actions it had before`);
@@ -797,18 +798,18 @@ test('agents, commands, workflows, mods, plugins, hooks and MCP servers have Dra
     assert.match(fig.label, new RegExp(name));
     assert.deepEqual(fig.modes, ['Harness', 'Process'], `${name}: both perspectives`);
     assert.equal(fig.maxWidth, '800px', `${name}: never drawn larger than its viewBox`);
-    assert.ok((await barGroups()).claude.includes('Redraw with Claude'), `${name}: the button says Redraw`);
+    assert.ok((await barGroups()).claude.includes('Redraw'), `${name}: the button says Redraw`);
   }
   // The card names what Claude gets for a plugin and that it draws twice; Cancel starts nothing.
-  await s.mouse('.main .cmd-bar button', 'Redraw with Claude');
+  await s.mouse('.main .cmd-bar button', 'Redraw');
   const c = await s.waitFor(D => !!D.querySelector('.cf')).then(card);
   assert.match(c.text, /Draw team-tools@acme-market with Claude/);
   assert.match(c.text, /manifest/);
   assert.match(c.text, /twice/);
   await closeCard();
   // Edit with Claude reads the plugin's folder, the parts the drawing is made of, not the settings file that enables it.
-  await s.mouse('.main .cmd-bar button', 'Edit with Claude');
-  const r = await s.waitFor(D => !!D.querySelector('.cf')).then(card);
+  await s.mouse('.main .cmd-bar .ai-group button', 'Edit');
+  const r =await s.waitFor(D => !!D.querySelector('.cf')).then(card);
   assert.match(r.text, /Edit team-tools@acme-market with Claude/);
   assert.match(r.text, /team-tools[\\/]1\.2\.0/);
   assert.doesNotMatch(r.text, /settings\.json/);
@@ -1186,7 +1187,7 @@ test('the Marketplace page lists the marketplaces on disk first, under their own
     });
     assert.deepEqual(order.slice(0, 2), ['#Local, on disk', 'local-kit']);
     assert.ok(order.indexOf('acme-market') > order.indexOf('local-kit'), `the GitHub marketplace comes after the local one: ${order}`);
-    assert.equal(await s.ev(D => D.querySelector('.main-head .path')?.textContent), '2 marketplaces · 4 plugins not in Cowork');
+    assert.equal(await s.ev(D => D.querySelector('.main-head .path')?.textContent), '2 marketplaces');
   } finally {
     fs.writeFileSync(file, before);
   }
@@ -1218,10 +1219,10 @@ test('a marketplace row opens its page: the head counts its plugins, Draw with C
     mark: !!D.querySelector('.main-head .toolbar > .ai-group > .ai-mark'),
     selected: D.querySelector('.sidebar .row.selected')?.dataset.nav,
   });
-  assert.deepEqual(head, { sub: '3 plugins · 3 installed · 2 enabled · 3 plugins not in Cowork', glyph: true, ai: ['Draw with Claude'], mark: true, selected: 'k|acme-market' });
-  assert.deepEqual(await labels('.main-body .at-row:not(.at-head) .at-label'), ['delegation-mod', 'Code', 'old-helper', 'Code', 'team-tools', 'Code']);
+  assert.deepEqual(head, { sub: '3 plugins · 3 installed · 2 enabled', glyph: true, ai: ['Draw'], mark: true, selected: 'k|acme-market' });
+  assert.deepEqual(await labels('.main-body .at-row:not(.at-head) .at-label'), ['delegation-mod', 'old-helper', 'team-tools']);
   // Draw asks first and names both drawings; Cancel starts nothing.
-  await s.mouse('.main-head .ai-group button', 'Draw with Claude');
+  await s.mouse('.main-head .ai-group button', 'Draw');
   const c = await s.waitFor(D => !!D.querySelector('.cf')).then(card);
   assert.match(c.text, /Draw acme-market with Claude/);
   assert.match(c.text, /twice/);
@@ -1238,7 +1239,7 @@ test('a marketplace row opens its page: the head counts its plugins, Draw with C
     return f && f.querySelector('svg') && { text: f.querySelector('svg').textContent, label: f.querySelector('svg').getAttribute('aria-label'), modes: [...f.querySelectorAll('.dv-persp button')].map(b => b.textContent.trim()) };
   });
   assert.deepEqual(fig, { text: 'acme-market', label: 'What acme-market offers', modes: ['Harness', 'Process'] });
-  assert.deepEqual(await s.ev(D => [...D.querySelectorAll('.main-head .ai-group button')].map(b => b.textContent.trim())), ['Redraw with Claude']);
+  assert.deepEqual(await s.ev(D => [...D.querySelectorAll('.main-head .ai-group button')].map(b => b.textContent.trim())), ['Redraw']);
   // A plugin row opens the plugin's page, whose Back returns to the marketplace.
   await go('.main-body .at-row', 'team-tools', D => D.querySelector('.main-head h1')?.textContent.startsWith('team-tools'));
   await go('.main .cmd-bar button', 'Back', D => D.querySelector('.main-head h1')?.textContent === 'acme-market');
@@ -1260,7 +1261,7 @@ test('a marketplace heading on the Plugins page opens that marketplace, and its 
     const heads = await s.waitFor(D => { const l = [...D.querySelectorAll('.main .origin-label .group-open')].map(b => b.textContent); return l.includes('local-kit') && l; });
     assert.deepEqual(heads, ['acme-market', 'local-kit']);
     await go('.main .origin-label .group-open', 'local-kit', D => D.querySelector('.main-head h1')?.textContent === 'local-kit');
-    assert.equal(await s.waitFor(D => D.querySelector('.main-body .at-row:not(.at-head)') && D.querySelector('.main-head .path').textContent), '1 plugin · 1 enabled · 1 plugin not in Cowork');
+    assert.equal(await s.waitFor(D => D.querySelector('.main-body .at-row:not(.at-head)') && D.querySelector('.main-head .path').textContent), '1 plugin · 1 enabled');
     await go('.main-head .toolbar button', 'Back to Plugins', D => D.querySelector('.main-head h1')?.textContent === 'Plugins');
   } finally {
     fs.writeFileSync(file, before[0]);
