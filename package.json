@@ -2,7 +2,7 @@
   "name": "claude-harness",
   "displayName": "Claude Harness",
   "description": "Visualize and edit your Claude Code harness in VS Code: memory, rules, agents, skills, commands, output styles, workflows, hooks, MCP servers and plugins, globally and per repository.",
-  "version": "0.13.19",
+  "version": "0.13.21",
   "publisher": "integrations-at",
   "license": "SEE LICENSE IN LICENSE",
   "icon": "media/icon.png",
@@ -703,170 +703,6 @@
           "group": "6_copypath@99"
         }
       ],
-      "view/title": [
-        {
-          "command": "claudeHarness.open",
-          "when": "view == claudeHarness.tree",
-          "group": "navigation@1"
-        },
-        {
-          "command": "claudeHarness.create",
-          "when": "view == claudeHarness.tree",
-          "group": "navigation@2"
-        },
-        {
-          "command": "claudeHarness.refresh",
-          "when": "view == claudeHarness.tree",
-          "group": "navigation@3"
-        },
-        {
-          "command": "claudeHarness.openClaude",
-          "when": "view == claudeHarness.tree",
-          "group": "navigation@5"
-        },
-        {
-          "command": "claudeHarness.showFleet",
-          "when": "view == claudeHarness.tree",
-          "group": "navigation@4"
-        }
-      ],
-      "view/item/context": [
-        {
-          "command": "claudeHarness.create",
-          "when": "view == claudeHarness.tree && viewItem == category.creatable",
-          "group": "inline@1"
-        },
-        {
-          "command": "claudeHarness.togglePlugin",
-          "when": "view == claudeHarness.tree && viewItem == asset.plugin",
-          "group": "inline@1"
-        },
-        {
-          "command": "claudeHarness.openFile",
-          "when": "view == claudeHarness.tree && viewItem =~ /^(asset|file)/",
-          "group": "inline@2"
-        },
-        {
-          "command": "claudeHarness.openFile",
-          "when": "view == claudeHarness.tree && viewItem =~ /^(asset|file)/",
-          "group": "1_open@1"
-        },
-        {
-          "command": "claudeHarness.reveal",
-          "when": "view == claudeHarness.tree && viewItem =~ /^(asset|file)/",
-          "group": "1_open@2"
-        },
-        {
-          "command": "claudeHarness.renameSession",
-          "when": "view == claudeHarness.tree && viewItem == session",
-          "group": "2_edit@1"
-        },
-        {
-          "command": "claudeHarness.rename",
-          "when": "view == claudeHarness.tree && viewItem =~ /^asset[.](agent|skill|command|outputStyle|rule|workflow)([.]linked)?$/",
-          "group": "2_edit@1"
-        },
-        {
-          "command": "claudeHarness.duplicate",
-          "when": "view == claudeHarness.tree && viewItem =~ /^asset[.](agent|skill|command|outputStyle|rule|workflow)([.]linked)?$/",
-          "group": "2_edit@2"
-        },
-        {
-          "command": "claudeHarness.compare",
-          "when": "view == claudeHarness.tree && viewItem =~ /^asset[.](agent|skill|command|outputStyle|rule|workflow)([.]linked)?$/",
-          "group": "2_edit@3"
-        },
-        {
-          "command": "claudeHarness.delete",
-          "when": "view == claudeHarness.tree && viewItem =~ /^asset[.](agent|skill|command|outputStyle|rule|workflow)([.]linked)?$/",
-          "group": "3_delete@1"
-        },
-        {
-          "command": "claudeHarness.uninstallPlugin",
-          "when": "view == claudeHarness.tree && viewItem == asset.plugin",
-          "group": "3_delete@1"
-        },
-        {
-          "command": "claudeHarness.delete",
-          "when": "view == claudeHarness.tree && viewItem == asset.mcp.stored",
-          "group": "3_delete@1"
-        },
-        {
-          "command": "claudeHarness.copyMcpAdd",
-          "when": "view == claudeHarness.tree && viewItem =~ /^asset[.]mcp/",
-          "group": "2_edit@1"
-        },
-        {
-          "command": "claudeHarness.openSettings",
-          "when": "view == claudeHarness.tree && viewItem == category.settings",
-          "group": "inline@1"
-        },
-        {
-          "command": "claudeHarness.installPlugin",
-          "when": "view == claudeHarness.tree && viewItem == category.plugin",
-          "group": "inline@1"
-        },
-        {
-          "command": "claudeHarness.addMcp",
-          "when": "view == claudeHarness.tree && viewItem == category.mcp",
-          "group": "inline@1"
-        },
-        {
-          "command": "claudeHarness.checkRepos",
-          "when": "view == claudeHarness.tree && viewItem =~ /^repos?$/ && claudeHarness.standard",
-          "group": "inline@1"
-        },
-        {
-          "command": "claudeHarness.showFleet",
-          "when": "view == claudeHarness.tree && viewItem == repos",
-          "group": "inline@2"
-        },
-        {
-          "command": "claudeHarness.fixSettings",
-          "when": "view == claudeHarness.tree && viewItem =~ /^repos?$/ && claudeHarness.fix",
-          "group": "1_standard@1"
-        },
-        {
-          "command": "claudeHarness.retireCopies",
-          "when": "view == claudeHarness.tree && viewItem == repos",
-          "group": "1_standard@2"
-        },
-        {
-          "command": "claudeHarness.showMarketplaces",
-          "when": "view == claudeHarness.tree && viewItem == repos",
-          "group": "1_standard@3"
-        },
-        {
-          "command": "claudeHarness.showRepo",
-          "when": "view == claudeHarness.tree && viewItem == repo",
-          "group": "0_open@1"
-        },
-        {
-          "command": "claudeHarness.scaffoldRepo",
-          "when": "view == claudeHarness.tree && viewItem == repo && claudeHarness.scaffold",
-          "group": "1_standard@2"
-        },
-        {
-          "command": "claudeHarness.showMarketplaces",
-          "when": "view == claudeHarness.tree && viewItem == category.plugin",
-          "group": "inline@2"
-        },
-        {
-          "command": "claudeHarness.alignClaudeMd",
-          "when": "view == claudeHarness.tree && viewItem == repo && claudeHarness.align",
-          "group": "1_standard@3"
-        },
-        {
-          "command": "claudeHarness.syncSkill",
-          "when": "view == claudeHarness.tree && viewItem == asset.skill.linked",
-          "group": "2_edit@0"
-        },
-        {
-          "command": "claudeHarness.share",
-          "when": "view == claudeHarness.tree && viewItem =~ /^asset[.](agent|skill|command|outputStyle|rule|plugin|memory|hook)([.](plugin|linked))?$/ || view == claudeHarness.tree && viewItem == asset.mcp.stored",
-          "group": "4_share@1"
-        }
-      ],
       "webview/context": [
         {
           "command": "claudeHarness.share",
@@ -1040,7 +876,7 @@
     "viewsWelcome": [
       {
         "view": "claudeHarness.tree",
-        "contents": "No Claude harness found yet.\n[Open Claude Harness](command:claudeHarness.open)\n[Add Repo...](command:claudeHarness.addRepo)"
+        "contents": "[Open Claude Harness](command:claudeHarness.open)\n[Add Repo...](command:claudeHarness.addRepo)"
       }
     ]
   },

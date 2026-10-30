@@ -145,11 +145,6 @@ export class HarnessPanel {
     panel?.post({ type: 'checks', checks: panel.host.checks?.() ?? {} });
   }
 
-  /** Opens the panel when it is not open yet; an open panel is left where it is. */
-  static ensure(context: vscode.ExtensionContext, host: PanelHost): void {
-    if (!HarnessPanel.current) HarnessPanel.show(context, host);
-  }
-
   static showPage(context: vscode.ExtensionContext, host: PanelHost, page: Page): void {
     if (!HarnessPanel.current) HarnessPanel.show(context, host);
     HarnessPanel.current!.panel.reveal();

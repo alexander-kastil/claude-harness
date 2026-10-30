@@ -2,7 +2,7 @@
 
 All notable changes to Claude Harness are listed here, newest first. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions with no version change in the package.json history (0.1.3, 0.1.5 to 0.1.18, 0.1.20 to 0.1.24, 0.1.27, 0.2.1 and 0.2.3 to 0.2.11) and development builds (0.2.14 to 0.2.22, 0.2.24 to 0.2.30, 0.2.32 to 0.2.34, 0.2.36 to 0.2.44, 0.3.0, 0.3.2, 0.4.1 to 0.4.3, 0.5.2 and 0.5.3) have no entry.
 
-## [0.13.19] - 2026-10-30
+## [0.13.21] - 2026-10-30
 
 ### Added
 
@@ -20,7 +20,7 @@ All notable changes to Claude Harness are listed here, newest first. The format 
 - The marketplace page syncs every plugin that is ahead with one button, "Sync N plugins" in its header or Sync all over its Sync column: one confirm card lists them with their versions, then the marketplace is refreshed once and each plugin updated. A plugin that fails does not stop the others. The Sync column holds Sync plugin for a plugin that is ahead and "current" for the rest, on the marketplace page and in Marketplace health alike.
 - The overview page has Plugin Hunter in its Claude group at the right end of the row with the Last sessions, Repositories and Recently changed tabs.
 - The GitHub Repo overview, formerly the Fleet overview, has the GitHub icon and a search box on top that filters the repos by name or path.
-- Opening the Claude Harness view in the activity bar opens the main panel when it is not open yet.
+- The Claude Harness icon in the activity bar opens the main panel, then puts back the side bar view you had open (the Explorer, Search, Source Control or any other) or hides the side bar again when it was hidden. The activity bar tree is gone; the main panel's own navigation holds every item.
 
 ### Changed
 
