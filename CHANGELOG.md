@@ -21,6 +21,7 @@ All notable changes to Claude Harness are listed here, newest first. The format 
 - Docs screenshots: docs/ pages images: Progress: 5/51 · overview-search.png
 - @harness:session-analyze opens current session: The root README.md now has the second example in "Command line and @harness mentions",
 - Release build
+- Docs screenshots: README images: The stop markers are not drawn at all in this mock: no dg-mark, dg-stop or dg-chip nodes in the DOM
 
 ### Fixed
 
