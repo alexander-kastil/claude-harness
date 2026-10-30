@@ -31,7 +31,7 @@ Read the JSON, never the text form, and report from it. `--help` prints the full
 
 | Step | Who |
 | --- | --- |
-| Which skills and agents belong together in a plugin, its name, category and one-line description | Claude, from `hunt catalog` and the user's words |
+| Which skills and agents belong together in a plugin, its name, category and one-line description; a name inside the plugin does not repeat the plugin's words (`vscode-extension:specialist`, not `vscode-extension:vscode-ext-specialist`) | Claude, from `hunt catalog` and the user's words |
 | Everything that reads or writes the harness | the script |
 
 Writing commands run for real by default. Add `--dry-run` only when the user asks to see the actions

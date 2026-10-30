@@ -47,11 +47,15 @@ export interface Tools {
   git: (args: string[], cwd: string) => Promise<Result>;
 }
 
-const PLUGIN_SCRIPT: Record<Kind, [string, string]> = {
-  film: ['film-producer', 'skills/video-creation/scripts/media-project.py'],
-  images: ['image-artist', 'skills/image-generation/scripts/media-project.py'],
+// The film plugin is named producer now; an install from before the rename still carries film-producer.
+const PLUGIN_SCRIPT: Record<Kind, [string[], string]> = {
+  film: [['producer', 'film-producer'], 'skills/video-creation/scripts/media-project.py'],
+  images: [['image-artist'], 'skills/image-generation/scripts/media-project.py'],
 };
 const LAYOUT = new Set(['story', 'changelog', 'rig', 'media', 'scripts']);
+// What the producer plugin's production contract (storyboard skill, references/contract.md) puts at the top of a film folder:
+// one artifact per stage, the ledger, and the takes and evidence folders with everything in them.
+const PRODUCTION = new Set(['grounding.md', 'story.md', 'storyboard.json', 'storyboard.md', 'look.md', 'prompt.md', 'verdict.json', 'publish.md', 'ledger.jsonl', 'takes', 'evidence']);
 // Video and audio outputs carry the naming rule; .wav is never an output, only a work file.
 const OUTPUT_EXT = new Set(['.mp4', '.mov', '.webm', '.mp3', '.m4a', '.wav']);
 // The binary types the media storage block sends to Git LFS (media-project.py LFS_EXT); SVG, HTML and other text stay plain Git.
@@ -142,10 +146,10 @@ async function repoRoot(dir: string, tools: Tools): Promise<string | undefined> 
 }
 
 async function layout(dir: string, kind: Kind, tools: Tools, problems: Problem[]): Promise<void> {
-  const [plugin, rel] = PLUGIN_SCRIPT[kind];
-  const script = tools.plugin(plugin, rel);
+  const [names, rel] = PLUGIN_SCRIPT[kind];
+  const script = names.map(n => tools.plugin(n, rel)).find(Boolean);
   if (!script) {
-    problems.push({ check: 'layout', path: dir, detail: `No ${plugin} plugin has ${rel}, so the layout check did not run.` });
+    problems.push({ check: 'layout', path: dir, detail: `No ${names.join(' or ')} plugin has ${rel}, so the layout check did not run.` });
     return;
   }
   const py = await tools.python();
@@ -161,8 +165,9 @@ async function layout(dir: string, kind: Kind, tools: Tools, problems: Problem[]
     problems.push({ check: 'layout', path: dir, detail: r.stderr.trim() || `The inventory printed no JSON (exit ${r.code}).` });
     return;
   }
-  for (const m of res.moves ?? []) problems.push({ check: 'layout', path: m.from, detail: `moves to ${m.to} (${m.reason})` });
-  for (const u of res.unplaced ?? []) problems.push({ check: 'layout', path: u.path, detail: u.reason });
+  const placed = (p: string) => kind === 'film' && PRODUCTION.has(p.replace(/\\/g, '/').split(`${path.basename(dir)}/`).pop()!.split('/')[0]);
+  for (const m of res.moves ?? []) if (!placed(m.from)) problems.push({ check: 'layout', path: m.from, detail: `moves to ${m.to} (${m.reason})` });
+  for (const u of res.unplaced ?? []) if (!placed(u.path)) problems.push({ check: 'layout', path: u.path, detail: u.reason });
 }
 
 /** Every file in a folder, optionally with its subfolders; the skipped folders never hold a project's own paths. */

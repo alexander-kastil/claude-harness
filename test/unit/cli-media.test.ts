@@ -131,6 +131,22 @@ test('the doctor reports layout moves, broken references, misnamed outputs and c
   assert.equal(json.applied, false);
 });
 
+test('the files of the production contract are part of a film\'s layout, an unknown file next to them is not', async () => {
+  const { dir } = film();
+  const contract = ['grounding.md', 'story.md', 'storyboard.json', 'storyboard.md', 'look.md', 'prompt.md', 'verdict.json', 'publish.md', 'ledger.jsonl', 'takes', 'evidence'];
+  const layout = JSON.stringify({
+    moves: [{ from: 'assets/films/demo/story.md', to: 'assets/films/demo/story/story.md', reason: 'story' }],
+    unplaced: [
+      ...contract.map(p => ({ path: `assets/films/demo/${p}`, reason: 'loose file' })),
+      { path: 'assets/films/demo/takes/2.1-t1/events.jsonl', reason: 'unknown file' },
+      { path: 'assets/films/demo/evidence/3.png', reason: 'unknown file' },
+      { path: 'assets/films/demo/draft.md', reason: 'loose file' },
+    ],
+  });
+  const problems = JSON.parse((await doctor(dir, tools({ script: async () => ok(layout) }))).out).problems as { check: string; path: string }[];
+  assert.deepEqual(problems.filter(p => p.check === 'layout').map(p => p.path), ['assets/films/demo/draft.md']);
+});
+
 test('a missing plugin or Python is one problem, and the other checks still run', async () => {
   const { dir } = film();
   const noPlugin = JSON.parse((await doctor(dir, tools({ plugin: () => undefined }))).out);

@@ -40,7 +40,7 @@ test('HELP and the command table name the same commands', async () => {
   const documented = out.join('\n').split('\n').flatMap(line => {
     const words: string[] = [];
     for (const t of line.slice(2).split(/\s+/)) {
-      if (!/^[a-z]+$/.test(t)) break;
+      if (!/^[a-z][a-z-]*$/.test(t)) break;
       words.push(t);
     }
     return line.startsWith('  ') && words.length ? [words.join(' ')] : [];

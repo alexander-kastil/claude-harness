@@ -55,7 +55,9 @@ test('skills rename renames the folder and the name line, repoints mentions, bac
   assert.ok(!has(root, 'skills/old-skill') && has(root, 'skills/new-skill/references/a.md'));
   assert.match(read(root, 'skills/new-skill/SKILL.md'), /^---\nname: new-skill\n/);
   assert.match(read(root, 'skills/new-skill/SKILL.md'), /new-skill\/references\/a\.md/);
-  assert.match(read(root, 'skills/user/SKILL.md'), /Use new-skill, or plug:new-skill, but not old-skills\./);
+  // Only reference forms change: plug:old-skill does, the bare word does not and comes back as a check row.
+  assert.match(read(root, 'skills/user/SKILL.md'), /Use old-skill, or plug:new-skill, but not old-skills\./);
+  assert.ok(o.changes.some(c => c.action === 'check' && c.file === 'skills/user/SKILL.md' && /line 6 still names it: Use old-skill/.test(c.detail)));
   assert.match(read(root, 'agents/maker.md'), /The new-skill skill/);
   assert.match(fs.readFileSync(path.join(o.backup!, 'agents/maker.md'), 'utf8'), /old-skill/);
   assert.equal((await cli(['skills', 'rename', '--from', 'old-skill', '--to', 'other', '--root', root])).code, 1);
@@ -80,6 +82,72 @@ test('skills rename stops when the new name exists, and finds a skill in the mar
   assert.equal(r.code, 0);
   assert.match(read(market, 'plugins/p/skills/core/SKILL.md'), /name: core/);
   assert.ok(!has(market, 'plugins/p/skills/inner'));
+});
+
+test('skills rename troubleshooting rewrites only its reference forms, never the plain word or an anchor', async () => {
+  const root = tmp('skill-word');
+  write(root, 'skills/troubleshooting/SKILL.md', '---\nname: troubleshooting\ndescription: Fix the dev tools\n---\n\nSee troubleshooting/references/a.md.\n');
+  write(root, 'skills/troubleshooting/references/a.md', '# A\n');
+  const other = [
+    '## Troubleshooting',
+    'For troubleshooting tips load the `troubleshooting` skill or [the guide](../troubleshooting/SKILL.md).',
+    'Jump to [the section](#troubleshooting) or run ~/.claude/skills/troubleshooting/scripts/fix.sh.',
+    'Plain troubleshooting stays.',
+    '',
+  ];
+  write(root, 'skills/other/SKILL.md', `---\nname: other\ndescription: o\n---\n\n${other.join('\n')}`);
+  const r = await cli(['skills', 'rename', '--from', 'troubleshooting', '--to', 'devtools-troubleshooting', '--json', '--root', root]);
+  assert.equal(r.code, 0, r.err);
+  const o = JSON.parse(r.out) as SkillsOut;
+  assert.equal(
+    read(root, 'skills/other/SKILL.md'),
+    `---\nname: other\ndescription: o\n---\n\n${[
+      '## Troubleshooting',
+      'For troubleshooting tips load the `devtools-troubleshooting` skill or [the guide](../devtools-troubleshooting/SKILL.md).',
+      'Jump to [the section](#troubleshooting) or run ~/.claude/skills/devtools-troubleshooting/scripts/fix.sh.',
+      'Plain troubleshooting stays.',
+      '',
+    ].join('\n')}`
+  );
+  assert.equal(read(root, 'skills/devtools-troubleshooting/SKILL.md'), '---\nname: devtools-troubleshooting\ndescription: Fix the dev tools\n---\n\nSee devtools-troubleshooting/references/a.md.\n');
+  // Every line that still has the word comes back to be looked at.
+  assert.deepEqual(o.changes.filter(c => c.action === 'check').map(c => c.detail.slice(0, 7)), ['line 7 ', 'line 8 ', 'line 9 ']);
+});
+
+test('skills rename of the skill hugo-expert leaves the agent hugo-expert and its subagent_type alone', async () => {
+  const root = tmp('skill-agent');
+  const market = tmp('skill-agent-market');
+  write(market, 'plugins/agentic-web/skills/hugo-expert/SKILL.md', '---\nname: hugo-expert\ndescription: Hugo\n---\n\nRead hugo-expert/references/layouts.md.\n');
+  write(market, 'plugins/agentic-web/agents/hugo-expert.md', '---\nname: hugo-expert\ndescription: Hugo agent\n---\n\nLoad the hugo-expert skill.\n');
+  const lines = [
+    'Delegate to the hugo-expert agent: subagent_type `agentic-web:hugo-expert`.',
+    'Load the `hugo-expert` skill and read hugo-expert/references/layouts.md.',
+    'The agent lives in agents/hugo-expert.md; ask the `agentic-web:hugo-expert` agent.',
+    'The plugin skill agentic-web:hugo-expert skill.',
+    'Use `hugo-expert` for layouts.',
+    '',
+  ];
+  write(root, 'agents/site.md', `---\nname: site\n---\n\n${lines.join('\n')}`);
+  const r = await cli(['skills', 'rename', '--from', 'agentic-web:hugo-expert', '--to', 'hugo-authoring', '--market', market, '--json', '--root', root]);
+  assert.equal(r.code, 0, r.err);
+  const o = JSON.parse(r.out) as SkillsOut;
+  assert.equal(
+    read(root, 'agents/site.md'),
+    `---\nname: site\n---\n\n${[
+      lines[0],
+      'Load the `hugo-authoring` skill and read hugo-authoring/references/layouts.md.',
+      lines[2],
+      'The plugin skill agentic-web:hugo-authoring skill.',
+      lines[4],
+      '',
+    ].join('\n')}`
+  );
+  assert.ok(has(market, 'plugins/agentic-web/skills/hugo-authoring/SKILL.md') && !has(market, 'plugins/agentic-web/skills/hugo-expert'));
+  assert.match(read(market, 'plugins/agentic-web/skills/hugo-authoring/SKILL.md'), /^---\nname: hugo-authoring\n[\s\S]*Read hugo-authoring\/references\/layouts\.md/);
+  // The agent keeps its name; its file only gets the skill phrase.
+  assert.equal(read(market, 'plugins/agentic-web/agents/hugo-expert.md'), '---\nname: hugo-expert\ndescription: Hugo agent\n---\n\nLoad the hugo-authoring skill.\n');
+  const checks = o.changes.filter(c => c.action === 'check' && c.file === 'agents/site.md').map(c => c.detail.slice(0, 7));
+  assert.deepEqual(checks, ['line 5 ', 'line 7 ', 'line 9 ']);
 });
 
 function pluginFixture() {
@@ -120,6 +188,14 @@ test('plugins rename --dry-run lists the changes and writes nothing', async () =
   assert.ok(!has(f.root, 'repo-sync-backups'));
 });
 
+test('plugins rename leaves a YAML key and a JS key named like the plugin alone and rewrites only a real reference', async () => {
+  const f = pluginFixture();
+  write(f.root, 'rules/keys.md', 'services:\n  old-plug:\n    image: x\n\n```js\nconst o = {\n  old-plug: {\n    a: 1,\n  },\n};\n```\n\nRun old-plug:s now.\n');
+  const r = await cli([...renameArgs, '--json', ...f.base]);
+  assert.equal(r.code, 0, r.err);
+  assert.equal(read(f.root, 'rules/keys.md'), 'services:\n  old-plug:\n    image: x\n\n```js\nconst o = {\n  old-plug: {\n    a: 1,\n  },\n};\n```\n\nRun new-plug:s now.\n');
+});
+
 test('plugins rename moves the folder, edits manifests, catalog, dependents and settings, rewrites namespace, id and path, reports bare mentions, and backs up', async () => {
   const f = pluginFixture();
   const r = await cli([...renameArgs, '--json', ...f.base]);
@@ -146,10 +222,71 @@ test('plugins rename moves the folder, edits manifests, catalog, dependents and 
   assert.ok(fs.readdirSync(o.backup!, { recursive: true }).some(p => String(p).endsWith('marketplace.json')));
 });
 
+test('plugins rename rewrites the plugin\'s own code and data files and the plugin list\'s link, lists the rest by line, and a second run finishes what is left', async () => {
+  const f = pluginFixture();
+  write(f.market, 'plugins/old-plug/config/pipeline.default.json', '{\n  "skills": ["old-plug:s"]\n}\n');
+  write(f.market, 'plugins/old-plug/hooks/conductor.mjs', "const skill = 'old-plug:s';\n// the old-plug plugin\n");
+  write(f.market, 'plugins/old-plug/tests/conductor.test.ts', "expect('old-plug:s');\n");
+  write(f.market, 'plugins/README.md', '| Plugin | What |\n| --- | --- |\n| [old-plug](old-plug) | films |\n| [keep](keep) | x |\n');
+  write(f.market, 'plugins/dep/skills/y/SKILL.md', '---\nname: y\n---\n\nPublish with the old-plug plugin.\n');
+  const r = await cli([...renameArgs, '--json', ...f.base]);
+  assert.equal(r.code, 0, r.err);
+  const o = JSON.parse(r.out) as PluginRenameOut;
+  assert.equal(read(f.market, 'plugins/new-plug/config/pipeline.default.json'), '{\n  "skills": ["new-plug:s"]\n}\n');
+  assert.equal(read(f.market, 'plugins/new-plug/hooks/conductor.mjs'), "const skill = 'new-plug:s';\n// the old-plug plugin\n");
+  assert.equal(read(f.market, 'plugins/new-plug/tests/conductor.test.ts'), "expect('new-plug:s');\n");
+  assert.equal(read(f.market, 'plugins/README.md'), '| Plugin | What |\n| --- | --- |\n| [new-plug](new-plug) | films |\n| [keep](keep) | x |\n');
+  const checks = o.changes.filter(c => c.action === 'check');
+  assert.ok(checks.some(c => c.file.endsWith('plugins/dep/skills/y/SKILL.md') && c.detail === 'still mentions old-plug 1 time, line 5'));
+  assert.ok(checks.some(c => c.file.endsWith('hooks/conductor.mjs') && /line 2$/.test(c.detail)));
+  // Text the first run did not reach (a file that came later) is finished by a second run; nothing else moves.
+  write(f.market, 'plugins/new-plug/hooks/late.mjs', "export const id = 'old-plug@own';\n");
+  const again = await cli([...renameArgs, '--json', ...f.base]);
+  assert.equal(again.code, 0, again.err);
+  const second = JSON.parse(again.out) as PluginRenameOut;
+  assert.deepEqual(second.changes.filter(c => c.action !== 'check').map(c => [c.action, path.basename(c.file)]), [['rewrite', 'late.mjs']]);
+  assert.equal(read(f.market, 'plugins/new-plug/hooks/late.mjs'), "export const id = 'new-plug@own';\n");
+  assert.ok(has(f.market, 'plugins/new-plug') && !has(f.market, 'plugins/old-plug'));
+});
+
+test('plugins rename rewrites the quoted name and the MCP tool id in the plugin\'s own code, not in its prose', async () => {
+  const f = pluginFixture();
+  write(f.market, 'plugins/old-plug/hooks/mod.mjs', "const PLUGIN = \"old-plug\";\nref({ plugin: 'old-plug', key: 'asks' });\nconst t = 'mcp__old-plug__ledger';\n// the \"old-plug\" plugin\n");
+  write(f.market, 'plugins/old-plug/types/index.d.ts', 'interface S {\n  "old-plug": { a: 1 };\n  "old-plug-extra": 2;\n}\n');
+  write(f.market, 'plugins/dep/hooks/other.mjs', "const PLUGIN = 'old-plug';\n");
+  const r = await cli([...renameArgs, '--json', ...f.base]);
+  assert.equal(r.code, 0, r.err);
+  assert.equal(read(f.market, 'plugins/new-plug/hooks/mod.mjs'), "const PLUGIN = \"new-plug\";\nref({ plugin: 'new-plug', key: 'asks' });\nconst t = 'mcp__new-plug__ledger';\n// the \"new-plug\" plugin\n");
+  assert.equal(read(f.market, 'plugins/new-plug/types/index.d.ts'), 'interface S {\n  "new-plug": { a: 1 };\n  "old-plug-extra": 2;\n}\n');
+  // Another plugin's quoted literal is not this plugin's identifier.
+  assert.equal(read(f.market, 'plugins/dep/hooks/other.mjs'), "const PLUGIN = 'old-plug';\n");
+});
+
+test('plugins rename rewrites the namespace and id forms in the other plugins\' code files, not their manifests\' other keys', async () => {
+  const f = pluginFixture();
+  write(f.market, 'plugins/dep/config/flow.default.json', '{\n  "agent": "old-plug:fact-gatherer",\n  "id": "old-plug@own"\n}\n');
+  write(f.market, 'plugins/dep/scripts/test_flow.py', 'assert x == "old-plug:fact-gatherer"\n');
+  const r = await cli([...renameArgs, '--json', ...f.base]);
+  assert.equal(r.code, 0, r.err);
+  assert.equal(read(f.market, 'plugins/dep/config/flow.default.json'), '{\n  "agent": "new-plug:fact-gatherer",\n  "id": "new-plug@own"\n}\n');
+  assert.equal(read(f.market, 'plugins/dep/scripts/test_flow.py'), 'assert x == "new-plug:fact-gatherer"\n');
+  assert.deepEqual(JSON.parse(read(f.market, 'plugins/dep/.claude-plugin/plugin.json')).dependencies, ['new-plug', 'keep']);
+});
+
+test('plugins rename rewrites the label of a root README row that links plugins/<name>', async () => {
+  const f = pluginFixture();
+  write(f.market, 'README.md', '| Plugin | What |\n| --- | --- |\n| [old-plug](plugins/old-plug) | films |\n| [keep](plugins/keep) | x |\n');
+  const r = await cli([...renameArgs, '--json', ...f.base]);
+  assert.equal(r.code, 0, r.err);
+  assert.equal(read(f.market, 'README.md'), '| Plugin | What |\n| --- | --- |\n| [new-plug](plugins/new-plug) | films |\n| [keep](plugins/keep) | x |\n');
+});
+
 test('plugins rename exits 1 when the plugin is gone or the new name exists, 2 without --from', async () => {
   const f = pluginFixture();
   assert.equal((await cli([...renameArgs, ...f.base])).code, 0);
-  assert.equal((await cli([...renameArgs, ...f.base])).code, 1);
+  // A second run finishes leftovers instead of stopping; an unknown plugin still stops.
+  assert.equal((await cli([...renameArgs, ...f.base])).code, 0);
+  assert.equal((await cli(['plugins', 'rename', '--from', 'gone@own', '--to', 'x', ...f.base])).code, 1);
   assert.equal((await cli(['plugins', 'rename', '--from', 'dep@own', '--to', 'new-plug', ...f.base])).code, 1);
   assert.equal((await cli(['plugins', 'rename', '--from', 'dep@nowhere', '--to', 'x', ...f.base])).code, 1);
   assert.equal((await cli(['plugins', 'rename', '--to', 'x', ...f.base])).code, 2);
@@ -185,7 +322,7 @@ test('a market on another drive is backed up under outside/<drive>/', async (t) 
   }
   try {
     const root = skillFixture();
-    write(market, 'plugins/p/skills/x/SKILL.md', '---\nname: x\ndescription: x\n---\n\nUse old-skill.\n');
+    write(market, 'plugins/p/skills/x/SKILL.md', '---\nname: x\ndescription: x\n---\n\nUse the old-skill skill.\n');
     const r = await cli(['skills', 'repoint', '--from', 'old-skill', '--to', 'new-skill', '--market', market, '--json', '--root', root]);
     assert.equal(r.code, 0, r.err);
     const o = JSON.parse(r.out) as SkillsOut;

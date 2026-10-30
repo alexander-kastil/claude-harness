@@ -14,7 +14,7 @@ export const readJson = (file: string): Record<string, any> => {
   }
 };
 
-export type Entry = { name?: string; source?: unknown; description?: string };
+export type Entry = { name?: string; source?: unknown; description?: string; version?: unknown };
 
 export const catalogFileOf = (location: string) => path.join(location, '.claude-plugin', 'marketplace.json');
 export const catalogOf = (location: string) => (readJson(catalogFileOf(location)).plugins ?? []) as Entry[];
@@ -44,9 +44,9 @@ export function readMarkets(root: string): HuntMarket[] {
     .sort((a, b) => Number(b.owned) - Number(a.owned) || a.name.localeCompare(b.name));
 }
 
-/** Where a new plugin goes in a marketplace, as the `./` source its catalog entry lists. */
+/** Where a new plugin goes in a marketplace, as the `./` source its catalog entry lists; the category counts only where the marketplace keeps category folders. */
 export function sourceFor(entries: Entry[], name: string, category: string): string {
   const layout = layoutOf(entries);
-  if (layout.categorized || (!sourcesOf(entries).length && category)) return `./${layout.root || 'plugins'}/${category}/${name}`;
+  if (layout.categorized) return `./${layout.root || 'plugins'}/${category}/${name}`;
   return `./${layout.root ? `${layout.root}/` : ''}${name}`;
 }

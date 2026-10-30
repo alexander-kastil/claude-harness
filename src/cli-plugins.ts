@@ -56,15 +56,43 @@ function mdUnder(dir: string): string[] {
   return files;
 }
 
-/** `old:`, `old@market` and `plugins/old/` become the new name; hits counts the rewrites. */
-function rewriteMentions(text: string, old: string, to: string, market: string): { text: string; hits: number } {
+/** The plugin's own code and data files: its config, hooks, scripts and tests name it too. */
+function codeUnder(dir: string): string[] {
+  const files: string[] = [];
+  const walk = (d: string) => {
+    for (const e of fs.existsSync(d) ? fs.readdirSync(d, { withFileTypes: true }) : []) {
+      if (['node_modules', '.git', '__pycache__'].includes(e.name)) continue;
+      const f = path.join(d, e.name);
+      if (e.isDirectory()) walk(f);
+      else if (/\.(json|mjs|ts|js|py)$/i.test(e.name)) files.push(f);
+    }
+  };
+  walk(dir);
+  return files;
+}
+
+/**
+ * `old:`, `old@market` and `plugins/old` become the new name; with `links` (a Markdown file beside the plugin folders, the marketplace's
+ * plugin list) so do `[old](old)` and a link target `](old/...)`. hits counts the rewrites.
+ */
+function rewriteMentions(text: string, old: string, to: string, market: string, links = false, quoted = false): { text: string; hits: number } {
   let hits = 0;
   const sub = (re: RegExp, r: string) => {
     text = text.replace(re, () => (hits++, r));
   };
-  sub(new RegExp(`(?<![\\w.-])${escape(old)}:`, 'g'), `${to}:`);
-  sub(new RegExp(`(?<![\\w.-])${escape(old)}@${escape(market)}(?![\\w-])`, 'g'), `${to}@${market}`);
-  sub(new RegExp(`(?<![\\w.-])plugins/${escape(old)}/`, 'g'), `plugins/${to}/`);
+  const o = escape(old);
+  // In the plugin's own code the name is an identifier: a quoted literal ("old", 'old', `old`) and the MCP tool prefix mcp__old__.
+  if (quoted) {
+    text = text.replace(new RegExp(`(["'\`])${o}\\1`, 'g'), (_m, q: string) => (hits++, `${q}${to}${q}`));
+    sub(new RegExp(`mcp__${o}__`, 'g'), `mcp__${to}__`);
+  }
+  if (links) sub(new RegExp(`\\[${o}\\](?=\\((?:\\./)?(?:plugins/)?${o}[/)#])`, 'g'), `[${to}]`);
+  sub(new RegExp(`(?<![\\w.-])${o}:(?=\\w)`, 'g'), `${to}:`);
+  sub(new RegExp(`(?<![\\w.-])${o}@${escape(market)}(?![\\w-])`, 'g'), `${to}@${market}`);
+  sub(new RegExp(`(?<![\\w.-])plugins/${o}(?![\\w.-])`, 'g'), `plugins/${to}`);
+  if (links) {
+    text = text.replace(new RegExp(`\\]\\((\\./)?${o}(?=[/)#])`, 'g'), (_m, dot: string | undefined) => (hits++, `](${dot ?? ''}${to}`));
+  }
   return { text, hits };
 }
 
@@ -125,13 +153,16 @@ function pluginsRename(a: Args, io: Io): number {
   const catalogFile = path.join(market.location, '.claude-plugin', 'marketplace.json');
   const catalog = (readJson(catalogFile).plugins ?? []) as Json[];
   const index = catalog.findIndex(p => p.name === old);
-  if (index < 0) throw new Stop(`${marketName} has no plugin named ${old}.`);
-  if (catalog.some(p => p.name === to)) throw new Stop(`${marketName} has a plugin named ${to} already.`);
-  const source = catalog[index].source;
+  const renamed = catalog.findIndex(p => p.name === to);
+  // A second run after the catalog already names the plugin `to` finishes the text the first run left; nothing else moves.
+  const again = index < 0 && renamed >= 0;
+  if (index < 0 && !again) throw new Stop(`${marketName} has no plugin named ${old}.`);
+  if (index >= 0 && renamed >= 0) throw new Stop(`${marketName} has a plugin named ${to} already.`);
+  const source = catalog[again ? renamed : index].source;
   if (typeof source !== 'string') throw new Stop(`${old} comes from a ${typeof source === 'object' ? 'remote source' : 'source'} that is not a folder of ${marketName}.`);
   const dir = path.resolve(market.location, source);
-  if (!fs.existsSync(dir)) throw new Stop(`${old}'s folder ${dir} does not exist.`);
-  const moves = path.basename(dir) === old;
+  if (!fs.existsSync(dir)) throw new Stop(`${again ? to : old}'s folder ${dir} does not exist.`);
+  const moves = !again && path.basename(dir) === old;
   const target = path.join(path.dirname(dir), to);
   if (moves && fs.existsSync(target)) throw new Stop(`${target} exists already.`);
 
@@ -146,15 +177,16 @@ function pluginsRename(a: Args, io: Io): number {
   }
 
   // The catalog: the entry's name and source, and every dependency that names the plugin.
-  let catalogText = fs.readFileSync(catalogFile, 'utf8');
-  catalogText = applyEdits(catalogText, modify(catalogText, ['plugins', index, 'name'], to, fmt(catalogText)));
+  const catalogBefore = fs.readFileSync(catalogFile, 'utf8');
+  let catalogText = catalogBefore;
+  if (!again) catalogText = applyEdits(catalogText, modify(catalogText, ['plugins', index, 'name'], to, fmt(catalogText)));
   if (moves) catalogText = applyEdits(catalogText, modify(catalogText, ['plugins', index, 'source'], source.replace(new RegExp(`${escape(old)}(/?)$`), `${to}$1`), fmt(catalogText)));
   catalog.forEach((p, i) => (catalogText = renameDependency(catalogText, ['plugins', i], p.dependencies, old, to, marketName)));
-  edits.push({ file: catalogFile, text: catalogText, detail: `entry ${old} to ${to}${moves ? ', source' : ''}` });
+  if (catalogText !== catalogBefore) edits.push({ file: catalogFile, text: catalogText, detail: again ? `dependencies ${old} to ${to}` : `entry ${old} to ${to}${moves ? ', source' : ''}` });
 
   // The other plugins that depend on it.
   for (const p of catalog) {
-    if (p.name === old || typeof p.source !== 'string') continue;
+    if (p.name === old || p.name === to || typeof p.source !== 'string') continue;
     const file = path.join(path.resolve(market.location, p.source), '.claude-plugin', 'plugin.json');
     if (!fs.existsSync(file)) continue;
     const before = fs.readFileSync(file, 'utf8');
@@ -170,21 +202,32 @@ function pluginsRename(a: Args, io: Io): number {
     if (text !== undefined) edits.push({ file, text, detail: `enabledPlugins ${old}@${marketName} to ${to}@${marketName}` });
   }
 
-  // The text that names it: the namespace, the id and the path are rewritten, bare mentions are listed.
+  // The text that names it: the namespace, the id, the path and the plugin list's link are rewritten, in the Markdown of Global, the
+  // repos and the marketplace and in the plugin's own code and data files; bare mentions are listed with their lines.
   const texts = new Set<string>([
     ...['skills', 'agents', 'rules', 'commands'].flatMap(d => mdUnder(path.join(root, d))),
     path.join(root, 'CLAUDE.md'),
     ...repos.flatMap(r => [path.join(r, 'CLAUDE.md'), ...mdUnder(path.join(r, '.claude'))]),
     ...mdUnder(market.location),
+    ...codeUnder(dir).filter(f => f !== manifest),
+    ...catalog.flatMap(p => {
+      if (p.name === old || p.name === to || typeof p.source !== 'string') return [];
+      const d = path.resolve(market.location, p.source);
+      return d === dir || d.startsWith(dir + path.sep) ? [] : codeUnder(d).filter(f => path.basename(f) !== 'plugin.json' || path.basename(path.dirname(f)) !== '.claude-plugin');
+    }),
   ]);
+  const own = (file: string) => file.startsWith(dir + path.sep);
   const bare = new RegExp(`(?<![\\w.-])${escape(old)}(?![\\w-])`, 'g');
+  const plugins = path.dirname(dir).toLowerCase();
   const checks: SkillChange[] = [];
   for (const file of texts) {
     if (!fs.existsSync(file) || !fs.statSync(file).isFile()) continue;
-    const { text, hits } = rewriteMentions(fs.readFileSync(file, 'utf8'), old, to, marketName);
+    const folder = path.dirname(file).toLowerCase();
+    const links = /\.md$/i.test(file) && (folder === plugins || folder === path.resolve(market.location).toLowerCase());
+    const { text, hits } = rewriteMentions(fs.readFileSync(file, 'utf8'), old, to, marketName, links, own(file) && !/\.md$/i.test(file));
     if (hits) edits.push({ file, text, detail: `${hits} mention${hits > 1 ? 's' : ''} of ${old}` });
-    const left = text.match(bare)?.length ?? 0;
-    if (left) checks.push({ action: 'check', file, detail: `still mentions ${old} ${left} time${left > 1 ? 's' : ''}` });
+    const at = text.split(/\r?\n/).flatMap((l, i) => (l.match(bare) ?? []).map(() => i + 1));
+    if (at.length) checks.push({ action: 'check', file, detail: `still mentions ${old} ${at.length} time${at.length > 1 ? 's' : ''}, line${at.length > 1 ? 's' : ''} ${[...new Set(at)].join(', ')}` });
   }
 
   // Every backup first: a failure there writes nothing.
@@ -196,7 +239,7 @@ function pluginsRename(a: Args, io: Io): number {
   if (moves) {
     s.record('rename', dir, `to ${to}`);
     if (!s.dry) fs.renameSync(dir, target);
-  } else {
+  } else if (path.basename(dir) !== to) {
     s.record('check', dir, `keeps its folder name ${path.basename(dir)}`);
   }
   for (const c of checks) s.record('check', c.file, c.detail);
