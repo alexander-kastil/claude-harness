@@ -46,14 +46,14 @@ test('a PC without synced items shows an empty Cowork scope with one line on why
   assert.equal(await s.ev(D => [...D.querySelectorAll('.sidebar .cowork-region .empty')].filter(e => /Nothing from Claude\.ai/.test(e.textContent)).length), 1, 'the region states what is missing once');
 });
 
-test('synced skills and plugins show under Cowork with the cloud icon, and none of them can be changed', T, async () => {
+test('synced skills and plugins show under Cowork with the briefcase icon, and none of them can be changed', T, async () => {
   write(`plugins/synced/${ORG}/manifest.json`, JSON.stringify({ plugins: [{ pluginId: 'plugin_1', name: 'design', version: '0040', marketplaceName: 'knowledge-work-plugins', marketplaceKind: 'anthropic_catalog' }] }));
   write(`plugins/synced/${ORG}/design.meta.json`, JSON.stringify({ server_plugin_id: 'plugin_1', marketplace_name: 'knowledge-work-plugins', marketplace_kind: 'anthropic_catalog' }));
   write(`plugins/synced/${ORG}/design/.claude-plugin/plugin.json`, JSON.stringify({ name: 'design', version: '1.2.0', description: 'Design workflows.' }));
   write(`skills/synced/${ORG}/manifest.json`, JSON.stringify({ skills: [{ skillId: 'docs', name: 'docs', creatorType: 'anthropic', source: 'anthropic-example' }] }));
   write(`skills/synced/${ORG}/docs/SKILL.md`, '---\nname: docs\ndescription: Editable docs people share.\n---\n\n# docs\n\nMake the doc first.\n');
   await s.waitFor(D => /Cowork\s*2$/i.test(D.querySelector('.sidebar .cowork-region > .scope-head')?.innerText.trim() || ''));
-  assert.equal(await s.ev(D => (D.querySelector('.sidebar .cowork-region > .scope-head .codicon-cloud') ? 'cloud' : '')), 'cloud');
+  assert.equal(await s.ev(D => (D.querySelector('.sidebar .cowork-region > .scope-head .codicon-briefcase') ? 'briefcase' : '')), 'briefcase');
   await unfold();
   assert.ok(!(await text('.sidebar .list')).includes('Nothing from Claude.ai is on this PC'));
   // No add button on the Cowork kinds.

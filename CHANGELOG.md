@@ -22,6 +22,7 @@ All notable changes to Claude Harness are listed here, newest first. The format 
 - @harness:session-analyze opens current session: The root README.md now has the second example in "Command line and @harness mentions",
 - Release build
 - Docs screenshots: README images: The stop markers are not drawn at all in this mock: no dg-mark, dg-stop or dg-chip nodes in the DOM
+- One consistent Cowork icon everywhere: Progress: 4/4 · report
 
 ### Fixed
 

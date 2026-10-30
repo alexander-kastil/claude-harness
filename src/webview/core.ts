@@ -1,7 +1,7 @@
 // @ts-nocheck
 // Webview state, asset helpers and navigation shared by every page.
 import { saved, vscode } from './bridge';
-import { el, icon, plural } from './dom';
+import { COWORK_GLYPH, el, icon, plural } from './dom';
 import { render } from './main';
 import { railFromSaved } from '../shared/nav-rail';
 import type { State } from './state';
@@ -146,7 +146,7 @@ export const whereGroups = items => {
   const repos = others.filter(v => v.id !== 'cowork');
   const known = [
     global && [global.id, global.label, 'globe'],
-    ['cowork', 'Cowork', 'cloud'],
+    ['cowork', 'Cowork', COWORK_GLYPH],
     ['claude.ai', 'claude.ai connectors', 'cloud'],
     ['plugin', 'From plugins', 'extensions'],
     ...repos.map(v => [v.id, v.local ? `This repo · ${v.label}` : v.label, 'repo']),

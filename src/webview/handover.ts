@@ -6,7 +6,7 @@ import { COWORK_NODES } from './cowork';
 import { confirmAt } from './confirm';
 import { showPage, state, vscode } from './core';
 import { cmd, cmdBox } from './detail';
-import { aiGroup, el, fmtAgo, icon, iconBtn, plural } from './dom';
+import { COWORK_GLYPH, aiGroup, el, fmtAgo, icon, iconBtn, plural } from './dom';
 
 export const PAGE = 'cowork-handover';
 
@@ -114,7 +114,7 @@ function inbox() {
     const f2 = ((h.inbox && h.inbox.downloads) || []).filter(f => has(q2, f.name));
     col.querySelector('.hv-groups').replaceChildren(
       group('Desktop chats', 'comment-discussion', state.coworkChats === null ? null : m.length, m.slice(0, 12).map(c => item(`chat:${c.id}`, 'comment', c.title, `${c.produced + c.uploaded} files · ${fmtAgo(c.lastActivity)}`, () => (pick({ source: 'chat', id: c.id }), repaintPage()))), 'No chat on this PC.'),
-      group('Cowork sessions', 'cloud', state.coworkSessions === null ? null : c2.length, c2.slice(0, 12).map(s => item(`cloud:${s.id}`, 'cloud', s.title, [s.messages ? plural(s.messages, 'message') : '', s.status].filter(Boolean).join(' · '), () => (pick({ source: 'cloud', id: s.id, title: s.title }), repaintPage()))), state.coworkSessions && state.coworkSessions.data.state !== 'ok' ? state.coworkSessions.data.note : 'No session listed.'),
+      group('Cowork sessions', COWORK_GLYPH, state.coworkSessions === null ? null : c2.length, c2.slice(0, 12).map(s => item(`cloud:${s.id}`, COWORK_GLYPH, s.title, [s.messages ? plural(s.messages, 'message') : '', s.status].filter(Boolean).join(' · '), () => (pick({ source: 'cloud', id: s.id, title: s.title }), repaintPage()))), state.coworkSessions && state.coworkSessions.data.state !== 'ok' ? state.coworkSessions.data.note : 'No session listed.'),
       group('Files in Downloads', 'folder-opened', h.inbox === null ? null : f2.length, f2.map(f => item(`download:${f.file}`, 'file', f.name, `${sizeText(f.size)} · ${fmtAgo(f.updated)}`, () => (pick({ source: 'download', id: f.file }), repaintPage()))), 'No file of the last 14 days.')
     );
   };
@@ -165,7 +165,7 @@ function card() {
     'div',
     { className: 'hunt-col hunt-col-find hv-card' },
     el('div', { className: 'hunt-col-head' }, icon('arrow-swap'), el('span', {}, 'Handover card'), el('span', { className: 'hunt-col-count' }, `${ticked} of ${c.files.length} files`), iconBtn('close', 'Clear the card', () => ((h.card = undefined), (h.result = undefined), repaintPage()))),
-    el('div', { className: 'hv-source' }, icon({ link: 'link', cloud: 'cloud', chat: 'comment-discussion', download: 'file' }[c.source]), el('span', { className: 'hv-source-title' }, c.title), el('span', { className: 'tag' }, { link: 'artifact link', cloud: 'Cowork session', chat: 'desktop chat', download: 'app file' }[c.source])),
+    el('div', { className: 'hv-source' }, icon({ link: 'link', cloud: COWORK_GLYPH, chat: 'comment-discussion', download: 'file' }[c.source]), el('span', { className: 'hv-source-title' }, c.title), el('span', { className: 'tag' }, { link: 'artifact link', cloud: 'Cowork session', chat: 'desktop chat', download: 'app file' }[c.source])),
     c.note ? el('div', { className: 'notice', role: 'status' }, icon('info'), el('span', {}, c.note)) : null,
     field('Task', el('input', { type: 'text', className: 'hv-task', placeholder: 'One sentence: what Claude Code does next', 'aria-label': 'Task', value: c.task, oninput: e => (c.task = e.target.value) }), h.draftError ? el('div', { className: 'notice bad', role: 'alert' }, h.draftError) : null),
     field('Files to copy', filesField(c)),

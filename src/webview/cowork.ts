@@ -1,7 +1,7 @@
 // @ts-nocheck
 // The Cowork scope: what Claude.ai brings to this PC (synced skills and org plugins, claude.ai connectors), always read-only.
 import { command, persist, state } from './core';
-import { el, icon, iconBtn } from './dom';
+import { COWORK_GLYPH, coworkIcon, el, icon, iconBtn } from './dom';
 
 export const COWORK_ID = 'cowork';
 export const MANAGED = 'Managed by Claude.ai';
@@ -32,7 +32,7 @@ export function renderCoworkRegion(view, q, renderCategories, treeItem, render, 
   const region = el('div', { className: 'cowork-region' });
   const [folded, head] = regionHead(
     'cowork',
-    'cloud',
+    COWORK_GLYPH,
     'Cowork',
     `Cowork\nWhat Claude.ai brings to this PC: synced skills, synced org plugins and claude.ai connectors. ${MANAGED}, read-only.`,
     [iconBtn('link-external', 'Manage on claude.ai', () => command('openCowork'))],
@@ -65,7 +65,7 @@ export function coworkDriftTag(a) {
   return el(
     'div',
     { className: 'dv-notice cowork-notice' },
-    icon('cloud'),
+    coworkIcon(),
     el('span', {}, o.state === 'gone' ? `Pulled from Cowork ${o.item}, which is no longer synced.` : `Differs from Cowork: ${o.item} changed, or this copy did, since it was pulled.`),
     o.state === 'differs' ? el('button', { className: 'link', type: 'button', title: 'Compare\nOpens the Cowork version and this copy side by side', onclick: () => command('compareCowork', { id: a.id }) }, icon('diff'), ' Compare') : null
   );

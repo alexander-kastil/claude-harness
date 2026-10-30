@@ -4,7 +4,7 @@ import { AGENT_COLORS, HEX_COLOR, MODELS, RENAMABLE, SOURCES, TOOL_FIELDS, agent
 import { confirmAt, showConfirm } from './confirm';
 import { COWORK_ID, coworkDriftTag } from './cowork';
 import { coworkPluginView, mcpStatusParts, renderView, setMode } from './detail-view';
-import { aiGroup, el, glyphOf, icon, iconBtn, plural } from './dom';
+import { COWORK_GLYPH, aiGroup, el, glyphOf, icon, iconBtn, plural } from './dom';
 import { distCommands, sourceTip } from './dist';
 import { hideHover } from './hover';
 import { renderMain } from './main';
@@ -253,7 +253,7 @@ const shortPath = file => String(file || '').replace(/^[a-z]:\\users\\[^\\]+|^\/
 function sourceChip(a) {
   const repo = a.scope !== 'global' && viewOf(a.scope);
   const plugin = a.scope.startsWith('plugin:') ? a.scope.slice('plugin:'.length).split('@')[0] : pluginOf(a);
-  const [glyph, label, tip] = repo ? ['repo', repo.label, repo.path] : plugin ? ['extensions', plugin, `Plugin ${plugin}`] : ['globe', 'Global', 'Global\nYour user folder, for every repository.'];
+  const [glyph, label, tip] = repo ? [repo.id === COWORK_ID ? COWORK_GLYPH : 'repo', repo.label, repo.path] : plugin ? ['extensions', plugin, `Plugin ${plugin}`] : ['globe', 'Global', 'Global\nYour user folder, for every repository.'];
   return el('span', { className: 'dh-source', title: tip }, icon(glyph), el('span', {}, label));
 }
 

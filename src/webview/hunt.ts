@@ -1,7 +1,7 @@
 // @ts-nocheck
 // The Plugin Hunter page: a marketplace picker and two tabs. New hunt is a chat with Claude beside the card it proposes; History keeps the other cards with their chats.
 import { showPage, vscode } from './core';
-import { aiGroup, claudeMark, countHead, el, icon, iconBtn } from './dom';
+import { aiGroup, claudeMark, countHead, coworkIcon, el, icon, iconBtn } from './dom';
 import { hideHover } from './hover';
 import { showKindPage } from './kind-page';
 import { card } from './hunt-card';
@@ -21,7 +21,7 @@ export const huntButton = () => aiGroup('hunt-cta', el('button', { className: 's
 
 // After the Browser Automation Hunter button, in the same AI group; the page reads its own inbox when it opens.
 function handoverButton() {
-  return el('button', { className: 'secondary', title: 'Cowork Handover\nHand a Cowork chat, an artifact link or a file of the apps to Claude Code in a terminal: Claude drafts the card, you tick what comes along. It counts against your plan.', 'aria-label': 'Cowork Handover', onclick: () => showPage('cowork-handover') }, icon('arrow-swap'), el('span', { className: 'cta-label' }, 'Cowork Handover'));
+  return el('button', { className: 'secondary', title: 'Cowork Handover\nHand a Cowork chat, an artifact link or a file of the apps to Claude Code in a terminal: Claude drafts the card, you tick what comes along. It counts against your plan.', 'aria-label': 'Cowork Handover', onclick: () => showPage('cowork-handover') }, coworkIcon(), el('span', { className: 'cta-label' }, 'Cowork Handover'));
 }
 
 export function onHuntMessage(m) {
