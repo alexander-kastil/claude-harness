@@ -1,6 +1,6 @@
 import * as os from 'os';
 import * as path from 'path';
-import { ScopeView, KeepCopies, applyMcpState, globalScope, knownRepos, linkCopies, pluginDirs, pluginViews, repoScope, scan } from './harness';
+import { ScopeView, KeepCopies, applyMcpState, coworkView, globalScope, knownRepos, linkCopies, pluginDirs, pluginViews, repoScope, scan } from './harness';
 import { findProvider } from './standard';
 
 // The argument parsing, the output and the loaded harness that every CLI command shares.
@@ -15,8 +15,8 @@ export interface Args {
   flags: Map<string, string[]>;
 }
 
-const BOOLEAN = new Set(['json', 'help', 'retire', 'dry-run', 'apply', 'yes', 'week', 'drop-files']);
-const VALUED = new Set(['root', 'repo', 'repos', 'user-config', 'from', 'name', 'kind', 'category', 'skills', 'agents', 'market', 'description', 'session', 'week-used', 'line', 'position', 'leaf', 'leaves', 'to', 'file', 'files', 'scope', 'model', 'tools', 'url', 'command', 'args', 'transport', 'paths', 'matcher', 'summary', 'area', 'rule', 'title', 'limit', 'days', 'find', 'query', 'plugin', 'source', 'stage', 'version']);
+const BOOLEAN = new Set(['json', 'help', 'cowork', 'retire', 'dry-run', 'apply', 'yes', 'week', 'drop-files']);
+const VALUED = new Set(['root', 'repo', 'repos', 'user-config', 'from', 'name', 'kind', 'into', 'category', 'skills', 'agents', 'market', 'description', 'session', 'week-used', 'line', 'position', 'leaf', 'leaves', 'to', 'file', 'files', 'scope', 'model', 'tools', 'url', 'command', 'args', 'transport', 'paths', 'matcher', 'summary', 'area', 'rule', 'title', 'limit', 'days', 'find', 'query', 'plugin', 'source', 'stage', 'version']);
 
 export class Stop extends Error {
   constructor(message: string, readonly code = 1) {
@@ -74,6 +74,8 @@ export interface World {
   root: string;
   views: ScopeView[];
   plugins: ScopeView[];
+  /** The read-only Cowork scope: the skills and plugins Claude.ai synced into the root (no claude.ai connectors; `claude mcp list` needs a network). */
+  cowork: ScopeView;
   keep?: KeepCopies;
   repos: string[];
 }
@@ -90,7 +92,7 @@ export function load(a: Args): World {
   applyMcpState(views, userConfig);
   const plugins = pluginViews(root);
   linkCopies(views, plugins);
-  return { root, views, plugins, keep: findProvider(pluginDirs(root, true))?.keepCopies, repos };
+  return { root, views, plugins, cowork: coworkView(root), keep: findProvider(pluginDirs(root, true))?.keepCopies, repos };
 }
 
 // ---- text output ----

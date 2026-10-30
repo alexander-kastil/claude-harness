@@ -203,7 +203,8 @@ function hero(a: Asset, v: ScopeView | undefined, draft: Draft | undefined, desc
   const { text, groups } = splitDescription(description);
   const missing = !text && ['skill', 'agent', 'command'].includes(a.kind);
   // Where it lives is the header's badge; what the badge cannot say (a plugin, a source, a version, linked repos) is the Origin fact.
-  const rest = originText(a, v).split(' · ').slice(1).join(' · ');
+  // A synced Cowork plugin names its version and owner in its own rows, so the origin would only repeat the version.
+  const rest = a.scope === 'cowork' && a.kind === 'plugin' ? '' : originText(a, v).split(' · ').slice(1).join(' · ');
   const details = group('Details', [rest ? fact('Origin', rest, 'source-control') : null, ...(draft ? factRows(a, draft) : []), ...rows]);
   // Memory and rules say when they load in their Loads and Always loaded rows, and the other kinds have no description to miss.
   const noDesc = !['skill', 'agent', 'command', 'outputStyle'].includes(a.kind);
@@ -333,6 +334,19 @@ function filesCard(a: Asset, title: string, files: string[]): HTMLElement | null
       return [groupHead('origin-label dv-folder', key, folded, 'folder', top, list.length, renderMain), folded ? null : list.map(f => row(f, top))];
     })
   );
+}
+
+// A synced Cowork plugin as a read-only page in the grammar of the other detail pages: the info card (description, then the
+// Details grid of icon, label and value from its meta files), then its files under one fold per top folder.
+export function coworkPluginView(a: Asset): Child[] {
+  const rows = [
+    a.version ? fact('Version', a.version, 'tag') : null,
+    a.owner ? fact('Owner', a.owner, 'organization', 'Owner\nThe marketplace the plugin comes from.') : null,
+    a.about ? fact('Marketplace kind', a.about, 'library') : null,
+    a.status ? fact('Installation', a.status, 'cloud-download') : null,
+  ].filter((r): r is HTMLElement => !!r);
+  askDrawing(a);
+  return [drawingFigure(a), hero(a, undefined, undefined, a.description, [], rows), filesCard(a, 'Files', a.files || [])];
 }
 
 function outlineCard(headings: MdHeading[]): HTMLElement | null {
@@ -573,10 +587,54 @@ function markdownView(d: Detail, draft: Draft): Child[] {
   ];
 }
 
+// A server's status for the header command bar: one line (icon, word, the server's own message; the text from `claude mcp list`
+// is its hover card) with Retry beside it, and Sign in as a command the bar's AI group takes in.
+export function mcpStatusParts(a: Asset): { status: HTMLElement; signIn: HTMLElement | null } {
+  const v = viewOf(a.scope);
+  // A claude.ai connector is read only: its status is what `claude mcp list` reports, never a probe of its server, and it has no sign-in here.
+  const managed = a.source === 'claude.ai';
+  const info = managed ? undefined : state.mcpInfo[a.id];
+  const off = a.enabled === false;
+  const busy = state.mcpBusy[a.id] === 'busy';
+  const problem = info && info.error && !off;
+  const needsSignIn = !managed && (!!(info && info.error && info.signIn) || /auth/i.test(a.status || ''));
+  const word = mcpStatusWord(a);
+  const wordText = managed && word === 'Sign-in' ? tidyError(a.status) : word === 'Sign-in' || (word === '-' && needsSignIn && !off) ? 'Needs sign-in' : word === '-' ? (info ? 'Unknown' : '...') : word || (info ? 'Unknown' : '...');
+  const listed = a.status && a.status !== word ? tidyError(a.status) : '';
+  const tone = off ? 'warn' : problem || mcpFailed(a) ? 'bad' : word === 'Connected' ? 'ok' : 'warn';
+  const message = off
+    ? `Switched off ${v && v.id !== 'global' ? `in ${v.label}` : 'in every folder'}. Switch it on to connect, sign in or retry.`
+    : problem
+      ? (state.mcpBusy[a.id] === 'done' ? 'Checked again: ' : '') + tidyError(info.error)
+      : '';
+  const sameAsWord = message.replace(/\.$/, '').toLowerCase() === wordText.toLowerCase();
+  const statusText = off || (problem && sameAsWord) ? message : problem ? `${wordText} · ${message}` : listed ? `${wordText} · ${listed}` : wordText;
+  const line = el(
+    'div',
+    { className: `dv-notice line ${tone}`, role: tone === 'bad' ? 'alert' : 'status', title: problem && listed ? `${wordText}\n${listed}` : undefined },
+    icon(off ? 'circle-slash' : tone === 'ok' ? 'pass' : tone === 'bad' ? 'error' : 'warning'),
+    el('span', { className: 'dv-notice-text' }, statusText)
+  );
+  const retry = problem
+    ? cmdBox(
+        'Server',
+        '',
+        cmd(busy ? 'loading' : 'refresh', busy ? 'Retrying...' : 'Retry', 'Retry\nAsk the server for its tools again.', () => {
+          state.mcpBusy[a.id] = 'busy';
+          vscode.postMessage({ type: 'mcpRetry', id: a.id });
+          renderMain();
+        }, { disabled: busy })
+      )
+    : null;
+  const signIn = problem && info.signIn ? cmd('sign-in', 'Sign in', 'Sign in\nA Claude in a terminal runs /mcp, where the server asks you to sign in.', () => vscode.postMessage({ type: 'mcpSignIn', id: a.id })) : null;
+  return { status: el('div', { className: 'cmd-status' }, line, retry), signIn };
+}
+
 function mcpView(d: Detail): Child[] {
   const a = d.asset;
   const v = viewOf(a.scope);
-  const info = state.mcpInfo[a.id];
+  const managed = a.source === 'claude.ai';
+  const info = managed ? undefined : state.mcpInfo[a.id];
   const toolList = info && !info.error ? info.tools || [] : [];
   // Calls per tool from the usage index, when one exists; tool names in transcripts have anything but letters, digits, _ and - replaced by _.
   askMore(a, false);
@@ -592,9 +650,8 @@ function mcpView(d: Detail): Child[] {
     el('span', {}, v && v.id !== 'global' ? `In ${v.label}` : 'In every folder')
   );
   const off = a.enabled === false;
-  const busy = state.mcpBusy[a.id] === 'busy';
   const problem = info && info.error && !off;
-  const needsSignIn = !!(info && info.error && info.signIn) || /auth/i.test(a.status || '');
+  const needsSignIn = !managed && (!!(info && info.error && info.signIn) || /auth/i.test(a.status || ''));
   const repo = v && v.id !== 'global' ? v.label : '';
   // MCP servers rarely describe themselves: say where it is registered and when Claude Code starts it.
   const where =
@@ -607,52 +664,17 @@ function mcpView(d: Detail): Child[] {
           : a.source === 'local'
             ? `Registered for ${repo || 'one repo'} only, in your ~/.claude.json.`
             : 'Registered in your ~/.claude.json; Claude Code starts it in every session.';
-  // The status is one line: icon, word, the server's own message, and Sign in and Retry at its right end. The text from
-  // `claude mcp list` is the line's hover card.
-  const word = mcpStatusWord(a);
-  const wordText = word === 'Sign-in' || (word === '-' && needsSignIn && !off) ? 'Needs sign-in' : word === '-' ? (info ? 'Unknown' : '...') : word || (info ? 'Unknown' : '...');
-  const listed = a.status && a.status !== word ? tidyError(a.status) : '';
-  const tone = off ? 'warn' : problem || mcpFailed(a) ? 'bad' : word === 'Connected' ? 'ok' : 'warn';
-  const message = off
-    ? `Switched off ${v && v.id !== 'global' ? `in ${v.label}` : 'in every folder'}. Switch it on to connect, sign in or retry.`
-    : problem
-      ? (state.mcpBusy[a.id] === 'done' ? 'Checked again: ' : '') + tidyError(info.error)
-      : '';
-  const sameAsWord = message.replace(/\.$/, '').toLowerCase() === wordText.toLowerCase();
-  const statusText = off || (problem && sameAsWord) ? message : problem ? `${wordText} · ${message}` : listed ? `${wordText} · ${listed}` : wordText;
-  const statusLine = el(
-    'div',
-    { className: `dv-notice line ${tone}`, role: tone === 'bad' ? 'alert' : 'status', title: problem && listed ? `${wordText}\n${listed}` : undefined },
-    icon(off ? 'circle-slash' : tone === 'ok' ? 'pass' : tone === 'bad' ? 'error' : 'warning'),
-    el('span', { className: 'dv-notice-text' }, statusText),
-    problem
-      ? el(
-          'div',
-          { className: 'cmd-row' },
-          aiGroup('', info.signIn ? cmd('sign-in', 'Sign in', 'Sign in\nA Claude in a terminal runs /mcp, where the server asks you to sign in.', () => vscode.postMessage({ type: 'mcpSignIn', id: a.id })) : null),
-          cmdBox(
-            'Server',
-            '',
-            cmd(busy ? 'loading' : 'refresh', busy ? 'Retrying...' : 'Retry', 'Retry\nAsk the server for its tools again.', () => {
-              state.mcpBusy[a.id] = 'busy';
-              vscode.postMessage({ type: 'mcpRetry', id: a.id });
-              renderMain();
-            }, { disabled: busy })
-          )
-        )
-      : null
-  );
-  const unknown = !!(info && info.error) || off;
-  const why = off ? 'switched off' : needsSignIn ? 'until you sign in' : 'the server did not answer';
+  const unknown = !!(info && info.error) || off || managed;
+  const why = off ? 'switched off' : managed ? 'Claude Code loads them in a session' : needsSignIn ? 'until you sign in' : 'the server did not answer';
   // Tools and Tool list both say Unknown for the same reason: one cell then, with both in its hover card.
   const cells = unknown
-    ? [tile('Unknown', 'Tools and tool list', 'tools', why, undefined, `The server's tools, and what its tool list costs in tokens each session, are unknown ${why}.`)]
+    ? [tile('Unknown', 'Tools and tool list', 'tools', why, undefined, managed && !off ? "The server's tools, and what its tool list costs in tokens each session, are not read here: Claude Code loads the tool list in a session." : `The server's tools, and what its tool list costs in tokens each session, are unknown ${why}.`)]
     : [
         tile(info ? String(toolList.length) : '...', 'Tools', 'tools', info ? `${info.server || labelOf(a)}${info.version ? ` ${info.version}` : ''}` : 'asking the server'),
         tile(info ? fmtTokens(toolList.reduce((n, t) => n + tokens(`${t.name} ${t.description}`), 0)) : '...', 'Tool list', 'layers', !info ? 'asking the server' : calls === undefined ? 'tokens of names and descriptions' : `tokens every session, ${plural(calls, 'call')}`),
       ];
   // The Scope tile said what the header's origin and the Source chip already say, so it is gone.
-  const heroCard = hero(a, v, undefined, a.about || where, [fact('Status', statusLine, null, undefined, 'wide')], [
+  const heroCard = hero(a, v, undefined, a.about || where, [], [
     fact('Source', sourceName(a), 'source-control'),
     a.target ? fact('Address', el('span', { className: 'ell' }, a.target), 'link', `Address
 ${a.target}`) : null,
@@ -663,7 +685,9 @@ ${a.target}`) : null,
     card(
       'Tools',
       info && !info.error ? toolList.length : null,
-      !info
+      managed
+        ? el('div', { className: 'dv-empty' }, off ? 'No tool list while the server is switched off.' : 'Claude Code loads the tool list in a session.')
+        : !info
         ? el('div', { className: 'dv-empty' }, 'Asking the server for its tools...')
         : info.error
           ? el('div', { className: 'dv-empty' }, off ? 'No tool list while the server is switched off.' : needsSignIn ? 'The tool list is unknown until you sign in.' : 'No tool list while the server does not answer.')

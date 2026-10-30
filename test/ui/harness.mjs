@@ -37,6 +37,8 @@ export class Session {
     this.ud = path.join(this.root, 'ud');
     this.ext = path.join(this.root, 'ext');
     this.livePid = opts.livePid;
+    /** The extension folder VS Code loads; the working tree unless a test brings its own manifest. */
+    this.extensionPath = opts.extensionPath;
   }
 
   get base() {
@@ -92,8 +94,11 @@ export class Session {
     fs.mkdirSync(this.ext, { recursive: true });
     this.settings();
     this.windowOnSecondScreen();
-    const env = { ...process.env, USERPROFILE: this.fixture.home, HOME: this.fixture.home };
-    const args = [`--user-data-dir=${this.ud}`, `--extensions-dir=${this.ext}`, `--extensionDevelopmentPath=${repoRoot}`, `--remote-debugging-port=${this.port}`, '--new-window', '--skip-welcome', '--skip-release-notes', '--disable-workspace-trust', path.join(this.root, 'repos', 'shop-api')];
+    // The desktop app's data is the owner's own: a test run reads an empty folder unless the test names a fixture.
+    const noApp = path.join(this.root, 'no-claude-desktop');
+    fs.mkdirSync(noApp, { recursive: true });
+    const env = { ...process.env, USERPROFILE: this.fixture.home, HOME: this.fixture.home, CLAUDE_HARNESS_LOCALAPPDATA: process.env.CLAUDE_HARNESS_LOCALAPPDATA || noApp };
+    const args = [`--user-data-dir=${this.ud}`, `--extensions-dir=${this.ext}`, `--extensionDevelopmentPath=${this.extensionPath || repoRoot}`, `--remote-debugging-port=${this.port}`, '--new-window', '--skip-welcome', '--skip-release-notes', '--disable-workspace-trust', path.join(this.root, 'repos', 'shop-api')];
     spawn(this.code, args, { env, detached: true, stdio: 'ignore' }).unref();
     for (let i = 0; i < 60; i++) {
       await sleep(1000);

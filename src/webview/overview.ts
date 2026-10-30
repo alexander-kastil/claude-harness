@@ -117,7 +117,8 @@ function reposBlock(repos) {
 }
 
 export function renderOverview() {
-  const [global, ...repos] = state.views;
+  const [global, ...others] = state.views;
+  const repos = others.filter(v => v.id !== 'cowork');
   const categories = global ? global.categories : [];
   const all = state.views.flatMap(v => v.categories.flatMap(c => c.items.map(a => Object.assign({ icon: c.icon, scopeLabel: v.label }, a))));
   const recent = all

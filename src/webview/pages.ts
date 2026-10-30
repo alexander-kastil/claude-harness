@@ -109,6 +109,23 @@ const syncCols = m => [
   })(),
 ];
 
+// Where each plugin is available. A Code only plugin carries Add to Cowork, which opens the claude.ai plugin settings (a link out, nothing is written there).
+const HARNESS_TEXT = { code: 'Code', cowork: 'Cowork', both: 'Both', none: 'None' };
+const harnessCol = {
+  head: 'Harness',
+  track: 'minmax(190px, 1fr)',
+  tip: 'Harness\nWhere the plugin is available: Code, Cowork, Both or None. Cowork is read from the plugins Claude.ai synced to this PC.',
+  cell: p => {
+    const h = p.harness || 'code';
+    return h === 'code'
+      ? [el('span', { className: 'at-label' }, HARNESS_TEXT[h]), el('button', { className: 'secondary', title: `Add to Cowork\nOpens the claude.ai plugin settings, where ${p.name} is added to Cowork. Nothing is written to your account from here.`, onclick: e => (e.stopPropagation(), hideHover(), command('openCowork', { target: 'plugins' })) }, icon('cloud'), 'Add to Cowork')]
+      : HARNESS_TEXT[h];
+  },
+  title: p => `Harness · ${HARNESS_TEXT[p.harness || 'code']}`,
+};
+const notInCowork = plugins => plugins.filter(p => (p.harness || 'code') === 'code').length;
+const notInCoworkText = n => (n ? `${plural(n, 'plugin')} not in Cowork` : '');
+
 export function renderMarkets() {
   const list = state.markets;
   const body = el('div', { className: 'main-body' });
@@ -131,7 +148,7 @@ export function renderMarkets() {
             m.kind === 'directory' ? el('button', { className: 'secondary', onclick: () => command('renameMarketplace', { market: m.name }) }, icon('edit'), 'Rename...') : null),
           m.plugins.length
             ? gridTable(
-                [{ head: 'Plugin', track: 'minmax(120px, 2fr)', cls: 'at-name', cell: p => [icon('extensions'), el('span', { className: 'at-label' }, p.name)] }, ...syncCols(m)],
+                [{ head: 'Plugin', track: 'minmax(120px, 2fr)', cls: 'at-name', cell: p => [icon('extensions'), el('span', { className: 'at-label' }, p.name)] }, harnessCol, ...syncCols(m)],
                 m.plugins,
                 `Plugins of ${m.name}`
               )
@@ -141,7 +158,7 @@ export function renderMarkets() {
       }
     }
   }
-  return el('section', { className: 'main' }, countHead('package', 'Marketplace health', list ? plural(list.length, 'marketplace') : 'Reading...', iconBtn('refresh', 'Reload', () => vscode.postMessage({ type: 'marketplaces' }))), body);
+  return el('section', { className: 'main' }, countHead('package', 'Marketplace health', list ? [plural(list.length, 'marketplace'), notInCoworkText(notInCowork(list.flatMap(m => m.plugins)))].filter(Boolean).join(' · ') : 'Reading...', iconBtn('refresh', 'Reload', () => vscode.postMessage({ type: 'marketplaces' }))), body);
 }
 
 // The installed plugin of a key (`name@market`), Global's first: a row on the marketplace page opens its page.
@@ -169,6 +186,7 @@ export function renderMarket() {
               [
                 { head: 'Plugin', track: 'minmax(140px, 2fr)', cls: 'at-name', cell: p => [icon(p.enabled ? 'pass-filled' : 'circle-large-outline'), el('span', { className: 'at-label' }, p.name)], title: p => `${p.name}\n${p.enabled ? 'Enabled' : p.installed ? 'Installed, disabled' : 'Not installed'}` },
                 ...(m.plugins.some(p => p.description) ? [{ head: 'Description', track: 'minmax(100px, 3fr)', muted: true, wide: true, cell: p => p.description || '', title: p => p.description }] : []),
+                harnessCol,
                 ...syncCols(m),
               ],
               m.plugins.map(p => {
@@ -188,7 +206,7 @@ export function renderMarket() {
   const head = countHead(
     'package',
     page.name,
-    m ? [plural(m.plugins.length, 'plugin'), installed ? `${installed} installed` : '', enabled ? `${enabled} enabled` : '', ahead ? `${ahead} ahead` : ''].filter(Boolean).join(' · ') : state.markets ? 'Not registered' : 'Reading...',
+    m ? [plural(m.plugins.length, 'plugin'), installed ? `${installed} installed` : '', enabled ? `${enabled} enabled` : '', ahead ? `${ahead} ahead` : '', notInCoworkText(notInCowork(m.plugins))].filter(Boolean).join(' · ') : state.markets ? 'Not registered' : 'Reading...',
     back,
     m && m.kind === 'directory' ? iconBtn('edit', 'Rename marketplace...', () => command('renameMarketplace', { market: m.name })) : null,
     iconBtn('refresh', 'Reload', () => vscode.postMessage({ type: 'marketplaces' })),

@@ -44,14 +44,29 @@ const PRICES: [RegExp, { input: number; output: number; cacheRead: number }][] =
  */
 export const PLANS: { id: string; label: string; limit: number; families?: Record<string, number> }[] = [
   { id: 'pro', label: 'Pro', limit: 105 },
-  { id: 'max5', label: 'Max 5x', limit: 523 },
-  { id: 'max20', label: 'Max 20x', limit: 1643 },
+  { id: 'max', label: 'Max', limit: 523 },
+  { id: 'ultra', label: 'Ultra', limit: 1643 },
   { id: 'team-standard', label: 'Team Standard', limit: 202, families: { fable: 43 } },
   { id: 'team', label: 'Team Premium', limit: 1010, families: { fable: 215 } },
   { id: 'api', label: 'API billing', limit: 0 },
 ];
 
 export const planLimit = (plan: string | undefined): number => PLANS.find(p => p.id === plan)?.limit ?? 0;
+
+// Anthropic renamed the plans (Max 5x became Max, Max 20x became Ultra); a saved setting is rewritten once on activation.
+const RENAMED_PLANS: Record<string, string> = { max5: 'max', max20: 'ultra' };
+
+/** The new id for a saved plan setting that still holds an old one, or undefined when nothing changes. */
+export const renamedPlan = (plan: unknown): string | undefined => (typeof plan === 'string' ? RENAMED_PLANS[plan] : undefined);
+
+/** What to write back for the plan and accounts values saved at one target: only the settings that hold an old id. */
+export const planRewrites = (plan: unknown, accounts: unknown): { plan?: string; accounts?: unknown[] } => ({ plan: renamedPlan(plan), accounts: renamedAccounts(accounts) });
+
+/** The `claudeHarness.accounts` array with every old plan id renamed, or undefined when no entry holds one. */
+export function renamedAccounts(raw: unknown): unknown[] | undefined {
+  if (!Array.isArray(raw) || !raw.some(a => a && typeof a === 'object' && renamedPlan((a as { plan?: unknown }).plan))) return undefined;
+  return raw.map(a => (a && typeof a === 'object' && renamedPlan((a as { plan?: unknown }).plan) ? { ...a, plan: renamedPlan((a as { plan?: unknown }).plan) } : a));
+}
 
 type ApiUsage = { input_tokens?: number; output_tokens?: number; cache_read_input_tokens?: number; cache_creation_input_tokens?: number; cache_creation?: { ephemeral_1h_input_tokens?: number } };
 

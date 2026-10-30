@@ -2,6 +2,41 @@
 
 All notable changes to Claude Harness are listed here, newest first. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions with no version change in the package.json history (0.1.3, 0.1.5 to 0.1.18, 0.1.20 to 0.1.24, 0.1.27, 0.2.1 and 0.2.3 to 0.2.11) and development builds (0.2.14 to 0.2.22, 0.2.24 to 0.2.30, 0.2.32 to 0.2.34, 0.2.36 to 0.2.44, 0.3.0, 0.3.2, 0.4.1 to 0.4.3, 0.5.2 and 0.5.3) have no entry.
 
+## [0.15.0] - 2026-10-30
+
+### Added
+
+- Cowork is a region of its own in the left nav, beside Claude Code and GitHub, with a link to Memory on claude.ai and an eye button that hides or shows it (`claudeHarness.cowork.show`) (#35).
+- Cowork scheduled tasks: the Scheduled node and a task page list each scheduled task with the connectors and plugins it uses, read-only.
+- The marketplace's plugin list has a Harness column that shows where each plugin is available; a Code only plugin carries Add to Cowork, which opens the claude.ai plugin settings (#37).
+- Pull to Code copies a skill, or the skills of a plugin, that Claude.ai synced into Global or a repo as a Code-owned copy; `harness cowork pull <name> [--repo <dir>] [--kind skill|plugin] [--dry-run]` does the same from the command line (#45).
+- Unit and UI tests for the Cowork views on synthetic fixtures; the UI tests never read the desktop app's real data (#40).
+- The mod-authoring skill says which mod UI (band, panes, hover, click, images) works on the main screen, in fullscreen and in Windows Terminal, and that a band control needs a hotkey and a toggle shows both states.
+- Pull to Code for scheduled tasks: a task's instructions become a skill; `harness cowork pull` takes `--kind task|project`, a project's CLAUDE.md becoming a rules file or a CLAUDE.md section (#46).
+- Chats, Artifacts and Handover in the Cowork region: the desktop app's chats with their files, the Cowork sessions on claude.ai, every file the chats produced, and a handover card that Claude drafts and Continue in terminal opens in the target repo (#47).
+- Browser Automation Hunter: a chat beside a procedure card, like Plugin Hunter, for the procedures of the browser-automations skill, with Create into the plugin's source in your marketplace.
+- Draw with Claude on every Cowork page: skill, plugin, connector, scheduled task and chat.
+- The scheduled task page lists every run on a Runs tab, newest first, with unread runs marked.
+- The nav's Claude Code, Cowork and Repositories headers fold on click, and Collapse all / Expand all takes the GitHub button's place.
+
+### Changed
+
+- The plans Max 5x and Max 20x are Max and Ultra, as Anthropic renamed them; the setting values are `max` and `ultra`, and a saved `max5` or `max20` is rewritten once on activation.
+- The MCP detail page shows the server's status in its header bar.
+- claude.ai connectors are no longer probed: they show Claude Code's status, without Sign in or Retry.
+- The Cowork detail pages carry their commands in the header bar (Pull to Code after Manage on claude.ai), the notice box is gone and the plugin details are redesigned.
+- The Cowork pages link to the claude.ai pages for skills, plugins, connectors and capabilities.
+- Cowork Handover joins Plugin Hunter and Browser Automation Hunter in the Overview's Claude group, which shows icons only on a narrow panel.
+- The nav's top row no longer repeats the title Claude Harness, and its GitHub button gives way to Collapse all / Expand all; the GitHub Repo overview opens from the Show Fleet command.
+- When nothing from Claude.ai is on this PC, the Cowork region says so in one line.
+
+### Fixed
+
+- The eye button hides and shows Cowork without an error when VS Code has not registered the setting yet, after an update without a window reload.
+- The scheduled task page reads Runs on (Requires Claude Desktop with the device's name), Permissions (from the newest run) and the run counts from the triggers API as claude.ai shows them.
+- The Cowork region's empty-state lines reach 4.5:1 contrast in light and dark themes.
+- The Chats and Artifacts counts use the nav's count pill, so two and three digits fit.
+
 ## [0.13.21] - 2026-10-30
 
 ### Added

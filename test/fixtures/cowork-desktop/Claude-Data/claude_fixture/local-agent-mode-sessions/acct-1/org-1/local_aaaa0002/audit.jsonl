@@ -1,0 +1,2 @@
+{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Skill","input":{"skill":"other-skill"}}]}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","name":"mcp__cccc0000-1111-4222-8333-444444444444__fixture_search","input":{}}]}}

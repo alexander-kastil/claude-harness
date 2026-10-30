@@ -83,6 +83,46 @@ const CARDS = {
     action: 'Hunt',
     send: remember => vscode.postMessage({ type: 'huntRun', prompt: ask.prompt, card: ask.card, confirmed: true, remember }),
   }),
+  browserHunt: ask => ({
+    mark: claudeMark(18),
+    title: 'Hunt a browser automation with Claude',
+    sub: 'with Claude Sonnet, in a conversation',
+    facts: [
+      ['account', 'Uses your own Claude account. This message and every later one of this conversation count against your plan.'],
+      ['list-unordered', `Sends your message, the conversation so far and the ${ask.procedures} ${ask.procedures === 1 ? 'procedure' : 'procedures'} your browser automation skill keeps. No browser is driven.`],
+      ['eye', 'Claude answers in the conversation and can add or change the procedure card. Nothing is written to the skill until you press Create and confirm.'],
+    ],
+    action: 'Hunt',
+    send: remember => vscode.postMessage({ type: 'browserHuntRun', prompt: ask.prompt, card: ask.card, confirmed: true, remember }),
+  }),
+  // Writing the procedure into the skill: every file listed before anything happens. No Don't ask again switch.
+  browserHuntCreate: ask => ({
+    mark: icon('globe'),
+    title: `Create ${ask.name}`,
+    sub: 'in the browser automation skill',
+    facts: [
+      ['folder', el('span', {}, 'Writes into ', el('code', {}, ask.location), ':')],
+      ...ask.files.map(f => ['file', el('code', {}, f)]),
+      ['archive', el('span', {}, `Backs up ${ask.backups.join(' and ')} first.`)],
+      ...(ask.plugin ? [['extensions', el('span', {}, 'The skill is in the source of ', el('code', {}, ask.plugin), `, so its patch version moves${ask.installed ? ' and the installed plugin is updated' : ''}; the plugin cache is never written.`)]] : []),
+      ['git-commit', 'Nothing is committed.'],
+    ],
+    action: 'Create',
+    plain: true,
+    send: () => vscode.postMessage({ type: 'browserHuntCreate', id: ask.id, confirmed: true }),
+  }),
+  browserHuntClear: ask => ({
+    mark: icon('clear-all'),
+    title: 'Start the conversation over?',
+    sub: 'Browser Automation Hunter',
+    facts: [
+      ['comment-discussion', 'The messages above are cleared, and Claude no longer sees them.'],
+      ['globe', 'The procedure cards stay as they are.'],
+    ],
+    action: 'Start over',
+    plain: true,
+    send: () => ask.onConfirm(),
+  }),
   // Starting the conversation over, no host involved. No Don't ask again switch.
   huntClear: ask => ({
     mark: icon('clear-all'),
@@ -117,6 +157,39 @@ const CARDS = {
       card.querySelector('.cf-facts').classList.add('cf-scroll');
       relayout();
     },
+  }),
+  // Continuing a Cowork chat in a terminal: every file copied and the first prompt, listed before anything happens. No Don't ask again switch.
+  handover: ask => ({
+    mark: claudeMark(18),
+    title: 'Continue in a terminal',
+    sub: ask.title,
+    facts: [
+      ['folder', el('span', {}, 'Writes into ', el('code', {}, ask.folder), ':')],
+      ['terminal', el('span', {}, 'A terminal opens in ', el('code', {}, ask.cwd), ' and Claude starts with this first prompt: ', el('span', { className: 'cf-prompt' }, ask.prompt))],
+      ['file', el('span', {}, el('code', {}, 'CONTEXT.md'), ' with the task, the rules, what exists and what is still to write.')],
+      ...ask.files.map(f => [f.missing ? 'warning' : 'file', f.missing ? el('span', {}, el('code', {}, f.name), ' is missing on this PC and is not copied.') : el('code', {}, f.name)]),
+      ...(ask.files.length ? [] : [['info', 'No file comes along.']]),
+      ['credit-card', 'The run counts against your plan. The source is only read, never changed.'],
+    ],
+    action: 'Continue in terminal',
+    plain: true,
+    send: () => vscode.postMessage({ type: 'handoverRun', confirmed: true }),
+    mount: ({ card, relayout }) => {
+      card.querySelector('.cf-facts').classList.add('cf-scroll');
+      relayout();
+    },
+  }),
+  handoverDraft: ask => ({
+    mark: claudeMark(18),
+    title: 'Draft the handover with Claude',
+    sub: 'with Claude Sonnet, in the background',
+    facts: [
+      ['account', 'Runs claude -p on your own Claude login, so it counts against your plan.'],
+      ['list-unordered', `Sends the title, the text snapshot (${ask.chars} characters) and the names of ${ask.files} ${ask.files === 1 ? 'file' : 'files'}. No file contents.`],
+      ['eye', 'The task, the rules, what exists and what is still to write appear on the card, ready to change. Nothing is copied or started.'],
+    ],
+    action: 'Draft',
+    send: remember => vscode.postMessage({ type: 'handoverDraft', confirmed: true, remember }),
   }),
   // The page's own question, no host involved: dropping the edits of the open element. No Don't ask again switch.
   discard: ask => ({

@@ -1,0 +1,7 @@
+{
+  "lastUpdated": 1792434810588,
+  "plugins": [
+    { "pluginId": "plugin_designFixture0001", "name": "design", "description": "Design workflows.", "version": "0040", "updatedAt": "2026-09-22T20:19:51.058908Z", "marketplaceName": "knowledge-work-plugins", "installationPreference": "available", "marketplaceKind": "anthropic_catalog" },
+    { "pluginId": "plugin_legalFixture0001", "name": "marketing", "description": "Marketing workflows.", "version": "0041", "updatedAt": "2026-10-19T17:40:19.881562Z", "marketplaceName": "org-uploads", "installationPreference": "installed", "marketplaceKind": "account_upload", "generation": 2 }
+  ]
+}

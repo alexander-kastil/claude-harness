@@ -1,0 +1,1 @@
+- [Fixture preference](fixture-preference.md) - synthetic index line

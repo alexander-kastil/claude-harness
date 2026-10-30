@@ -4,7 +4,7 @@ import * as path from 'node:path';
 import { test } from 'node:test';
 import * as os from 'node:os';
 import { projectSlug } from '../../src/fleet';
-import { PLANS, WEEK_MS, accountWeek, lastReset, parseWeekStart, addWeek, findAccountSession, listAccountSessions, listSessions, messageCost, parseAccounts, planLimit, weekEntries, WeekModel } from '../../src/sessions';
+import { PLANS, WEEK_MS, accountWeek, lastReset, parseWeekStart, addWeek, findAccountSession, listAccountSessions, listSessions, messageCost, parseAccounts, planLimit, planRewrites, renamedAccounts, renamedPlan, weekEntries, WeekModel } from '../../src/sessions';
 
 test('PLANS matches the BILLING table of the panel, ids, labels and figures', () => {
   const source = fs.readFileSync(path.join(__dirname, '..', '..', '..', 'src', 'webview', 'session-page.ts'), 'utf8');
@@ -14,9 +14,9 @@ test('PLANS matches the BILLING table of the panel, ids, labels and figures', ()
   assert.equal(PLANS[PLANS.length - 1].id, 'api', 'api stays last: the panel falls back to the last row');
 });
 
-test('Team Standard is a fifth of Team Premium and Pro a fifth of Max 5x, rounded', () => {
+test('Team Standard is a fifth of Team Premium and Pro a fifth of Max, rounded', () => {
   assert.equal(planLimit('team-standard'), Math.round(planLimit('team') / 5));
-  assert.equal(planLimit('pro'), Math.round(planLimit('max5') / 5));
+  assert.equal(planLimit('pro'), Math.round(planLimit('max') / 5));
 });
 
 test('an unknown or missing plan has no limit', () => {
@@ -252,7 +252,7 @@ test('accountWeek with a weekStart sums since the reset and reports the Fable sh
   assert.equal(rolling.fromReset, false);
   assert.equal(rolling.since, NOW - WEEK_MS);
   assert.equal(rolling.models.find(m => m.model === 'claude-opus-5-5')?.messages, 2);
-  assert.deepEqual((await accountWeek({ label: 'P', root, plan: 'max5' }, NOW)).families, []);
+  assert.deepEqual((await accountWeek({ label: 'P', root, plan: 'max' }, NOW)).families, []);
 });
 
 test('plural adds es to a word that ends in a hissing sound, so 11 launches', () => {
@@ -270,4 +270,19 @@ test('plural adds es to a word that ends in a hissing sound, so 11 launches', ()
   assert.equal(plural(2, 'repository'), '2 repositories');
   assert.equal(plural(1, 'repository'), '1 repository');
   assert.equal(plural(2, 'day'), '2 days');
+});
+
+test('a saved plan id from before the rename (max5, max20) is rewritten to max and ultra; current ids stay', () => {
+  assert.equal(renamedPlan('max5'), 'max');
+  assert.equal(renamedPlan('max20'), 'ultra');
+  for (const keep of ['', 'pro', 'max', 'ultra', 'team', 'api', undefined, 5]) assert.equal(renamedPlan(keep), undefined);
+  const accounts = [{ label: 'A', root: '/a', plan: 'max5' }, { label: 'B', root: '/b', plan: 'pro' }, { label: 'C', root: '/c', plan: 'max20', weekStart: 'mon' }, { label: 'D', root: '/d' }];
+  assert.deepEqual(renamedAccounts(accounts), [{ label: 'A', root: '/a', plan: 'max' }, { label: 'B', root: '/b', plan: 'pro' }, { label: 'C', root: '/c', plan: 'ultra', weekStart: 'mon' }, { label: 'D', root: '/d' }]);
+  assert.equal(renamedAccounts([{ label: 'B', root: '/b', plan: 'max' }]), undefined, 'nothing to rewrite, so no write');
+  assert.equal(renamedAccounts(undefined), undefined);
+  assert.equal(accounts[0].plan, 'max5', 'the saved value is not mutated');
+  // The decision per target (global, workspace, each folder): only the setting that holds an old id is written.
+  assert.deepEqual(planRewrites('max20', undefined), { plan: 'ultra', accounts: undefined });
+  assert.deepEqual(planRewrites('pro', [{ label: 'A', root: '/a', plan: 'max5' }]), { plan: undefined, accounts: [{ label: 'A', root: '/a', plan: 'max' }] });
+  assert.deepEqual(planRewrites(undefined, undefined), { plan: undefined, accounts: undefined });
 });

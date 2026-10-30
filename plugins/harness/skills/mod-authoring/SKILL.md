@@ -9,7 +9,8 @@ description: >-
   pane", "band above the prompt", "hold this command", "plugin hooks module", "claude-mods", "integrations-marketplace", "install all mods", "add the mods marketplace", "rename a plugin", "merge plugins", "move a plugin to its own marketplace", "move the plugin into the product repo",
   "add -plugin to the names", "benchmark a mod", "with and without the mod", "does the mod save tokens",
   "screenshot the pane", "render the pane", "pane screenshot for the article", "publish a plugin to the marketplace",
-  "smoke-run a plugin agent", "plugin agent not suggested".
+  "smoke-run a plugin agent", "plugin agent not suggested", "does hover work on Windows",
+  "mod UI in Windows Terminal", "needs fullscreen", "detail view in a pane", "can a mod show an image".
 ---
 
 # mod-authoring: Claude Code mods
@@ -26,7 +27,9 @@ Observe (`await next(e)` then look), rewrite (`next({ ...e, ... })`) or answer (
 2. Get the real API before writing hooks: load the mod once headless,
    `claude -p "reply ok" --plugin-dir <dir> --model haiku`, and read
    `.claude-plugin/types/claude-code/index.d.ts` (15k lines; grep the event and type names).
-   `claude plugin validate` and `claude plugin test` do not write the types.
+   `claude plugin validate` and `claude plugin test` do not write the types. Any installed mod
+   already holds a copy: `ls -t ~/.claude/plugins/cache/*/*/*/.claude-plugin/types/claude-code/index.d.ts | head -1`
+   (its first line names the writing version); the changelog is local at `~/.claude/cache/changelog.md`.
 3. Write the hooks, then `claude plugin validate <dir>` (it lists hooks, `$` calls, state reads/writes).
 4. Test with `claude plugin test <dir>` (bun, `claude-code/testing`). Stub every event your hook
    passes down with `next(e)`, or the call fails with "no implementation for <event>".
@@ -43,6 +46,7 @@ Observe (`await next(e)` then look), rewrite (`next({ ...e, ... })`) or answer (
    behaviour on and off, one fresh worktree per run: [references/benchmark-mods.md](references/benchmark-mods.md).
 
 Gotchas with their exact fixes: [references/gotchas.md](references/gotchas.md).
+Will this band, pane, hover, click or image work on the main screen, in fullscreen, in Windows Terminal: [references/terminal-ui-support.md](references/terminal-ui-support.md).
 Renaming a plugin, merging a mod into its skill plugin, or moving a plugin into its product repo as its own marketplace: [references/rename-merge-plugins.md](references/rename-merge-plugins.md).
 Screenshots of a pane or band for an article or deck, rendered from the mod's own SVG builders: [references/render-drawn-surface.md](references/render-drawn-surface.md).
 

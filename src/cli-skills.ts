@@ -26,6 +26,8 @@ const posix = (p: string) => p.split(path.sep).join('/');
 
 function skillName(text: string | undefined, what: string): string {
   if (!text || !/^[\w][\w.-]*$/.test(text)) throw new Stop(`${what} needs a skill name, got "${text ?? ''}".`, 2);
+  // skills/synced is the folder Claude.ai syncs into, not a skill: every write on it is refused.
+  if (text === 'synced') throw new Stop(`${what}: skills/synced is managed by Claude.ai, which overwrites it; it is read-only here.`, 2);
   return text;
 }
 

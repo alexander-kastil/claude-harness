@@ -35,6 +35,8 @@ export interface State {
   checks: Record<string, CheckSummary>;
   standard?: Standard;
   lists: ListLimits;
+  /** From the claudeHarness.cowork.show setting; false hides the Cowork region of the nav. */
+  coworkShow?: boolean;
   page?: string;
   fleet?: any;
   effective: Record<string, any>;
@@ -49,6 +51,12 @@ export interface State {
   /** The skill row to scroll to and highlight once, after the next repaint. */
   distScroll?: string;
   markets?: any;
+  /** The Cowork scheduled tasks as the host read them from claude.ai; null while they are read, undefined before the first ask. */
+  scheduled?: any;
+  /** The scheduled task on screen. */
+  scheduledPage?: { id: string; tab?: string };
+  /** The runs of each scheduled task already read, by task id. */
+  scheduledRuns?: Record<string, any>;
   /** The marketplace page on screen: its name, and where its Back button goes when it was opened from the Plugins page. */
   marketPage?: { name: string; back?: { label: string; go: () => void } };
   init?: any;
@@ -58,6 +66,16 @@ export interface State {
   sessionsPage?: any;
   /** The weekly summary of every account; null while it is read. */
   weekly?: any;
+  /** The desktop app's Cowork chats and artifacts; null while read, undefined before the nav asks. */
+  coworkChats?: any;
+  /** The Cowork sessions claude.ai lists; null while read. */
+  coworkSessions?: any;
+  /** The Cowork chat on screen: its id, its conversation and files once read, and the state of a Continue in terminal. */
+  coworkChat?: { id: string; data?: any; handover?: { state: string; text?: string } };
+  /** The Handover page: the inbox the host read, the card being built, and the state of Claude's draft and of Continue in terminal. */
+  handover?: any;
+  /** The filter typed on a Cowork list page. */
+  coworkFilter?: string;
   /** Redraws the overview's session and repository blocks in place; set while the overview is built. */
   overviewRefresh?: () => void;
   kindPage?: any;

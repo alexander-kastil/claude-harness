@@ -1,0 +1,6 @@
+{"type":"user","message":{"content":"Please research the fixture topic and write a short report."}}
+{"type":"user","message":{"content":"Please research the fixture topic and write a short report."}}
+{"type":"assistant","message":{"content":[{"type":"text","text":"Here is the fixture report. I saved it as report.md."},{"type":"tool_use","name":"Write","input":{}}]}}
+{"type":"user","message":{"content":[{"type":"tool_result","content":"ok"}]}}
+{"type":"user","message":{"content":[{"type":"text","text":"Use only the uploaded fixture brief."}]}}
+{"type":"assistant","message":{"content":[{"type":"text","text":"Understood, the fixture brief is the only source."}]}}

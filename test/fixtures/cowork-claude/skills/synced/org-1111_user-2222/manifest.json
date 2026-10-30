@@ -1,0 +1,8 @@
+{
+  "lastUpdated": 1792434810588,
+  "skills": [
+    { "skillId": "docs", "name": "docs", "description": "Editable docs people share and comment on.", "source": "anthropic-example", "updatedAt": "2026-09-30T00:33:27.599727Z", "creatorType": "anthropic" },
+    { "skillId": "brand-notes", "name": "brand-notes", "description": "Brand notes of the account.", "source": "custom", "updatedAt": "2026-10-01T10:00:00.000000Z", "creatorType": "user" },
+    { "skillId": "review-contract", "name": "review-contract", "description": "Review a contract against the playbook.", "source": "plugin", "updatedAt": "2026-10-02T10:00:00.000000Z", "creatorType": "user", "backingPluginId": "plugin_legalFixture0001" }
+  ]
+}

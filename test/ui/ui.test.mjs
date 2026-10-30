@@ -576,8 +576,9 @@ test('the Models tab of a repo breaks the last 7 days down by model and agent ty
 
 test('the MCP server page says why a server failed and offers Retry', T, async () => {
   await openRow('MCP Servers', 'filesystem');
-  const body = await s.waitFor(D => { const t = D.querySelector('.main-body').innerText; return /Retry/.test(t) && t; });
-  assert.match(body, /Failed/);
+  const body = await s.waitFor(D => { const t = D.querySelector('.main .cmd-bar').textContent; return /Retry/.test(t) && t; });
+  assert.match(body, /Failed|exited with code/);
+  assert.equal(await s.ev(D => !!D.querySelector('.main-body .dv-notice')), false, 'the status is in the header bar, not in the info card');
 });
 
 // ---- Detail pages and confirm cards: the usability fixes of the 0.4.0 hunt. ----
@@ -1185,7 +1186,7 @@ test('the Marketplace page lists the marketplaces on disk first, under their own
     });
     assert.deepEqual(order.slice(0, 2), ['#Local, on disk', 'local-kit']);
     assert.ok(order.indexOf('acme-market') > order.indexOf('local-kit'), `the GitHub marketplace comes after the local one: ${order}`);
-    assert.equal(await s.ev(D => D.querySelector('.main-head .path')?.textContent), '2 marketplaces');
+    assert.equal(await s.ev(D => D.querySelector('.main-head .path')?.textContent), '2 marketplaces · 4 plugins not in Cowork');
   } finally {
     fs.writeFileSync(file, before);
   }
@@ -1196,7 +1197,9 @@ const unfoldMarkets = () => s.ev(D => { const h = D.querySelector('[data-nav="s|
 test('the nav lists its sections in reading order with Marketplaces last above Repositories, and its head has the pages first, then the actions', T, async () => {
   await home();
   assert.deepEqual(await labels('.sidebar .scope-block > .section-head .label'), ['Memory', 'Rules', 'Settings', 'Output Styles', 'Agents', 'Skills', 'Commands', 'Workflows', 'MCP Servers', 'Hooks', 'Mods', 'Plugins', 'Marketplaces']);
-  assert.deepEqual(await s.ev(D => [...D.querySelectorAll('.sidebar-head button')].map(b => b.getAttribute('aria-label'))), ['Overview', 'Marketplace health', 'GitHub Repo overview', 'New...', 'Refresh']);
+  // Cowork is a region of its own after the Code tree, before Repositories.
+  assert.deepEqual(await s.ev(D => [...D.querySelectorAll('.sidebar .list [data-region]')].map(h => `${h.dataset.region}:${h.querySelector('.label').textContent}`)), ['code:Claude Code', 'cowork:Cowork', 'repos:Repositories']);
+  assert.deepEqual(await s.ev(D => [...D.querySelectorAll('.sidebar-head button')].map(b => b.getAttribute('aria-label'))), ['Overview', 'Marketplace health', 'Collapse all', 'New...', 'Refresh']);
   // The Marketplaces head counts the marketplaces and opens Marketplace health, the way a global head opens its type page.
   await s.waitFor(D => D.querySelector('[data-nav="s|markets"] .count')?.textContent === '1');
   await go('.sidebar [data-nav="s|markets"]', '', D => D.querySelector('.main-head h1')?.textContent === 'Marketplace health');
@@ -1215,8 +1218,8 @@ test('a marketplace row opens its page: the head counts its plugins, Draw with C
     mark: !!D.querySelector('.main-head .toolbar > .ai-group > .ai-mark'),
     selected: D.querySelector('.sidebar .row.selected')?.dataset.nav,
   });
-  assert.deepEqual(head, { sub: '3 plugins · 3 installed · 2 enabled', glyph: true, ai: ['Draw with Claude'], mark: true, selected: 'k|acme-market' });
-  assert.deepEqual(await labels('.main-body .at-row:not(.at-head) .at-label'), ['delegation-mod', 'old-helper', 'team-tools']);
+  assert.deepEqual(head, { sub: '3 plugins · 3 installed · 2 enabled · 3 plugins not in Cowork', glyph: true, ai: ['Draw with Claude'], mark: true, selected: 'k|acme-market' });
+  assert.deepEqual(await labels('.main-body .at-row:not(.at-head) .at-label'), ['delegation-mod', 'Code', 'old-helper', 'Code', 'team-tools', 'Code']);
   // Draw asks first and names both drawings; Cancel starts nothing.
   await s.mouse('.main-head .ai-group button', 'Draw with Claude');
   const c = await s.waitFor(D => !!D.querySelector('.cf')).then(card);
@@ -1257,12 +1260,23 @@ test('a marketplace heading on the Plugins page opens that marketplace, and its 
     const heads = await s.waitFor(D => { const l = [...D.querySelectorAll('.main .origin-label .group-open')].map(b => b.textContent); return l.includes('local-kit') && l; });
     assert.deepEqual(heads, ['acme-market', 'local-kit']);
     await go('.main .origin-label .group-open', 'local-kit', D => D.querySelector('.main-head h1')?.textContent === 'local-kit');
-    assert.equal(await s.waitFor(D => D.querySelector('.main-body .at-row:not(.at-head)') && D.querySelector('.main-head .path').textContent), '1 plugin · 1 enabled');
+    assert.equal(await s.waitFor(D => D.querySelector('.main-body .at-row:not(.at-head)') && D.querySelector('.main-head .path').textContent), '1 plugin · 1 enabled · 1 plugin not in Cowork');
     await go('.main-head .toolbar button', 'Back to Plugins', D => D.querySelector('.main-head h1')?.textContent === 'Plugins');
   } finally {
     fs.writeFileSync(file, before[0]);
     fs.writeFileSync(settings, before[1]);
   }
+});
+
+test('a marketplace page shows each plugin with its Harness state, and a Code only plugin offers Add to Cowork', T, async () => {
+  await home();
+  await unfoldMarkets();
+  await go('.sidebar [data-nav="k|acme-market"]', '', D => D.querySelector('.main-head h1')?.textContent === 'acme-market');
+  const heads = await s.waitFor(D => { const h = [...D.querySelectorAll('.main-body .at-head > *')].map(e => e.textContent.trim()); return h.includes('Harness') && h; });
+  assert.ok(heads.includes('Harness'), `the Harness column: ${heads}`);
+  const rows = await s.ev(D => [...D.querySelectorAll('.main-body .at-row:not(.at-head)')].map(r => ({ add: [...r.querySelectorAll('button')].some(b => b.textContent.trim() === 'Add to Cowork'), text: r.textContent })));
+  assert.equal(rows.length, 3);
+  for (const r of rows) assert.ok(r.add && /Code/.test(r.text), `a Code only plugin carries Add to Cowork: ${r.text}`);
 });
 
 test('a marketplace with plugins ahead offers one Sync button whose card lists them, the AI group stays last, and Cancel runs nothing', T, async () => {
@@ -1349,7 +1363,10 @@ test('every bar keeps its AI group last and at its right end: overview, Plugins,
 
 test('the GitHub Repo overview shows 0 or a dash in every cell, never a blank one', T, async () => {
   await home();
-  await s.mouse('.sidebar-head [aria-label="GitHub Repo overview"]');
+  // The nav has no button for this page now (the head's GitHub button became Collapse all); the Show Fleet command reaches it with this message.
+  await s.resize(1500);
+  await s.ev(D => D.defaultView.postMessage({ type: 'page', page: 'fleet' }, '*'));
+  await s.waitFor(D => D.querySelector('.main-head h1')?.textContent === 'GitHub Repo overview');
   const cells = await s.waitFor(D => {
     const rows = [...D.querySelectorAll('.main [role=row]:not(.at-head)')].filter(r => r.getClientRects().length);
     return rows.length > 1 && rows.map(r => [...r.children].filter(c => c.getClientRects().length).map(c => c.textContent.trim()));
@@ -1365,17 +1382,17 @@ test('the GitHub Repo overview shows 0 or a dash in every cell, never a blank on
 test('a switched-off MCP server says so and offers neither Sign in nor Retry', T, async () => {
   await openRow('MCP Servers', 'filesystem');
   await s.waitFor(D => D.querySelector('.dv-notice'));
-  assert.match(await text(), /Retry/, 'a failed server that is on offers Retry');
+  assert.match(await s.ev(D => D.querySelector('.main .cmd-bar').textContent), /Retry/, 'a failed server that is on offers Retry');
   const off = () => s.mouse('.dv-switch input');
   await off();
   try {
-    const body = await s.waitFor(D => { const t = D.querySelector('.main-body').innerText; return /Switched off/.test(t) && t; });
-    assert.doesNotMatch(body, /Sign in|Retry/);
+    const body = await s.waitFor(D => { const t = D.querySelector('.main').innerText; return /Switched off/.test(t) && t; });
+    assert.doesNotMatch(await s.ev(D => D.querySelector('.main .cmd-bar').textContent), /Sign in|Retry/);
     assert.doesNotMatch(body, /Needs sign-in/);
     assert.equal(await s.ev(D => D.querySelectorAll('.dv-notice.bad').length), 0, 'no error box for a server that is off');
   } finally {
     await off();
-    await s.waitFor(D => !/Switched off/.test(D.querySelector('.main-body').innerText));
+    await s.waitFor(D => !/Switched off/.test(D.querySelector('.main').innerText));
   }
 });
 
@@ -1391,12 +1408,13 @@ test('a server that needs a sign-in reads "Needs sign-in" and "Unknown", and Ret
   try {
     await s.mouse('.sidebar-head [aria-label="Refresh"]');
     await openRow('MCP Servers', 'docs');
-    const body = await s.waitFor(D => { const t = D.querySelector('.main-body').innerText; return /Sign in/.test(t) && t; });
+    const body = await s.waitFor(D => { const t = D.querySelector('.main').textContent; return /Sign in/.test(t) && t; });
     assert.match(body, /Needs sign-in/);
+    assert.equal(await s.ev(D => { const g = D.querySelector('.main .cmd-bar > .ai-group'); const st = D.querySelector('.main .cmd-bar > .cmd-status'); if (!g || !st || !/Sign in/.test(g.textContent) || D.querySelector('.main-body .dv-notice')) return false; const b = D.querySelector('.main .cmd-bar').getBoundingClientRect(), gr = g.getBoundingClientRect(), sr = st.getBoundingClientRect(); /* the AI group ends the bar; the status is left of it on the same row, or on a row above it when the bar wraps */ return Math.abs(gr.right - b.right) <= 2 && (sr.right <= gr.left + 1 || sr.bottom <= gr.top + 1 || sr.top >= gr.bottom - 1); }), true, 'the status sits in the header bar, Sign in in its AI group at the right end');
     assert.match(body, /Unknown/);
     assert.match(body, /until you sign in/);
     assert.doesNotMatch(await s.ev(D => [...D.querySelectorAll('.dv-stats .tile .n')].map(n => n.textContent).join('|')), /^-|\|-\||\.\.\./);
-    await s.mouse('.dv-notice button', 'Retry');
+    await s.mouse('.cmd-status button', 'Retry');
     await s.waitFor(D => /Checked again/.test(D.querySelector('.dv-notice-text')?.textContent || ''));
   } finally {
     fs.writeFileSync(file, before);

@@ -2,14 +2,15 @@
 // The element editor: frontmatter, body, files, MCP details.
 import { AGENT_COLORS, HEX_COLOR, MODELS, RENAMABLE, SOURCES, TOOL_FIELDS, agentColorClass, categoryOf, command, editable, isDirty, labelOf, metaOf, pending, pluginOf, readOnly, save, select, state, std, viewOf, vscode } from './core';
 import { confirmAt, showConfirm } from './confirm';
-import { renderView, setMode } from './detail-view';
+import { COWORK_ID, coworkDriftTag } from './cowork';
+import { coworkPluginView, mcpStatusParts, renderView, setMode } from './detail-view';
 import { aiGroup, el, glyphOf, icon, iconBtn, plural } from './dom';
 import { distCommands, sourceTip } from './dist';
 import { hideHover } from './hover';
 import { renderMain } from './main';
 import { goBack, historyLabel } from './refs';
 import { slimOf } from './slim';
-import { canDraw, drawState, drawingId, drawsWhat } from './drawing';
+import { canDraw, drawState, drawingId, drawsWhatOf } from './drawing';
 import { syncableFromGlobal, syncableMcp } from './sync';
 
 // The kinds Edit with Claude and Try it apply to.
@@ -283,10 +284,67 @@ export const cmd = (glyph, label, tip, onclick, { on, disabled, cls } = {}) =>
     el('span', {}, label)
   );
 
+/** Draw with Claude (Redraw once drawn) for a page that can be drawn, to sit in its AI group; none for a page that cannot. */
+export const drawButton = a => {
+  if (!canDraw(a)) return null;
+  const { running, drawn, error } = drawState(a);
+  return confirmAt(
+    cmd(
+      'brush',
+      running ? 'Drawing...' : drawn ? 'Redraw with Claude' : 'Draw with Claude',
+      `${drawn ? 'Redraw' : 'Draw'} with Claude\nClaude draws ${drawsWhatOf(a)}, and each drawing shows above the details as soon as it is ready. It runs in the background and counts against your plan.${error ? `\nLast try failed: ${error}` : ''}`,
+      () => (hideHover(), vscode.postMessage({ type: 'drawAsset', id: drawingId(a) })),
+      { disabled: running }
+    ),
+    'draw'
+  );
+};
+
 // One box of commands, the plan picker's `.dg-modes`; a box without a command is not drawn.
 export const cmdBox = (label, cls, ...items) => {
   const live = items.flat().filter(Boolean);
   return live.length ? el('div', { className: `dg-modes${cls ? ` ${cls}` : ''}`, role: 'group', 'aria-label': label }, live) : null;
+};
+
+// Pull to Code: a Code-owned copy in Global or a repo, the target chosen in the same box. Nothing is written into the synced folders.
+/** Pull to Code of a scheduled task (a skill) or a project (a rules file, or a section of CLAUDE.md): the same box, the same target pick. */
+export const pullTextBox = (kind, id, name) => {
+  const pick = el(
+    'select',
+    { className: 'pull-target', title: 'Copy goes to\nThe scope that receives the Code-owned copy: Global, or one of your repos.', 'aria-label': 'Copy goes to' },
+    ...state.views.filter(v => v.id !== COWORK_ID).map((v, i) => el('option', { value: v.id }, i ? v.label : `${v.label} (~/.claude)`))
+  );
+  const into =
+    kind === 'project'
+      ? el(
+          'select',
+          { className: 'pull-target pull-into', title: 'Written as\nA rules file in .claude/rules, or a section of CLAUDE.md.', 'aria-label': 'Written as' },
+          el('option', { value: 'rules' }, 'Rules file'),
+          el('option', { value: 'claude-md' }, 'CLAUDE.md section')
+        )
+      : null;
+  const what = kind === 'task' ? `Writes the instructions of ${name} as a skill named after it, with the connectors and plugins it uses listed in it.` : `Writes the CLAUDE.md of ${name} into the chosen scope.`;
+  return cmdBox(
+    'Pull to Code',
+    'pull-to-code',
+    pick,
+    into,
+    cmd('arrow-down', 'Pull to Code', `Pull to Code\n${what} An existing target is backed up first. Nothing in Cowork or the desktop app changes.`, () => command('pullToCode', { kind, id, scope: pick.value, into: into ? into.value : undefined }))
+  );
+};
+
+const pullBox = a => {
+  const pick = el(
+    'select',
+    { className: 'pull-target', title: 'Copy goes to\nThe scope that receives the Code-owned copy: Global, or one of your repos.', 'aria-label': 'Copy goes to' },
+    ...state.views.filter(v => v.id !== COWORK_ID).map((v, i) => el('option', { value: v.id }, i ? v.label : `${v.label} (~/.claude)`))
+  );
+  return cmdBox(
+    'Pull to Code',
+    'pull-to-code',
+    pick,
+    cmd('arrow-down', 'Pull to Code', `Pull to Code\nCopies ${a.name} out of the synced mirror into the chosen scope as a Code-owned copy; an existing copy is backed up first. The synced folders are not touched.`, () => command('pullToCode', { id: a.id, scope: pick.value }))
+  );
 };
 
 // The command bar under the title. Every command sits in the box of what it acts on: the page, the file, Claude, the item or
@@ -304,6 +362,20 @@ function commandBar(d, dirty) {
         ? cmd('arrow-left', 'Back', 'Back to the search results on the home page', () => select(undefined))
         : null;
   const claude = (glyph, label, tip, kind, message) => confirmAt(cmd(glyph, label, tip, () => (hideHover(), vscode.postMessage({ type: message, id: a.id }))), kind);
+  // A server's status sits at the right end of the bar, with Retry; its Sign in joins the bar's AI group.
+  const mcpBar = a.kind === 'mcp' ? mcpStatusParts(a) : null;
+  // Claude.ai manages a Cowork item: it can be looked at, and changed on claude.ai only.
+  if (a.scope === 'cowork')
+    return el(
+      'div',
+      { className: 'cmd-bar' },
+      cmdBox('Page', '', back),
+      a.file ? cmdBox('File', '', cmd('go-to-file', 'Open in editor', 'Open in editor\nThe file in a VS Code editor tab, read-only: Claude.ai overwrites it on every sync.', () => command('openFile', { id: a.id })), cmd('folder-opened', 'Reveal', 'Reveal in File Explorer\nThe folder that holds the file.', () => command('reveal', { id: a.id }))) : null,
+      cmdBox('Claude.ai', '', cmd('link-external', 'Manage on claude.ai', 'Manage on claude.ai\nManaged by Claude.ai: change it on its settings page.', () => command('openCowork', { target: { skill: 'skills', plugin: 'plugins', mcp: 'connectors' }[a.kind] }))),
+      a.kind === 'skill' || a.kind === 'plugin' ? pullBox(a) : null,
+      mcpBar ? mcpBar.status : null,
+      aiGroup('', drawButton(a), mcpBar ? mcpBar.signIn : null)
+    );
   return el(
     'div',
     { className: 'cmd-bar' },
@@ -322,24 +394,12 @@ function commandBar(d, dirty) {
       a.kind === 'skill' && slimOf(a.id)?.findings
         ? claude('fold', 'Slim with Claude', "Slim with Claude\nA new Claude in a terminal gets the skill's files and what is flagged on this page, and says what to move and cut.", 'slim', 'slimAsset')
         : null,
-      canDraw(a)
-        ? (() => {
-            const { running, drawn, error } = drawState(a);
-            return confirmAt(
-              cmd(
-                'brush',
-                running ? 'Drawing...' : drawn ? 'Redraw with Claude' : 'Draw with Claude',
-                `${drawn ? 'Redraw' : 'Draw'} with Claude\nClaude draws ${drawsWhat(a.kind)}, and each drawing shows above the details as soon as it is ready. It runs in the background and counts against your plan.${error ? `\nLast try failed: ${error}` : ''}`,
-                () => (hideHover(), vscode.postMessage({ type: 'drawAsset', id: drawingId(a) })),
-                { disabled: running }
-              ),
-              'draw'
-            );
-          })()
-        : null,
-      TRYABLE.includes(a.kind) ? confirmAt(cmd('play', 'Try it', `Try it\nA new Claude in a terminal${a.kind === 'agent' ? ' started as this agent' : ` that runs /${a.name}`}.`, () => (hideHover(), vscode.postMessage({ type: 'tryAsset', id: a.id }))), 'try') : null
+      drawButton(a),
+      TRYABLE.includes(a.kind) ? confirmAt(cmd('play', 'Try it', `Try it\nA new Claude in a terminal${a.kind === 'agent' ? ' started as this agent' : ` that runs /${a.name}`}.`, () => (hideHover(), vscode.postMessage({ type: 'tryAsset', id: a.id }))), 'try') : null,
+      mcpBar ? mcpBar.signIn : null
     ),
     cmdBox('Source', '', ...(a.kind === 'skill' ? distCommands(a, cmd) : [])),
+    mcpBar ? mcpBar.status : null,
     cmdBox(
       'Item',
       '',
@@ -428,8 +488,10 @@ let barWatch;
 export function renderDetail() {
   const d = state.detail;
   const body = el('div', { className: 'main-body', onscroll: hideHover });
-  if (!editable() || state.detailMode !== 'edit') {
-    body.append(el('div', { className: 'dv' }, renderView(d, state.draft)));
+  if (d.asset.scope === 'cowork') {
+    body.append(el('div', { className: 'dv' }, d.mode === 'plugin' ? coworkPluginView(d.asset) : renderView(d, state.draft)));
+  } else if (!editable() || state.detailMode !== 'edit') {
+    body.append(el('div', { className: 'dv' }, [coworkDriftTag(d.asset), ...renderView(d, state.draft)].filter(Boolean)));
   } else if (d.mode === 'markdown') {
     body.append(renderFields());
     if (d.asset.kind === 'rule') body.append(renderRuleInfo(d.asset));

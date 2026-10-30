@@ -58,6 +58,26 @@ const DRAWS: Record<string, { what: string; harness: string; process: string }> 
     harness: 'What the server is and what it connects to.',
     process: 'How a session starts or reaches it, calls a tool and gets the answer.',
   },
+  connector: {
+    what: 'which scheduled tasks, projects and skills use this connector (Harness), and who reaches it with what and in which order (Process), two drawings from the names of the tasks, projects and skills, and the tools the projects called',
+    harness: 'The scheduled tasks, projects and skills that use the connector.',
+    process: 'Who reaches the connector, with which tools, and what it answers.',
+  },
+  task: {
+    what: 'when this task runs and what it works with (Harness), and one run from its schedule to its result (Process), two drawings from its schedule, instructions, connectors and plugins',
+    harness: 'When it runs, where, what it can do and the connectors and plugins it uses.',
+    process: 'One run, from the schedule that starts it to what it leaves behind.',
+  },
+  project: {
+    what: 'what this project holds (Harness), and what a session starts from and then reaches for (Process), two drawings from its memory, instructions, folder and the usage of its sessions on this PC',
+    harness: 'Its Memory, Instructions, Grounding and what its sessions used.',
+    process: 'What every session starts from, then the skills, connectors and tools it called.',
+  },
+  chat: {
+    what: 'the conversation and the files it produced and was given (Harness), and the exchange in the order it ran (Process), two drawings from the chat on this PC',
+    harness: 'The conversation, the files it was given and the files it produced.',
+    process: 'The exchange turn by turn, in the order it ran.',
+  },
   market: {
     what: "what this marketplace's plugins bring (Harness), and how they call, feed, gate and extend each other (Process), two drawings from its plugins' contents and the lines where one plugin names another",
     harness: 'What its plugins bring to a Claude session, grouped by what they are for.',
@@ -66,11 +86,18 @@ const DRAWS: Record<string, { what: string; harness: string; process: string }> 
 };
 
 // What can be drawn: an element, or a marketplace's page (`market:<name>`, kind `market`), which is no element of a scope.
-type Drawn = Pick<Asset, 'id' | 'name'> & { kind: string };
+// A Cowork connector is a server of the mcp kind, drawn from who uses it, not from its entry; a Cowork task, project or chat is a page
+// whose id carries a `cowork-task:` prefix and the like.
+type Drawn = Pick<Asset, 'id' | 'name'> & { kind: string; scope?: string };
 
-export const canDraw = (a: Drawn): boolean => a.kind in DRAWS;
+const keyOf = (a: Drawn): string => (a.kind === 'mcp' && a.scope === 'cowork' ? 'connector' : a.kind);
+
+export const canDraw = (a: Drawn): boolean => keyOf(a) in DRAWS;
 
 export const drawsWhat = (kind: string): string => DRAWS[kind].what;
+
+/** What Draw with Claude says it draws for this page, by the kind the page is drawn as. */
+export const drawsWhatOf = (a: Drawn): string => DRAWS[keyOf(a)].what;
 
 // Every drawing has two perspectives: the harness one (its parts and how they connect) and the process one (what runs in which
 // order). The process one is stored under the id plus this suffix; the toggle in the figure picks the one shown.
@@ -180,8 +207,8 @@ export function drawingFigure(a: Drawn): HTMLElement | null {
   const toggle = el(
     'div',
     { className: 'dg-modes dv-persp', role: 'group', 'aria-label': 'Perspective' },
-    pick(false, 'Harness', `Harness\n${DRAWS[a.kind].harness}`),
-    pick(true, 'Process', `Process\n${DRAWS[a.kind].process}`)
+    pick(false, 'Harness', `Harness\n${DRAWS[keyOf(a)].harness}`),
+    pick(true, 'Process', `Process\n${DRAWS[keyOf(a)].process}`)
   );
   const fig = el(
     'figure',

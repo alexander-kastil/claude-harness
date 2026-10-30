@@ -3,17 +3,21 @@
 import type { CheckSummary } from '../constitution';
 import type { Asset, Category, Field, ScopeView } from '../harness';
 import type { McpInfo } from '../probe';
+import type { ScheduledList, ScheduledRuns } from '../cowork-scheduled';
 import type { SessionSummary } from '../sessions';
 import type { ScaffoldForm } from '../standard';
 import type { Progress } from '../usage';
 import type { SlimReport } from './slim';
 import type { UsageSession } from '../usage-rows';
+import type { ChatContents, CloudSessions, CoworkChats } from '../cowork-chats';
+import type { DownloadFile, HandoverCard, HandoverDraft, HandoverRepo, HandoverSeed, HandoverSource } from '../cowork-handover';
 
 export type { Progress } from '../usage';
 export type { UsageSession } from '../usage-rows';
 export type { UsageDay, UsageElement, UsageMore, UsageTool, UsageTotal } from '../usage-rows';
 import type { UsageMore, UsageTotal } from '../usage-rows';
 import type { HuntInfo, HuntProposal } from './hunt';
+import type { BrowserCard, BrowserHuntInfo } from './browser-hunt';
 
 /** The host's answer to `usageMore`. */
 export type UsageMoreReply = { more: UsageMore } | { built: false };
@@ -100,7 +104,11 @@ export type Confirm =
   | { kind: 'resolve'; id: string; key: string; finding: 'description' | 'house' | 'body'; name: string; file: string; cwd: string }
   | { kind: 'draw'; id: string; name: string; file: string; chars: number; /** What Claude gets, in words ("the agent file"); SKILL.md when missing. */ source?: string; /** Drawn twice, in the Harness and the Process perspective. */ both?: boolean }
   | { kind: 'hunt'; prompt: string; items: number; card?: string }
+  | { kind: 'browserHunt'; prompt: string; procedures: number; card?: string }
+  | { kind: 'browserHuntCreate'; id: string; key: string; name: string; location: string; files: string[]; backups: string[]; /** The plugin whose source is written, as `name@marketplace`; its version moves. */ plugin?: string; /** Whether that plugin is installed and is updated afterwards. */ installed?: boolean }
   | { kind: 'huntCreate'; id: string; key: string; name: string; market: string; location: string; problems: string[]; files: string[]; retired: string[]; kept: string[] }
+  | { kind: 'handover'; id: string; key: string; title: string; cwd: string; folder: string; files: { name: string; missing: boolean }[]; prompt: string }
+  | { kind: 'handoverDraft'; key: string; files: number; chars: number }
   | ShareChoice
   | PanelAsk;
 
@@ -229,7 +237,7 @@ export type ToHost =
   | { type: 'configureTools'; id: string; key: string; value: string }
   | { type: 'mcpSignIn'; id: string }
   | { type: 'mcpRetry'; id: string }
-  | { type: 'command'; command: string; id?: string; kind?: string; scope?: string; rel?: string; market?: string; /** `name@market` of the plugin a sync acts on. */ plugin?: string }
+  | { type: 'command'; command: string; id?: string; kind?: string; scope?: string; rel?: string; /** For `openCowork`: the claude.ai page, `skills`, `plugins` or `connectors`; none opens Capabilities. */ target?: string; market?: string; /** `name@market` of the plugin a sync acts on. */ plugin?: string; /** For `pullToCode` of a project: `rules` (default) or a section of `claude-md`. */ into?: string }
   | { type: 'fleet' }
   | { type: 'effective'; scope: string }
   | { type: 'ruleInfo'; id: string }
@@ -238,6 +246,24 @@ export type ToHost =
   | { type: 'initRun'; dir: string; form: ScaffoldForm; apply: boolean }
   | { type: 'sessions'; scope: string }
   | { type: 'weekly' }
+  /** The desktop app's chats and the files they produced (artifacts) on this PC; answered by `coworkChats`. */
+  | { type: 'coworkChats' }
+  /** The Cowork sessions claude.ai lists, one GET with the Claude Code login; answered by `coworkSessions`. */
+  | { type: 'coworkSessions' }
+  /** One chat's conversation and files; answered by `coworkChat`. */
+  | { type: 'coworkChat'; id: string }
+  /** Opens a file of the desktop app's data folder in a VS Code editor tab; any other path is refused. */
+  | { type: 'openChatFile'; file: string }
+  /** The Handover inbox: the recent files of the apps, the repositories to hand over to; answered by `handoverInbox`. */
+  | { type: 'handoverInbox' }
+  /** Puts a source on the card: a desktop chat by id, a Downloads file by path, a Cowork session by id and title, or a pasted link; answered by `handoverSeed`. */
+  | { type: 'handoverSeed'; source: HandoverSource; id?: string; title?: string; link?: string }
+  /** Asks for the file of a missing entry of the card; answered by `handoverLocated`. */
+  | { type: 'handoverLocate'; index: number }
+  /** Claude drafts the card's task, rules and what exists; asks first, and `card` is held back until the answer. */
+  | ({ type: 'handoverDraft'; card?: HandoverCard } & Answer)
+  /** Continue in terminal: with `card` it asks, listing every file and the first prompt; confirmed, it copies the files and opens Claude Code. */
+  | ({ type: 'handoverRun'; card?: HandoverCard } & Answer)
   | { type: 'session'; scope: string; id: string }
   | ({ type: 'draftStyle'; scope: string; id: string; model: string } & Answer)
   | { type: 'exportSession'; scope: string; id: string }
@@ -291,14 +317,26 @@ export type ToHost =
   /** Creates the saved card's plugin in a marketplace; always asks, listing every file written and every copy retired. */
   | ({ type: 'huntCreate'; id: string; market: string } & Answer)
   /** Consolidate's merge for a repo copy that differs from the global one. */
-  | { type: 'huntMerge'; path: string; kind: 'skill' | 'agent' };
+  | { type: 'huntMerge'; path: string; kind: 'skill' | 'agent' }
+  /** The Browser Automation Hunter page: the procedures of the skill and the saved cards; the reply is `browserHunt`. */
+  | { type: 'browserHuntInfo' }
+  /** One turn of the conversation; asks first. The reply and the card arrive in `browserHunt`. */
+  | ({ type: 'browserHuntRun'; prompt: string; card?: string } & Answer)
+  | { type: 'browserHuntClear' }
+  /** Writes the saved card's procedure into the skill; always asks, listing every file written. */
+  | ({ type: 'browserHuntCreate'; id: string } & Answer)
+  | { type: 'browserHuntSave'; cards: BrowserCard[] }
+  /** Reads the Cowork scheduled tasks from claude.ai (one GET); the reply is `scheduled`. */
+  | { type: 'scheduled' }
+  /** Reads every run of one scheduled task from claude.ai; the reply is `scheduledRuns`. */
+  | { type: 'scheduledRuns'; id: string };
 
 // Share and Import start from commands (`share`, `importSkill`, ...) posted as `command`; the right-click menu and the
 // palette run the same commands, and their questions come back as `confirm` cards answered with `answer`.
 
 /** Host to webview. Payloads the host passes through from a reader stay `unknown` here. */
 export type ToWebview =
-  | { type: 'state'; views: ScopeView[]; checks: Record<string, CheckSummary>; standard?: Standard; /** From the settings; absent from hosts older than the list settings. */ lists?: ListLimits; /** From hosts older than the repo list. */ categories?: Category[] }
+  | { type: 'state'; views: ScopeView[]; checks: Record<string, CheckSummary>; standard?: Standard; /** From the settings; absent from hosts older than the list settings. */ lists?: ListLimits; /** From claudeHarness.cowork.show; false hides the Cowork region of the nav. Absent from older hosts, which show it. */ coworkShow?: boolean; /** The Cowork scope, read-only; absent from hosts older than the Cowork scope. */ cowork?: ScopeView; /** From hosts older than the repo list. */ categories?: Category[] }
   /** The standard checks alone, when a check starts or finishes: the views stay as the last `state` sent them. */
   | { type: 'checks'; checks: Record<string, CheckSummary> }
   | { type: 'detail'; detail?: Detail; external?: boolean; /** Sent after a save was written: the page returns to view mode. */ saved?: boolean }
@@ -313,6 +351,19 @@ export type ToWebview =
   | { type: 'initResult'; dir: string; apply: boolean; data: unknown }
   | { type: 'sessions'; scope: string; list: SessionSummary[] }
   | { type: 'weekly'; list: unknown }
+  | ({ type: 'coworkChats' } & CoworkChats)
+  | { type: 'coworkSessions'; data: CloudSessions }
+  /** For `coworkChat`: none when the chat is gone. */
+  | { type: 'coworkChat'; id: string; data?: ChatContents }
+  /** For `handoverRun`: the files are being copied, the terminal is open, or it failed. */
+  | { type: 'handover'; id: string; state: 'running' | 'done' | 'error'; text?: string }
+  | { type: 'handoverInbox'; downloads: DownloadFile[]; repos: HandoverRepo[]; /** The repository the current editor is in. */ cwd: string }
+  /** For `handoverSeed`: what the source puts on the card, or why it cannot. */
+  | { type: 'handoverSeed'; seed?: HandoverSeed; error?: string }
+  /** For `handoverLocate`: the file picked, none when the picker was cancelled. */
+  | { type: 'handoverLocated'; index: number; file?: string }
+  /** For `handoverDraft`: Claude is drafting, the draft, or why not. */
+  | { type: 'handoverDraft'; state: 'running' | 'done' | 'error'; draft?: HandoverDraft; error?: string }
   | { type: 'session'; scope: string; id: string; data: unknown }
   | ({ type: 'styleDraft'; scope: string; id: string } & StyleDraft)
   /** For `checkpointFiles`; `restored` follows a restore, with the files that could not be written. */
@@ -334,10 +385,18 @@ export type ToWebview =
   /** For `huntRun`: running while Claude works, done once the card is in `hunt`. */
   | { type: 'huntRun'; state: 'running' | 'done' | 'error'; error?: string; /** The card the turn created or changed. */ card?: string }
   | { type: 'huntCreate'; id: string; state: 'running' | 'done' | 'error'; text?: string }
+  | { type: 'browserHunt'; info: BrowserHuntInfo }
+  | { type: 'browserHuntCreate'; id: string; state: 'running' | 'done' | 'error'; text?: string }
+  /** For `browserHuntRun`: running while Claude works, done once the card is in `browserHunt`. */
+  | { type: 'browserHuntRun'; state: 'running' | 'done' | 'error'; error?: string; card?: string }
   /** For the skill distributor commands: what the last check found per skill id (merged into the page's), and whether a check is running. */
   | { type: 'distChecks'; checks: Record<string, DistCheck>; running?: boolean }
   /** What the last distributor command did, or none to clear the line. */
-  | { type: 'distNote'; note?: DistNote };
+  | { type: 'distNote'; note?: DistNote }
+  /** The Cowork scheduled tasks, or why they are not listed. */
+  | { type: 'scheduled'; list: ScheduledList }
+  /** The runs of one scheduled task, newest first, or why they are not listed. */
+  | { type: 'scheduledRuns'; id: string; runs: ScheduledRuns };
 
 /** What the distributor said about a skill when it was last asked. `current`: the skill's folder is unchanged; `newer`: it changed; `gone`: the repo no longer has it. */
 export interface DistCheck {
