@@ -37,7 +37,7 @@ let revealedSig;
 let fresh = false;
 
 const selectionSig = () =>
-  JSON.stringify([state.detail ? state.detail.asset.id : [state.page, state.repo, state.kindPage && state.kindPage.kind, state.kindPage && state.kindPage.origin, state.session && state.session.id, state.sessionsPage && state.sessionsPage.scope, state.marketPage && state.marketPage.name, state.scheduledPage && state.scheduledPage.id, state.coworkProject && state.coworkProject.id]]);
+  JSON.stringify([state.detail ? state.detail.asset.id : [state.page, state.repo, state.kindPage && state.kindPage.kind, state.kindPage && state.kindPage.origin, state.session && state.session.id, state.sessionsPage && state.sessionsPage.scope, state.marketPage && state.marketPage.name, state.scheduledPage && state.scheduledPage.id, state.coworkChat && state.coworkChat.id]]);
 
 // The global sections in reading order: what every session loads, what Claude calls, what runs on its own, and where packaged parts
 // come from, which ends in the Marketplaces section. A kind not listed keeps its place after them.
@@ -446,6 +446,41 @@ const scrollToRow = (list, row) => {
   list.scrollTop += a.top - top - Math.max(0, (bottom - top - a.height) / 2);
 };
 
+// The head of one of the nav's three regions (Claude Code, Cowork, Repositories): chevron, glyph, title, its tools and count.
+// A click on the head folds the whole region; a click on one of its buttons does not. Returns [folded, head].
+function regionHead(key, glyph, label, title, tools, count) {
+  const folded = state.foldedGroups.has(`region|${key}`) && !state.filter;
+  const fold = () => {
+    folded ? state.foldedGroups.delete(`region|${key}`) : state.foldedGroups.add(`region|${key}`);
+    persist();
+    render();
+  };
+  const head = el(
+    'div',
+    { className: 'scope-head', title, onclick: e => (e.target.closest('button') ? undefined : fold()) },
+    icon(folded ? 'chevron-right' : 'chevron-down'),
+    icon(glyph),
+    el('span', { className: 'label' }, label),
+    ...tools,
+    el('span', { className: 'count' }, count)
+  );
+  head.dataset.region = key;
+  return [folded, treeItem(head, `r|${key}`, 1, !folded, fold)];
+}
+
+// One button for the three regions: it folds them all while any is open, and opens them all otherwise. It writes the same
+// fold state as a click on a region head.
+function foldAllButton() {
+  const keys = ['code', 'cowork', 'repos'].map(k => `region|${k}`);
+  const present = keys.filter(k => k !== 'region|cowork' || (state.views.some(v => v.id === 'cowork') && state.coworkShow !== false));
+  const anyOpen = present.some(k => !state.foldedGroups.has(k));
+  return iconBtn(anyOpen ? 'collapse-all' : 'expand-all', anyOpen ? 'Collapse all' : 'Expand all', () => {
+    for (const k of keys) anyOpen ? state.foldedGroups.add(k) : state.foldedGroups.delete(k);
+    persist();
+    render();
+  });
+}
+
 export function renderSidebar() {
   const sig = selectionSig();
   const isFresh = sig !== revealedSig;
@@ -458,14 +493,18 @@ export function renderSidebar() {
   const [global, ...others] = state.views;
   const repos = others.filter(v => v.id !== 'cowork');
   if (global) {
-    const block = el('div', { className: 'scope-block' });
-    renderCategories(block, inNavOrder(global), q, false);
-    renderMarketsNode(block, q);
-    list.append(block);
+    const [folded, head] = regionHead('code', 'terminal', 'Claude Code', 'Claude Code\nWhat every Claude Code session loads and runs: memory, rules, agents, skills, plugins and the rest of the global harness.', [], total(global));
+    list.append(head);
+    if (!folded) {
+      const block = el('div', { className: 'scope-block' });
+      renderCategories(block, inNavOrder(global), q, false);
+      renderMarketsNode(block, q);
+      list.append(block);
+    }
   }
   // Cowork is a region of its own between the Code tree and Repositories; the Cowork setting hides it from the nav alone.
   const cowork = others.find(v => v.id === 'cowork');
-  const region = cowork && state.coworkShow !== false ? renderCoworkRegion(cowork, q, renderCategories, treeItem, render) : null;
+  const region = cowork && state.coworkShow !== false ? renderCoworkRegion(cowork, q, renderCategories, treeItem, render, regionHead) : null;
   if (region) list.append(region);
   const visibleRepos = repos
     .filter(v => !q || v.categories.some(c => c.items.some(a => matches(a, q))))
@@ -487,19 +526,17 @@ export function renderSidebar() {
       },
       icon(glyph)
     );
-  list.append(
-    el(
-      'div',
-      { className: 'scope-head' },
-      el('span', { className: 'label' }, 'Repositories'),
-      sortToggle('recent', 'history', 'Sort by last used'),
-      sortToggle('name', 'case-sensitive', 'Sort A-Z'),
-      iconBtn('repo-create', 'Add repo...', () => command('addRepo')),
-      iconBtn('trash', 'Remove repo...', () => command('removeRepo')),
-      el('span', { className: 'count' }, visibleRepos.length)
-    )
+  const [reposFolded, reposHead] = regionHead(
+    'repos',
+    'github',
+    'Repositories',
+    '',
+    [sortToggle('recent', 'history', 'Sort by last used'), sortToggle('name', 'case-sensitive', 'Sort A-Z'), iconBtn('repo-create', 'Add repo...', () => command('addRepo')), iconBtn('trash', 'Remove repo...', () => command('removeRepo'))],
+    visibleRepos.length
   );
-  visibleRepos.forEach((view, i) => {
+  reposHead.removeAttribute('title');
+  list.append(reposHead);
+  (reposFolded ? [] : visibleRepos).forEach((view, i) => {
     if (i > 0 && visibleRepos[i - 1].local && !view.local) list.append(el('div', { className: 'repo-separator' }));
     // A freshly opened session or repo page unfolds its repo; an opened element did so already.
     if (fresh && !state.detail && ((state.page === 'session' && state.session && state.session.scope === view.id) || (state.page === 'sessions' && state.sessionsPage && state.sessionsPage.scope === view.id))) state.openRepos.add(view.id);
@@ -582,8 +619,8 @@ export function renderSidebar() {
     el(
       'div',
       { className: 'sidebar-head' },
+      // The tab already says Claude Harness, so the row holds the mark and the buttons.
       logo('logo-sm'),
-      el('span', {}, 'Claude Harness'),
       el('span', { className: 'spacer' }),
       // The pages first, in the nav's order from top to bottom (the overview, the Marketplaces section, the Repositories), then the
       // actions. Home opens the overview with a clean search; Back to it keeps the search.
@@ -592,7 +629,7 @@ export function renderSidebar() {
         showRepo(undefined);
       }),
       iconBtn('package', 'Marketplace health', () => showPage('marketplaces')),
-      iconBtn('github', 'GitHub Repo overview', () => showPage('fleet')),
+      foldAllButton(),
       iconBtn('add', 'New...', () => command('create')),
       iconBtn('refresh', 'Refresh', () => command('refresh'))
     ),

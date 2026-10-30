@@ -118,8 +118,6 @@ function namesOf(list: unknown): string[] {
 export function parseTask(t: Raw): ScheduledTask {
   const { status, statusKind } = statusOf(t);
   const cron = typeof t.cron_expression === 'string' ? t.cron_expression : '';
-  const tools = t.job_config?.ccr?.session_context?.allowed_tools ?? t.session_request?.config?.allowed_tools;
-  const nTools = Array.isArray(tools) ? tools.length : 0;
   const run = t.last_run && typeof t.last_run === 'object' ? t.last_run : undefined;
   const tags: unknown[] = Array.isArray(t.job_config?.ccr?.tags) ? t.job_config.ccr.tags : [];
   const cowork = t.created_kind === 'cowork_task' || tags.some(x => typeof x === 'string' && x.startsWith('cowork'));
@@ -136,13 +134,15 @@ export function parseTask(t: Raw): ScheduledTask {
     lastRunAt: time(run?.fired_at ?? t.last_fired_at),
     lastRunStatus: lastStatus ? (failure ? `${lastStatus}, ${failure}` : lastStatus) : '',
     lastRunSessionId: typeof run?.session_id === 'string' && run.session_id ? run.session_id : undefined,
-    runsOn: t.suspension_reason === 'device_absent' ? 'This PC (Claude Desktop)' : 'Cloud',
+    // A task bound to a device only runs while that PC's Claude Desktop is open, as claude.ai says.
+    runsOn: t.bound_device ? `Requires Claude Desktop${typeof t.bound_device.display_name === 'string' && t.bound_device.display_name ? ` (${t.bound_device.display_name})` : ''}` : 'Cloud',
     projectId: typeof t.chat_project_id === 'string' && t.chat_project_id ? t.chat_project_id : undefined,
     connectors: Array.isArray(t.mcp_connections) ? t.mcp_connections.length : 0,
     connectorNames: namesOf(t.mcp_connections),
     pluginNames: namesOf(t.enabled_plugins),
     marketplaceNames: namesOf(t.extra_marketplaces),
-    permissions: nTools ? `Manual, ${nTools} tools always allowed` : 'Manual',
+    // The trigger carries no permission mode; the runs do, and the task page fills it in from the newest one.
+    permissions: '',
     source: cowork ? 'Cowork' : 'Code',
     instructions: typeof t.derived_state?.prompt === 'string' ? t.derived_state.prompt : '',
   };
@@ -162,26 +162,109 @@ const NOTES: Record<Exclude<ScheduledState, 'ok'>, string> = {
 
 export type Fetcher = (url: string, init: { method: 'GET'; headers: Record<string, string>; signal?: AbortSignal }) => Promise<{ status: number; json(): Promise<unknown> }>;
 
-/** Reads the OAuth token of Claude Code (never written, never refreshed, never logged) and lists the tasks with one GET. */
-export async function fetchScheduled(root: string, opts: { fetcher?: Fetcher; now?: number } = {}): Promise<ScheduledList> {
-  const now = opts.now ?? Date.now();
-  const fail = (state: Exclude<ScheduledState, 'ok'>): ScheduledList => ({ state, note: NOTES[state], tasks: [], fetchedAt: now });
+/** The token of Claude Code's login (never written, never refreshed, never logged), or why there is none. */
+function tokenOf(root: string, now: number): { token: string } | { state: 'noLogin' | 'expired' } {
   let oauth: { accessToken?: string; expiresAt?: number } = {};
   try {
     oauth = (JSON.parse(fs.readFileSync(path.join(root, '.credentials.json'), 'utf8')) as Raw).claudeAiOauth ?? {};
   } catch {
-    return fail('noLogin');
+    return { state: 'noLogin' };
   }
-  if (!oauth.accessToken) return fail('noLogin');
-  if (oauth.expiresAt && oauth.expiresAt <= now) return fail('expired');
-  const get: Fetcher = opts.fetcher ?? ((url, init) => fetch(url, init));
+  if (!oauth.accessToken) return { state: 'noLogin' };
+  if (oauth.expiresAt && oauth.expiresAt <= now) return { state: 'expired' };
+  return { token: oauth.accessToken };
+}
+
+/** One GET; the status and the parsed body, or a state for a refused or failed call. */
+async function getJson(url: string, token: string, get: Fetcher): Promise<{ body: unknown } | { state: Exclude<ScheduledState, 'ok' | 'noLogin'> }> {
   try {
-    const res = await get(endpoint(), { method: 'GET', headers: { ...HEADERS, Authorization: `Bearer ${oauth.accessToken}` }, signal: AbortSignal.timeout(20_000) });
-    if (res.status === 401) return fail('expired');
-    if (res.status === 403) return fail('denied');
-    if (res.status !== 200) return fail('error');
-    return { state: 'ok', note: '', tasks: parseTriggers(await res.json()), fetchedAt: now };
+    const res = await get(url, { method: 'GET', headers: { ...HEADERS, Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(20_000) });
+    if (res.status === 401) return { state: 'expired' };
+    if (res.status === 403) return { state: 'denied' };
+    if (res.status !== 200) return { state: 'error' };
+    return { body: await res.json() };
   } catch {
-    return fail('error');
+    return { state: 'error' };
   }
+}
+
+const defaultGet: Fetcher = (url, init) => fetch(url, init);
+
+/** Lists the tasks with one GET. */
+export async function fetchScheduled(root: string, opts: { fetcher?: Fetcher; now?: number } = {}): Promise<ScheduledList> {
+  const now = opts.now ?? Date.now();
+  const fail = (state: Exclude<ScheduledState, 'ok'>): ScheduledList => ({ state, note: NOTES[state], tasks: [], fetchedAt: now });
+  const auth = tokenOf(root, now);
+  if ('state' in auth) return fail(auth.state);
+  const got = await getJson(endpoint(), auth.token, opts.fetcher ?? defaultGet);
+  return 'state' in got ? fail(got.state) : { state: 'ok', note: '', tasks: parseTriggers(got.body), fetchedAt: now };
+}
+
+/** One run of a task: a session that the schedule started. */
+export interface ScheduledRun {
+  id: string;
+  startedAt?: number;
+  /** How the run stands, in words: Ready for review, Active, Archived ... */
+  state: string;
+  /** The dot on claude.ai: the run has not been opened yet. */
+  unread: boolean;
+  /** The run's own permission mode in words, e.g. "Auto, runs without asking". */
+  permissions: string;
+  title: string;
+}
+
+export interface ScheduledRuns {
+  taskId: string;
+  state: ScheduledState;
+  note: string;
+  /** Newest first. */
+  runs: ScheduledRun[];
+  /** More runs exist than were read (the page cap was reached). */
+  more: boolean;
+  fetchedAt: number;
+}
+
+const PERMISSIONS: Record<string, string> = {
+  auto: 'Auto, runs without asking',
+  default: 'Manual, asks before acting',
+  acceptEdits: 'Accept edits, asks for the rest',
+  plan: 'Plan, no changes',
+  bypassPermissions: 'Bypass, runs without asking',
+};
+export const permissionWords = (mode: unknown): string => (typeof mode === 'string' && mode ? PERMISSIONS[mode] ?? cap(mode.replace(/[_-]/g, ' ')) : '');
+
+const bucketWords = (s: unknown): string => (typeof s === 'string' && s ? cap(s.replace(/_/g, ' ').toLowerCase()) : '');
+
+export function parseRun(r: Raw): ScheduledRun {
+  const mode = r.config?.permission_mode ?? r.external_metadata?.permission_mode;
+  return {
+    id: String(r.id ?? ''),
+    startedAt: time(r.created_at),
+    state: bucketWords(r.status_bucket) || bucketWords(r.status),
+    unread: r.unread === true,
+    permissions: permissionWords(mode),
+    title: typeof r.title === 'string' ? r.title : '',
+  };
+}
+
+export const RUN_PAGE_CAP = 10;
+
+/** Every run of a task, newest first: GET /v1/code/sessions?trigger_id=<id>, following next_cursor up to RUN_PAGE_CAP pages of 20. */
+export async function fetchRuns(root: string, taskId: string, opts: { fetcher?: Fetcher; now?: number } = {}): Promise<ScheduledRuns> {
+  const now = opts.now ?? Date.now();
+  const out = (state: ScheduledState, runs: ScheduledRun[] = [], more = false): ScheduledRuns => ({ taskId, state, note: state === 'ok' ? '' : NOTES[state].replace('the tasks are', 'the runs are'), runs, more, fetchedAt: now });
+  const auth = tokenOf(root, now);
+  if ('state' in auth) return out(auth.state);
+  const base = `${endpoint().replace(/\/triggers\/?$/, '/sessions')}?trigger_id=${encodeURIComponent(taskId)}`;
+  const runs: ScheduledRun[] = [];
+  let cursor = '';
+  for (let page = 0; page < RUN_PAGE_CAP; page++) {
+    const got = await getJson(cursor ? `${base}&cursor=${encodeURIComponent(cursor)}` : base, auth.token, opts.fetcher ?? defaultGet);
+    if ('state' in got) return runs.length ? out('ok', runs, true) : out(got.state);
+    const body = got.body as Raw;
+    if (Array.isArray(body?.data)) runs.push(...body.data.filter((x: unknown) => x && typeof x === 'object').map(parseRun));
+    cursor = typeof body?.next_cursor === 'string' ? body.next_cursor : '';
+    if (!cursor) return out('ok', runs);
+  }
+  return out('ok', runs, true);
 }

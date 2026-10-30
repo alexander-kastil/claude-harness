@@ -253,12 +253,14 @@ export const showRepo = id => {
 };
 
 export const showPage = (page, extra) => {
+  if (state.page !== page) state.coworkFilter = '';
   state.page = page;
   state.repo = undefined;
   if (page === 'init') state.init = { dir: extra, form: { summary: '', areas: [{ name: '', globs: '', owner: '' }], rules: '' }, data: undefined, result: undefined };
   if (page === 'fleet') vscode.postMessage({ type: 'fleet' });
   if (page === 'marketplaces' || page === 'market') vscode.postMessage({ type: 'marketplaces' });
   if (page === 'scheduled' || page === 'scheduled-task') vscode.postMessage({ type: 'scheduled' });
+  if (page === 'design-systems' || page === 'design-system') vscode.postMessage({ type: 'designSystems' });
   if (page === 'init') vscode.postMessage({ type: 'initForm', dir: extra });
   if (state.detail) select(undefined);
   else render();

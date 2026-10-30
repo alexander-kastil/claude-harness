@@ -7,8 +7,6 @@ import { projectUrl } from './cowork-scheduled';
 // local_<id>.json (one session each, linked to a space by spaceId or by folder) and spaces\<spaceId>\memory\ (memory entries).
 // A project's instructions and context files are not stored by the app; the space's folder is the nearest thing on disk.
 
-export const PROJECTS_URL = 'https://claude.ai/cowork/projects';
-
 export interface CoworkSession {
   title: string;
   model: string;
@@ -114,7 +112,7 @@ export const findDataRoot = (localAppData: string | undefined = process.env.CLAU
 };
 
 /** Every <account>\<org> folder under the sessions root that holds a spaces.json. */
-const orgDirs = (dataRoot: string): string[] => {
+export const orgDirs = (dataRoot: string): string[] => {
   const root = path.join(dataRoot, 'local-agent-mode-sessions');
   const out: string[] = [];
   for (const account of dirs(root)) {
@@ -128,7 +126,7 @@ const orgDirs = (dataRoot: string): string[] => {
   return out;
 };
 
-interface RawSession {
+export interface RawSession {
   /** The session's folder name next to its json file (local_<id>); its audit.jsonl records the tool calls. */
   dir: string;
   /** connector uuid -> name, from the session's remote MCP server list. */
@@ -141,7 +139,7 @@ interface RawSession {
   archived: boolean;
 }
 
-const readSessions = (orgDir: string): RawSession[] => {
+export const readSessions = (orgDir: string): RawSession[] => {
   let names: string[] = [];
   try {
     names = fs.readdirSync(orgDir).filter(n => /^local_.+\.json$/.test(n));

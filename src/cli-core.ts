@@ -16,7 +16,7 @@ export interface Args {
 }
 
 const BOOLEAN = new Set(['json', 'help', 'cowork', 'retire', 'dry-run', 'apply', 'yes', 'week', 'drop-files']);
-const VALUED = new Set(['root', 'repo', 'repos', 'user-config', 'from', 'name', 'kind', 'category', 'skills', 'agents', 'market', 'description', 'session', 'week-used', 'line', 'position', 'leaf', 'leaves', 'to', 'file', 'files', 'scope', 'model', 'tools', 'url', 'command', 'args', 'transport', 'paths', 'matcher', 'summary', 'area', 'rule', 'title', 'limit', 'days', 'find', 'query', 'plugin', 'source', 'stage', 'version']);
+const VALUED = new Set(['root', 'repo', 'repos', 'user-config', 'from', 'name', 'kind', 'into', 'category', 'skills', 'agents', 'market', 'description', 'session', 'week-used', 'line', 'position', 'leaf', 'leaves', 'to', 'file', 'files', 'scope', 'model', 'tools', 'url', 'command', 'args', 'transport', 'paths', 'matcher', 'summary', 'area', 'rule', 'title', 'limit', 'days', 'find', 'query', 'plugin', 'source', 'stage', 'version']);
 
 export class Stop extends Error {
   constructor(message: string, readonly code = 1) {

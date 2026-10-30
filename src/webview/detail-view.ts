@@ -345,7 +345,8 @@ export function coworkPluginView(a: Asset): Child[] {
     a.about ? fact('Marketplace kind', a.about, 'library') : null,
     a.status ? fact('Installation', a.status, 'cloud-download') : null,
   ].filter((r): r is HTMLElement => !!r);
-  return [hero(a, undefined, undefined, a.description, [], rows), filesCard(a, 'Files', a.files || [])];
+  askDrawing(a);
+  return [drawingFigure(a), hero(a, undefined, undefined, a.description, [], rows), filesCard(a, 'Files', a.files || [])];
 }
 
 function outlineCard(headings: MdHeading[]): HTMLElement | null {

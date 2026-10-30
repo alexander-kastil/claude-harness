@@ -10,22 +10,50 @@ import type { ScaffoldForm } from './standard';
 import type { SessionSummary } from './sessions';
 import type { SlimReport } from './shared/slim';
 import type { HuntInfo, HuntProposal } from './shared/hunt';
+import type { BrowserCard, BrowserHuntInfo } from './shared/browser-hunt';
 import type { Answer, Confirm, ConsolidateRoute,Detail, ModActivity, Page, PanelAsk, Pending, Progress, RepoTrace, ShareChoice, ShareOption, Standard, StyleDraft, ToHost, ToWebview, UsageMoreReply, UsageReply, UsageTotal } from './shared/messages';
 import { pickTools, splitTools } from './tools';
 import { SCHEDULED_TEMPLATES_URL, SCHEDULED_URL, projectUrl, runUrl, taskUrl } from './cowork-scheduled';
-import type { ScheduledList } from './cowork-scheduled';
-import { PROJECTS_URL, loadCoworkProjects, loadProjectContents } from './cowork-desktop';
+import type { ScheduledList, ScheduledRuns } from './cowork-scheduled';
+import { DESIGN_STANDALONE_URL, DESIGN_SYSTEMS_URL, artifactUrl } from './cowork-design';
+import type { DesignList } from './cowork-design';
+import { chatById, insideData, loadChat, loadChats } from './cowork-chats';
+import type { DownloadFile, HandoverCard, HandoverRepo, HandoverSeed, HandoverSource } from './cowork-handover';
+import type { CloudSessions } from './cowork-chats';
 
 export type { Detail, Page } from './shared/messages';
 
 /** Requests a page makes for its own data; none of them is an action the owner is waiting on. */
-const BACKGROUND = new Set<ToHost['type']>(['sessions', 'weekly', 'usage', 'usageMore', 'usageTotals', 'repoTrace', 'modActivity', 'slim', 'drawing', 'ruleInfo', 'effective', 'fleet', 'scheduled', 'coworkProjects', 'coworkProject']);
+const BACKGROUND = new Set<ToHost['type']>(['sessions', 'weekly', 'usage', 'usageMore', 'usageTotals', 'repoTrace', 'modActivity', 'slim', 'drawing', 'ruleInfo', 'effective', 'fleet', 'scheduled', 'scheduledRuns', 'designSystems', 'coworkChats', 'coworkSessions', 'coworkChat', 'handoverInbox', 'handoverSeed']);
 
 /** What a `panel` card answered: the button, and the text and the picked ids when the card had an input or choices. */
 export interface PanelAnswer {
   choice: 'ok' | 'alt' | 'cancel';
   text?: string;
   picked?: string[];
+}
+
+/** The Browser Automation Hunter page's side of the host. */
+export interface HandoverHost {
+  inbox(): { downloads: DownloadFile[]; repos: HandoverRepo[]; cwd: string };
+  /** What a source puts on the card; a source the host cannot read answers with `error`. */
+  seed(m: { source: HandoverSource; id?: string; title?: string; link?: string }): Promise<{ type: 'handoverSeed'; seed?: HandoverSeed; error?: string }>;
+  /** A file picker for a missing file; none when cancelled. */
+  locate(): Promise<string | undefined>;
+  /** Claude's draft of the card's task, rules and what exists; asks first like the Plugin Hunter. */
+  draft(card: HandoverCard | undefined, answer: Answer, ask: (c: Confirm) => void, post: (m: ToWebview) => void): Promise<void>;
+  /** Continue in terminal: with the card it asks, listing every file and the first prompt; confirmed, it copies and opens Claude Code. */
+  run(card: HandoverCard | undefined, answer: Answer, ask: (c: Confirm) => void, post: (m: ToWebview) => void): Promise<void>;
+}
+
+export interface BrowserHuntHost {
+  info(): BrowserHuntInfo;
+  save(cards: BrowserCard[]): void;
+  /** Starts the conversation over; the cards stay. */
+  clear(): void;
+  run(prompt: string, answer: Answer, ask: (c: Confirm) => void, post: (m: ToWebview) => void, card?: string): Promise<void>;
+  /** Writes the card's procedure into the skill: its table row and its leaf; asks first, backs up what it changes. */
+  create(id: string, answer: Answer, ask: (c: Confirm) => void, post: (m: ToWebview) => void): Promise<void>;
 }
 
 /** The Plugin Hunter page's side of the host. Results come back through `post`; a question goes through `ask`. */
@@ -76,8 +104,18 @@ export interface PanelHost {
   session?(scopeId: string, id: string): Promise<unknown>;
   /** The last 7 days of every account by model, over all repos. */
   weekly?(): Promise<unknown>;
+  /** The Cowork sessions claude.ai lists, read with one GET. */
+  coworkSessions?(): Promise<CloudSessions>;
+  /** The Handover tool: inbox, sources, Claude's draft and Continue in terminal. */
+  handover?: HandoverHost;
   /** The Cowork scheduled tasks, read from claude.ai with one GET. */
   scheduled?(): Promise<ScheduledList>;
+  /** Every run of one scheduled task, read from claude.ai. */
+  scheduledRuns?(id: string): Promise<ScheduledRuns>;
+  /** The Cowork design systems, listed from claude.ai with the Claude Code login (list and read calls only). */
+  designSystems?(): Promise<DesignList>;
+  /** Claude's read of one design system through the Artifact tool; asks first, replies `designRead`. */
+  designRead?(id: string, answer: Answer, ask: (c: Confirm) => void, post: (m: ToWebview) => void): Promise<void>;
   /** Asks first, then drafts an output style from the session's style scan; `started` fires once the user agreed. */
   /** Without a confirmed answer and a remembered one, asks in the panel through `ask` and returns idle. */
   draftStyle?(scopeId: string, id: string, model: string, started: () => void, answer: Answer, ask: (c: Confirm) => void): Promise<StyleDraft>;
@@ -127,6 +165,8 @@ export interface PanelHost {
   usageTotals?(kind: string, build?: boolean): Promise<Record<string, UsageTotal> | undefined>;
   /** The Plugin Hunter. */
   hunt?: HuntHost;
+  /** The Browser Automation Hunter. */
+  browserHunt?: BrowserHuntHost;
 }
 
 export class HarnessPanel {
@@ -463,16 +503,65 @@ export class HarnessPanel {
         this.post({ type: 'scheduled', list });
         return;
       }
-      case 'coworkProjects': {
-        const d = loadCoworkProjects();
-        this.post({ type: 'coworkProjects', found: !!d.dataRoot, list: d.projects });
+      case 'scheduledRuns': {
+        let runs: ScheduledRuns;
+        try {
+          runs = (await this.host.scheduledRuns?.(m.id)) ?? { taskId: m.id, state: 'error', note: 'Runs are not available here.', runs: [], more: false, fetchedAt: Date.now() };
+        } catch {
+          runs = { taskId: m.id, state: 'error', note: 'claude.ai could not be reached, so the runs are not listed here.', runs: [], more: false, fetchedAt: Date.now() };
+        }
+        this.post({ type: 'scheduledRuns', id: m.id, runs });
         return;
       }
-      case 'coworkProject': {
-        const project = loadCoworkProjects().projects.find(p => p.id === m.id);
-        this.post({ type: 'coworkProject', id: m.id, data: project ? loadProjectContents(project) : undefined });
+      case 'designRead':
+        await this.host.designRead?.(m.id, { confirmed: m.confirmed, remember: m.remember }, ask => this.post({ type: 'confirm', ask }), msg => this.post(msg));
+        return;
+      case 'designSystems': {
+        let list: DesignList;
+        try {
+          list = (await this.host.designSystems?.()) ?? { state: 'error', note: 'Design systems are not available here.', systems: [], holds: '', standalone: { state: 'ok', note: '' }, fetchedAt: Date.now() };
+        } catch {
+          list = { state: 'error', note: 'claude.ai could not be reached, so the design systems are not listed here.', systems: [], holds: '', standalone: { state: 'ok', note: '' }, fetchedAt: Date.now() };
+        }
+        this.post({ type: 'designSystems', list });
         return;
       }
+      case 'coworkChats':
+        this.post({ type: 'coworkChats', ...loadChats() });
+        return;
+      case 'coworkSessions': {
+        let data: CloudSessions;
+        try {
+          data = (await this.host.coworkSessions?.()) ?? { state: 'error', note: 'Cowork sessions are not available here.', sessions: [] };
+        } catch {
+          data = { state: 'error', note: 'claude.ai could not be reached, so the Cowork sessions are not listed here.', sessions: [] };
+        }
+        this.post({ type: 'coworkSessions', data });
+        return;
+      }
+      case 'coworkChat': {
+        const chat = chatById(m.id);
+        this.post({ type: 'coworkChat', id: m.id, data: chat ? loadChat(chat) : undefined });
+        return;
+      }
+      case 'openChatFile':
+        if (insideData(m.file)) await vscode.commands.executeCommand('vscode.open', vscode.Uri.file(m.file));
+        return;
+      case 'handoverInbox':
+        if (this.host.handover) this.post({ type: 'handoverInbox', ...this.host.handover.inbox() });
+        return;
+      case 'handoverSeed':
+        this.post(await this.host.handover!.seed(m));
+        return;
+      case 'handoverLocate':
+        this.post({ type: 'handoverLocated', index: m.index, file: await this.host.handover?.locate() });
+        return;
+      case 'handoverDraft':
+        await this.host.handover?.draft(m.card, { confirmed: m.confirmed, remember: m.remember }, ask => this.post({ type: 'confirm', ask }), msg => this.post(msg));
+        return;
+      case 'handoverRun':
+        await this.host.handover?.run(m.card, { confirmed: m.confirmed }, ask => this.post({ type: 'confirm', ask }), msg => this.post(msg));
+        return;
       case 'weekly': {
         let list: unknown = [];
         try {
@@ -651,6 +740,22 @@ export class HarnessPanel {
       case 'huntCreate':
         await this.host.hunt?.create(m.id, m.market, { confirmed: m.confirmed }, ask => this.post({ type: 'confirm', ask }), msg => this.post(msg));
         return;
+      case 'browserHuntInfo':
+        if (this.host.browserHunt) this.post({ type: 'browserHunt', info: this.host.browserHunt.info() });
+        return;
+      case 'browserHuntSave':
+        this.host.browserHunt?.save(m.cards);
+        return;
+      case 'browserHuntClear':
+        this.host.browserHunt?.clear();
+        if (this.host.browserHunt) this.post({ type: 'browserHunt', info: this.host.browserHunt.info() });
+        return;
+      case 'browserHuntCreate':
+        await this.host.browserHunt?.create(m.id, { confirmed: m.confirmed }, ask => this.post({ type: 'confirm', ask }), msg => this.post(msg));
+        return;
+      case 'browserHuntRun':
+        await this.host.browserHunt?.run(m.prompt, { confirmed: m.confirmed, remember: m.remember }, ask => this.post({ type: 'confirm', ask }), msg => this.post(msg), m.card);
+        return;
       case 'huntMerge':
         await this.host.hunt?.merge(m.kind, m.path, ask => this.post({ type: 'confirm', ask: ask.kind === 'consolidate' ? { ...ask, key: 'click' } : ask }));
         return;
@@ -673,12 +778,10 @@ export class HarnessPanel {
           void vscode.env.openExternal(vscode.Uri.parse(url));
           return;
         }
-        if (m.command === 'openCoworkProject') {
-          // The webview names a local space; the link and the folder come from the host's own read of it.
-          const project = m.target === 'list' ? undefined : loadCoworkProjects().projects.find(p => p.id === m.id);
-          if (m.target === 'list') void vscode.env.openExternal(vscode.Uri.parse(PROJECTS_URL));
-          else if (project && m.target === 'project' && project.projectUrl) void vscode.env.openExternal(vscode.Uri.parse(project.projectUrl));
-          else if (project && m.target === 'folder' && project.folder) void vscode.commands.executeCommand('revealFileInOS', vscode.Uri.file(project.folder));
+        if (m.command === 'openDesignSystem') {
+          // `list` opens the settings page, a plain id its artifact; the standalone projects open Claude Design.
+          const url = m.target === 'standalone' ? DESIGN_STANDALONE_URL : m.id && m.target === 'system' ? artifactUrl(m.id) : DESIGN_SYSTEMS_URL;
+          void vscode.env.openExternal(vscode.Uri.parse(url));
           return;
         }
         if (m.command === 'openCowork') {
@@ -693,7 +796,7 @@ export class HarnessPanel {
         }
         // These ask in the panel; the same commands from the left nav or a tree menu keep their dialog.
         if (['delete', 'uninstallPlugin', 'retire', 'retireCopies', 'addSkillFromUrl', 'connectSkillSource', 'updateSkill', 'linkSkillToRepo', 'share', 'syncFromGlobal', 'syncPlugin', 'syncMarketplace', 'syncMcp', 'pullToCode', 'compareCowork'].includes(m.command) || /^import[A-Z]/.test(m.command)) {
-          await vscode.commands.executeCommand(`claudeHarness.${m.command}`, { fromPanel: true, id: m.id, scope: m.scope, plugin: m.plugin, market: m.market });
+          await vscode.commands.executeCommand(`claudeHarness.${m.command}`, { fromPanel: true, id: m.id, scope: m.scope, plugin: m.plugin, market: m.market, kind: m.kind, into: m.into });
           return;
         }
         await vscode.commands.executeCommand(`claudeHarness.${m.command}`, m.id ?? m.market ?? (m.kind || m.scope ? { kind: m.kind, scope: m.scope } : undefined));

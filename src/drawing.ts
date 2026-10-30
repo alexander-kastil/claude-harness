@@ -110,6 +110,43 @@ const SUBJECTS: Record<DrawKind, (name: string) => { draw: string; show: string;
       '- Each step a card: a name of at most four words in bold and one muted line of at most ten words; the transport (stdio, http, sse) as a chip on the line between Claude Code and the server.',
     ],
   }),
+  // The Cowork pages that are no element of a scope: each is drawn from what the page already holds (src/cowork-draw.ts).
+  connector: name => ({
+    draw: `Draw how the Cowork connector "${name}" is used, from the lists below.`,
+    show: 'Show the connector in the middle and, around it, the scheduled tasks, the projects (with the tools they called on it) and the skills that use it, each as its own box. Leave out a group that is empty.',
+    title: 'Connector',
+    from: 'the names of the scheduled tasks, projects and skills that use the connector, and the tools the projects called on it',
+    process: [
+      `Draw the Cowork connector "${name}" as a process, from the lists below: who reaches it and with what, from the scheduled task or project session that calls it to the tools it answers.`,
+      '- Each caller (scheduled task, project, skill) as a card: its name in bold and a muted line of at most ten words on how it uses the connector; the tools a project called as small chips on the line to the connector.',
+      '- The connector as one card at the right end that every caller points to, with the tool names it answered.',
+      '- Draw only the callers listed below.',
+    ],
+  }),
+  task: name => ({
+    draw: `Draw what the Cowork scheduled task "${name}" is and what it works with, from its details below.`,
+    show: 'Show when it runs (its schedule), where it runs, what its instructions make Claude do, the connectors and plugins it uses, and what it can do (permissions). Do not copy the instructions: name their steps.',
+    title: 'Scheduled task',
+    from: "the task's schedule, where it runs, its permissions, its instructions and the names of the connectors and plugins it uses",
+    process: [
+      `Draw the Cowork scheduled task "${name}" as a process, from its details below: one run from the schedule that starts it to what it leaves behind.`,
+      '- What starts it (the schedule in words), where it runs, then the steps its instructions make Claude take, in run order, as numbered cards: a name of at most four words in bold and one muted line of at most ten words; small chips for the connectors and plugins a step uses, only when the instructions name them.',
+      '- A decision is a diamond with its branches labelled. At the end, what the run produces.',
+      '- Do not copy the instructions and draw no step they do not state.',
+    ],
+  }),
+  chat: name => ({
+    draw: `Draw the Cowork chat "${name}", from its conversation and files below.`,
+    show: 'Show what the person asked, what Claude did in answer, the files the chat was given and the files it produced, as boxes joined in the order they happened. Do not copy the messages: name their topics.',
+    title: 'Chat',
+    from: "the chat's title, the names of its files and the text of its conversation",
+    process: [
+      `Draw the Cowork chat "${name}" as a process, from its conversation below: the exchange in the order it ran.`,
+      '- The files the chat was given at the start, then each turn as a numbered card: who spoke (You or Claude) and a topic of at most six words in bold, and one muted line of at most ten words; the files a turn produced as small chips on its card, only when the conversation names them.',
+      '- At the end, the files the chat produced.',
+      '- Do not copy the messages and draw no turn that is not listed below.',
+    ],
+  }),
   // A marketplace is not an element of a scope: its page draws it from the plugins it lists (`marketText`), its process from the
   // lines where one plugin names another (`marketProcessText`).
   market: name => ({
@@ -144,7 +181,7 @@ const WIDE = '- The drawing is shown across a wide panel: use a viewBox 1400 wid
 const cut = (source: string) => (source.length > MAX_CHARS ? `${source.slice(0, MAX_CHARS)}\n[cut]` : source);
 
 /** The kinds a drawing helps with; the others have no Draw with Claude. */
-export type DrawKind = 'skill' | 'agent' | 'command' | 'workflow' | 'plugin' | 'mod' | 'hook' | 'mcp' | 'market';
+export type DrawKind = 'skill' | 'agent' | 'command' | 'workflow' | 'plugin' | 'mod' | 'hook' | 'mcp' | 'market' | 'connector' | 'task' | 'chat';
 
 export const drawable = (kind: Kind): kind is Extract<DrawKind, Kind> => kind in SUBJECTS;
 

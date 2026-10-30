@@ -2,11 +2,14 @@
 // Cowork scheduled tasks: a node in the Cowork region, a list page and a read-only page per task. The tasks come from claude.ai
 // (`scheduled` message); Run now, pause and rename stay on claude.ai, which every page links to.
 import { COWORK_NODES } from './cowork';
+import { coworkFilter } from './cowork-chats';
 import { command, labelOf, persist, showPage, state, vscode } from './core';
-import { cmd, cmdBox } from './detail';
+import { cmd, cmdBox, drawButton, pullTextBox } from './detail';
 import { card } from './detail-view';
-import { countHead, el, fmtDate, icon, iconBtn, plural } from './dom';
+import { aiGroup, countHead, el, fmtDate, icon, iconBtn, plural } from './dom';
+import { askDrawing, drawState, drawingFigure } from './drawing';
 import { refChip, viewEntry } from './refs';
+import { tabBar } from './repo-page';
 import { gridTable } from './tables';
 
 const FOLD = 'cowork-scheduled';
@@ -18,7 +21,8 @@ const SOURCE_GLYPH = { Cowork: 'cloud', Code: 'terminal' };
 const ask = () => vscode.postMessage({ type: 'scheduled' });
 
 export function openTask(id) {
-  state.scheduledPage = { id };
+  state.scheduledPage = { id, tab: state.scheduledPage && state.scheduledPage.tab };
+  vscode.postMessage({ type: 'scheduledRuns', id });
   showPage('scheduled-task');
 }
 
@@ -88,8 +92,8 @@ export function renderScheduledList() {
   if (!s) body.append(el('div', { className: 'empty flush' }, 'Reading the scheduled tasks...'));
   else if (s.state !== 'ok') body.append(linksNotice());
   else if (!s.tasks.length) body.append(el('div', { className: 'empty flush' }, 'No scheduled task yet. Create one on claude.ai.'));
-  else
-    body.append(
+  else {
+    const table = () =>
       gridTable(
         [
           { head: 'Name', track: 'minmax(120px, 2fr)', cls: 'at-name', cell: t => [icon('calendar'), el('span', { className: 'at-label' }, t.name)] },
@@ -105,10 +109,19 @@ export function renderScheduledList() {
           },
           { head: 'Source', track: 'minmax(64px, 90px)', muted: true, low: true, cell: t => iconText(SOURCE_GLYPH[t.source], t.source) },
         ],
-        s.tasks.map(t => Object.assign({ open: () => openTask(t.id) }, t)),
+        s.tasks.filter(t => !state.coworkFilter || [t.name, t.status, t.repeats, t.source].join(' ').toLowerCase().includes(state.coworkFilter.trim().toLowerCase())).map(t => Object.assign({ open: () => openTask(t.id) }, t)),
         'Scheduled tasks'
-      )
+      );
+    let shown = table();
+    body.append(
+      coworkFilter('Search the scheduled tasks', () => {
+        const next = table();
+        shown.replaceWith(next);
+        shown = next;
+      }),
+      shown
     );
+  }
   return el(
     'section',
     { className: 'main' },
@@ -141,15 +154,71 @@ function usesRow(title, glyph, kind, names, tip) {
   );
 }
 
+const runsOf = t => state.scheduledRuns && state.scheduledRuns[t.id];
+
+/** The trigger carries no permission mode; the newest run does. */
+const permissionsOf = t => t.permissions || (runsOf(t) && runsOf(t).runs[0] && runsOf(t).runs[0].permissions) || '-';
+
+/** The Runs tab: every run, newest first as on claude.ai, with its state; the dot marks a run not opened yet. A row opens the run. */
+function runsBody(t) {
+  const r = runsOf(t);
+  if (!r) return el('div', { className: 'empty flush' }, 'Reading the runs...');
+  if (r.state !== 'ok') return el('div', { className: 'notice' }, el('span', {}, r.note), el('button', { className: 'secondary', onclick: () => open('task', t.id) }, icon('link-external'), 'Open on claude.ai'));
+  if (!r.runs.length) return el('div', { className: 'empty flush' }, 'This task has not run yet.');
+  return [
+    gridTable(
+      [
+        { head: 'Started', track: 'minmax(150px, 2fr)', cls: 'at-name', cell: x => [el('span', { className: `sched-dot${x.unread ? ' on' : ''}`, title: x.unread ? 'Unread\nYou have not opened this run yet.' : 'Opened\nYou have opened this run.' }), el('span', { className: 'at-label' }, x.startedAt ? fmtDate(x.startedAt) : '-')] },
+        { head: 'State', track: 'minmax(110px, 1fr)', cell: x => x.state || '-', title: x => x.title },
+        { head: 'Permissions', track: 'minmax(150px, 1.5fr)', muted: true, low: true, cell: x => x.permissions || '-' },
+      ],
+      r.runs.map(x => Object.assign({ open: () => open('run', x.id) }, x)),
+      `Runs of ${t.name}`
+    ),
+    r.more ? el('div', { className: 'empty flush' }, `Showing the newest ${plural(r.runs.length, 'run')}. The rest is on claude.ai.`) : null,
+    el('div', { className: 'toolbar' }, el('button', { className: 'secondary', onclick: () => open('task', t.id) }, icon('link-external'), 'Open history on claude.ai')),
+  ];
+}
+
+/** Instructions, Runs and Uses behind one tab bar; the tab is kept while the page is open. */
+function contents(t, uses) {
+  const r = runsOf(t);
+  const tabs = [
+    ['instructions', 'Instructions', 'checklist', 'What the task tells Claude to do on every run. Read-only here.', undefined, () => (t.instructions ? el('div', { className: 'sched-instructions' }, t.instructions) : el('div', { className: 'dv-empty' }, 'No instructions.'))],
+    ['runs', 'Runs', 'history', 'Every run of this task, newest first, read from claude.ai.', r && r.state === 'ok' ? (r.more ? `${r.runs.length}+` : r.runs.length) : undefined, () => runsBody(t)],
+    ['uses', 'Uses', 'plug', 'The connectors, plugins and marketplaces the task uses.', t.connectorNames.length + t.pluginNames.length + t.marketplaceNames.length || undefined, () => (uses.length ? uses : el('div', { className: 'dv-empty' }, 'Nothing listed.'))],
+  ];
+  const s = state.scheduledPage;
+  const current = () => tabs.find(x => x[0] === s.tab) || tabs[0];
+  const panelOf = () => el('div', { className: 'dv-panel', role: 'tabpanel' }, [current()[5]()].flat(Infinity));
+  const barOf = () => tabBar(tabs.map(x => x.slice(0, 5)), current()[0], pick, 'Task contents');
+  let bar = barOf();
+  let panel = panelOf();
+  function pick(id, focus) {
+    s.tab = id;
+    const nextBar = barOf();
+    const nextPanel = panelOf();
+    bar.replaceWith(nextBar);
+    panel.replaceWith(nextPanel);
+    bar = nextBar;
+    panel = nextPanel;
+    if (focus) bar.querySelector('.view-tab.active')?.focus();
+  }
+  return el('div', { className: 'recent dv-tabs' }, el('div', { className: 'group-label' }, 'Contents'), bar, panel);
+}
+
 export function renderScheduledTask() {
   const s = state.scheduled;
   const t = tasks().find(x => x.id === (state.scheduledPage && state.scheduledPage.id));
   const back = cmd('arrow-left', 'Back', 'Back to Scheduled', () => showPage('scheduled'));
   if (!t)
     return el('section', { className: 'main' }, countHead('calendar', 'Scheduled task', s ? 'Not found' : 'Reading...', iconBtn('arrow-left', 'Back to Scheduled', () => showPage('scheduled'))), el('div', { className: 'main-body' }, el('div', { className: 'empty flush' }, s ? 'This task is not in the list claude.ai returned.' : 'Reading the scheduled tasks...')));
+  // Drawn from what the page holds: the schedule, instructions, connectors and plugins.
+  const drawn = { id: `cowork-task:${t.id}`, kind: 'task', name: t.name };
+  askDrawing(drawn, state.scheduledPage);
   const head = el(
     'header',
-    { className: 'main-head detail-head' },
+    { className: `main-head detail-head${drawState(drawn).running ? ' busy' : ''}` },
     el(
       'div',
       { className: 'title' },
@@ -172,7 +241,9 @@ export function renderScheduledTask() {
         cmd('link-external', 'Open on claude.ai', 'Open on claude.ai\nThe task on claude.ai, where you run, pause and rename it.', () => open('task', t.id)),
         t.projectId ? cmd('folder', 'Open project', 'Open project\nThe project of this task on claude.ai.', () => open('project', t.projectId)) : null,
         t.lastRunSessionId ? cmd('history', 'Open last run', 'Open last run\nThe session of the last run on claude.ai.', () => open('run', t.lastRunSessionId)) : null
-      )
+      ),
+      t.instructions ? pullTextBox('task', t.id, t.name) : null,
+      aiGroup('', drawButton(drawn))
     )
   );
   const details = el(
@@ -182,10 +253,10 @@ export function renderScheduledTask() {
     fact('Repeats', t.repeats, 'clock', `Repeats\n${t.cron}`),
     fact('Next run', when(t.nextRunAt), 'calendar'),
     fact('Last run', t.lastRunAt ? `${fmtDate(t.lastRunAt)}${t.lastRunStatus ? ` · ${t.lastRunStatus}` : ''}` : 'Never', 'pulse'),
-    fact('Runs on', t.runsOn, t.runsOn === 'Cloud' ? 'cloud' : 'device-desktop'),
-    fact('Project', t.projectId ? el('button', { type: 'button', className: 'link', onclick: () => open('project', t.projectId) }, 'Open on claude.ai') : '-', 'folder'),
-    fact('Connectors', String(t.connectors), 'plug', 'Connectors\nThe claude.ai connectors the task can use, listed below.'),
-    fact('Permissions', t.permissions, 'lock')
+    fact('Runs on', t.runsOn, t.runsOn === 'Cloud' ? 'cloud' : 'device-desktop', t.runsOn === 'Cloud' ? undefined : 'Runs on\nThis task is bound to a computer: it runs only while Claude Desktop is open there.'),
+    fact('Project', t.projectId ? el('button', { type: 'button', className: 'link', title: 'Project\nThe project of this task, opened on claude.ai. The API gives its id but not its name.', onclick: () => open('project', t.projectId) }, 'Open on claude.ai') : '-', 'folder'),
+    fact('Connectors', String(t.connectors), 'plug', 'Connectors\nThe claude.ai connectors the task can use, listed under Uses.'),
+    fact('Permissions', permissionsOf(t), 'lock', 'Permissions\nThe permission mode of the newest run, as claude.ai shows it.')
   );
   const uses = [usesRow('Connectors', 'plug', 'mcp', t.connectorNames, 'Connectors\nA name with a link is also in the Cowork region of the left nav.'), usesRow('Plugins', 'extensions', 'plugin', t.pluginNames), usesRow('Marketplaces', 'package', null, t.marketplaceNames)].filter(Boolean);
   const body = el(
@@ -194,11 +265,9 @@ export function renderScheduledTask() {
     el(
       'div',
       { className: 'dv' },
+      drawingFigure(drawn),
       el('section', { className: 'dv-hero' }, el('div', { className: 'dv-cols' }, details)),
-      el('div', { className: 'group-label' }, 'Contents'),
-      card('Instructions', null, t.instructions ? el('div', { className: 'sched-instructions' }, t.instructions) : el('div', { className: 'dv-empty' }, 'No instructions.')),
-      uses.length ? card('Uses', null, uses) : null,
-      card('History', null, el('div', { className: 'dv-empty' }, 'Every run, with its session, is on claude.ai.'), el('button', { className: 'secondary', onclick: () => open('task', t.id) }, icon('link-external'), 'Open history on claude.ai'))
+      contents(t, uses)
     )
   );
   return el('section', { className: 'main' }, head, body);

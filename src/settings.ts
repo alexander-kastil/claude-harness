@@ -7,8 +7,21 @@ export function intSetting(key: string, fallback: number, min: number, max: numb
   return typeof v === 'number' && Number.isFinite(v) ? Math.min(max, Math.max(min, Math.round(v))) : fallback;
 }
 
-/** Whether the Cowork region shows in the panel's nav (`claudeHarness.cowork.show`, on by default). */
-export const coworkShown = (): boolean => vscode.workspace.getConfiguration('claudeHarness').get<boolean>('cowork.show', true) !== false;
+/**
+ * The Cowork choice kept in the extension's own state, for a window whose configuration registry predates the setting (an update
+ * applied without a reload): VS Code refuses to write an unregistered setting, so the toggle keeps its choice here instead.
+ */
+let coworkChoice: boolean | undefined;
+export const setCoworkChoice = (show: boolean | undefined): void => {
+  coworkChoice = show;
+};
+
+/** Whether the Cowork region shows in the panel's nav (`claudeHarness.cowork.show`, on by default; the kept choice when the setting is not registered). */
+export const coworkShown = (): boolean => {
+  const config = vscode.workspace.getConfiguration('claudeHarness');
+  if (config.inspect('cowork.show')?.defaultValue === undefined) return coworkChoice !== false;
+  return config.get<boolean>('cowork.show', true) !== false;
+};
 
 /** How many rows each list shows before its "show all" control. */
 export function listLimits(): ListLimits {

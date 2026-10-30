@@ -109,7 +109,7 @@ export const COMMANDS: CommandSpec[] = [
   { path: 'sources check', flags: [] },
   { path: 'sources update', flags: [{ name: 'name', takes: 'skills' }, { name: 'plugin', takes: [] }, DRY] },
   { path: 'sources link', flags: [{ name: 'name', takes: 'skills' }, { name: 'source', takes: [] }, { name: 'plugin', takes: [] }, { name: 'market', takes: 'markets' }, { name: 'stage', takes: [] }, { name: 'version', takes: [] }, DRY] },
-  { path: 'cowork pull', flags: [REPO, { name: 'kind', takes: ['skill', 'plugin'] }, DRY] },
+  { path: 'cowork pull', flags: [REPO, { name: 'kind', takes: ['skill', 'plugin', 'task', 'project'] }, { name: 'into', takes: ['rules', 'claude-md'] }, DRY] },
   { path: 'complete', flags: [{ name: 'line', takes: [] }, { name: 'position', takes: [] }] },
   { path: 'completion', flags: [], positional: ['powershell', 'bash'] },
 ];

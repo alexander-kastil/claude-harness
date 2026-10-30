@@ -3,7 +3,6 @@
 import type { CheckSummary } from '../constitution';
 import type { Field, ScopeView } from '../harness';
 import type { McpInfo } from '../probe';
-import type { CoworkProject, ProjectContents } from '../cowork-desktop';
 import type { Detail, DistCheck, DistNote, ListLimits, Progress, Standard, UsageSession } from '../shared/messages';
 
 export interface Draft {
@@ -55,7 +54,15 @@ export interface State {
   /** The Cowork scheduled tasks as the host read them from claude.ai; null while they are read, undefined before the first ask. */
   scheduled?: any;
   /** The scheduled task on screen. */
-  scheduledPage?: { id: string };
+  scheduledPage?: { id: string; tab?: string };
+  /** The runs of each scheduled task already read, by task id. */
+  scheduledRuns?: Record<string, any>;
+  /** The Cowork design systems as the host read them from claude.ai; null while they are read, undefined before the first ask. */
+  designSystems?: any;
+  /** The design system on screen. */
+  designPage?: { id: string };
+  /** Where Claude's read of each design system stands: running, or the error; a finished read lives in `designSystems.reads`. */
+  designReads?: Record<string, { state: string; error?: string }>;
   /** The marketplace page on screen: its name, and where its Back button goes when it was opened from the Plugins page. */
   marketPage?: { name: string; back?: { label: string; go: () => void } };
   init?: any;
@@ -65,10 +72,16 @@ export interface State {
   sessionsPage?: any;
   /** The weekly summary of every account; null while it is read. */
   weekly?: any;
-  /** The Cowork projects of the desktop app on this PC; undefined until the nav asks, `found` false when its data folder is absent. */
-  coworkProjects?: { found: boolean; list: CoworkProject[] };
-  /** The Cowork project page on screen: the local space id, its contents once read, and the Contents tab. */
-  coworkProject?: { id: string; data?: ProjectContents | null; tab: string };
+  /** The desktop app's Cowork chats and artifacts; null while read, undefined before the nav asks. */
+  coworkChats?: any;
+  /** The Cowork sessions claude.ai lists; null while read. */
+  coworkSessions?: any;
+  /** The Cowork chat on screen: its id, its conversation and files once read, and the state of a Continue in terminal. */
+  coworkChat?: { id: string; data?: any; handover?: { state: string; text?: string } };
+  /** The Handover page: the inbox the host read, the card being built, and the state of Claude's draft and of Continue in terminal. */
+  handover?: any;
+  /** The filter typed on a Cowork list page. */
+  coworkFilter?: string;
   /** Redraws the overview's session and repository blocks in place; set while the overview is built. */
   overviewRefresh?: () => void;
   kindPage?: any;

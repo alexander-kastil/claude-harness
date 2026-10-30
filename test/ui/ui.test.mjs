@@ -1198,8 +1198,8 @@ test('the nav lists its sections in reading order with Marketplaces last above R
   await home();
   assert.deepEqual(await labels('.sidebar .scope-block > .section-head .label'), ['Memory', 'Rules', 'Settings', 'Output Styles', 'Agents', 'Skills', 'Commands', 'Workflows', 'MCP Servers', 'Hooks', 'Mods', 'Plugins', 'Marketplaces']);
   // Cowork is a region of its own after the Code tree, before Repositories.
-  assert.deepEqual(await s.ev(D => [...D.querySelector('.sidebar .list').children].map(k => (k.matches('.scope-block') ? 'code' : k.matches('.cowork-region') ? 'cowork' : k.matches('.scope-head') ? 'repos' : '')).filter(Boolean)), ['code', 'cowork', 'repos']);
-  assert.deepEqual(await s.ev(D => [...D.querySelectorAll('.sidebar-head button')].map(b => b.getAttribute('aria-label'))), ['Overview', 'Marketplace health', 'GitHub Repo overview', 'New...', 'Refresh']);
+  assert.deepEqual(await s.ev(D => [...D.querySelectorAll('.sidebar .list [data-region]')].map(h => `${h.dataset.region}:${h.querySelector('.label').textContent}`)), ['code:Claude Code', 'cowork:Cowork', 'repos:Repositories']);
+  assert.deepEqual(await s.ev(D => [...D.querySelectorAll('.sidebar-head button')].map(b => b.getAttribute('aria-label'))), ['Overview', 'Marketplace health', 'Collapse all', 'New...', 'Refresh']);
   // The Marketplaces head counts the marketplaces and opens Marketplace health, the way a global head opens its type page.
   await s.waitFor(D => D.querySelector('[data-nav="s|markets"] .count')?.textContent === '1');
   await go('.sidebar [data-nav="s|markets"]', '', D => D.querySelector('.main-head h1')?.textContent === 'Marketplace health');
@@ -1363,7 +1363,10 @@ test('every bar keeps its AI group last and at its right end: overview, Plugins,
 
 test('the GitHub Repo overview shows 0 or a dash in every cell, never a blank one', T, async () => {
   await home();
-  await s.mouse('.sidebar-head [aria-label="GitHub Repo overview"]');
+  // The nav has no button for this page now (the head's GitHub button became Collapse all); the Show Fleet command reaches it with this message.
+  await s.resize(1500);
+  await s.ev(D => D.defaultView.postMessage({ type: 'page', page: 'fleet' }, '*'));
+  await s.waitFor(D => D.querySelector('.main-head h1')?.textContent === 'GitHub Repo overview');
   const cells = await s.waitFor(D => {
     const rows = [...D.querySelectorAll('.main [role=row]:not(.at-head)')].filter(r => r.getClientRects().length);
     return rows.length > 1 && rows.map(r => [...r.children].filter(c => c.getClientRects().length).map(c => c.textContent.trim()));
@@ -1407,7 +1410,7 @@ test('a server that needs a sign-in reads "Needs sign-in" and "Unknown", and Ret
     await openRow('MCP Servers', 'docs');
     const body = await s.waitFor(D => { const t = D.querySelector('.main').textContent; return /Sign in/.test(t) && t; });
     assert.match(body, /Needs sign-in/);
-    assert.equal(await s.ev(D => { const g = D.querySelector('.main .cmd-bar > .ai-group'); const st = D.querySelector('.main .cmd-bar > .cmd-status'); return !!g && !!st && /Sign in/.test(g.textContent) && st.getBoundingClientRect().right <= g.getBoundingClientRect().left + 1 && !D.querySelector('.main-body .dv-notice'); }), true, 'the status sits in the header bar, Sign in in its AI group at the right end');
+    assert.equal(await s.ev(D => { const g = D.querySelector('.main .cmd-bar > .ai-group'); const st = D.querySelector('.main .cmd-bar > .cmd-status'); if (!g || !st || !/Sign in/.test(g.textContent) || D.querySelector('.main-body .dv-notice')) return false; const b = D.querySelector('.main .cmd-bar').getBoundingClientRect(), gr = g.getBoundingClientRect(), sr = st.getBoundingClientRect(); /* the AI group ends the bar; the status is left of it on the same row, or on a row above it when the bar wraps */ return Math.abs(gr.right - b.right) <= 2 && (sr.right <= gr.left + 1 || sr.bottom <= gr.top + 1 || sr.top >= gr.bottom - 1); }), true, 'the status sits in the header bar, Sign in in its AI group at the right end');
     assert.match(body, /Unknown/);
     assert.match(body, /until you sign in/);
     assert.doesNotMatch(await s.ev(D => [...D.querySelectorAll('.dv-stats .tile .n')].map(n => n.textContent).join('|')), /^-|\|-\||\.\.\./);

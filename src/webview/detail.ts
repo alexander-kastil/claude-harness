@@ -10,7 +10,7 @@ import { hideHover } from './hover';
 import { renderMain } from './main';
 import { goBack, historyLabel } from './refs';
 import { slimOf } from './slim';
-import { canDraw, drawState, drawingId, drawsWhat } from './drawing';
+import { canDraw, drawState, drawingId, drawsWhatOf } from './drawing';
 import { syncableFromGlobal, syncableMcp } from './sync';
 
 // The kinds Edit with Claude and Try it apply to.
@@ -284,6 +284,22 @@ export const cmd = (glyph, label, tip, onclick, { on, disabled, cls } = {}) =>
     el('span', {}, label)
   );
 
+/** Draw with Claude (Redraw once drawn) for a page that can be drawn, to sit in its AI group; none for a page that cannot. */
+export const drawButton = a => {
+  if (!canDraw(a)) return null;
+  const { running, drawn, error } = drawState(a);
+  return confirmAt(
+    cmd(
+      'brush',
+      running ? 'Drawing...' : drawn ? 'Redraw with Claude' : 'Draw with Claude',
+      `${drawn ? 'Redraw' : 'Draw'} with Claude\nClaude draws ${drawsWhatOf(a)}, and each drawing shows above the details as soon as it is ready. It runs in the background and counts against your plan.${error ? `\nLast try failed: ${error}` : ''}`,
+      () => (hideHover(), vscode.postMessage({ type: 'drawAsset', id: drawingId(a) })),
+      { disabled: running }
+    ),
+    'draw'
+  );
+};
+
 // One box of commands, the plan picker's `.dg-modes`; a box without a command is not drawn.
 export const cmdBox = (label, cls, ...items) => {
   const live = items.flat().filter(Boolean);
@@ -291,6 +307,32 @@ export const cmdBox = (label, cls, ...items) => {
 };
 
 // Pull to Code: a Code-owned copy in Global or a repo, the target chosen in the same box. Nothing is written into the synced folders.
+/** Pull to Code of a scheduled task (a skill) or a project (a rules file, or a section of CLAUDE.md): the same box, the same target pick. */
+export const pullTextBox = (kind, id, name) => {
+  const pick = el(
+    'select',
+    { className: 'pull-target', title: 'Copy goes to\nThe scope that receives the Code-owned copy: Global, or one of your repos.', 'aria-label': 'Copy goes to' },
+    ...state.views.filter(v => v.id !== COWORK_ID).map((v, i) => el('option', { value: v.id }, i ? v.label : `${v.label} (~/.claude)`))
+  );
+  const into =
+    kind === 'project'
+      ? el(
+          'select',
+          { className: 'pull-target pull-into', title: 'Written as\nA rules file in .claude/rules, or a section of CLAUDE.md.', 'aria-label': 'Written as' },
+          el('option', { value: 'rules' }, 'Rules file'),
+          el('option', { value: 'claude-md' }, 'CLAUDE.md section')
+        )
+      : null;
+  const what = kind === 'task' ? `Writes the instructions of ${name} as a skill named after it, with the connectors and plugins it uses listed in it.` : `Writes the CLAUDE.md of ${name} into the chosen scope.`;
+  return cmdBox(
+    'Pull to Code',
+    'pull-to-code',
+    pick,
+    into,
+    cmd('arrow-down', 'Pull to Code', `Pull to Code\n${what} An existing target is backed up first. Nothing in Cowork or the desktop app changes.`, () => command('pullToCode', { kind, id, scope: pick.value, into: into ? into.value : undefined }))
+  );
+};
+
 const pullBox = a => {
   const pick = el(
     'select',
@@ -332,7 +374,7 @@ function commandBar(d, dirty) {
       cmdBox('Claude.ai', '', cmd('link-external', 'Manage on claude.ai', 'Manage on claude.ai\nManaged by Claude.ai: change it on its settings page.', () => command('openCowork', { target: { skill: 'skills', plugin: 'plugins', mcp: 'connectors' }[a.kind] }))),
       a.kind === 'skill' || a.kind === 'plugin' ? pullBox(a) : null,
       mcpBar ? mcpBar.status : null,
-      mcpBar ? aiGroup('', mcpBar.signIn) : null
+      aiGroup('', drawButton(a), mcpBar ? mcpBar.signIn : null)
     );
   return el(
     'div',
@@ -352,21 +394,7 @@ function commandBar(d, dirty) {
       a.kind === 'skill' && slimOf(a.id)?.findings
         ? claude('fold', 'Slim with Claude', "Slim with Claude\nA new Claude in a terminal gets the skill's files and what is flagged on this page, and says what to move and cut.", 'slim', 'slimAsset')
         : null,
-      canDraw(a)
-        ? (() => {
-            const { running, drawn, error } = drawState(a);
-            return confirmAt(
-              cmd(
-                'brush',
-                running ? 'Drawing...' : drawn ? 'Redraw with Claude' : 'Draw with Claude',
-                `${drawn ? 'Redraw' : 'Draw'} with Claude\nClaude draws ${drawsWhat(a.kind)}, and each drawing shows above the details as soon as it is ready. It runs in the background and counts against your plan.${error ? `\nLast try failed: ${error}` : ''}`,
-                () => (hideHover(), vscode.postMessage({ type: 'drawAsset', id: drawingId(a) })),
-                { disabled: running }
-              ),
-              'draw'
-            );
-          })()
-        : null,
+      drawButton(a),
       TRYABLE.includes(a.kind) ? confirmAt(cmd('play', 'Try it', `Try it\nA new Claude in a terminal${a.kind === 'agent' ? ' started as this agent' : ` that runs /${a.name}`}.`, () => (hideHover(), vscode.postMessage({ type: 'tryAsset', id: a.id }))), 'try') : null,
       mcpBar ? mcpBar.signIn : null
     ),

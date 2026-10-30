@@ -21,7 +21,7 @@ const body = {
       mcp_connections: mcp(3), enabled_plugins: ['plugin-a'], extra_marketplaces: [],
     },
     {
-      id: 'trig_wait', name: 'Daily sweep', enabled: true, cron_expression: '0 0 * * *', chat_project_id: '', created_kind: 'ROUTINE_CREATED_KIND_UNSPECIFIED', created_via: 'meta_mcp',
+      id: 'trig_wait', name: 'Daily sweep', enabled: true, bound_device: { display_name: 'Test PC', id: 'device-1' }, cron_expression: '0 0 * * *', chat_project_id: '', created_kind: 'ROUTINE_CREATED_KIND_UNSPECIFIED', created_via: 'meta_mcp',
       suspension_reason: 'device_absent', ended_reason: '', next_run_at: '2026-11-01T00:00:00Z',
       last_run: { fired_at: '2026-10-31T00:00:00Z', session_id: 'cse_run2', status: 'ROUTINE_RUN_STATUS_SUCCEEDED' },
       derived_state: { prompt: 'Sweep.' }, job_config: { ccr: { tags: ['cowork-remote'] } }, mcp_connections: mcp(1),
@@ -35,6 +35,18 @@ const body = {
 const server = http.createServer((req, res) => {
   requests.push({ method: req.method, url: req.url, auth: req.headers.authorization, beta: req.headers['anthropic-beta'] });
   res.setHeader('content-type', 'application/json');
+  if (req.url.startsWith('/v1/code/sessions')) {
+    const url = new URL(req.url, 'http://x');
+    const second = url.searchParams.get('cursor') === 'c1';
+    const n = url.searchParams.get('trigger_id') === 'trig_active' ? (second ? 5 : 20) : 0;
+    const from = second ? 20 : 0;
+    const data = Array.from({ length: n }, (_, i) => ({
+      id: `cse_${from + i}`, created_at: new Date(Date.UTC(2026, 9, 30, 8, 5) - (from + i) * 86400_000).toISOString(), status: 'active', status_bucket: 'review_ready', unread: (from + i) % 3 !== 0,
+      title: `Run ${from + i}`, config: { permission_mode: 'auto' }, trigger_id: 'trig_active',
+    }));
+    res.end(JSON.stringify(second || n === 0 ? { data } : { data, next_cursor: 'c1' }));
+    return;
+  }
   res.end(JSON.stringify(body));
 });
 process.env.CLAUDE_HARNESS_TRIGGERS_URL = `http://127.0.0.1:${PORT}/v1/code/triggers`;
@@ -98,8 +110,8 @@ test('a task page: Cowork badge, header commands without an AI group, details, i
   await s.waitFor(D => D.querySelector('.main-head h1')?.textContent.trim() === 'Weekly digest');
   assert.match(await text('.main-head'), /Cowork/);
   const bar = await labels('.main .cmd-bar button');
-  assert.deepEqual(bar, ['Back', 'Open on claude.ai', 'Open project', 'Open last run']);
-  assert.equal(await s.ev(D => D.querySelectorAll('.main .cmd-bar .ai-group').length), 0);
+  assert.deepEqual(bar, ['Back', 'Open on claude.ai', 'Open project', 'Open last run', 'Pull to Code', 'Draw with Claude']);
+  assert.equal(await s.ev(D => D.querySelectorAll('.main .cmd-bar > .ai-group').length), 1);
   const facts = await s.ev(D => [...D.querySelectorAll('.main .dv-fact')].map(f => f.querySelector('.k').textContent.trim() + '=' + f.querySelector('.v').textContent.trim()));
   const byKey = Object.fromEntries(facts.map(f => f.split(/=(.*)/s).slice(0, 2)));
   assert.deepEqual(Object.keys(byKey), ['Repeats', 'Next run', 'Last run', 'Runs on', 'Project', 'Connectors', 'Permissions']);
@@ -107,17 +119,33 @@ test('a task page: Cowork badge, header commands without an AI group, details, i
   assert.match(byKey['Last run'], /abandoned/);
   assert.equal(byKey['Runs on'], 'Cloud');
   assert.equal(byKey.Connectors, '3');
-  assert.equal(byKey.Permissions, 'Manual, 2 tools always allowed');
-  const page = await text();
-  assert.match(page, /Summarise the week\.\nKeep it short\./);
-  assert.match(page, /Mail/);
-  assert.match(page, /plugin-a/);
-  assert.match(page, /history/i);
+  // The permission mode is the newest run's, so it appears when the runs are read.
+  await s.waitFor(D => [...D.querySelectorAll('.main .dv-fact')].some(f => /Permissions/.test(f.textContent) && /Auto, runs without asking/.test(f.textContent)));
+  assert.match(await text(), /Summarise the week\.\nKeep it short\./);
   if (SHOTS) await shoot(path.join(SHOTS, '13-cowork-task-page.png'), '.main');
+  await s.mouse('.main .view-tab', 'Uses');
+  const uses = await text();
+  assert.match(uses, /Mail/);
+  assert.match(uses, /plugin-a/);
+  // Runs: every page of the API, newest first, the dot on the unread ones, a row opens the run on claude.ai.
+  await s.mouse('.main .view-tab', 'Runs');
+  await s.waitFor(D => D.querySelectorAll('.main .asset-table .at-row:not(.at-head)').length === 25);
+  assert.match(await s.ev(D => D.querySelector('.main .view-tab.active')?.textContent || ''), /Runs\s*25/);
+  assert.deepEqual(await labels('.main .asset-table .at-head > span'), ['Started', 'State', 'Permissions']);
+  const first = await s.ev(D => D.querySelector('.main .asset-table .at-row:not(.at-head)').innerText.replace(/\s+/g, ' '));
+  assert.match(first, /Oct 30.*Review ready.*Auto, runs without asking/);
+  assert.equal(await s.ev(D => D.querySelectorAll('.main .sched-dot.on').length), 16);
+  assert.ok(requests.filter(r => r.url.startsWith('/v1/code/sessions')).every(r => r.method === 'GET' && r.url.includes('trigger_id=trig_active')));
+  assert.ok(requests.some(r => r.url.includes('cursor=c1')));
+  if (SHOTS) await shoot(path.join(SHOTS, '30-scheduled-runs.png'), '.main');
+  // A task bound to a computer says so, as claude.ai does.
+  await s.mouse('.sidebar .row', 'Daily sweep');
+  await s.waitFor(D => D.querySelector('.main-head h1')?.textContent.trim() === 'Daily sweep');
+  assert.match(await s.ev(D => [...D.querySelectorAll('.main .dv-fact')].find(f => /Runs on/.test(f.textContent))?.textContent || ''), /Requires Claude Desktop \(Test PC\)/);
   // A task without a project or a run offers neither command.
   await s.mouse('.sidebar .row', 'Nightly check');
   await s.waitFor(D => D.querySelector('.main-head h1')?.textContent.trim() === 'Nightly check');
-  assert.deepEqual(await labels('.main .cmd-bar button'), ['Back', 'Open on claude.ai']);
+  assert.deepEqual(await labels('.main .cmd-bar button'), ['Back', 'Open on claude.ai', 'Pull to Code', 'Draw with Claude']);
 });
 
 test('an expired sign-in is reported and not refreshed', T, async () => {

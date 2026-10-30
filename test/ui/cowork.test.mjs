@@ -34,7 +34,7 @@ const labels = sel => s.ev((D, sel) => [...D.querySelectorAll(sel)].filter(e => 
 const text = (sel = '.main-body') => s.ev((D, sel) => D.querySelector(sel)?.innerText || '', sel);
 const coworkHead = () => s.ev(D => D.querySelector('.sidebar .cowork-region > .scope-head')?.innerText || '');
 // The Cowork region is always open: its head does not fold.
-const unfold = () => s.waitFor(D => D.querySelector('.sidebar .list')?.innerText.includes('Design systems'));
+const unfold = () => s.waitFor(D => D.querySelector('.sidebar .list')?.innerText.toLowerCase().includes('design systems'));
 
 test('a PC without synced items shows an empty Cowork scope with one line on why', T, async () => {
   await s.waitFor(D => D.querySelector('.sidebar .cowork-region > .scope-head'));
@@ -100,18 +100,18 @@ test('the Skills type page groups the synced skills under a Cowork heading', T, 
   assert.ok((await labels('.main [role=row]')).some(r => r.startsWith('docs')), 'the synced skill is listed');
 });
 
-test('Cowork is a region of its own between the Code tree and Repositories, with Memory and Design systems that carry no count', T, async () => {
+test('Cowork is a region of its own between the Code tree and Repositories, with a Memory link that carries no count', T, async () => {
   const order = await s.ev(D => {
     const kids = [...D.querySelector('.sidebar .list').children];
     const at = sel => kids.findIndex(k => k.matches(sel));
-    return { code: at('.scope-block'), cowork: at('.cowork-region'), repos: kids.findIndex(k => k.matches('.scope-head')), inCode: D.querySelectorAll('.scope-block .cowork-region, .scope-block [data-nav^="s|cowork|"]').length };
+    return { code: at('.scope-block'), cowork: at('.cowork-region'), repos: kids.findIndex(k => k.dataset.region === 'repos'), inCode: D.querySelectorAll('.scope-block .cowork-region, .scope-block [data-nav^="s|cowork|"]').length };
   });
   assert.ok(order.code >= 0 && order.code < order.cowork && order.cowork < order.repos, JSON.stringify(order));
   assert.equal(order.inCode, 0, 'no Cowork item renders inside the Code tree');
   assert.deepEqual(await labels('.sidebar .cowork-region > .scope-head .label'), ['Cowork']);
-  assert.deepEqual(await labels('.sidebar .cowork-region .row[data-nav^="l|cowork|"] .name'), ['Memory', 'Design systems']);
+  assert.deepEqual(await labels('.sidebar .cowork-region .row[data-nav^="l|cowork|"] .name'), ['Memory']);
   assert.equal(await s.ev(D => D.querySelectorAll('.sidebar .cowork-region .row[data-nav^="l|cowork|"] .count').length), 0);
-  assert.equal(await s.ev(D => D.querySelectorAll('.sidebar .cowork-region .row[data-nav^="l|cowork|"] .codicon-link-external').length), 2);
+  assert.equal(await s.ev(D => D.querySelectorAll('.sidebar .cowork-region .row[data-nav^="l|cowork|"] .codicon-link-external').length), 1);
 });
 
 test('claudeHarness.cowork.show hides the Cowork region from the nav and shows it again, and the Cowork pages stay', T, async () => {
@@ -122,4 +122,39 @@ test('claudeHarness.cowork.show hides the Cowork region from the nav and shows i
   await s.waitFor(D => D.querySelector('.sidebar .cowork-region > .scope-head'));
   // The data was untouched: the region counts the same two synced items.
   assert.match(await coworkHead(), /Cowork\s*2$/i);
+});
+
+test('the nav head repeats no title: the tab says Claude Harness, the head holds the mark and its buttons', T, async () => {
+  assert.equal(await s.ev(D => D.querySelector('.sidebar-head').textContent.trim()), '');
+  assert.equal(await s.ev(D => D.querySelectorAll('.sidebar-head button').length), 5);
+});
+
+test('each of the three region heads folds its region on a click and opens it on the next', T, async () => {
+  // [region, what only that region holds]
+  const parts = { code: '.scope-block .section-head', cowork: '.cowork-region .row.cowork-link', repos: '.repo-head' };
+  const count = sel => s.ev((D, sel) => D.querySelectorAll(`.sidebar .list ${sel}`).length, sel);
+  for (const [region, sel] of Object.entries(parts)) {
+    assert.ok((await count(sel)) > 0, `${region} shows its items`);
+    // The label, not the middle of the head: a crowded head has a tool button there.
+    await s.mouse(`.sidebar [data-region="${region}"] .label`, '');
+    await s.waitFor((D, sel) => D.querySelectorAll(`.sidebar .list ${sel}`).length === 0, sel);
+    assert.equal(await s.ev((D, r) => D.querySelector(`.sidebar [data-region="${r}"]`).getAttribute('aria-expanded'), region), 'false');
+    await s.mouse(`.sidebar [data-region="${region}"] .label`, '');
+    await s.waitFor((D, sel) => D.querySelectorAll(`.sidebar .list ${sel}`).length > 0, sel);
+  }
+});
+
+test('the head button collapses all three regions while any is open and expands them all otherwise, on the same fold state', T, async () => {
+  const state = () => s.ev(D => ({ label: D.querySelector('.sidebar-head .codicon-collapse-all, .sidebar-head .codicon-expand-all')?.closest('button')?.getAttribute('aria-label'), open: [...D.querySelectorAll('.sidebar [data-region]')].map(h => h.getAttribute('aria-expanded')) }));
+  assert.deepEqual(await state(), { label: 'Collapse all', open: ['true', 'true', 'true'] });
+  // One region folded by its own head: some are still open, so the button still collapses.
+  await s.mouse('.sidebar [data-region="cowork"] .label', '');
+  await s.waitFor(D => D.querySelector('.sidebar [data-region="cowork"]').getAttribute('aria-expanded') === 'false');
+  assert.equal((await state()).label, 'Collapse all');
+  await s.mouse('.sidebar-head [aria-label="Collapse all"]', '');
+  await s.waitFor(D => [...D.querySelectorAll('.sidebar [data-region]')].every(h => h.getAttribute('aria-expanded') === 'false'));
+  assert.equal((await state()).label, 'Expand all');
+  await s.mouse('.sidebar-head [aria-label="Expand all"]', '');
+  await s.waitFor(D => [...D.querySelectorAll('.sidebar [data-region]')].every(h => h.getAttribute('aria-expanded') === 'true'));
+  assert.deepEqual(await state(), { label: 'Collapse all', open: ['true', 'true', 'true'] });
 });

@@ -3,7 +3,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { test } from 'node:test';
-import { cronWords, fetchScheduled, parseTriggers, runUrl, taskUrl, type Fetcher } from '../../src/cowork-scheduled';
+import { RUN_PAGE_CAP, cronWords, fetchRuns, fetchScheduled, parseTriggers, permissionWords, runUrl, taskUrl, type Fetcher } from '../../src/cowork-scheduled';
 
 const mcp = (n: number) => Array.from({ length: n }, (_, i) => ({ connector_uuid: `uuid-${i}`, name: `Connector ${i}`, transport_type: 'http', url: `https://example.test/${i}` }));
 
@@ -23,7 +23,7 @@ export const fixture = () => ({
     {
       id: 'trig_wait', name: 'Daily sweep', enabled: true, cron_expression: '0 0 * * *', chat_project_id: '',
       created_kind: 'ROUTINE_CREATED_KIND_UNSPECIFIED', created_via: 'meta_mcp',
-      suspension_reason: 'device_absent', ended_reason: '', next_run_at: '2026-11-01T00:00:00Z', last_fired_at: '2026-10-31T00:00:00Z',
+      bound_device: { display_name: 'Test PC', id: 'device-1' }, suspension_reason: 'device_absent', ended_reason: '', next_run_at: '2026-11-01T00:00:00Z', last_fired_at: '2026-10-31T00:00:00Z',
       last_run: { fired_at: '2026-10-31T00:00:00Z', finished_at: '2026-10-31T00:05:00Z', session_id: 'cse_run2', status: 'ROUTINE_RUN_STATUS_SUCCEEDED' },
       derived_state: { prompt: 'Sweep.' }, job_config: { ccr: { tags: ['cowork-remote', 'cowork-scheduled'] } }, mcp_connections: mcp(2),
     },
@@ -61,15 +61,14 @@ test('parseTriggers: status, source and details of the three fixture tasks', () 
   assert.deepEqual(a.pluginNames, ['plugin-a', 'plugin-b']);
   assert.deepEqual(a.marketplaceNames, ['market-a']);
   assert.deepEqual(parseTriggers(fixture())[1].pluginNames, []);
-  assert.equal(a.permissions, 'Manual, 3 tools always allowed');
+  assert.equal(a.permissions, '');
   assert.equal(a.runsOn, 'Cloud');
   assert.equal(a.nextRunAt, Date.parse('2026-11-02T05:00:00Z'));
   assert.equal(w.status, 'Waiting for Claude Desktop');
   assert.equal(w.statusKind, 'wait');
-  assert.equal(w.runsOn, 'This PC (Claude Desktop)');
+  assert.equal(w.runsOn, 'Requires Claude Desktop (Test PC)');
   assert.equal(w.projectId, undefined);
   assert.equal(w.lastRunStatus, 'succeeded');
-  assert.equal(w.permissions, 'Manual');
   assert.equal(o.status, 'Auto-disabled, lost access to its repository');
   assert.equal(o.statusKind, 'off');
   assert.equal(o.source, 'Code');
@@ -119,4 +118,55 @@ test('fetchScheduled: no login, expired token and error statuses give a note and
   assert.equal((await fetchScheduled(live, { fetcher: reply(403).fetcher })).state, 'denied');
   assert.equal((await fetchScheduled(live, { fetcher: reply(500).fetcher })).state, 'error');
   assert.equal((await fetchScheduled(live, { fetcher: async () => { throw new Error('offline'); } })).state, 'error');
+});
+
+/** Synthetic body shaped like GET /v1/code/sessions?trigger_id=<id>: runs newest first, a cursor for the next page. */
+const runsPage = (from: number, n: number, next?: string) => ({
+  data: Array.from({ length: n }, (_, i) => ({
+    id: `cse_${from + i}`, created_at: new Date(Date.UTC(2026, 9, 30 - (from + i), 8, 5)).toISOString(), status: 'active', status_bucket: 'review_ready', unread: (from + i) % 2 === 1,
+    title: `Run ${from + i}`, config: { permission_mode: 'auto', origin: 'scheduled_trigger' }, environment_kind: 'anthropic_cloud', trigger_id: 'trig_active',
+  })),
+  next_cursor: next,
+});
+
+test('fetchRuns: GET with trigger_id, follows next_cursor, newest first, the dot is unread', async () => {
+  const calls: string[] = [];
+  const fetcher: Fetcher = async url => {
+    calls.push(url);
+    return { status: 200, json: async () => (url.includes('cursor=c1') ? runsPage(3, 2) : runsPage(0, 3, 'c1')) };
+  };
+  const out = await fetchRuns(rootWith({ accessToken: 't' }), 'trig_active', { fetcher });
+  assert.equal(out.state, 'ok');
+  assert.equal(out.runs.length, 5);
+  assert.equal(out.more, false);
+  assert.deepEqual(out.runs.map(r => r.unread), [false, true, false, true, false]);
+  assert.equal(out.runs[0].state, 'Review ready');
+  assert.equal(out.runs[0].permissions, 'Auto, runs without asking');
+  assert.equal(out.runs[0].startedAt, Date.UTC(2026, 9, 30, 8, 5));
+  assert.equal(calls.length, 2);
+  assert.match(calls[0], /\/v1\/code\/sessions\?trigger_id=trig_active$/);
+  assert.match(calls[1], /&cursor=c1$/);
+});
+
+test('fetchRuns: stops at the page cap, keeps what it has when a later page fails, and reports a refused token', async () => {
+  const endless: Fetcher = async () => ({ status: 200, json: async () => runsPage(0, 1, 'again') });
+  const capped = await fetchRuns(rootWith({ accessToken: 't' }), 'trig_x', { fetcher: endless });
+  assert.equal(capped.runs.length, RUN_PAGE_CAP);
+  assert.equal(capped.more, true);
+  let n = 0;
+  const flaky: Fetcher = async () => (++n === 1 ? { status: 200, json: async () => runsPage(0, 2, 'c') } : { status: 500, json: async () => ({}) });
+  const partial = await fetchRuns(rootWith({ accessToken: 't' }), 'trig_x', { fetcher: flaky });
+  assert.equal(partial.runs.length, 2);
+  assert.equal(partial.more, true);
+  const denied = await fetchRuns(rootWith({ accessToken: 't' }), 'trig_x', { fetcher: reply(403).fetcher });
+  assert.equal(denied.state, 'denied');
+  assert.match(denied.note, /runs/);
+  assert.equal((await fetchRuns(rootWith(undefined), 'trig_x', { fetcher: reply(200).fetcher })).state, 'noLogin');
+});
+
+test('permissionWords names the modes', () => {
+  assert.equal(permissionWords('auto'), 'Auto, runs without asking');
+  assert.equal(permissionWords('default'), 'Manual, asks before acting');
+  assert.equal(permissionWords('someNewMode'), 'SomeNewMode');
+  assert.equal(permissionWords(undefined), '');
 });

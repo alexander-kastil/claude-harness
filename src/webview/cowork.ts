@@ -1,7 +1,6 @@
 // @ts-nocheck
 // The Cowork scope: what Claude.ai brings to this PC (synced skills and org plugins, claude.ai connectors), always read-only.
 import { command, persist, state } from './core';
-import { coworkProjectsNode } from './cowork-project';
 import { el, icon, iconBtn } from './dom';
 
 export const COWORK_ID = 'cowork';
@@ -18,31 +17,29 @@ export const coworkScope = () => state.views.find(v => v.id === COWORK_ID);
  */
 export const COWORK_LINKS = [
   { id: 'memory', label: 'Memory', glyph: 'book', target: 'memory', tip: 'Opens your Memory settings on claude.ai in the browser.' },
-  { id: 'design-systems', label: 'Design systems', glyph: 'symbol-color', target: 'design-systems', tip: 'Opens your Design systems settings on claude.ai in the browser.' },
 ];
 
 /**
  * Nodes other agents add to the Cowork region, after the kinds and before the links: each is `(list, q, { treeItem, render }) => void`
  * and appends its own tree items to `list` (a Projects node, a Scheduled node).
  */
-export const COWORK_NODES = [coworkProjectsNode];
+export const COWORK_NODES = [];
 
 /** The Cowork region of the left nav, a peer of the Code tree and of Repositories: its head, the kinds, the nodes, then the links. */
-export function renderCoworkRegion(view, q, renderCategories, treeItem, render) {
+export function renderCoworkRegion(view, q, renderCategories, treeItem, render, regionHead) {
   const count = view.categories.reduce((n, c) => n + c.items.length, 0);
   const links = COWORK_LINKS.filter(l => !q || l.label.toLowerCase().includes(q));
-  if (q && !count && !links.length) return null;
   const region = el('div', { className: 'cowork-region' });
-  region.append(
-    el(
-      'div',
-      { className: 'scope-head', title: `Cowork\nWhat Claude.ai brings to this PC: synced skills, synced org plugins and claude.ai connectors. ${MANAGED}, read-only.` },
-      icon('cloud'),
-      el('span', { className: 'label' }, 'Cowork'),
-      iconBtn('link-external', 'Manage on claude.ai', () => command('openCowork')),
-      el('span', { className: 'count' }, count)
-    )
+  const [folded, head] = regionHead(
+    'cowork',
+    'cloud',
+    'Cowork',
+    `Cowork\nWhat Claude.ai brings to this PC: synced skills, synced org plugins and claude.ai connectors. ${MANAGED}, read-only.`,
+    [iconBtn('link-external', 'Manage on claude.ai', () => command('openCowork'))],
+    count
   );
+  region.append(head);
+  if (folded) return region;
   renderCategories(region, { ...view, categories: view.categories.filter(c => c.items.length) }, q, false);
   for (const node of COWORK_NODES) node(region, q, { treeItem, render });
   region.append(
@@ -54,6 +51,8 @@ export function renderCoworkRegion(view, q, renderCategories, treeItem, render) 
       )
     )
   );
+  // A search that matches nothing of the region (no kind, node or link) hides the region.
+  if (q && region.children.length === 1) return null;
   const info = view.cowork;
   if (info && info.empty) region.append(el('div', { className: 'empty' }, info.empty));
   return region;

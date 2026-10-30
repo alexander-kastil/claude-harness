@@ -8,9 +8,12 @@ import { refreshCard } from './hover';
 import { renderKindPage } from './kind-page';
 import { renderOverview } from './overview';
 import { onHuntMessage, renderHunt } from './hunt';
-import { renderCoworkProject } from './cowork-project';
+import { onBrowserHuntMessage, renderBrowserHunt } from './browser-hunt';
+import { onHandoverMessage, renderHandover } from './handover';
+import { onChatMessage, renderCoworkArtifacts, renderCoworkChat, renderCoworkChats } from './cowork-chats';
 import { renderFleet, renderInit, renderMarket, renderMarkets } from './pages';
 import { renderRepo } from './repo-page';
+import { onDesignRead, renderDesignSystem, renderDesignSystems } from './design-systems';
 import { renderScheduledList, renderScheduledTask } from './scheduled';
 import { redrawCheckpoint, renderSession } from './session-page';
 import { renderSessionsPage, showSession } from './sessions';
@@ -34,12 +37,24 @@ export function renderMain() {
         ? renderKindPage()
       : state.page === 'hunt'
         ? renderHunt()
+      : state.page === 'browser-hunt'
+        ? renderBrowserHunt()
       : state.page === 'scheduled'
         ? renderScheduledList()
       : state.page === 'scheduled-task'
         ? renderScheduledTask()
-      : state.page === 'cowork-project' && state.coworkProject
-        ? renderCoworkProject()
+      : state.page === 'design-systems'
+        ? renderDesignSystems()
+      : state.page === 'design-system'
+        ? renderDesignSystem()
+      : state.page === 'cowork-handover'
+        ? renderHandover()
+      : state.page === 'cowork-chats'
+        ? renderCoworkChats()
+      : state.page === 'cowork-artifacts'
+        ? renderCoworkArtifacts()
+      : state.page === 'cowork-chat' && state.coworkChat
+        ? renderCoworkChat()
       : state.page === 'marketplaces'
         ? renderMarkets()
       : state.page === 'market' && state.marketPage
@@ -151,16 +166,29 @@ onMessage(m => {
   } else if (m.type === 'scheduled') {
     state.scheduled = m.list;
     render();
-  } else if (m.type === 'coworkProjects') {
-    state.coworkProjects = { found: m.found, list: m.list || [] };
-    const current = app.querySelector('.sidebar');
-    if (current) keepScroll(() => current.replaceWith(renderSidebar()));
-    if (state.page === 'cowork-project' && !state.detail) renderMain();
-  } else if (m.type === 'coworkProject') {
-    if (state.coworkProject && state.coworkProject.id === m.id) {
-      state.coworkProject.data = m.data || null;
-      if (state.page === 'cowork-project' && !state.detail) keepMainScroll(renderMain);
-    }
+  } else if (m.type === 'scheduledRuns') {
+    state.scheduledRuns = { ...state.scheduledRuns, [m.id]: m.runs };
+    if (state.page === 'scheduled-task' && !state.detail && state.scheduledPage && state.scheduledPage.id === m.id) renderMain();
+  } else if (m.type === 'designSystems') {
+    state.designSystems = m.list;
+    render();
+  } else if (m.type === 'designRead') {
+    onDesignRead(m);
+    if (state.page === 'design-system' && !state.detail) keepMainScroll(renderMain);
+  } else if (['handoverInbox', 'handoverSeed', 'handoverLocated', 'handoverDraft', 'handover'].includes(m.type)) {
+    onHandoverMessage(m, () => {
+      if (state.page === 'cowork-handover' && !state.detail) keepMainScroll(renderMain);
+    });
+  } else if (['coworkChats', 'coworkSessions', 'coworkChat'].includes(m.type)) {
+    // The nav lists the chats too; a page of the chat views is redrawn without losing the scroll.
+    onChatMessage(m, (nav: boolean) => {
+      const current = app.querySelector('.sidebar');
+      if (nav && current) keepScroll(() => current.replaceWith(renderSidebar()));
+      if (['cowork-chats', 'cowork-artifacts', 'cowork-chat', 'cowork-handover'].includes(state.page ?? '') && !state.detail) {
+        // The filter box keeps its focus: a list page is redrawn only when no field of it is being typed in.
+        if (!(document.activeElement && app.querySelector('.main')?.contains(document.activeElement) && document.activeElement.tagName === 'INPUT')) keepMainScroll(renderMain);
+      }
+    });
   } else if (m.type === 'weekly') {
     state.weekly = m.list || [];
     if (!state.detail && state.repo && state.repoTab === 'models') renderMain();
@@ -203,6 +231,8 @@ onMessage(m => {
     }
   } else if (m.type === 'hunt' || m.type === 'huntRun' || m.type === 'huntCreate') {
     onHuntMessage(m);
+  } else if (m.type === 'browserHunt' || m.type === 'browserHuntRun' || m.type === 'browserHuntCreate') {
+    onBrowserHuntMessage(m);
   } else if (m.type === 'confirm') {
     showConfirm(m.ask);
   } else if (m.type === 'effective') {
@@ -279,6 +309,12 @@ onMessage(m => {
     if (changed && state.detail && state.detail.asset.id === m.id.replace(/#process$/, '') && state.detailMode !== 'edit') keepMainScroll(renderMain);
     // A marketplace's page draws under `market:<name>`.
     else if (changed && !state.detail && state.page === 'market' && state.marketPage && m.id.replace(/#process$/, '') === `market:${state.marketPage.name}`) keepMainScroll(renderMain);
+    // A Cowork task or chat draws under `cowork-task:<id>` and `cowork-chat:<id>`.
+    else if (changed && !state.detail) {
+      const base = m.id.replace(/#process$/, '');
+      const open = { 'scheduled-task': `cowork-task:${state.scheduledPage?.id}`, 'cowork-chat': `cowork-chat:${state.coworkChat?.id}` }[state.page ?? ''];
+      if (open === base) keepMainScroll(renderMain);
+    }
   } else if (m.type === 'mcpInfo') {
     // A retry keeps the old banner, busy, until the new answer comes in.
     if (m.info === undefined && state.mcpBusy[m.id] === 'busy') return;

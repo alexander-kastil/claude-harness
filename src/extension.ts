@@ -5,12 +5,21 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { restoreFiles } from './checkpoints';
 import { Shell, addLine, hasLine, pathWith, pathWithout, profileLine, psProfileFiles, removeLine, shimDir, shimFiles } from './cli-install';
-import { applyPull, coworkDrift, planPull } from './cli-cowork';
+import { applyPull, applyTextPull, coworkDrift, planPull, planTaskPull } from './cli-cowork';
 import { Constitution } from './constitution';
-import { fetchScheduled } from './cowork-scheduled';
+import { fetchDesignSystems } from './cowork-design';
+import type { DesignSystem } from './cowork-design';
+import { designReader, withReads } from './design-read-host';
+import { fetchRuns, fetchScheduled } from './cowork-scheduled';
+import { connectorSource, coworkSource } from './cowork-draw';
+import type { CoworkSource } from './cowork-draw';
+import { fetchCloudSessions } from './cowork-chats';
+import { handoverHost } from './handover-host';
+import type { ScheduledTask } from './cowork-scheduled';
 import { consolidateApply, consolidatePlan, mergePrompt, routesOf } from './consolidate';
 import type { ConsolidateRoute, ConsolidateTarget } from './shared/messages';
 import { FileEdit, fleetRow, guardInfo, guardReasons, lastSessionSteps, marketplaceHealth, renameCatalog, renameCommands, renameInSettings } from './fleet';
+import { browserHuntHost } from './browser-hunt-host';
 import { huntHost } from './hunt-host';
 import { keyChanges, mcpApply, mcpConfig, mcpVersions, syncApply, syncFiles, syncSource, updateMarketPlugins, updatePluginFromMarket } from './sync';
 import { registerDistributor } from './dist-host';
@@ -68,7 +77,7 @@ import {
   validateName,
 } from './harness';
 import { HarnessPanel, PanelHost } from './panel';
-import { coworkShown } from './settings';
+import { coworkShown, setCoworkChoice } from './settings';
 import { mentionText, pathText, saveClipboardImage } from './image-paste';
 import { claudeCli, claudeCommand, claudeExecutable, defaultCwd, openTerminal, uniqueTerminalName } from './terminals';
 import { Account, accountWeek, checkpointFiles, findAccountSession, importTranscript, listAccountSessions, listAccountSessionsAsync, parseAccounts, readSession, renameSession } from './sessions';
@@ -99,7 +108,19 @@ const panelArg = (arg: unknown): { fromPanel: true; id?: string } | undefined =>
 export function activate(context: vscode.ExtensionContext): void {
   // The key the editor title toggle reads for its on and off state.
   const setCoworkShown = () => void vscode.commands.executeCommand('setContext', 'claudeHarness.coworkShown', coworkShown());
+  setCoworkChoice(context.globalState.get<boolean>('claudeHarness.coworkShow'));
   setCoworkShown();
+  // The toggle writes the setting; a window that does not know the setting yet (VS Code rejects the write) keeps the choice in globalState.
+  const chooseCowork = async (show: boolean) => {
+    try {
+      await vscode.workspace.getConfiguration('claudeHarness').update('cowork.show', show, vscode.ConfigurationTarget.Global);
+    } catch {
+      setCoworkChoice(show);
+      await context.globalState.update('claudeHarness.coworkShow', show);
+    }
+    setCoworkShown();
+    HarnessPanel.update();
+  };
   let global: HarnessScope = globalScope(vscode.workspace.getConfiguration('claudeHarness').get<string>('root'));
   const accounts = (): Account[] => {
     const config = vscode.workspace.getConfiguration('claudeHarness');
@@ -110,6 +131,13 @@ export function activate(context: vscode.ExtensionContext): void {
   let plugins: ScopeView[] = [];
   /** What Claude.ai brings (synced skills and plugins, claude.ai connectors): read-only, not one of `views`. */
   let cowork: ScopeView | undefined;
+  /** The scheduled tasks the panel last read, so a skill pulled from one can say whether the task changed. */
+  let lastTasks: ScheduledTask[] | undefined;
+  /** The design systems the panel last listed, so a read names one the panel knows. */
+  let lastDesign: DesignSystem[] = [];
+  const readDesign = designReader({ state: context.globalState, find: id => lastDesign.find(d => d.id === id) });
+  /** What each pulled copy would be made of now, by file, for Compare. */
+  const driftByFile = new Map<string, { current?: string; kind: string }>();
   let provider: Provider | undefined;
   // Plugins that log events per session; each adds a layer to the session views.
   let eventSources: EventSource[] = [];
@@ -140,9 +168,19 @@ export function activate(context: vscode.ExtensionContext): void {
   // Where each agent and skill was used, over the transcripts of every account; built the first time the Used in tab opens.
   const drawingsDir = path.join(context.globalStorageUri.fsPath, 'drawings');
   // A plugin is drawn from its folder: the installed copy, or the source folder of a directory marketplace.
-  const pluginDirOf = (asset: Asset) => (asset.kind === 'plugin' ? pluginDirs(global.root).find(p => p.key === asset.name)?.dir : undefined);
+  // A synced Cowork plugin is drawn from its mirror folder.
+  const pluginDirOf = (asset: Asset) => (asset.kind === 'plugin' ? (asset.scope === COWORK_ID ? asset.dir : pluginDirs(global.root).find(p => p.key === asset.name)?.dir) : undefined);
   // A marketplace's page draws it under `market:<name>`, from the plugins it lists.
   const marketToDraw = (id: string) => (id.startsWith(MARKET_PREFIX) ? marketplaceHealth(global.root).find(m => m.name === id.slice(MARKET_PREFIX.length)) : undefined);
+  // A Cowork scheduled task, project, chat or connector is drawn from what its page holds, not from a file of a scope.
+  const coworkToDraw = (id: string): CoworkSource | undefined => {
+    const own = coworkSource(id, lastTasks);
+    if (own) return own;
+    const asset = find(id);
+    if (asset?.scope !== COWORK_ID || asset.kind !== 'mcp') return undefined;
+    // The CLI lists a claude.ai connector as "claude.ai <name>"; the tasks and the sessions name it by <name>.
+    return connectorSource(asset.name.replace(/^claude\.ai\s+/i, ''), lastTasks, (cowork?.categories.find(c => c.kind === 'skill')?.items ?? []).map(s => ({ name: s.name, file: s.file })));
+  };
   const usageIndex = new UsageIndex(path.join(context.globalStorageUri.fsPath, 'usage-index.json'));
   // The target of an element for the pages that read beyond the session list; an output style is matched by its frontmatter name.
   const targetOf = (asset: Asset): UsageTarget | undefined => usageTarget(asset, views, asset.kind === 'outputStyle' ? String(readMarkdown(asset.file).data.name ?? '') || undefined : undefined);
@@ -232,11 +270,22 @@ export function activate(context: vscode.ExtensionContext): void {
     // A newer refresh began while this one waited its turn: its views win.
     if (epoch !== refreshEpoch) return;
     // A skill pulled from Cowork carries where it came from and whether it still matches.
+    driftByFile.clear();
     for (const [i, s] of scopes.entries()) {
-      const drift = coworkDrift(s.root);
+      const drift = coworkDrift(s.root, lastTasks);
       for (const a of next[i]?.categories.find(c => c.kind === 'skill')?.items ?? []) {
-        const d = drift.find(x => x.skill === a.name);
-        if (d) a.coworkOrigin = { item: d.item, from: d.from, state: d.state };
+        const d = drift.find(x => x.kind !== 'project' && x.skill === a.name);
+        if (d) {
+          a.coworkOrigin = { item: d.item, from: d.from, state: d.state };
+          if (a.file) driftByFile.set(a.file, { current: d.current, kind: d.kind });
+        }
+      }
+      for (const a of next[i]?.categories.find(c => c.kind === 'rule')?.items ?? []) {
+        const d = drift.find(x => x.kind === 'project' && a.file && samePath(x.to, a.file));
+        if (d) {
+          a.coworkOrigin = { item: d.item, from: d.from, state: d.state };
+          driftByFile.set(a.file!, { current: d.current, kind: d.kind });
+        }
       }
     }
     views = next;
@@ -438,7 +487,22 @@ export function activate(context: vscode.ExtensionContext): void {
       return view && view.id !== global.id ? listAccountSessionsAsync(view.path, accounts()) : [];
     },
     weekly: () => Promise.all(accounts().map(a => accountWeek(a))),
-    scheduled: () => fetchScheduled(global.root),
+    coworkSessions: () => fetchCloudSessions(global.root),
+    designSystems: async () => {
+      const list = await fetchDesignSystems(global.root);
+      if (list.state === 'ok') lastDesign = list.systems;
+      return withReads(list, context.globalState);
+    },
+    designRead: (id, answer, ask, post) => readDesign(id, answer, ask, post),
+    scheduled: async () => {
+      const list = await fetchScheduled(global.root);
+      if (list.state === 'ok' && JSON.stringify(list.tasks) !== JSON.stringify(lastTasks)) {
+        lastTasks = list.tasks;
+        refresh();
+      }
+      return list;
+    },
+    scheduledRuns: id => fetchRuns(global.root, id),
     session: async (id, sessionId) => {
       const view = viewOfScope(id);
       const summary = view && view.id !== global.id ? findAccountSession(view.path, accounts(), sessionId) : undefined;
@@ -681,6 +745,13 @@ export function activate(context: vscode.ExtensionContext): void {
       const data = await usageData(build, progress);
       return data ? { more: usageMore(data, target) } : { built: false };
     },
+    handover: handoverHost({
+      state: context.globalState,
+      repos: () => scopes.filter(s => s.id !== global.id).map(s => ({ label: s.label, base: s.base })),
+      cwd: defaultCwd,
+      terminal: (name, cwd, prompt) => terminal(name, cwd, claudeCommand(`"${promptText(prompt)}"`)),
+    }),
+    browserHunt: browserHuntHost({ state: context.globalState, views: () => views, plugins: () => plugins, root: () => global.root, refresh }),
     hunt: huntHost({
       state: context.globalState,
       root: () => global.root,
@@ -708,6 +779,8 @@ export function activate(context: vscode.ExtensionContext): void {
       const process = id.endsWith(PROCESS_SUFFIX);
       const market = marketToDraw(process ? id.slice(0, -PROCESS_SUFFIX.length) : id);
       if (market) return readDrawing(drawingsDir, id, contentHash(process ? marketProcessText(market.plugins) : marketText(market.plugins)));
+      const own = coworkToDraw(process ? id.slice(0, -PROCESS_SUFFIX.length) : id);
+      if (own) return readDrawing(drawingsDir, id, contentHash(own.text));
       const asset = find(process ? id.slice(0, -PROCESS_SUFFIX.length) : id);
       const dir = asset && pluginDirOf(asset);
       const source = asset && (process ? processSource(asset, dir) : drawSource(asset, dir));
@@ -736,6 +809,25 @@ export function activate(context: vscode.ExtensionContext): void {
             : await draftStyle(drawPrompt('market', market.name, text), 'sonnet', os.tmpdir(), 300000, DRAW_SYSTEM);
           const svg = 'error' in result ? undefined : extractSvg(result.text);
           if (svg) writeDrawing(drawingsDir, drawId, contentHash(text), svg);
+          done(drawId, svg ? { svg } : { error: 'error' in result ? result.error : 'Claude did not answer with an svg drawing.' });
+        }
+        return;
+      }
+      // A Cowork task, project, chat or connector: one text for both perspectives, read from this PC and the list the panel loaded.
+      const own = coworkToDraw(base);
+      if (own) {
+        if (!own.text.includes('###') && own.kind !== 'task') return done(id, { error: 'Nothing on this PC to draw from.' });
+        if (!answer.confirmed && !context.globalState.get<boolean>('drawRemembered')) return ask({ kind: 'draw', id: base, name: own.name, file: '', chars: Math.min(own.text.length, 30000) * 2, source: own.from, both: true });
+        if (answer.remember) await context.globalState.update('drawRemembered', true);
+        const both = [id, process ? base : base + PROCESS_SUFFIX];
+        both.forEach(drawId => started(drawId));
+        for (const drawId of both) {
+          const proc = drawId.endsWith(PROCESS_SUFFIX);
+          const result = proc
+            ? await draftStyle(processPrompt(own.kind, own.name, own.text), 'sonnet', os.tmpdir(), 300000, PROCESS_SYSTEM)
+            : await draftStyle(drawPrompt(own.kind, own.name, own.text), 'sonnet', os.tmpdir(), 300000, DRAW_SYSTEM);
+          const svg = 'error' in result ? undefined : extractSvg(result.text);
+          if (svg) writeDrawing(drawingsDir, drawId, contentHash(own.text), svg);
           done(drawId, svg ? { svg } : { error: 'error' in result ? result.error : 'Claude did not answer with an svg drawing.' });
         }
         return;
@@ -1181,8 +1273,8 @@ export function activate(context: vscode.ExtensionContext): void {
       refresh();
     }),
 
-    vscode.commands.registerCommand('claudeHarness.hideCowork', () => vscode.workspace.getConfiguration('claudeHarness').update('cowork.show', false, vscode.ConfigurationTarget.Global)),
-    vscode.commands.registerCommand('claudeHarness.showCowork', () => vscode.workspace.getConfiguration('claudeHarness').update('cowork.show', true, vscode.ConfigurationTarget.Global)),
+    vscode.commands.registerCommand('claudeHarness.hideCowork', () => chooseCowork(false)),
+    vscode.commands.registerCommand('claudeHarness.showCowork', () => chooseCowork(true)),
     vscode.commands.registerCommand('claudeHarness.pasteImage', async () => {
       const paste = () => vscode.commands.executeCommand('workbench.action.terminal.paste');
       if (process.platform !== 'win32' || (await vscode.env.clipboard.readText())) return paste();
@@ -1469,7 +1561,24 @@ export function activate(context: vscode.ExtensionContext): void {
       run(() => setMcpEnabled(global.userConfig, asset, repo, !asset.enabled));
     }),
     // Pull to Code: a Code-owned copy of a synced skill or plugin's skills in Global or a repo; the synced folders are only read.
-    vscode.commands.registerCommand('claudeHarness.pullToCode', (arg?: { id?: string; scope?: string }) => {
+    vscode.commands.registerCommand('claudeHarness.pullToCode', async (arg?: { id?: string; scope?: string; kind?: string }) => {
+      // A scheduled task becomes a skill; Cowork data is only read.
+      if (arg?.kind === 'task') {
+        const target = scopes.find(s => s.id === arg.scope) ?? global;
+        const repo = target === global ? undefined : target.base;
+        try {
+          const list = await fetchScheduled(global.root);
+          const task = list.tasks.find(t => t.id === arg.id);
+          if (!task) throw new Error(list.state === 'ok' ? 'That task is not in the list claude.ai returned.' : list.note);
+          const plan = planTaskPull({ root: global.root }, task, repo);
+          const out = applyTextPull({ root: global.root }, plan);
+          refresh();
+          void vscode.window.showInformationMessage(`Pulled ${out.name} to ${target.label}: ${plan.file}`);
+        } catch (e) {
+          void vscode.window.showInformationMessage(e instanceof Error ? e.message : String(e));
+        }
+        return;
+      }
       const asset = arg?.id ? find(arg.id) : undefined;
       if (!asset || asset.scope !== COWORK_ID || !cowork) return;
       const target = scopes.find(s => s.id === arg?.scope) ?? global;
@@ -1486,6 +1595,15 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('claudeHarness.compareCowork', (arg?: unknown) => {
       const asset = assetOf(arg);
       if (!asset?.coworkOrigin || !asset.file) return;
+      // A task or a project has no folder to compare with: what Cowork would write now goes to a temp file.
+      const made = driftByFile.get(asset.file);
+      if (made?.current !== undefined) {
+        const side = path.join(os.tmpdir(), 'claude-harness-cowork', `${asset.name}-cowork.md`);
+        fs.mkdirSync(path.dirname(side), { recursive: true });
+        fs.writeFileSync(side, made.current);
+        void vscode.commands.executeCommand('vscode.diff', vscode.Uri.file(side), vscode.Uri.file(asset.file), `${asset.name}: Cowork vs Code`);
+        return;
+      }
       const origin = vscode.Uri.file(path.join(asset.coworkOrigin.from, 'SKILL.md'));
       void vscode.commands.executeCommand('vscode.diff', origin, vscode.Uri.file(asset.file), `${asset.name}: Cowork vs Code`);
     }),
