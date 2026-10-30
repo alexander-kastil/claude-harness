@@ -2,7 +2,7 @@
 
 All notable changes to Claude Harness are listed here, newest first. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions with no version change in the package.json history (0.1.3, 0.1.5 to 0.1.18, 0.1.20 to 0.1.24, 0.1.27, 0.2.1 and 0.2.3 to 0.2.11) and development builds (0.2.14 to 0.2.22, 0.2.24 to 0.2.30, 0.2.32 to 0.2.34, 0.2.36 to 0.2.44, 0.3.0, 0.3.2, 0.4.1 to 0.4.3, 0.5.2 and 0.5.3) have no entry.
 
-## [Unreleased]
+## [0.15.0] - 2026-10-30
 
 ### Added
 
@@ -21,10 +21,21 @@ All notable changes to Claude Harness are listed here, newest first. The format 
 
 ### Changed
 
+- The plans Max 5x and Max 20x are Max and Ultra, as Anthropic renamed them; the setting values are `max` and `ultra`, and a saved `max5` or `max20` is rewritten once on activation.
 - The MCP detail page shows the server's status in its header bar.
 - claude.ai connectors are no longer probed: they show Claude Code's status, without Sign in or Retry.
 - The Cowork detail pages carry their commands in the header bar (Pull to Code after Manage on claude.ai), the notice box is gone and the plugin details are redesigned.
 - The Cowork pages link to the claude.ai pages for skills, plugins, connectors and capabilities.
+- Cowork Handover joins Plugin Hunter and Browser Automation Hunter in the Overview's Claude group, which shows icons only on a narrow panel.
+- The nav's top row no longer repeats the title Claude Harness, and its GitHub button gives way to Collapse all / Expand all; the GitHub Repo overview opens from the Show Fleet command.
+- When nothing from Claude.ai is on this PC, the Cowork region says so in one line.
+
+### Fixed
+
+- The eye button hides and shows Cowork without an error when VS Code has not registered the setting yet, after an update without a window reload.
+- The scheduled task page reads Runs on (Requires Claude Desktop with the device's name), Permissions (from the newest run) and the run counts from the triggers API as claude.ai shows them.
+- The Cowork region's empty-state lines reach 4.5:1 contrast in light and dark themes.
+- The Chats and Artifacts counts use the nav's count pill, so two and three digits fit.
 
 ## [0.13.21] - 2026-10-30
 

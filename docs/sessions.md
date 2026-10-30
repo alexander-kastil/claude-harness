@@ -83,7 +83,7 @@ The same week shows in two more places:
 
 The header shows the repo, the start and end, the duration, the branch and the model. Its export button saves the transcript as a JSONL file. Below it, the cost row shows the estimated cost at Anthropic API list prices. Two bars split the cost by **Who spent it** (the main thread and each agent type) and by **Spent on** (cache reads, cache writes, output and input).
 
-The **Billing** switch in the cost row shows the same cost as a share of one weekly limit of your plan. Its options read Pro, Max 5x, Max 20x, Team (Team Standard), Team Premium and API, with the full name in the hover; API shows dollars. Anthropic publishes no weekly limit, so each limit is an estimate, and the switch's tooltip gives its figure. Pro and Team Standard are one fifth of Max 5x and of Team Premium. The headline reads **Weekly limit used** on a plan and **Estimated cost** on API billing.
+The **Billing** switch in the cost row shows the same cost as a share of one weekly limit of your plan. Its options read Pro, Max, Ultra, Team (Team Standard), Team Premium and API, with the full name in the hover; API shows dollars. Anthropic publishes no weekly limit, so each limit is an estimate, and the switch's tooltip gives its figure. Pro and Team Standard are one fifth of Max and of Team Premium. The headline reads **Weekly limit used** on a plan and **Estimated cost** on API billing.
 Four KPIs follow the cost row:
 
 | KPI | Shows |

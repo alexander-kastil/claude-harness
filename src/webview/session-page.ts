@@ -148,13 +148,13 @@ export const COST_KINDS = [
   ['input', 'Input'],
 ];
 
-// Weekly limits at API list prices; Anthropic publishes none. Max 5x: botfarm.run (03/2026), Max 20x: wokey.ai (10/2026),
-// Team Premium: measured on one seat (10/2026). Pro and Team Standard are a fifth of Max 5x and Team Premium.
+// Weekly limits at API list prices; Anthropic publishes none. Max (was Max 5x): botfarm.run (03/2026), Ultra (was Max 20x): wokey.ai (10/2026); the rename: https://x.com/claudeai/status/2116220869479428500,
+// Team Premium: measured on one seat (10/2026). Pro and Team Standard are a fifth of Max and Team Premium.
 // Same ids and figures as PLANS in src/sessions.ts (unit test). Keep `api` last. A fifth entry is a shorter switch label; the hover keeps the full name.
 export const BILLING = [
   ['pro', 'Pro', 'account', 105],
-  ['max5', 'Max 5x', 'dashboard', 523],
-  ['max20', 'Max 20x', 'rocket', 1643],
+  ['max', 'Max', 'dashboard', 523],
+  ['ultra', 'Ultra', 'rocket', 1643],
   ['team-standard', 'Team Standard', 'organization', 202, 'Team'],
   ['team', 'Team Premium', 'organization', 1010],
   ['api', 'API billing', 'credit-card', 0, 'API'],

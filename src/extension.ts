@@ -77,7 +77,7 @@ import { HarnessPanel, PanelHost } from './panel';
 import { coworkShown, setCoworkChoice } from './settings';
 import { mentionText, pathText, saveClipboardImage } from './image-paste';
 import { claudeCli, claudeCommand, claudeExecutable, defaultCwd, openTerminal, uniqueTerminalName } from './terminals';
-import { Account, accountWeek, checkpointFiles, findAccountSession, importTranscript, listAccountSessions, listAccountSessionsAsync, parseAccounts, readSession, renameSession } from './sessions';
+import { Account, accountWeek, checkpointFiles, findAccountSession, importTranscript, listAccountSessions, listAccountSessionsAsync, parseAccounts, readSession, renameSession, planRewrites } from './sessions';
 import { STYLE_MODELS, StyleModel, draftStyle, stylePrompt, writeStyleDraft } from './style';
 import { Specialist, fitGeneralFindings } from './findings';
 import { pickTools, splitTools, TOOL_FIELDS } from './tools';
@@ -103,6 +103,19 @@ const promptText = (text: string) => text.replace(/[\r\n]+/g, ' ').replace(/["`$
 const panelArg = (arg: unknown): { fromPanel: true; id?: string } | undefined => (arg && typeof arg === 'object' && 'fromPanel' in arg ? (arg as { fromPanel: true; id?: string }) : undefined);
 
 export function activate(context: vscode.ExtensionContext): void {
+  // The plan ids max5 and max20 became max and ultra: rewrite a saved value once, at the target that holds it.
+  void (async () => {
+    const rewrite = async (config: vscode.WorkspaceConfiguration, field: 'globalValue' | 'workspaceValue' | 'workspaceFolderValue', target: vscode.ConfigurationTarget) => {
+      const next = planRewrites(config.inspect<string>('plan')?.[field], config.inspect<unknown>('accounts')?.[field]);
+      if (next.plan) await Promise.resolve(config.update('plan', next.plan, target)).catch(() => undefined);
+      if (next.accounts) await Promise.resolve(config.update('accounts', next.accounts, target)).catch(() => undefined);
+    };
+    const config = vscode.workspace.getConfiguration('claudeHarness');
+    await rewrite(config, 'globalValue', vscode.ConfigurationTarget.Global);
+    await rewrite(config, 'workspaceValue', vscode.ConfigurationTarget.Workspace);
+    // A folder's own value is read and written through the configuration scoped to that folder.
+    for (const folder of vscode.workspace.workspaceFolders ?? []) await rewrite(vscode.workspace.getConfiguration('claudeHarness', folder.uri), 'workspaceFolderValue', vscode.ConfigurationTarget.WorkspaceFolder);
+  })();
   // The key the editor title toggle reads for its on and off state.
   const setCoworkShown = () => void vscode.commands.executeCommand('setContext', 'claudeHarness.coworkShown', coworkShown());
   setCoworkChoice(context.globalState.get<boolean>('claudeHarness.coworkShow'));
