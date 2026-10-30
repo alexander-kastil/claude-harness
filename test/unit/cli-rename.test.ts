@@ -264,6 +264,7 @@ test('plugins rename rewrites the quoted name and the MCP tool id in the plugin\
 
 test('plugins rename rewrites the namespace and id forms in the other plugins\' code files, not their manifests\' other keys', async () => {
   const f = pluginFixture();
+  write(f.market, 'plugins/old-plug/agents/fact-gatherer.md', '---\nname: fact-gatherer\n---\n');
   write(f.market, 'plugins/dep/config/flow.default.json', '{\n  "agent": "old-plug:fact-gatherer",\n  "id": "old-plug@own"\n}\n');
   write(f.market, 'plugins/dep/scripts/test_flow.py', 'assert x == "old-plug:fact-gatherer"\n');
   const r = await cli([...renameArgs, '--json', ...f.base]);
@@ -331,4 +332,64 @@ test('a market on another drive is backed up under outside/<drive>/', async (t) 
   } finally {
     fs.rmSync(market, { recursive: true, force: true });
   }
+});
+
+test('skills rename keeps a bare `name` that is the sibling skill\'s own leaf file as a check row', async () => {
+  const root = tmp('skill-leaf');
+  write(root, 'skills/copilot-cli/SKILL.md', '---\nname: copilot-cli\ndescription: c\n---\n\nBody\n');
+  write(root, 'skills/byok/SKILL.md', '---\nname: byok\ndescription: b\n---\n\nLeaf `copilot-cli` covers the CLI. Run github-copilot:copilot-cli.\n');
+  write(root, 'skills/byok/references/copilot-cli.md', '# Leaf\n');
+  write(root, 'skills/other/SKILL.md', '---\nname: other\ndescription: o\n---\n\nUse `copilot-cli`.\n');
+  const r = await cli(['skills', 'rename', '--from', 'copilot-cli', '--to', 'gh-copilot-cli', '--json', '--root', root]);
+  assert.equal(r.code, 0, r.err);
+  const o = JSON.parse(r.out) as SkillsOut;
+  assert.match(read(root, 'skills/byok/SKILL.md'), /Leaf `copilot-cli` covers the CLI\. Run github-copilot:gh-copilot-cli\./);
+  assert.match(read(root, 'skills/other/SKILL.md'), /Use `gh-copilot-cli`\./);
+  assert.ok(o.changes.some(c => c.action === 'check' && c.file === 'skills/byok/SKILL.md' && /Leaf `copilot-cli`/.test(c.detail)));
+});
+
+test('skills rename never rewrites a changelog, a task log or a backup folder, and lists the changelog and task log', async () => {
+  const root = skillFixture();
+  write(root, 'skills/user/CHANGELOG.md', 'Added old-skill/references/a.md.\n');
+  write(root, 'skills/user/tasks/log.md', 'Ran plug:old-skill.\n');
+  write(root, 'skills/.skill-sync-backups/2026/skills/user/SKILL.md', 'plug:old-skill\n');
+  write(root, 'skills/repo-sync-backups/x/SKILL.md', 'plug:old-skill\n');
+  const r = await cli(['skills', 'rename', '--from', 'old-skill', '--to', 'new-skill', '--json', '--root', root]);
+  assert.equal(r.code, 0, r.err);
+  const o = JSON.parse(r.out) as SkillsOut;
+  assert.equal(read(root, 'skills/user/CHANGELOG.md'), 'Added old-skill/references/a.md.\n');
+  assert.equal(read(root, 'skills/user/tasks/log.md'), 'Ran plug:old-skill.\n');
+  assert.equal(read(root, 'skills/.skill-sync-backups/2026/skills/user/SKILL.md'), 'plug:old-skill\n');
+  assert.equal(read(root, 'skills/repo-sync-backups/x/SKILL.md'), 'plug:old-skill\n');
+  assert.ok(o.changes.some(c => c.action === 'check' && c.file === 'skills/user/CHANGELOG.md'));
+  assert.ok(o.changes.some(c => c.action === 'check' && c.file === 'skills/user/tasks/log.md'));
+  assert.ok(!o.changes.some(c => /backups/.test(c.file)));
+});
+
+test('plugins rename never rewrites a changelog, a task log or a skill-sync backup, and lists the changelog and task log', async () => {
+  const f = pluginFixture();
+  write(f.root, 'skills/CHANGELOG.md', 'Used old-plug:s.\n');
+  write(f.root, 'skills/x/tasks/t.md', 'Used old-plug:s.\n');
+  write(f.root, 'skills/.skill-sync-backups/b/SKILL.md', 'Used old-plug:s.\n');
+  const r = await cli([...renameArgs, '--json', ...f.base]);
+  assert.equal(r.code, 0, r.err);
+  const o = JSON.parse(r.out) as PluginRenameOut;
+  assert.equal(read(f.root, 'skills/CHANGELOG.md'), 'Used old-plug:s.\n');
+  assert.equal(read(f.root, 'skills/x/tasks/t.md'), 'Used old-plug:s.\n');
+  assert.equal(read(f.root, 'skills/.skill-sync-backups/b/SKILL.md'), 'Used old-plug:s.\n');
+  assert.ok(o.changes.some(c => c.action === 'check' && c.file.endsWith('CHANGELOG.md')));
+  assert.ok(o.changes.some(c => c.action === 'check' && /tasks/.test(c.file)));
+  assert.ok(!o.changes.some(c => /skill-sync-backups/.test(c.file)));
+});
+
+test('plugins rename rewrites old:name only for a skill, agent or command the plugin ships; another plugin of the same name keeps its own', async () => {
+  const f = pluginFixture();
+  write(f.market, 'plugins/old-plug/agents/helper.md', '---\nname: helper\n---\n');
+  write(f.market, 'plugins/old-plug/commands/go.md', 'Go\n');
+  write(f.root, 'rules/mix.md', 'Use old-plug:s, old-plug:helper, /old-plug:go and old-plug:lookup-schema, /old-plug:validate.\n');
+  const r = await cli([...renameArgs, '--json', ...f.base]);
+  assert.equal(r.code, 0, r.err);
+  const o = JSON.parse(r.out) as PluginRenameOut;
+  assert.equal(read(f.root, 'rules/mix.md'), 'Use new-plug:s, new-plug:helper, /new-plug:go and old-plug:lookup-schema, /old-plug:validate.\n');
+  assert.ok(o.changes.some(c => c.action === 'check' && c.file.endsWith('mix.md')));
 });
