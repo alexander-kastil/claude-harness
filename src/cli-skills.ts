@@ -44,7 +44,7 @@ function textFiles(a: Args, root: string, more: string[] = []): string[] {
   const synced = path.join(root, 'skills', 'synced');
   const walk = (dir: string) => {
     for (const e of fs.existsSync(dir) ? fs.readdirSync(dir, { withFileTypes: true }) : []) {
-      if (e.name.startsWith('.') || e.name === 'node_modules') continue;
+      if (e.name.startsWith('.') || e.name === 'node_modules' || e.name === 'repo-sync-backups') continue;
       const f = path.join(dir, e.name);
       if (e.isDirectory()) {
         if (f !== synced) walk(f);
@@ -126,7 +126,7 @@ function referencePattern(name: string): RegExp {
  * Rewrites the reference forms of a skill name. A mention beside the word agent or on a subagent_type line is the agent of that name and
  * stays, and so does `agents/name.md`; with `agentToo` a bare `name` in backticks or a `<plugin>:name` stays too unless "skill" follows.
  */
-export function rewriteRefs(text: string, from: string, to: string, agentToo = false): { text: string; hits: number } {
+export function rewriteRefs(text: string, from: string, to: string, agentToo = false, ownLeaf = false): { text: string; hits: number } {
   let hits = 0;
   const next = text.replace(referencePattern(from), (m: string, offset: number, whole: string) => {
     const start = whole.lastIndexOf('\n', offset - 1) + 1;
@@ -136,11 +136,25 @@ export function rewriteRefs(text: string, from: string, to: string, agentToo = f
     const after = whole.slice(offset + m.length, stop < 0 ? undefined : stop);
     const skill = /^`? [Ss]kill\b/.test(after);
     const agent = /subagent_type/i.test(line) || /^`?\s+(?:sub)?agents?\b/i.test(after) || /\b(?:sub)?agents?\s+`?$/i.test(before);
-    if (!skill && (agent || (agentToo && (before.endsWith('`') || before.endsWith(':'))))) return m;
+    // In a skill with a leaf of that name, a bare `name` is the leaf file.
+    const leaf = ownLeaf && before.endsWith('`') && after.startsWith('`');
+    if (!skill && (agent || leaf || (agentToo && (before.endsWith('`') || before.endsWith(':'))))) return m;
     hits++;
     return to;
   });
   return { text: next, hits };
+}
+
+/** A changelog or a task log is history: it is never rewritten, only listed. */
+export const isHistory = (file: string) => /^changelog(?:\.\w+)?$/i.test(path.basename(file)) || file.split(/[\\/]/).slice(0, -1).includes('tasks');
+
+/** Whether the skill holding a file has a leaf `references/<name>.md` or a `references/<name>/` folder. */
+export function ownsLeaf(file: string, name: string): boolean {
+  for (let d = path.dirname(file); d !== path.dirname(d); d = path.dirname(d)) {
+    if (!fs.existsSync(path.join(d, 'SKILL.md'))) continue;
+    return fs.existsSync(path.join(d, 'references', `${name}.md`)) || fs.existsSync(path.join(d, 'references', name));
+  }
+  return false;
 }
 
 /** Any mention of a name left after a rewrite, a `<plugin>:name` included. */
@@ -219,7 +233,8 @@ export class Session {
     const hit: { f: string; next: string; hits: number }[] = [];
     for (const f of files) {
       if (!fs.existsSync(f)) continue;
-      const r = change(fs.readFileSync(f, 'utf8'), f);
+      const original = fs.readFileSync(f, 'utf8');
+      const r = isHistory(f) ? { text: original, hits: 0 } : change(original, f);
       if (r.hits) hit.push({ f, next: r.text, hits: r.hits });
       r.text.split(/\r?\n/).forEach((l, i) => {
         const t = l.trim();
@@ -240,7 +255,8 @@ export class Session {
       if (skip.includes(f) || !fs.existsSync(f)) continue;
       const text = fs.readFileSync(f, 'utf8');
       const hits = text.match(pattern)?.length ?? 0;
-      if (hits) hit.push({ f, text, hits });
+      if (hits && isHistory(f)) this.record('check', f, `history, still names it ${hits} time${hits > 1 ? 's' : ''}`);
+      else if (hits) hit.push({ f, text, hits });
     }
     // Every backup first: a failure there writes nothing.
     for (const h of hit) this.save(h.f);
@@ -447,7 +463,7 @@ export async function skillsCommand(a: Args, io: Io): Promise<number> {
     } else {
       // To a plain name only the reference forms change; every other mention comes back as a check row.
       const agentToo = hasAgent(a, root, from);
-      s.rewrite(files, text => rewriteRefs(text, from, to, agentToo), to, mentionOf(from));
+      s.rewrite(files, (text, file) => rewriteRefs(text, from, to, agentToo, ownsLeaf(file, from)), to, mentionOf(from));
       const checks = s.changes.length;
       if (!s.changes.some(c => c.action === 'rewrite')) throw new Stop(`Nothing refers to ${from} in a form repoint rewrites${checks ? `; ${checks} ${checks === 1 ? 'line still names' : 'lines still name'} it` : ''}.`);
     }
@@ -466,7 +482,7 @@ export async function skillsCommand(a: Args, io: Io): Promise<number> {
     s.rewrite(
       textFiles(a, root),
       (text, file) => {
-        const r = rewriteRefs(text, from, to, agentToo);
+        const r = rewriteRefs(text, from, to, agentToo, file !== md && ownsLeaf(file, from));
         const front = file === md ? /^(---\r?\n[\s\S]*?^name:[ \t]*)(.+?)([ \t]*\r?$)/m.exec(r.text) : null;
         return front && front[2] !== to ? { text: r.text.replace(front[0], `${front[1]}${to}${front[3]}`), hits: r.hits + 1 } : r;
       },

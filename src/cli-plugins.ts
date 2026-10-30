@@ -5,7 +5,7 @@ import { applyEdits, modify, parse as parseJsonc } from 'jsonc-parser';
 import { knownRepos } from './harness';
 import { marketplaceHealth } from './fleet';
 import { Args, Io, Stop, emit, headline, list, one, table } from './cli-core';
-import { Session, SkillChange, escape } from './cli-skills';
+import { Session, SkillChange, escape, isHistory } from './cli-skills';
 
 // `plugins rename`: rename a plugin of a directory marketplace in its folder, its plugin.json, the catalog, the dependents, the settings and the text that names it.
 
@@ -46,7 +46,7 @@ function mdUnder(dir: string): string[] {
   const files: string[] = [];
   const walk = (d: string) => {
     for (const e of fs.existsSync(d) ? fs.readdirSync(d, { withFileTypes: true }) : []) {
-      if (['node_modules', '.git', 'worktrees', 'repo-sync-backups'].includes(e.name)) continue;
+      if (['node_modules', '.git', 'worktrees', 'repo-sync-backups', '.skill-sync-backups'].includes(e.name)) continue;
       const f = path.join(d, e.name);
       if (e.isDirectory()) walk(f);
       else if (/\.md$/i.test(e.name)) files.push(f);
@@ -75,7 +75,7 @@ function codeUnder(dir: string): string[] {
  * `old:`, `old@market` and `plugins/old` become the new name; with `links` (a Markdown file beside the plugin folders, the marketplace's
  * plugin list) so do `[old](old)` and a link target `](old/...)`. hits counts the rewrites.
  */
-function rewriteMentions(text: string, old: string, to: string, market: string, links = false, quoted = false): { text: string; hits: number } {
+function rewriteMentions(text: string, old: string, to: string, market: string, links = false, quoted = false, shipped: string[] = []): { text: string; hits: number } {
   let hits = 0;
   const sub = (re: RegExp, r: string) => {
     text = text.replace(re, () => (hits++, r));
@@ -87,7 +87,8 @@ function rewriteMentions(text: string, old: string, to: string, market: string, 
     sub(new RegExp(`mcp__${o}__`, 'g'), `mcp__${to}__`);
   }
   if (links) sub(new RegExp(`\\[${o}\\](?=\\((?:\\./)?(?:plugins/)?${o}[/)#])`, 'g'), `[${to}]`);
-  sub(new RegExp(`(?<![\\w.-])${o}:(?=\\w)`, 'g'), `${to}:`);
+  // `old:name` is this plugin's only when name is a skill, agent or command it ships; another plugin of the same name keeps its own.
+  if (shipped.length) sub(new RegExp(`(?<![\\w.-])${o}:(?=(?:${shipped.map(escape).join('|')})(?![\\w-]))`, 'g'), `${to}:`);
   sub(new RegExp(`(?<![\\w.-])${o}@${escape(market)}(?![\\w-])`, 'g'), `${to}@${market}`);
   sub(new RegExp(`(?<![\\w.-])plugins/${o}(?![\\w.-])`, 'g'), `plugins/${to}`);
   if (links) {
@@ -217,6 +218,9 @@ function pluginsRename(a: Args, io: Io): number {
     }),
   ]);
   const own = (file: string) => file.startsWith(dir + path.sep);
+  const names = (sub: string, dirs: boolean) =>
+    (fs.existsSync(path.join(dir, sub)) ? fs.readdirSync(path.join(dir, sub), { withFileTypes: true }) : []).filter(e => (dirs ? e.isDirectory() : /\.md$/i.test(e.name))).map(e => e.name.replace(/\.md$/i, ''));
+  const shipped = [...new Set([...names('skills', true), ...names('agents', false), ...names('commands', false)])];
   const bare = new RegExp(`(?<![\\w.-])${escape(old)}(?![\\w-])`, 'g');
   const plugins = path.dirname(dir).toLowerCase();
   const checks: SkillChange[] = [];
@@ -224,7 +228,8 @@ function pluginsRename(a: Args, io: Io): number {
     if (!fs.existsSync(file) || !fs.statSync(file).isFile()) continue;
     const folder = path.dirname(file).toLowerCase();
     const links = /\.md$/i.test(file) && (folder === plugins || folder === path.resolve(market.location).toLowerCase());
-    const { text, hits } = rewriteMentions(fs.readFileSync(file, 'utf8'), old, to, marketName, links, own(file) && !/\.md$/i.test(file));
+    const original = fs.readFileSync(file, 'utf8');
+    const { text, hits } = isHistory(file) ? { text: original, hits: 0 } : rewriteMentions(original, old, to, marketName, links, own(file) && !/\.md$/i.test(file), shipped);
     if (hits) edits.push({ file, text, detail: `${hits} mention${hits > 1 ? 's' : ''} of ${old}` });
     const at = text.split(/\r?\n/).flatMap((l, i) => (l.match(bare) ?? []).map(() => i + 1));
     if (at.length) checks.push({ action: 'check', file, detail: `still mentions ${old} ${at.length} time${at.length > 1 ? 's' : ''}, line${at.length > 1 ? 's' : ''} ${[...new Set(at)].join(', ')}` });
