@@ -4,9 +4,9 @@ All notable changes to Claude Harness are listed here, newest first. The format 
 
 ## [Unreleased]
 
-### Added
+### Changed
 
-- Commit and push
+- The extension's description and the README banner speak of harness engineering, and the README shows how Cowork work continues in Code with Handover
 
 ## [0.15.0] - 2026-10-30
 
