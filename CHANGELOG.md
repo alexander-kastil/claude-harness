@@ -22,11 +22,17 @@ All notable changes to Claude Harness are listed here, newest first. The format 
 - `harness cowork chats`, `cowork chat`, `cowork artifacts` and `cowork handover sources|plan|create`, and `harness browser-hunt procedures|plan|create`
 - `harness sessions open` and the `@harness:session-analyze` mention open the current session on its session page
 - Claude-learn capture only: Progress: 6/7 · reconcile (plugin skills only, no global or repo copies to converge; audit not due, last run
+- Status and source cells become tags: Hunt list (page · column · values), all now state tags (dot by tone)
+- Docs screenshots: docs/ pages images: Progress: 26/37 · session-draft-style.png
+- Docs screenshots: docs/ pages images: Retake report, 7 files (Dracula, existing width, crops to content, no private paths)
+- Update package-lock.json, package.json, plugins
 
 ### Fixed
 
 - Every chat starts at the top, with the composer pinned at the bottom
 - The Marketplace health page no longer stays blank
+- Fix Plugin Hunter findings card row layout: The Plugin Hunter card now holds its grid at narrow widths
+- Fix Plugin Hunter findings card row layout: On the Plugin Hunter card, Retire is now Replace
 
 
 
