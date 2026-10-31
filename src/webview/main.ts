@@ -298,6 +298,8 @@ onMessage(m => {
     if (changed && state.detail && state.detail.asset.id === m.id.replace(/#process$/, '') && state.detailMode !== 'edit') keepMainScroll(renderMain);
     // A marketplace's page draws under `market:<name>`.
     else if (changed && !state.detail && state.page === 'market' && state.marketPage && m.id.replace(/#process$/, '') === `market:${state.marketPage.name}`) keepMainScroll(renderMain);
+    // An Automation Hunter procedure card draws under `bh-card:<id>`.
+    else if (changed && !state.detail && state.page === 'browser-hunt' && m.id.startsWith('bh-card:')) keepMainScroll(renderMain);
     // A Cowork task or chat draws under `cowork-task:<id>` and `cowork-chat:<id>`.
     else if (changed && !state.detail) {
       const base = m.id.replace(/#process$/, '');

@@ -147,6 +147,20 @@ const SUBJECTS: Record<DrawKind, (name: string) => { draw: string; show: string;
       '- Do not copy the messages and draw no turn that is not listed below.',
     ],
   }),
+  // An Automation Hunter procedure card: drawn from its steps as the card holds them (src/browser-hunt-draw.ts).
+  procedure: name => ({
+    draw: `Draw the automation procedure "${name}", from its card below, for someone who has never run it.`,
+    show: 'Show the sites and apps its steps touch, each as its own box with what is done there as a few short labels, how the procedure is kept (the Kept as line) as one chip, and which steps a person must do themselves. Do not copy the steps: name what happens.',
+    title: 'Procedure card',
+    from: "the card's goal, how it is kept, its stage and its steps",
+    process: [
+      `Draw the automation procedure "${name}" as a process, from its card below: its steps in the order they run, across the pages and apps they use.`,
+      '- Each step a numbered card: a name of at most four words in bold and one muted line of at most ten words on what is done; steps on one page or app sit together under a muted heading with that site or app.',
+      '- A step marked (manual) is drawn with a dashed outline and a "manual" chip in var(--vscode-charts-orange): a person does it and the run waits.',
+      '- A lesson inside a step (a limit, a wait, a value shown once) is a small muted chip on its card, in at most six words.',
+      '- The last step is the final check: a card with a check mark that says what is verified.',
+    ],
+  }),
   // A marketplace is not an element of a scope: its page draws it from the plugins it lists (`marketText`), its process from the
   // lines where one plugin names another (`marketProcessText`).
   market: name => ({
@@ -181,7 +195,7 @@ const WIDE = '- The drawing is shown across a wide panel: use a viewBox 1400 wid
 const cut = (source: string) => (source.length > MAX_CHARS ? `${source.slice(0, MAX_CHARS)}\n[cut]` : source);
 
 /** The kinds a drawing helps with; the others have no Draw with Claude. */
-export type DrawKind = 'skill' | 'agent' | 'command' | 'workflow' | 'plugin' | 'mod' | 'hook' | 'mcp' | 'market' | 'connector' | 'task' | 'chat';
+export type DrawKind = 'skill' | 'agent' | 'command' | 'workflow' | 'plugin' | 'mod' | 'hook' | 'mcp' | 'market' | 'connector' | 'task' | 'chat' | 'procedure';
 
 export const drawable = (kind: Kind): kind is Extract<DrawKind, Kind> => kind in SUBJECTS;
 

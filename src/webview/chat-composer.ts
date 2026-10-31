@@ -4,6 +4,19 @@
 import { aiGroup, el, icon } from './dom';
 
 /**
+ * The column of every chat: a head, the conversation from the top scrolling in the space left, and the input pinned at the bottom.
+ * The head is the icon and Chat, nothing else. `rows` are the message rows, `empty` the line shown without any, `input` a chatComposer.
+ */
+export const chatPane = ({ rows, empty, input }) =>
+  el(
+    'div',
+    { className: 'hunt-col hunt-col-chat' },
+    el('div', { className: 'hunt-col-head' }, icon('comment-discussion'), el('span', {}, 'Chat')),
+    el('div', { className: 'hunt-chat-log', role: 'log', 'aria-live': 'polite' }, rows.length ? rows : el('div', { className: 'empty flush' }, empty)),
+    input
+  );
+
+/**
  * opts.placeholder, opts.rows, opts.value, opts.readonly: the message box.
  * opts.onInput(text), opts.onEnter(): typing, and Enter without Shift (the caller decides whether a send is allowed).
  * opts.note: a plain muted line of a few words at the left of the row.

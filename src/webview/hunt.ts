@@ -5,9 +5,9 @@ import { aiGroup, claudeMark, countHead, coworkIcon, el, icon, iconBtn } from '.
 import { hideHover } from './hover';
 import { showKindPage } from './kind-page';
 import { card } from './hunt-card';
-import { chatColumn } from './hunt-chat';
+import { chatColumn, startOver } from './hunt-chat';
 import { marketPicker } from './hunt-picker';
-import { hunt, repaint, splitCards, tickWait } from './hunt-state';
+import { hunt, newHunt, repaint, splitCards, tickWait } from './hunt-state';
 import { tabBar } from './repo-page';
 import { browserHuntButton } from './browser-hunt';
 
@@ -77,7 +77,12 @@ export function renderHunt() {
       ['history', 'History', 'history', 'The plugin cards you have made or started, each with the chat that made it.', split.history.length],
     ],
     hunt.tab,
-    id => ((hunt.tab = id), hideHover(), repaint()),
+    id => {
+      hideHover();
+      if (id === 'new') return newHunt();
+      hunt.tab = id;
+      repaint();
+    },
     'Plugin Hunter views'
   );
   // The new hunt: half chat, like a traditional one with its composer at the bottom, half findings and selections, the artifact: the proposed card with its picker.
@@ -89,12 +94,12 @@ export function renderHunt() {
       'div',
       { className: 'hunt-col hunt-col-find' },
       el('div', { className: 'hunt-col-head' }, icon('checklist'), el('span', {}, 'Findings and selections'), split.working ? el('span', { className: 'hunt-col-count' }, `${split.working.assets.filter(a => a.include).length} selected`) : null),
-      split.working ? card(split.working) : el('div', { className: 'empty flush' }, hunt.info ? 'Nothing proposed yet. The skills and agents Claude finds appear here, ready to keep or drop, once you send a message or press New plugin.' : reading)
+      split.working ? card(split.working) : el('div', { className: 'empty flush' }, hunt.info ? 'Nothing proposed yet. The skills and agents Claude finds appear here, ready to keep or drop, once you send a message.' : reading)
     )
   );
   const history = split.history.length ? el('div', { className: 'hunt-history' }, split.history.map(p => card(p, true))) : el('div', { className: 'empty flush' }, hunt.info ? 'No history yet. A plugin card you finish or set aside is kept here with its chat.' : reading);
   const count = hunt.info && hunt.info.catalog.length;
-  const head = countHead('telescope', 'Plugin Hunter', hunt.info ? `${count} ${count === 1 ? 'skill or agent' : 'skills and agents'}` : 'Reading...', iconBtn('arrow-left', 'Back to Plugins', () => showKindPage('plugin', undefined)), marketPicker());
+  const head = countHead('telescope', 'Plugin Hunter', hunt.info ? `${count} ${count === 1 ? 'skill or agent' : 'skills and agents'}` : 'Reading...', iconBtn('arrow-left', 'Back to Plugins', () => showKindPage('plugin', undefined)), marketPicker(), startOver());
   // The processing line while Claude answers a Hunt or a Go.
   head.classList.toggle('busy', hunt.running);
   return el(

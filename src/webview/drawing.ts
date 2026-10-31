@@ -78,6 +78,11 @@ const DRAWS: Record<string, { what: string; harness: string; process: string }> 
     harness: 'The conversation, the files it was given and the files it produced.',
     process: 'The exchange turn by turn, in the order it ran.',
   },
+  procedure: {
+    what: 'the sites and apps this procedure touches and how it is kept (Harness), and its steps in order across them with the manual ones marked and the final check (Process), two drawings from the card',
+    harness: 'The sites and apps its steps touch, how it is kept, and which steps a person does.',
+    process: 'Its steps in order across the pages and apps, the manual ones marked, and the final check.',
+  },
   market: {
     what: "what this marketplace's plugins bring (Harness), and how they call, feed, gate and extend each other (Process), two drawings from its plugins' contents and the lines where one plugin names another",
     harness: 'What its plugins bring to a Claude session, grouped by what they are for.',

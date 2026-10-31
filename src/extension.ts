@@ -16,7 +16,9 @@ import type { ScheduledTask } from './cowork-scheduled';
 import { consolidateApply, consolidatePlan, mergePrompt, routesOf } from './consolidate';
 import type { ConsolidateRoute, ConsolidateTarget } from './shared/messages';
 import { FileEdit, guardInfo, guardReasons, lastSessionSteps, marketplaceHealth, renameCatalog, renameCommands, renameInSettings, repoOverviewRow } from './repos-overview';
-import { browserHuntHost } from './browser-hunt-host';
+import { CARDS as BROWSER_CARDS, browserHuntHost } from './browser-hunt-host';
+import { cardSource } from './browser-hunt-draw';
+import type { BrowserCard } from './shared/browser-hunt';
 import { huntHost } from './hunt-host';
 import { keyChanges, mcpApply, mcpConfig, mcpVersions, syncApply, syncFiles, syncSource, updateMarketPlugins, updatePluginFromMarket } from './sync';
 import { registerDistributor } from './dist-host';
@@ -181,6 +183,9 @@ export function activate(context: vscode.ExtensionContext): void {
   const marketToDraw = (id: string) => (id.startsWith(MARKET_PREFIX) ? marketplaceHealth(global.root).find(m => m.name === id.slice(MARKET_PREFIX.length)) : undefined);
   // A Cowork scheduled task, project, chat or connector is drawn from what its page holds, not from a file of a scope.
   const coworkToDraw = (id: string): CoworkSource | undefined => {
+    // An Automation Hunter procedure card is drawn from the card the host keeps.
+    const card = cardSource(id, context.globalState.get<BrowserCard[]>(BROWSER_CARDS, []));
+    if (card) return card;
     const own = coworkSource(id, lastTasks);
     if (own) return own;
     const asset = find(id);
@@ -817,7 +822,7 @@ export function activate(context: vscode.ExtensionContext): void {
       // A Cowork task, project, chat or connector: one text for both perspectives, read from this PC and the list the panel loaded.
       const own = coworkToDraw(base);
       if (own) {
-        if (!own.text.includes('###') && own.kind !== 'task') return done(id, { error: 'Nothing on this PC to draw from.' });
+        if (!own.text.includes('###') && own.kind !== 'task' && own.kind !== 'procedure') return done(id, { error: 'Nothing on this PC to draw from.' });
         if (!answer.confirmed && !context.globalState.get<boolean>('drawRemembered')) return ask({ kind: 'draw', id: base, name: own.name, file: '', chars: Math.min(own.text.length, 30000) * 2, source: own.from, both: true });
         if (answer.remember) await context.globalState.update('drawRemembered', true);
         const both = [id, process ? base : base + PROCESS_SUFFIX];

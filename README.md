@@ -39,7 +39,7 @@ Claude Harness reads the transcripts Claude Code already writes and sets them be
 | [Keep the harness lean](#keep-the-harness-lean) | Find oversized skills, retire duplicate copies and repoint dead lines in CLAUDE.md |
 | [Edit everything in one place](#edit-everything-in-one-place) | Change all twelve kinds, globally or per repository, in one tree with typed fields |
 | [Plugin Hunter](#build-with-claude) | Tell Claude which skills and agents you have, and get a plugin proposed, created and installed |
-| [Browser Automation Hunter](#build-with-claude) | Turn a browser procedure you repeat into a kept one, prototyped on the desktop and optimized in code |
+| [Automation Hunter](#build-with-claude) | Turn a browser or desktop procedure you repeat, or one found in your own sessions, into a kept one, prototyped on the desktop and optimized in code |
 | [Drawings](#build-with-claude) | See how any element connects to a session and in what order it runs |
 | [Continue Cowork work in Code](#continue-cowork-work-in-code) | Pick up a desktop chat or Cowork session in a Claude terminal in your repo |
 | [Keep plugins current](#keep-plugins-current) | See which plugins have a newer version and update them all after one confirm |
@@ -78,39 +78,39 @@ The session page reads Claude Code's session and subagent JSONL transcripts. Cos
 
 ## Keep the harness lean
 
-- **Skill size and context cost:** a Size card flags descriptions over 200 tokens or 1024 characters and SKILL.md files over 500 lines, ranked by the context they cost; each finding has its own **Resolve with Claude**.
-- **Consolidate duplicates:** a copy identical to Global is retired with a backup; one that differs opens a side-by-side compare, or Merge with Claude.
+- **Skill size and context cost:** a Size card flags descriptions over 200 tokens or 1024 characters and SKILL.md files over 500 lines, ranked by the context they cost; each finding has its own **Resolve**.
+- **Consolidate duplicates:** a copy identical to Global is retired with a backup; one that differs opens a side-by-side compare, or **Merge**.
 - **CLAUDE.md lenses:** dead pointers, such as an agent that no longer exists, with a quick fix to repoint or drop the line.
 - **Effective harness:** the memory, rules, plugins and hooks a session in a repo loads, with the rules that were not loaded and the hooks that fail.
 
 ## Edit everything in one place
 
-Global `~/.claude`, each repository's `.claude/` and plugin-shipped items (read-only) sit in one tree, all twelve kinds, with frontmatter as typed fields and a tool picker. The GitHub Repo overview puts every repository in one table, with a search.
+Global `~/.claude`, each repository's `.claude/` and plugin-shipped items (read-only) sit in one tree, all twelve kinds, with frontmatter as typed fields and a tool picker. The tree collapses to a rail of icons with their counts and expands again from any of them (Alt+Shift+B). The GitHub Repo overview puts every repository in one table, with a search.
 
 ![An agent open in the editor with typed frontmatter fields, a color picker and Configure Tools](docs/images/feature-editor.png)
 
 ## Build with Claude
 
-**Plugin Hunter:** talk to Claude about the skills and agents you have, and it proposes a plugin. Open it with the telescope button in the Claude group of the Plugins page or the overview. Create writes the plugin into a marketplace folder of yours, installs it and retires the copies you tick, with a backup; the History tab keeps every card with its chat.
+**Plugin Hunter:** talk to Claude about the skills and agents you have, and it proposes a plugin. Open it with the telescope button in the Claude group of the Plugins page or the overview. Create writes the plugin into a marketplace folder of yours and installs it. Each copy you switch to **Replace** is then backed up and removed, and the plugin's version takes its place; a copy left off stays untouched. The History tab keeps every card with its chat, and **New hunt** starts a fresh one.
 
 ![Plugin Hunter with the chat and its message box on the left and the card of a proposed plugin on the right](docs/images/plugin-hunter.png)
 
-**Browser Automation Hunter:** the browser procedures you repeat, such as DNS records, admin center settings or a publisher setup, prototyped on the desktop and then optimized in code. Pick a kept procedure or describe a new one; Claude proposes its steps and how to keep it (API script, command line, guided browser run or a tool), you mark the manual steps, and Create writes it into your browser-automations skill. Open it next to Plugin Hunter in the Claude group of the overview.
+**Automation Hunter:** the browser and desktop procedures you repeat, such as DNS records, admin center settings or a publisher setup, prototyped on the desktop and then optimized in code. Pick a kept procedure, describe a new one, or ask for the ones in your own Cowork chats and Claude Code sessions of a period, such as "last week"; Claude proposes the steps and how to keep them (API script, command line, guided run or a tool), and you mark the manual ones. On the procedure card, **Steps** lists them, each opening to its link, the labels it clicks, its lessons and why it stays manual, with a person icon on the steps that need you; **Simple** draws them as a diagram by site, and **Draw** replaces that with Claude's drawing. Hovering the name lists what the procedure does. Create writes it into your browser-automations skill. Open it next to Plugin Hunter in the Claude group of the overview.
 
 ![Browser Automation Hunter with the chat on the left and a procedure card on the right: its steps, the manual ones ticked, Prototype on desktop and Kept as Guided browser run](docs/images/browser-automation-hunter.png)
 
-**Drawings:** one press of **Draw with Claude** draws any skill, agent, command, workflow, hook, MCP server, plugin or marketplace twice: the Harness view, how its parts connect to a session, and the Process view, what runs in which order, drawn for its kind (for a marketplace, how its plugins hand work to each other). A toggle switches between them.
+**Drawings:** one press of **Draw** draws any skill, agent, command, workflow, hook, MCP server, plugin, marketplace or automation procedure twice: the Harness view, how its parts connect to a session, and the Process view, what runs in which order, drawn for its kind (for a marketplace, how its plugins hand work to each other). A toggle switches between them.
 
 ![The Process perspective of a plugin drawing](docs/images/plugin-drawing-process.png)
 
-**Claude actions in your terminal:** Edit, Slim, Try it, Analyze, Continue and Merge with Claude start your `claude` CLI in a VS Code terminal with the prompt and the measured context filled in, after a confirm card. The terminals open in the editor area and run `claudeHarness.terminal.command`; Ctrl+F1 opens a new one. The runs count against your Claude plan, Claude Harness adds no charge, and the status bar shows your 5-hour and weekly limits live. See [Settings](docs/settings.md#terminals).
+**Claude actions in your terminal:** Edit, Slim, Try it, Analyze, Continue and Merge, in the Claude group of each page, start your `claude` CLI in a VS Code terminal with the prompt and the measured context filled in, after a confirm card. The terminals open in the editor area and run `claudeHarness.terminal.command`; Ctrl+F1 opens a new one. The runs count against your Claude plan, Claude Harness adds no charge, and the status bar shows your 5-hour and weekly limits live. See [Settings](docs/settings.md#terminals).
 
 ## Continue Cowork work in Code
 
 Work that started in Cowork, in the Claude desktop app or on claude.ai, continues in Claude Code through **Handover**: in the Cowork region of the sidebar, or with **Cowork Handover** in the Claude group of the overview.
 
 - **Inbox:** the desktop app's chats on this PC, your Cowork sessions on claude.ai, the app files of the last two weeks in Downloads, or a pasted claude.ai artifact link.
-- **Handover card:** **Draft with Claude** proposes the task in one sentence, the rules the chat set, what exists and what is still to write. You tick the files that come along (a missing one is flagged, with **Locate**) and pick the target repository and folder.
+- **Handover card:** **Draft** proposes the task in one sentence, the rules the chat set, what exists and what is still to write. You tick the files that come along (a missing one is flagged, with **Locate**) and pick the target repository and folder.
 - **Continue in terminal:** a confirm card lists every file and the first prompt. The files and a `CONTEXT.md` land in `handover/<chat>/` of the repository, and Claude Code opens there with that prompt.
 
 The chats of claude.ai itself are not on your PC and the Claude Code sign-in cannot read them, and an artifact link's content needs a browser sign-in: paste its text into the card's snapshot.
@@ -134,6 +134,8 @@ A second example is `harness sessions open --session <id>` with its mention `@ha
 | Read the harness | `inventory`, `consolidate`, `agents list`, `agents route`, `marketplaces`, `repos`, `check`, `sync`, `sources` |
 | Sessions | `usage`, `delegation`, `sessions`, `sessions open`, `mods`, `time`, `lessons` |
 | Plugins | `hunt catalog`, `hunt plan`, `hunt create`, `hunt add`, `plugins rename`, `marketplaces rename`, `sync plugin` |
+| Automations | `browser-hunt procedures`, `browser-hunt sessions`, `browser-hunt plan`, `browser-hunt create` |
+| Cowork | `cowork chats`, `cowork chat`, `cowork artifacts`, `cowork handover sources`, `cowork handover plan`, `cowork handover create` |
 | Skills and copies | `consolidate retire`, `skills move`, `split`, `put`, `remove`, `rename`, `repoint`, `fix-paths`, `sync apply` |
 | Build a harness | `generate`, `add`, `new`, `update`, `validate`, `run` |
 | Media | `media doctor` |

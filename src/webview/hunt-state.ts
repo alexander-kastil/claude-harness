@@ -132,4 +132,16 @@ export const newCard = () => {
   repaint();
 };
 
+/** New hunt: an empty card and an empty chat, as the chip's name says; a card nothing is on yet already is that. */
+export const newHunt = () => {
+  hunt.tab = 'new';
+  const { working } = splitCards();
+  if (working && !working.name.trim() && !working.assets.length) {
+    hunt.focusName = working.id;
+    return repaint();
+  }
+  hunt.prompt = '';
+  newCard();
+};
+
 export const marketOf = () => hunt.info && hunt.info.markets.find(k => k.name === hunt.picked);

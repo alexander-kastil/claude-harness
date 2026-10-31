@@ -6,7 +6,7 @@ All notable changes to Claude Harness are listed here, newest first. The format 
 
 ### Changed
 
-- Browser Automation Hunter is Automation Hunter and covers browser and desktop procedures: a guided run replaces the guided browser run, Create adds the procedure's name to the skill's triggers, Start from shows readable names with the procedure's goal and how in its hover, and the chat is as tall as its conversation
+- Browser Automation Hunter is Automation Hunter and covers browser and desktop procedures: a guided run replaces the guided browser run, Create adds the procedure's name to the skill's triggers, Start from shows readable names with the procedure's goal and how in its hover
 - Automation Hunter hunts your own Cowork chats and Claude Code sessions for browser and desktop procedures: ask for "last week", "week 2" or "my sessions" and a script prefilter hands Claude only digests of the sessions that used an external page or a desktop app; `harness browser-hunt sessions` runs the same prefilter
 - Automation Hunter's Claude follows a system prompt built from the procedures hunted so far: what counts as a procedure, deep URLs and visible labels in each step, lessons inside the step they belong to, a last step that checks the result is live, no secret in a step, which steps stay manual, and how each procedure is kept
 - `harness fleet` is `harness repos` and `@harness:fleet` is `@harness:repos`
@@ -16,6 +16,9 @@ All notable changes to Claude Harness are listed here, newest first. The format 
 - Status, state and source values in every table are tags, a dot giving the state, and fixed-length columns (versions, toggles, states) are centred
 - On the Plugin Hunter card, Retire is Replace: each switch's hover says what On and Off do, the switch sits right of its label in the remove button's column, the remove button is a bin, and Add skill or agent reads Add
 - Every chat's input is one frame with its actions inside, at the bottom right
+- The Automation Hunter's procedure card has two views: Steps, where each step opens to its link, labels, lessons and why it is manual, and Simple, a diagram of the steps by site; Draw replaces Simple with Claude's drawing in both perspectives, a small person icon marks the steps that need you, and hovering the name lists what the procedure does
+- Both hunters share one chat column: it fills the page beside its card, the input sits at the bottom, Start over is in the page header, and New hunt starts a new hunt; the Plugin Hunter's input has no New plugin button
+- The Plugin Hunter card's tags say what they mean (already in a plugin, plugin source, same as or differs from source, renamed to), the card no longer repeats "Hunted" and the request, "Replace all" carries no count, and on narrow cards every Replace sits in the bin column, its label over the switch
 - The AI group's buttons say only the verb: Edit, Slim, Draw, Draft, Fix, Resolve, Merge
 - The left nav uses one header style per level, Cowork's groups sit one level in, and the active sort toggle is quiet
 - Cowork has one icon everywhere, the briefcase
@@ -23,7 +26,7 @@ All notable changes to Claude Harness are listed here, newest first. The format 
 
 ### Added
 
-- The left nav collapses to a rail and expands from any rail icon (Alt+Shift+B)
+- The left nav collapses to a rail and expands from any rail icon (Alt+Shift+B); the rail's active item is a quiet tint like the active nav toggle
 - `harness cowork chats`, `cowork chat`, `cowork artifacts` and `cowork handover sources|plan|create`, and `harness browser-hunt procedures|plan|create`
 - `harness sessions open` and the `@harness:session-analyze` mention open the current session on its session page
 

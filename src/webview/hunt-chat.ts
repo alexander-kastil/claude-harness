@@ -2,14 +2,15 @@
 // The chat column of the Plugin Hunter's New hunt tab, built like a traditional chat: the conversation in order with the newest message at the bottom, and the composer pinned under it. The card beside it is the artifact.
 import { vscode } from './core';
 import { confirmAt, showConfirm } from './confirm';
-import { chatComposer } from './chat-composer';
+import { chatComposer, chatPane } from './chat-composer';
 import { claudeMark, el, icon } from './dom';
-import { hunt, newCard, repaint, waitText, workingTurns } from './hunt-state';
+import { hunt, repaint, waitText, workingTurns } from './hunt-state';
 
 /** One message of the conversation. */
 export const turnRow = t => el('div', { className: `hunt-msg ${t.role}${t.wait ? ' wait' : ''}` }, el('span', { className: 'hunt-msg-who' }, t.role === 'owner' ? null : claudeMark(), t.role === 'owner' ? 'You' : 'Claude'), el('div', { className: 'hunt-msg-text' }, t.text));
 
-const startOver = () =>
+/** The page's Start over, for its header bar. */
+export const startOver = () =>
   confirmAt(
     el(
       'button',
@@ -61,7 +62,6 @@ function composer(working) {
     onEnter: () => !idle() && hunter.click(),
     note: hunt.notice,
     error: hunt.error,
-    extra: el('button', { className: 'secondary', disabled: hunt.running, onclick: newCard }, icon('add'), 'New plugin'),
     actions: [go, hunter],
   });
 }
@@ -69,11 +69,5 @@ function composer(working) {
 /** The column: its head, the conversation of the hunt in progress with the message being answered at its end, and the composer. */
 export function chatColumn(split) {
   const turns = [...workingTurns(split), ...(hunt.pending ? [{ role: 'owner', text: hunt.pending }, { role: 'claude', text: waitText(), wait: true }] : [])];
-  return el(
-    'div',
-    { className: 'hunt-col hunt-col-chat' },
-    el('div', { className: 'hunt-col-head' }, icon('comment-discussion'), el('span', {}, 'Chat'), startOver()),
-    el('div', { className: 'hunt-chat-log', role: 'log', 'aria-live': 'polite' }, turns.length ? turns.map(turnRow) : el('div', { className: 'empty flush' }, 'Tell Claude which skills and agents belong together. Its answers show up here and the plugin it proposes on the right.')),
-    composer(split.working)
-  );
+  return chatPane({ rows: turns.map(turnRow), empty: 'Tell Claude which skills and agents belong together. Its answers show up here and the plugin it proposes on the right.', input: composer(split.working) });
 }

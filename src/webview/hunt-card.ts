@@ -6,7 +6,13 @@ import { aiGroup, el, icon, iconBtn, plural } from './dom';
 import { turnRow } from './hunt-chat';
 import { hunt, marketOf, repaint, saveNow, saveSoon, splitCards, turnsOf } from './hunt-state';
 
-const copyTag = same => el('span', { className: `tag ${same ? '' : 'warn'}` }, same ? 'identical' : 'differs');
+// A repo copy against the source the plugin is built from: the global copy, or else the first repo copy listed (marked "plugin source").
+const copyTag = (same, hasGlobal) => {
+  const source = hasGlobal ? 'the global copy' : 'the copy marked plugin source above';
+  return same
+    ? el('span', { className: 'tag', title: `Same as the source\nThis copy has the same content as ${source}, which the plugin is built from. Replacing it loses nothing.` }, 'same as source')
+    : el('span', { className: 'tag warn', title: `Differs from the source\nThis copy's content is not the same as ${source}, which the plugin is built from. Whatever only this copy has is lost if you switch Replace on: use Merge or Compare first to keep it.` }, 'differs from source');
+};
 
 const kindIcon = kind => icon(kind === 'skill' ? 'mortar-board' : 'hubot');
 
@@ -34,7 +40,7 @@ function assetRows(p, a) {
   rows.push(
     el(
       'div',
-      { className: `hunt-asset${a.include ? '' : ' off'}` },
+      { className: `hunt-asset${a.include ? '' : ' off'}${a.global ? ' has-global' : ''}` },
       el('input', { type: 'checkbox', role: 'switch', checked: a.include && !gone, 'aria-label': `Include ${a.name}`, disabled: gone, onchange: e => {
           a.include = e.target.checked;
           // Unticking an element clears what it would replace; ticking it again leaves them clear.
@@ -47,8 +53,8 @@ function assetRows(p, a) {
         { className: 'hunt-main' },
         nameLine(
           a,
-          a.as ? el('span', { className: 'tag hunt-in', title: `Renamed\nCreate writes this ${a.kind} into the plugin as ${a.as}.` }, `as ${a.as}`) : null,
-          a.inPlugin ? el('span', { className: 'tag hunt-in', title: `Already shipped\nThe installed plugin ${a.inPlugin} already has this ${a.kind}.` }, `in ${a.inPlugin}`) : null
+          a.as ? el('span', { className: 'tag hunt-in', title: `Renamed\nCreate writes this ${a.kind} into the new plugin as ${a.as}. The copies on disk keep their name.` }, `renamed to ${a.as}`) : null,
+          a.inPlugin ? el('span', { className: 'tag hunt-in', title: `Already in ${a.inPlugin}\nThe installed plugin ${a.inPlugin} already ships a ${a.kind} with this name. Claude proposes it unticked: tick it only if the new plugin should carry its own copy as well.` }, `already in ${a.inPlugin}`) : null
         ),
         gone || a.why ? el('div', { className: 'hunt-why' }, gone ? 'Gone from disk. Remove it from the card.' : a.why) : null,
         el(
@@ -68,7 +74,7 @@ function assetRows(p, a) {
         'div',
         { className: `hunt-asset sub${a.include ? '' : ' off'}` },
         el('span', { className: 'hunt-gap' }),
-        el('div', { className: 'hunt-main' }, el('div', { className: 'hunt-name' }, icon('repo'), el('span', { className: 'hunt-name-body' }, repoName(r), base ? el('span', { className: 'tag state', title: 'Used\nThe plugin takes this copy, there is no global one.' }, 'used') : copyTag(r.same), repoWhere(r, shared)))),
+        el('div', { className: 'hunt-main' }, el('div', { className: 'hunt-name' }, icon('repo'), el('span', { className: 'hunt-name-body' }, repoName(r), base ? el('span', { className: 'tag state', title: 'Plugin source\nThere is no global copy, so Create builds the plugin from this one. Replace removes it afterwards, after a backup, and the plugin takes its place.' }, 'plugin source') : copyTag(r.same, !!a.global), repoWhere(r, shared)))),
         el(
           'div',
           { className: 'hunt-cell hunt-c-act' },
@@ -93,9 +99,6 @@ const showReplaceAll = (box, copies) => {
   const on = copies.filter(c => c.replace).length;
   box.checked = on === copies.length;
   box.indeterminate = on > 0 && on < copies.length;
-  // A mixed switch names the count: "Replace all · 1 of 2".
-  const text = box.closest('label')?.querySelector('.hunt-retire-text');
-  if (text) text.textContent = box.indeterminate ? `Replace all · ${on} of ${copies.length}` : 'Replace all';
 };
 
 // A single Replace switch moved: bring the Replace all switch in line.
@@ -129,7 +132,7 @@ function replaceAll(p) {
 }
 
 // A created card: what went into the plugin, read only.
-const doneRows = p => p.assets.filter(a => a.include).map(a => el('div', { className: 'hunt-asset done' }, icon('check'), el('div', { className: 'hunt-main' }, nameLine(a, a.as ? el('span', { className: 'tag hunt-in', title: `Renamed\nThe plugin has this ${a.kind} as ${a.as}.` }, `as ${a.as}`) : null), a.why ? el('div', { className: 'hunt-why' }, a.why) : null)));
+const doneRows = p => p.assets.filter(a => a.include).map(a => el('div', { className: 'hunt-asset done' }, icon('check'), el('div', { className: 'hunt-main' }, nameLine(a, a.as ? el('span', { className: 'tag hunt-in', title: `Renamed\nThe plugin has this ${a.kind} as ${a.as}.` }, `renamed to ${a.as}`) : null), a.why ? el('div', { className: 'hunt-why' }, a.why) : null)));
 
 function adder(p) {
   const taken = new Set(p.assets.map(a => `${a.kind}:${a.name}`));
@@ -245,7 +248,7 @@ export function card(p, history = false) {
     history ? el('button', { type: 'button', className: 'hunt-chev', 'aria-expanded': String(expanded), 'aria-label': `${expanded ? 'Collapse' : 'Expand'} ${p.name || 'this card'}`, onclick: toggle }, icon(expanded ? 'chevron-down' : 'chevron-right')) : null,
     icon(done ? 'pass-filled' : 'package'),
     el('input', { className: 'hunt-title', type: 'text', placeholder: 'plugin-name', value: p.name, readonly: !!done, 'aria-label': 'Plugin name', oninput: e => ((p.name = e.target.value.trim()), saveSoon(), sync()) }),
-    el('span', { className: 'hunt-when' }, done ? 'Created' : p.prompt ? 'Hunted' : 'New'),
+    done ? el('span', { className: 'hunt-when' }, 'Created') : null,
     iconBtn('trash', 'Discard this card', () => {
       hunt.proposals = hunt.proposals.filter(x => x !== p);
       saveNow();
@@ -279,7 +282,6 @@ export function card(p, history = false) {
   const turns = history && expanded ? turnsOf(p, splitCards().all) : [];
   const body = () => [
     turns.length ? el('div', { className: 'hunt-card-chat', role: 'log', 'aria-label': 'Conversation of this card' }, turns.map(turnRow)) : null,
-    p.prompt ? el('div', { className: 'hunt-prompt', title: p.prompt }, p.prompt) : null,
     done ? el('div', { className: 'notice done', role: 'status' }, icon('check'), done) : bar,
     !done && result && result.text ? el('div', { className: `notice hunt-result${result.state === 'error' ? ' bad' : ''}`, role: result.state === 'error' ? 'alert' : 'status', title: result.text }, result.text) : null,
     !done && open ? adder(p) : null,

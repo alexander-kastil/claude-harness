@@ -148,6 +148,24 @@ test('first visit: the commands are in the header bar, the kept procedures are t
   assert.equal(await s.ev(D => D.querySelector('.bh-page .view-tab:last-child .tab-count')), null);
 });
 
+test('hovering the procedure name explains it in facts: where it runs, the steps, how it is kept, the outcome', T, async () => {
+  await send({ type: 'browserHunt', info: INFO });
+  await s.waitFor(D => D.querySelector('.bh-page .hunt-card .bh-step'));
+  await s.move('.bh-page .hunt-card .hunt-title');
+  await s.waitFor(D => D.querySelector('.tl-hover.show .hc-tip'));
+  const tip = await s.ev(D => D.querySelector('.tl-hover.show .hc-tip').innerText.replace(/[ \t]+/g, ' ').trim());
+  assert.match(tip, /^Registrar nameservers|^registrar-nameservers/i);
+  assert.match(tip, /Runs on: example\.test/);
+  assert.match(tip, /1\. Sign in to the registrar admin page/);
+  assert.ok(!/\{person\}|\(manual\)/.test(tip), 'the manual step is marked by the icon, not by a word');
+  assert.equal(await s.ev(D => [...D.querySelectorAll('.tl-hover.show .hc-tip .tip-lines .codicon-person')].length), 1, 'one manual step, one icon');
+  assert.match(tip, /5\. Confirm the change and wait for the success banner$/);
+  assert.match(tip, /Kept as: Guided run, prototype on desktop/);
+  assert.match(tip, /Outcome: Confirm the change and wait for the success banner/);
+  if (process.env.PROCEDURE_HOVER_SHOT) await shoot(process.env.PROCEDURE_HOVER_SHOT, '.bh-page');
+  await s.move('', '');
+});
+
 test('every control is at least 24 px', T, async () => {
   await send({ type: 'browserHunt', info: INFO });
   await s.waitFor(D => D.querySelector('.bh-page .bh-step'));
@@ -248,6 +266,82 @@ test('edits to the card are saved by the host and come back after leaving the pa
   assert.equal(back.second, 'Open the domain list and pick demo.test');
 });
 
+test('Draw, in the AI group of the header, asks the host to draw the card in both perspectives', T, async () => {
+  await s.waitFor(D => D.querySelector('.bh-page .main-head .ai-group [data-confirm="draw"]'));
+  assert.equal(await s.ev(D => D.querySelector('.bh-page .main-head .ai-group [data-confirm="draw"]').textContent.trim()), 'Draw');
+  await s.mouse('.bh-page .main-head [data-confirm="draw"]', '');
+  // The host answers with the plan question: it holds the card the page saved, and names both drawings.
+  await s.waitFor(D => D.querySelector('.cf'));
+  const ask = await s.ev(D => D.querySelector('.cf').innerText.replace(/\s+/g, ' '));
+  assert.match(ask, /Draw registrar-nameservers with Claude/);
+  assert.match(ask, /one drawing for the Harness and one for the Process perspective/);
+  assert.match(ask, /goal, how it is kept, its stage and its steps/);
+  await s.mouse('.cf button', 'Cancel');
+  await s.waitFor(D => !D.querySelector('.cf'));
+});
+
+test('the card has two views: Steps, and a simple diagram of the steps that a stored drawing replaces', T, async () => {
+  const card = { ...INFO.cards[0], steps: [{ text: 'Sign in to the registrar admin page with MFA', manual: true }, { text: 'console.example.test/dns/records: click "Add record" and type "A"; the TTL cannot be lowered later (wait for the zone to load)', manual: false }, { text: 'Confirm the record is listed', manual: false }] };
+  await send({ type: 'browserHunt', info: { ...INFO, cards: [card, INFO.cards[1]] } });
+  await s.waitFor(D => D.querySelector('.bh-page .hunt-card .bh-step'));
+  // Steps is the default view, the chips sit above it.
+  assert.deepEqual(await labels('.bh-page .hunt-card .view-tabs .view-tab'), ['Steps', 'Simple']);
+  assert.equal(await s.ev(D => D.querySelector('.bh-page .hunt-card .view-tab.active').textContent.trim()), 'Steps');
+  // A manual step has a small person icon at the left of its row, and nothing more: the other rows have none.
+  assert.equal(await s.ev(D => [...D.querySelectorAll('.bh-page .bh-step')].map(r => !!r.querySelector('.bh-step-who .codicon-person')).join()), 'true,false,false');
+  assert.equal(await s.ev(D => { const r = D.querySelector('.bh-page .bh-step'); return r.querySelector('.bh-step-who').getBoundingClientRect().right <= r.querySelector('.bh-step-n').getBoundingClientRect().left; }), true, 'the icon is left of the number');
+  // Collapsed rows have no details; the chevron opens them.
+  assert.equal(await s.ev(D => D.querySelectorAll('.bh-page .bh-step-detail').length), 0);
+  await s.mouse('.bh-page .bh-step-chev[aria-label="Show details of step 2"]', '');
+  await s.waitFor(D => D.querySelector('.bh-page .bh-step-detail'));
+  const detail = await s.ev(D => D.querySelector('.bh-page .bh-step-detail').innerText.replace(/\s+/g, ' ').trim());
+  assert.match(detail, /Link console\.example\.test\/dns\/records/);
+  assert.match(detail, /Labels Add record A/);
+  assert.match(detail, /Lessons the TTL cannot be lowered later wait for the zone to load/);
+  assert.ok(!/Manual/.test(detail), 'a step that is not manual has no manual reason');
+  await s.mouse('.bh-page .bh-step-chev[aria-label="Show details of step 1"]', '');
+  await s.waitFor(D => D.querySelectorAll('.bh-page .bh-step-detail').length === 2);
+  assert.match(await s.ev(D => D.querySelectorAll('.bh-page .bh-step-detail')[0].innerText.replace(/\s+/g, ' ')), /Manual Multi-factor check/);
+  if (process.env.PROCEDURE_STEP_SHOT) await shoot(process.env.PROCEDURE_STEP_SHOT, '.bh-page');
+  // Simple: the panel's own diagram, the steps in order, the manual one with the person icon, the last one the check.
+  await s.mouse('.bh-page .hunt-card .view-tab', 'Simple');
+  await s.waitFor(D => D.querySelector('.bh-page .bh-simple-svg'));
+  const simple = await s.ev(D => {
+    const svg = D.querySelector('.bh-page .bh-simple-svg');
+    return { text: svg.textContent.replace(/\s+/g, ' '), who: svg.querySelectorAll('.bh-who').length, boxes: svg.querySelectorAll('rect[rx="6"]').length, label: svg.getAttribute('aria-label'), steps: D.querySelectorAll('.bh-page .bh-step').length, host: /console\.example\.test/.test(svg.textContent) };
+  });
+  assert.equal(simple.boxes, 3);
+  assert.equal(simple.who, 1, 'the manual step has the person icon');
+  assert.ok(!/manual/.test(simple.text), 'no word marks it');
+  assert.match(simple.text, /1.*Sign in.*2.*Add record.*3.*Confirm the record is listed/);
+  assert.ok(simple.host, 'the site the steps run on heads its steps');
+  assert.equal(simple.steps, 0, 'the step list is not shown beside the diagram');
+  if (process.env.PROCEDURE_SIMPLE_SHOT) await shoot(process.env.PROCEDURE_SIMPLE_SHOT, '.bh-page');
+  // A stored drawing replaces Simple: its chip is Drawing, and the figure has the Harness and Process perspectives.
+  const drawing = (id, label) => ({ type: 'drawing', id, svg: `<svg viewBox="0 0 400 80" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="1" width="398" height="78" rx="6" fill="none" stroke="currentColor"/><text x="20" y="45" fill="currentColor" font-size="16">${label}</text></svg>` });
+  await send(drawing('bh-card:bh-a', 'Harness figure'));
+  await send(drawing('bh-card:bh-a#process', 'Process figure'));
+  await s.waitFor(D => D.querySelector('.bh-page .hunt-card .view-tab.active')?.textContent.trim() === 'Drawing');
+  assert.equal(await s.ev(D => D.querySelector('.bh-page .bh-simple-svg')), null, 'the drawing replaces the simple diagram');
+  assert.deepEqual(await labels('.bh-page .dv-draw .dg-mode'), ['Harness', 'Process']);
+  assert.match(await text('.bh-page .dv-draw'), /Harness figure/);
+  await s.mouse('.bh-page .dv-draw .dg-mode', 'Process');
+  await s.waitFor(D => /Process figure/.test(D.querySelector('.bh-page .dv-draw')?.textContent || ''));
+  if (process.env.PROCEDURE_DRAWING_SHOT) await shoot(process.env.PROCEDURE_DRAWING_SHOT, '.bh-page');
+  // The drawing goes again and Steps comes back, so the next tests find the card as before.
+  await s.mouse('.bh-page .dv-draw .dg-mode', 'Harness');
+  await send({ type: 'drawing', id: 'bh-card:bh-a' });
+  await send({ type: 'drawing', id: 'bh-card:bh-a#process' });
+  await s.mouse('.bh-page .hunt-card .view-tab', 'Simple');
+  await s.mouse('.bh-page .hunt-card .view-tab', 'Steps');
+  await s.waitFor(D => D.querySelector('.bh-page .hunt-card .bh-step'));
+  // The card above was only shown, never saved: away and back, the page shows what the host stored.
+  await s.mouse('.bh-page .main-head .icon-btn', '');
+  await s.waitFor(D => !D.querySelector('.bh-page'));
+  await s.mouse('.ai-group.hunt-cta button', 'Automation Hunter').catch(() => {});
+  await s.waitFor(D => D.querySelector('.bh-page .hunt-card'));
+});
+
 test('Create lists the files first, then writes the table row and the leaf into the skill, backed up', T, async () => {
   const before = fs.readFileSync(SKILL_MD(), 'utf8');
   await s.mouse('.bh-page [data-confirm="browserHuntCreate"]', '');
@@ -285,14 +379,23 @@ test('the History keeps the other card with its chat, collapsed', T, async () =>
   await s.mouse('.bh-page .hunt-chev', '');
   await s.waitFor(D => D.querySelector('.bh-page .hunt-history .bh-step'));
   if (SHOTS) await shoot(path.join(SHOTS, '21-browser-hunt-history.png'), '.bh-page');
+  // New hunt starts a new hunt: an empty card and an empty chat, and pressing it again does not pile up empty cards.
   await s.mouse('.bh-page .view-tab', 'New hunt');
-  await s.waitFor(D => D.querySelector('.bh-page .hunt-split'));
+  await s.waitFor(D => D.querySelector('.bh-page .hunt-split') && D.querySelector('.bh-page .hunt-col-find .hunt-title')?.value === '');
+  assert.equal(await s.ev(D => D.querySelectorAll('.bh-page .hunt-msg').length), 0, 'the chat is empty');
+  await s.mouse('.bh-page .view-tab', 'New hunt');
+  await s.mouse('.bh-page .view-tab', 'History');
+  await s.waitFor(D => D.querySelector('.bh-page .hunt-history .hunt-card'));
+  assert.equal(await s.ev(D => D.querySelectorAll('.bh-page .hunt-history .hunt-card').length), 2, 'the other cards are kept, one empty card was added');
+  await s.mouse('.bh-page .view-tab', 'New hunt');
   if (SHOTS) await shoot(path.join(SHOTS, '19-browser-hunt-new.png'), '.bh-page');
+  // The empty card goes again, so the next test finds the procedure card it works on.
+  await s.mouse('.bh-page .hunt-col-find [aria-label="Discard this card"]', '');
+  await s.waitFor(D => D.querySelector('.bh-page .hunt-col-find .hunt-title')?.value !== '');
 });
 
 test('a narrow window keeps every command reachable and the card in the first screen', T, async () => {
   await send({ type: 'browserHunt', info: INFO });
-  await s.mouse('.bh-page .view-tab', 'New hunt');
   await s.waitFor(D => D.querySelector('.bh-page .hunt-split'));
   await s.resize(640, 900);
   const n = await s.ev(D => {

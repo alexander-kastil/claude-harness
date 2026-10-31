@@ -62,7 +62,8 @@ export const tipCard = (text, glyph) => {
     'div',
     { className: 'hc hc-tip' },
     first ? el('div', { className: 'hc-head' }, glyph ? icon(glyph) : null, el('span', { className: 'hc-type' }, first)) : null,
-    rest.length ? el('div', { className: 'hc-text tip-lines' }, rest.join('\n')) : null
+    // {person} is the small person icon of a step a person does (the procedure card's hover).
+    rest.length ? el('div', { className: 'hc-text tip-lines' }, rest.join('\n').split('{person}').flatMap((part, i) => (i ? [icon('person'), part] : [part]))) : null
   );
 };
 

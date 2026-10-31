@@ -17,7 +17,7 @@ export interface BrowserHuntDeps {
   refresh: () => void;
 }
 
-const CARDS = 'browserHuntCards';
+export const CARDS = 'browserHuntCards';
 const CHAT = 'browserHuntChat';
 const CURRENT = 'browserHuntCurrent';
 const REMEMBERED = 'browserHuntRemembered';

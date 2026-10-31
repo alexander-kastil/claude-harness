@@ -207,8 +207,8 @@ body {
 
 .rail-btn.active,
 .rail-btn.region.active {
-  background: var(--hx-on);
-  color: var(--hx-on-ink);
+  background: color-mix(in srgb, var(--hx-on) 14%, transparent);
+  color: var(--hx-on);
 }
 
 .rail-btn:focus-visible,
@@ -6525,40 +6525,64 @@ body.vscode-high-contrast-light {
 
 /* In a narrow card a repo copy's Merge group and Retire drop to a second line under its name, Retire still at the right end. */
 @container hunt-card (max-width: 460px) {
+  /* The bin column is its own column at every width; here it is 56px wide so a repo row's Replace sits in it, the label over its toggle. */
+  .hunt-asset {
+    grid-template-columns: 28px minmax(0, 1fr) 56px;
+  }
+
+  .hunt-asset > .hunt-c-x {
+    justify-content: center;
+  }
+
   .hunt-asset.sub {
-    grid-template-columns: 50px minmax(0, 1fr) auto;
+    grid-template-columns: 50px minmax(0, 1fr) 56px;
   }
 
   .hunt-asset.sub > .hunt-main {
-    grid-column: 2 / -1;
+    grid-column: 2;
   }
 
   .hunt-asset.sub > .hunt-c-retire {
-    grid-column: 2;
-    grid-row: 2;
-    justify-content: flex-start;
-    margin-top: 8px;
+    grid-column: 3;
+    grid-row: 1;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
     padding-right: 0;
   }
 
+  .hunt-asset.sub .hunt-retire {
+    flex-direction: column-reverse;
+    gap: 4px;
+  }
+
+  /* The global copy's Replace sits in the same column, under the row's bin, label over toggle. */
+  .hunt-asset.has-global {
+    position: relative;
+    min-height: 96px;
+  }
+
+  .hunt-asset.has-global .hunt-meta > .hunt-retire {
+    position: absolute;
+    top: 44px;
+    right: 12px;
+    width: 56px;
+    flex-direction: column-reverse;
+    justify-content: center;
+    gap: 4px;
+  }
+
   .hunt-asset.sub > .hunt-c-act {
-    grid-column: 3;
+    grid-column: 2;
     grid-row: 2;
+    justify-content: flex-start;
     margin-top: 8px;
   }
 
   .hunt-asset.sub > .hunt-c-act:empty,
   .hunt-asset.sub > .hunt-c-x {
     display: none;
-  }
-}
-
-/* In the narrowest card the Merge group goes to its own line under Retire. */
-@container hunt-card (max-width: 320px) {
-  .hunt-asset.sub > .hunt-c-act {
-    grid-column: 2;
-    grid-row: 3;
-    justify-content: flex-start;
   }
 }
 
@@ -6890,7 +6914,7 @@ body.vscode-high-contrast-light {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding-left: 28px;
+  padding-left: 84px;
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.06em;
@@ -6926,6 +6950,7 @@ body.vscode-high-contrast-light {
   display: flex;
 }
 
+/* Stacked, the chat is short so the card stays in the first screen. */
 @container hunt-body (max-width: 860px) {
   .bh-page .hunt-col-chat {
     height: min(40vh, 320px);
@@ -6946,22 +6971,6 @@ body.vscode-high-contrast-light {
   flex: none;
   min-width: 104px;
   justify-content: center;
-}
-
-/* The chat is as tall as its conversation (a floor and a ceiling), not the whole page with the field at its bottom. */
-.bh-page .hunt-split {
-  min-height: 0;
-  align-items: start;
-}
-
-.bh-page .hunt-col-chat .hunt-chat-log {
-  flex: none;
-  min-height: 140px;
-  max-height: min(52vh, 460px);
-}
-
-.bh-page .hunt-col-chat {
-  height: auto;
 }
 
 .bh-proc:hover:not(:disabled) {
@@ -7043,6 +7052,87 @@ body.vscode-high-contrast-light {
   width: 20px;
   text-align: right;
   color: var(--vscode-descriptionForeground);
+}
+
+/* The chevron opens a step's details; a step without any keeps its place empty so the rows line up. */
+.bh-step-chev {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--vscode-descriptionForeground);
+}
+
+button.bh-step-chev {
+  cursor: pointer;
+}
+
+button.bh-step-chev:hover {
+  color: var(--vscode-foreground);
+}
+
+/* A step a person does: a small person icon at the left of its row. */
+.bh-step-who {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  color: var(--vscode-foreground);
+}
+
+.bh-step-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 4px 0 4px 80px;
+  padding: 6px 10px;
+  border-left: 2px solid var(--hx-line);
+  font-size: 12px;
+}
+
+.bh-step-wrap {
+  display: flex;
+  flex-direction: column;
+}
+
+.bh-fact {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.bh-fact-k {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  width: 78px;
+  color: var(--hx-muted);
+}
+
+.bh-fact-v {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-line;
+}
+
+.bh-simple {
+  display: flex;
+}
+
+.bh-simple-svg {
+  width: 100%;
+  height: auto;
+  color: var(--vscode-foreground);
 }
 
 .bh-step-text {

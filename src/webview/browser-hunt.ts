@@ -4,8 +4,11 @@
 // The page's own commands sit in the header bar; Hunt sits in the AI group at the right end of the chat's input, like every chat.
 import { app, showPage, state, vscode } from './core';
 import { confirmAt, showConfirm } from './confirm';
-import { chatComposer } from './chat-composer';
-import { claudeMark, countHead, el, icon, iconBtn } from './dom';
+import { chatComposer, chatPane } from './chat-composer';
+import { hasFacts, hostsOf, simpleDiagram, stepFacts } from './bh-steps';
+import { drawButton } from './detail';
+import { aiGroup, claudeMark, countHead, el, icon, iconBtn } from './dom';
+import { askDrawing, drawState, drawingFigure } from './drawing';
 import { hideHover } from './hover';
 import { showKindPage } from './kind-page';
 import { tabBar } from './repo-page';
@@ -39,6 +42,9 @@ const bh = {
   notice: '',
   tab: 'new',
   open: {},
+  // The view of each card, steps or simple (the drawing once there is one), and the steps whose details are open.
+  view: {},
+  openSteps: new WeakSet(),
   reveal: undefined,
   focusName: undefined,
   focusStep: undefined,
@@ -163,6 +169,22 @@ const newCard = () => {
   repaint();
 };
 
+// New hunt always starts one: an empty card and an empty chat, with the message box ready. A card nothing is on yet already is that.
+const newHunt = () => {
+  const { working } = split();
+  if (working && blank(working)) {
+    bh.tab = 'new';
+    bh.focusPrompt = true;
+    return repaint();
+  }
+  bh.prompt = '';
+  bh.cards = [{ id: newId(), prompt: '', created: Date.now(), name: '', goal: '', keep: 'guided', stage: 'prototype', steps: [] }, ...bh.cards];
+  bh.tab = 'new';
+  bh.focusPrompt = true;
+  saveNow();
+  repaint();
+};
+
 // Picking a procedure of the skill fills the blank card (a new card when the working one has content) and leaves the message for Claude ready.
 const pick = proc => {
   const { working } = split();
@@ -265,16 +287,11 @@ function chatColumn(sp) {
       go.title = idle() ? 'Hunt\nWrite a message to Claude first.' : 'Hunt\nSends your message to Claude.';
     },
     onEnter: () => !idle() && (hunter.querySelector('button') || hunter).click(),
+    note: bh.notice,
     error: bh.error,
     actions: [hunter],
   });
-  return el(
-    'div',
-    { className: 'hunt-col hunt-col-chat' },
-    el('div', { className: 'hunt-col-head' }, icon('comment-discussion'), el('span', {}, 'Chat'), bh.notice ? el('span', { className: 'hunt-note', role: 'status' }, icon('check'), bh.notice) : null),
-    el('div', { className: 'hunt-chat-log', role: 'log', 'aria-live': 'polite' }, turns.length ? turns.map(turnRow) : el('div', { className: 'empty flush' }, 'Describe a browser procedure.')),
-    composer
-  );
+  return chatPane({ rows: turns.map(turnRow), empty: 'Describe a browser procedure.', input: composer });
 }
 
 // ---- The procedure card ----
@@ -293,10 +310,36 @@ const stageBtn = (p, id, glyph, text, about) =>
     text
   );
 
-function stepRow(p, s, i) {
+// The details of a step, read out of its text: the deepest link, the labels it names, the lessons inside it and why it is manual.
+function stepDetails(facts) {
+  const row = (label, glyph, ...value) => el('div', { className: 'bh-fact' }, el('span', { className: 'bh-fact-k', title: label }, icon(glyph), el('span', {}, label)), el('span', { className: 'bh-fact-v' }, ...value.flat()));
   return el(
     'div',
-    { className: 'bh-step' },
+    { className: 'bh-step-detail' },
+    facts.link ? row('Link', 'link', facts.link) : null,
+    facts.controls.length ? row('Labels', 'symbol-key', facts.controls.map(c => el('span', { className: 'tag' }, c))) : null,
+    facts.lessons.length ? row('Lessons', 'lightbulb', facts.lessons.join('\n')) : null,
+    facts.manual ? row('Manual', 'person', facts.manual) : null
+  );
+}
+
+function stepRow(p, s, i) {
+  const facts = stepFacts(s);
+  const has = hasFacts(facts);
+  const open = has && bh.openSteps.has(s);
+  const row = stepLine(p, s, i, has, open);
+  return open ? el('div', { className: 'bh-step-wrap' }, row, stepDetails(facts)) : row;
+}
+
+function stepLine(p, s, i, has, open) {
+  return el(
+    'div',
+    { className: `bh-step${s.manual ? ' manual' : ''}` },
+    // A step a person does carries a small person icon at the left of its row; the other rows keep the place empty so the rows line up.
+    s.manual ? el('span', { className: 'bh-step-who', title: 'Manual step\nA person does this step; the automation waits.' }, icon('person')) : el('span', { className: 'bh-step-who' }),
+    has
+      ? el('button', { type: 'button', className: 'bh-step-chev', 'aria-expanded': String(open), 'aria-label': `${open ? 'Hide' : 'Show'} details of step ${i + 1}`, title: `Details\nThe link, labels, lessons and the manual reason this step holds.`, onclick: () => ((open ? bh.openSteps.delete(s) : bh.openSteps.add(s)), repaint()) }, icon(open ? 'chevron-down' : 'chevron-right'))
+      : el('span', { className: 'bh-step-chev' }),
     el('span', { className: 'bh-step-n' }, String(i + 1)),
     el('input', {
       type: 'text',
@@ -338,6 +381,41 @@ function procedures() {
   );
 }
 
+// The hover of a procedure's name, facts only: where it runs, the steps in order with the manual ones marked, how it is kept and at
+// which stage, and what the last step checks. A line the procedure has no data for is left out.
+const STEPS_SHOWN = 12;
+const procTip = p => {
+  const steps = p.steps.filter(s => s.text.trim());
+  const hosts = hostsOf(steps);
+  const lines = [readable(p.name) || 'Procedure'];
+  if (hosts.length) lines.push(`Runs on: ${hosts.join(', ')}`);
+  lines.push(`Kept as: ${keepLabel(p.keep)}, ${p.stage === 'optimized' ? 'optimized in code' : 'prototype on desktop'}`);
+  if (steps.length > 1) lines.push(`Outcome: ${steps[steps.length - 1].text.trim()}`);
+  // The steps come last: the card has a height limit, and the long part is the one that may be cut.
+  if (steps.length) {
+    lines.push('Steps:');
+    steps.slice(0, STEPS_SHOWN).forEach((s, i) => lines.push(`${i + 1}. ${s.manual ? '{person} ' : ''}${s.text.trim()}`));
+    if (steps.length > STEPS_SHOWN) lines.push(`+${steps.length - STEPS_SHOWN} more`);
+  }
+  return lines.join('\n');
+};
+
+// The hover reads the card as it is now: the steps are edited without a repaint, so the text is refreshed as the pointer or the focus arrives.
+const freshTip = p => e => {
+  const t = e.currentTarget;
+  if (t.hasAttribute('title')) t.title = procTip(p);
+  else t.dataset.tip = procTip(p);
+};
+
+// What Draw with Claude draws a card as, and the page it asks the host for the stored drawing under: a card whose text changed asks again.
+const cardDrawn = p => ({ id: `bh-card:${p.id}`, kind: 'procedure', name: p.name || 'procedure' });
+const asks = new Map();
+const askKey = p => {
+  const key = `${p.id}|${p.name}|${p.goal}|${p.keep}|${p.stage}|${p.steps.map(s => `${s.manual ? 'm' : ''}${s.text}`).join('\n')}`;
+  if (!asks.has(key)) asks.set(key, {});
+  return asks.get(key);
+};
+
 function card(p, history = false) {
   const expanded = !history || !!bh.open[p.id];
   const toggle = () => ((bh.open[p.id] = !bh.open[p.id]), repaint());
@@ -346,7 +424,7 @@ function card(p, history = false) {
     { className: 'hunt-card-head', onclick: history ? e => (e.target.closest('input,button') ? undefined : toggle()) : undefined },
     history ? el('button', { type: 'button', className: 'hunt-chev', 'aria-expanded': String(expanded), 'aria-label': `${expanded ? 'Collapse' : 'Expand'} ${p.name || 'this card'}`, onclick: toggle }, icon(expanded ? 'chevron-down' : 'chevron-right')) : null,
     icon('globe'),
-    el('input', { className: 'hunt-title', type: 'text', placeholder: 'procedure-name', value: p.name, 'aria-label': 'Procedure name', oninput: e => ((p.name = e.target.value.trim()), saveSoon()) }),
+    el('input', { className: 'hunt-title', type: 'text', placeholder: 'procedure-name', value: p.name, 'aria-label': 'Procedure name', title: procTip(p), onmouseover: freshTip(p), onfocus: freshTip(p), oninput: e => ((p.name = e.target.value.trim()), saveSoon()) }),
     iconBtn('trash', 'Discard this card', () => {
       bh.cards = bh.cards.filter(x => x !== p);
       saveNow();
@@ -359,6 +437,23 @@ function card(p, history = false) {
     KEEPS.map(k => el('option', { value: k[0], selected: p.keep === k[0] }, k[1]))
   );
   const result = bh.results[p.id];
+  // Steps is the default view. Simple is a diagram the panel draws from the steps; once Claude has drawn the card, its drawing takes the place of Simple.
+  const drawn = cardDrawn(p);
+  const views = !history && p.steps.some(s => s.text.trim());
+  if (views) askDrawing(drawn, askKey(p));
+  const drawing = views && drawState(drawn).drawn;
+  const view = views ? bh.view[p.id] || 'steps' : 'steps';
+  const viewChips = tabBar(
+    [
+      ['steps', 'Steps', 'list-ordered', 'The steps in order, each with its details.'],
+      drawing
+        ? ['simple', 'Drawing', 'brush', "Claude's drawing of the procedure: the sites and apps it touches (Harness) and its steps in order (Process)."]
+        : ['simple', 'Simple', 'type-hierarchy', 'The steps in order across pages and apps, the manual ones marked and the final check. Draw in the header bar has Claude draw it instead.'],
+    ],
+    view,
+    id => ((bh.view[p.id] = id), hideHover(), repaint()),
+    'Procedure views'
+  );
   const body = () => {
     const turns = history ? turnsOf(p, split().all) : [];
     return [
@@ -370,9 +465,14 @@ function card(p, history = false) {
         el('div', { className: 'bh-stages', role: 'group', 'aria-label': 'Stage' }, stageBtn(p, 'prototype', 'device-desktop', 'Prototype on desktop', 'Walk the steps in the browser with Claude and save the click path.'), stageBtn(p, 'optimized', 'code', 'Optimized in code', 'The steps run as the kept form; only manual steps stay with a person.')),
         el('label', { className: 'bh-keep-label' }, 'Kept as', keep)
       ),
-      p.steps.length ? el('div', { className: 'bh-steps-head' }, el('span', {}, 'Steps'), el('span', { className: 'bh-manual-head' }, 'Manual')) : null,
-      el('div', { className: 'bh-steps' }, p.steps.map((s, i) => stepRow(p, s, i))),
-      el('div', { className: 'bh-add' }, el('button', { className: 'secondary', onclick: () => ((p.steps = [...p.steps, { text: '', manual: false }]), (bh.focusStep = p.steps.length - 1), saveSoon(), repaint()) }, icon('add'), 'Add step')),
+      views ? viewChips : null,
+      ...(view === 'steps'
+        ? [
+            p.steps.length ? el('div', { className: 'bh-steps-head' }, el('span', {}, 'Steps'), el('span', { className: 'bh-manual-head' }, 'Manual')) : null,
+            el('div', { className: 'bh-steps' }, p.steps.map((s, i) => stepRow(p, s, i))),
+            el('div', { className: 'bh-add' }, el('button', { className: 'secondary', onclick: () => ((p.steps = [...p.steps, { text: '', manual: false }]), (bh.focusStep = p.steps.length - 1), saveSoon(), repaint()) }, icon('add'), 'Add step')),
+          ]
+        : [drawing ? drawingFigure(drawn) : el('div', { className: 'bh-simple' }, simpleDiagram(p.name, p.steps))]),
       result && result.state === 'error' ? el('div', { className: 'notice hunt-result bad', role: 'alert', title: result.text }, result.text) : bh.created[p.id] ? el('div', { className: 'notice done', role: 'status', title: bh.created[p.id] }, icon('check'), bh.created[p.id]) : null,
     ].filter(Boolean);
   };
@@ -387,7 +487,12 @@ export function renderBrowserHunt() {
       ['history', 'History', 'history', 'The procedure cards you have made or started, each with the chat that made it.', sp.history.length || undefined],
     ],
     bh.tab,
-    id => ((bh.tab = id), hideHover(), repaint()),
+    id => {
+      hideHover();
+      if (id === 'new') return newHunt();
+      bh.tab = id;
+      repaint();
+    },
     'Automation Hunter views'
   );
   const showPicker = !sp.working || blank(sp.working);
@@ -412,8 +517,10 @@ export function renderBrowserHunt() {
     iconBtn('arrow-left', 'Back to Plugins', () => showKindPage('plugin', undefined)),
     el('button', { className: 'secondary', 'aria-label': 'New procedure', title: 'New procedure\nAn empty card to start from.', disabled: bh.running, onclick: newCard }, icon('add'), lab('New procedure')),
     createButton(bh.tab === 'new' ? sp.working : undefined),
-    startOver()
+    startOver(),
+    // Draw with Claude, like every kind: the working card, once it has steps.
+    bh.tab === 'new' && sp.working && sp.working.steps.some(s => s.text.trim()) ? aiGroup('', drawButton(cardDrawn(sp.working))) : null
   );
-  head.classList.toggle('busy', bh.running);
+  head.classList.toggle('busy', bh.running || (bh.tab === 'new' && !!sp.working && drawState(cardDrawn(sp.working)).running));
   return el('section', { className: 'main bh-page' }, head, el('div', { className: 'main-body hunt-body', onscroll: hideHover }, bar, bh.tab === 'history' ? history : fresh));
 }
