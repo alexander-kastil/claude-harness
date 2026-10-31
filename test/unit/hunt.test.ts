@@ -4,6 +4,7 @@ import type { Asset, ScopeView } from '../../src/harness';
 import { buildCatalog, inventoryText, reconcile } from '../../src/hunt-catalog';
 import { applyProposal, chatPrompt, parseTurn, shortReply } from '../../src/hunt';
 import { mergePrompt } from '../../src/consolidate';
+import type { HuntProposal } from '../../src/shared/hunt';
 import { sessionTitle } from '../../src/sessions';
 import { stylePrompt } from '../../src/style';
 
@@ -33,12 +34,21 @@ test('the inventory Claude gets lists the same elements as the catalog, repos th
 });
 
 test('a created card keeps every element it holds after the retired copies left the disk', () => {
-  const card = { id: 'c1', prompt: '', created: 1, name: 'kit', description: '', category: '', assets: [{ kind: 'skill' as const, name: 'gone', include: true, why: '', global: { path: '/g', retire: true }, repos: [] }] };
+  const card = { id: 'c1', prompt: '', created: 1, name: 'kit', description: '', category: '', assets: [{ kind: 'skill' as const, name: 'gone', include: true, why: '', global: { path: '/g', replace: true }, repos: [] }] };
   const open = reconcile([card], [], {});
   assert.strictEqual(open[0].assets[0].include, false);
   const done = reconcile([card], [], { c1: 'Created and installed kit@m.' });
   assert.strictEqual(done[0].assets[0].include, true);
-  assert.strictEqual(done[0].assets[0].global?.retire, true);
+  assert.strictEqual(done[0].assets[0].global?.replace, true);
+});
+
+test('a card saved before the rename keeps its Retire ticks as Replace, and an off copy stays off', () => {
+  const copy = (p: string, same: boolean) => ({ repo: 'r', path: p, same, replace: false });
+  const catalog = [{ description: '', asset: { kind: 'skill' as const, name: 's', include: false, why: '', global: { path: '/g', replace: false }, repos: [copy('/a', true), copy('/b', false)] } }];
+  const old = { id: 'c1', prompt: '', created: 1, name: 'kit', description: '', category: '', assets: [{ kind: 'skill' as const, name: 's', include: true, why: '', global: { path: '/g', retire: true }, repos: [{ repo: 'r', path: '/a', same: true, retire: true }, { repo: 'r', path: '/b', same: false, retire: false }] }] } as unknown as HuntProposal;
+  const [card] = reconcile([old], catalog, {});
+  assert.strictEqual(card.assets[0].global?.replace, true);
+  assert.deepStrictEqual(card.assets[0].repos.map(r => r.replace), [true, false]);
 });
 
 test('the prompt asks for a reply of at most two short sentences and no element list', () => {

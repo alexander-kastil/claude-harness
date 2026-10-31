@@ -2,7 +2,7 @@
 // GitHub Repo overview, marketplace health, a marketplace's page and the scaffold form.
 import { checkBadge, checkText, command, persist, select, showPage, showRepo, state, std, vscode } from './core';
 import { confirmAt } from './confirm';
-import { aiGroup, countHead, el, icon, iconBtn, pageHead, plural } from './dom';
+import { aiGroup, countHead, el, icon, iconBtn, pageHead, plural, stateTag } from './dom';
 import { askDrawing, drawState, drawingFigure, drawingId, drawsWhat } from './drawing';
 import { hideHover } from './hover';
 import { renderMain } from './main';
@@ -21,8 +21,8 @@ export function renderRepoOverview() {
     const from = s ? `Checked by ${s.name}` : '';
     const cols = [
       { head: 'Repo', track: 'minmax(140px, 2fr)', cls: 'at-name', cell: r => [icon('repo'), el('span', { className: 'at-label' }, r.label)], title: r => r.path },
-      s && { head: 'Layout', track: 'minmax(70px, 1fr)', muted: true, wide: true, tip: `Layout\n${from}`, cell: r => r.layout || '', tone: r => (r.layout && r.layout !== 'router' ? 'warn' : '') },
-      s && { head: 'Standard', track: 'minmax(110px, 1.5fr)', tip: `Standard\n${from}`, cell: r => [checkBadge(liveCheck(r)), el('span', { className: 'at-label' }, checkText(liveCheck(r)))], cls: 'at-name' },
+      s && { head: 'Layout', track: 'minmax(70px, 1fr)', muted: true, wide: true, align: 'center', tip: `Layout\n${from}`, cell: r => (r.layout ? stateTag(r.layout, r.layout === 'router' ? 'ok' : 'warn') : '') },
+      s && { head: 'Standard', track: 'minmax(110px, 1.5fr)', tip: `Standard\n${from}`, cell: r => stateTag(checkText(liveCheck(r)), { pass: 'ok', fail: 'fail', review: 'warn' }[(liveCheck(r) || {}).state] || 'none'), align: 'center' },
       { head: 'Lines', track: '56px', num: true, tip: 'Lines\nLines in the root CLAUDE.md', cell: r => String(r.lines || 0), tone: r => (s && r.lines > 120 ? 'warn' : '') },
       s && { head: 'Em dashes', track: '80px', num: true, wide: true, tip: `Em dashes\n${from}`, cell: r => (r.emDashes === undefined ? '' : String(r.emDashes)), tone: r => (r.emDashes ? 'warn' : '') },
       s && { head: 'Review', track: '64px', num: true, wide: true, tip: `Review\n${from}`, cell: r => (r.check ? String(r.check.review) : ''), tone: r => (r.check && r.check.review ? 'warn' : '') },
@@ -91,8 +91,8 @@ export const sourceTip = m => [`Source · ${sourceToken(m)}`, m.source, m.locati
 
 // The version and sync columns of a marketplace's plugins, on Marketplace health and on the marketplace's own page.
 const syncCols = m => [
-  { head: 'Installed', track: 'minmax(64px, 1fr)', muted: true, cell: p => p.installed || '' },
-  ...(m.plugins.some(p => p.source) ? [{ head: 'Latest', track: 'minmax(64px, 1fr)', muted: true, tip: 'Latest\nThe version the marketplace offers', cell: p => p.source || '' }] : []),
+  { head: 'Installed', track: 'minmax(64px, 1fr)', muted: true, align: 'center', cell: p => p.installed || '' },
+  ...(m.plugins.some(p => p.source) ? [{ head: 'Latest', track: 'minmax(64px, 1fr)', muted: true, align: 'center', tip: 'Latest\nThe version the marketplace offers', cell: p => p.source || '' }] : []),
   // One Sync column: a plugin that is ahead has its Sync plugin button, the others say where they stand; while one is ahead, the
   // header is Sync all, for every plugin that is.
   (() => {
@@ -103,28 +103,17 @@ const syncCols = m => [
         : 'Sync',
       track: ahead ? 'minmax(120px, 1fr)' : 'minmax(84px, 1fr)',
       muted: true,
-      cell: p => (p.ahead ? el('button', { className: 'secondary', title: `Sync plugin\nRefresh ${m.name} and update ${p.name} from ${p.installed} to ${p.source}.`, onclick: e => (e.stopPropagation(), syncPlugin(p.key)) }, icon('sync'), 'Sync plugin') : p.installed ? 'current' : 'uninstalled'),
+      align: 'center',
+      cell: p => (p.ahead ? el('button', { className: 'secondary', title: `Sync plugin\nRefresh ${m.name} and update ${p.name} from ${p.installed} to ${p.source}.`, onclick: e => (e.stopPropagation(), syncPlugin(p.key)) }, icon('sync'), 'Sync plugin') : p.installed ? stateTag('current', 'ok') : stateTag('uninstalled', 'none')),
       title: p => (p.ahead ? undefined : `Sync · ${p.installed ? 'Up to date' : 'Not installed'}\n${p.installed ? 'The installed copy matches the source.' : 'The plugin is not installed.'}${p.enabled ? '\nEnabled' : ''}`),
     };
   })(),
 ];
 
-// Where each plugin is available. A Code only plugin carries Add to Cowork, which opens the claude.ai plugin settings (a link out, nothing is written there).
-const HARNESS_TEXT = { code: 'Code', cowork: 'Cowork', both: 'Both', none: 'None' };
-const harnessCol = {
-  head: 'Harness',
-  track: 'minmax(190px, 1fr)',
-  tip: 'Harness\nWhere the plugin is available: Code, Cowork, Both or None. Cowork is read from the plugins Claude.ai synced to this PC.',
-  cell: p => {
-    const h = p.harness || 'code';
-    return h === 'code'
-      ? [el('span', { className: 'at-label' }, HARNESS_TEXT[h]), el('button', { className: 'secondary', title: `Add to Cowork\nOpens the claude.ai plugin settings, where ${p.name} is added to Cowork. Nothing is written to your account from here.`, onclick: e => (e.stopPropagation(), hideHover(), command('openCowork', { target: 'plugins' })) }, icon('cloud'), 'Add to Cowork')]
-      : HARNESS_TEXT[h];
-  },
-  title: p => `Harness · ${HARNESS_TEXT[p.harness || 'code']}`,
-};
-const notInCowork = plugins => plugins.filter(p => (p.harness || 'code') === 'code').length;
-const notInCoworkText = n => (n ? `${plural(n, 'plugin')} not in Cowork` : '');
+// The marketplaces of the health page whose plugin table is folded; a click on the head folds or opens one, the page head all of them.
+const foldedMarkets = new Set();
+
+const pluginAsset = key => state.views.flatMap(v => (v.categories.find(c => c.kind === 'plugin') || { items: [] }).items).find(a => a.name === key);
 
 export function renderMarkets() {
   const list = state.markets;

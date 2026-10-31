@@ -94,9 +94,10 @@ test('the Skills type page groups the synced skills under a Cowork heading', T, 
   await s.waitFor(D => D.querySelector('.main-head h1')?.textContent === 'Skills');
   // Opened from the overview the page lists Global alone; the Scope chip comes off to widen it to every scope.
   await s.mouse('.main .filter-bar .chip', 'Scope: Global');
-  await s.waitFor(D => /Cowork/.test(D.querySelector('.main-body')?.innerText || ''));
+  // The group heads are set in capitals, and innerText returns them so.
+  await s.waitFor(D => /Cowork/i.test(D.querySelector('.main-body')?.innerText || ''));
   const page = await text();
-  assert.match(page, /Cowork/);
+  assert.match(page, /Cowork/i);
   assert.ok((await labels('.main [role=row]')).some(r => r.startsWith('docs')), 'the synced skill is listed');
 });
 
@@ -126,7 +127,7 @@ test('claudeHarness.cowork.show hides the Cowork region from the nav and shows i
 
 test('the nav head repeats no title: the tab says Claude Harness, the head holds the mark and its buttons', T, async () => {
   assert.equal(await s.ev(D => D.querySelector('.sidebar-head').textContent.trim()), '');
-  assert.equal(await s.ev(D => D.querySelectorAll('.sidebar-head button').length), 5);
+  assert.equal(await s.ev(D => D.querySelectorAll('.sidebar-head button').length), 6);
 });
 
 test('each of the three region heads folds its region on a click and opens it on the next', T, async () => {

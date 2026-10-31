@@ -5,7 +5,8 @@
 /* The look board's tokens (approved 2026-10-30): one control set read from the theme. */
 :root {
   --hx-on: var(--vscode-progressBar-background);
-  --hx-on-ink: var(--vscode-editor-background);
+  /* White on a dark --hx-on, black on a light one: the switch sits at the lightness where both give 4.58:1. */
+  --hx-on-ink: oklch(from var(--hx-on) clamp(0, (0.563 - l) * 1000, 1) 0 0);
   --hx-line: color-mix(in srgb, var(--vscode-input-placeholderForeground) 55%, var(--vscode-editor-background));
   --hx-toggle-line: var(--vscode-input-placeholderForeground);
   --hx-rule: color-mix(in srgb, var(--vscode-panel-border) 35%, transparent);
@@ -60,7 +61,7 @@ body {
   flex: 1;
 }
 
-/* Collapse and expand. The nav holds the full pane and a 48px rail; the class on #app picks the one on show. The column width, the
+/* Collapse and expand. The nav holds the full pane and a 72px rail; the class on #app picks the one on show. The column width, the
    fade of the labels and the fade of the rail are one CSS transition, so a second press interrupts it from where it is. A first
    paint has no transition (rail-anim is added by the first press), and a stacked layout has no rail. */
 .sidebar {
@@ -87,8 +88,8 @@ body {
 }
 
 @media (min-width: 641px) {
-  #app.rail {
-    grid-template-columns: 48px 1fr;
+  #app.rail-on {
+    grid-template-columns: 72px 1fr;
   }
 
   #app.rail-anim {
@@ -103,17 +104,17 @@ body {
     display: flex;
     flex-direction: column;
     align-items: center;
-    width: 48px;
+    width: 72px;
     opacity: 0;
     visibility: hidden;
   }
 
-  #app.rail .rail {
+  #app.rail-on .rail {
     opacity: 1;
     visibility: visible;
   }
 
-  #app.rail .sidebar-full {
+  #app.rail-on .sidebar-full {
     opacity: 0;
     visibility: hidden;
   }
@@ -128,11 +129,11 @@ body {
   }
 
   /* Collapsing: the labels fade out before the rail settles. */
-  #app.rail-anim.rail .sidebar-full {
+  #app.rail-anim.rail-on .sidebar-full {
     transition: opacity 80ms linear, visibility 0s linear 80ms;
   }
 
-  #app.rail-anim.rail .rail {
+  #app.rail-anim.rail-on .rail {
     transition: opacity 100ms linear 80ms, visibility 0s;
   }
 }
@@ -149,9 +150,9 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
+  gap: 4px;
   width: 100%;
-  padding: 10px 0 6px;
+  padding: 10px 0 8px;
   border-bottom: 1px solid var(--hx-rule);
 }
 
@@ -160,23 +161,29 @@ body {
   flex: 1;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
+  gap: 4px;
   width: 100%;
   min-height: 0;
-  padding: 6px 0 10px;
+  padding: 8px 0 10px;
   overflow-x: hidden;
   overflow-y: auto;
   scrollbar-width: none;
 }
 
+/* The glyph and its count sit side by side, so the count never covers the glyph. */
+.rail-top .icon-btn {
+  width: 32px;
+  height: 32px;
+}
+
 .rail-btn {
-  position: relative;
   display: inline-flex;
   flex: none;
   align-items: center;
   justify-content: center;
-  width: var(--hx-h);
-  height: var(--hx-h);
+  gap: 4px;
+  width: 56px;
+  height: 40px;
   padding: 0;
   border: none;
   border-radius: 4px;
@@ -211,9 +218,6 @@ body {
 }
 
 .rail-count {
-  position: absolute;
-  right: -5px;
-  bottom: -4px;
   min-width: 15px;
   height: 15px;
   padding: 0 3px;
@@ -227,10 +231,6 @@ body {
   pointer-events: none;
   background: var(--vscode-badge-background);
   color: var(--vscode-badge-foreground);
-}
-
-.rail-btn.active .rail-count {
-  box-shadow: 0 0 0 1px var(--vscode-sideBar-background);
 }
 
 .search {
@@ -441,10 +441,8 @@ input[type='checkbox']:focus-visible {
 }
 
 .icon-btn.toggle.active {
-  background: var(--hx-on);
-  color: var(--hx-on-ink);
-  outline: 1px solid var(--hx-on);
-  outline-offset: -1px;
+  background: color-mix(in srgb, var(--hx-on) 14%, transparent);
+  color: var(--hx-on);
 }
 
 .main {
@@ -570,10 +568,10 @@ button.secondary {
   white-space: nowrap;
   flex-shrink: 0;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   height: var(--hx-h);
   padding: 0 12px;
-  border: 1px solid var(--vscode-button-border, transparent);
+  border: 1px solid var(--hx-line);
   border-radius: 4px;
   cursor: pointer;
   font-family: inherit;
@@ -582,18 +580,22 @@ button.secondary {
 }
 
 button.primary {
-  background: var(--vscode-button-background);
-  color: var(--vscode-button-foreground);
+  background: var(--hx-on);
+  border-color: var(--hx-on);
+  color: var(--hx-on-ink);
 }
 
 button.primary:hover {
-  background: var(--vscode-button-hoverBackground);
+  background: color-mix(in srgb, var(--hx-on) 85%, white);
+}
+
+button.primary:disabled {
+  opacity: 0.65;
 }
 
 button.secondary {
   background: var(--vscode-button-secondaryBackground);
   color: var(--vscode-button-secondaryForeground);
-  border-color: var(--hx-line);
 }
 
 button.secondary:hover {
@@ -1159,6 +1161,19 @@ table.grid .cell {
   background: var(--vscode-editorError-foreground);
 }
 
+.tag.state.fail::before {
+  background: var(--vscode-editorError-foreground);
+}
+
+.tag.state.none::before {
+  display: none;
+}
+
+.at-cell > .tag {
+  max-width: 100%;
+  overflow: hidden;
+}
+
 .tag.warn,
 .std-pill.warn,
 .hc-pill.warn,
@@ -1546,11 +1561,14 @@ table.grid .cell {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 10px;
+  height: var(--hx-h);
+  padding: 0 12px;
+  font-size: 12px;
+  font-weight: 500;
   color: var(--vscode-button-secondaryForeground);
   background: var(--vscode-button-secondaryBackground, transparent);
-  border: 1px solid var(--vscode-button-border, var(--vscode-widget-border, var(--vscode-contrastBorder, #8884)));
-  border-radius: 2px;
+  border: 1px solid var(--hx-line);
+  border-radius: 4px;
   cursor: pointer;
 }
 
@@ -3798,6 +3816,14 @@ mark {
 }
 
 /* A cell that holds a button (Harness: label and Add to Cowork) lays them out in a row instead of clipping the button behind the ellipsis. */
+.at-cell.at-center {
+  text-align: center;
+}
+
+.at-cell.at-center:has(> button) {
+  justify-content: center;
+}
+
 .at-cell:has(> button) {
   display: flex;
   align-items: center;
@@ -4192,21 +4218,19 @@ mark {
 }
 
 /* A server's status in the header bar: the line and its Retry, at the right end just before the AI group, which keeps the very
-   end (Sign in is one of its commands). */
+   end (Sign in is one of its commands). The status takes the free width of its row and sets its line against the right edge, so a bar that
+   wraps leaves the AI group alone on a row, still pushed to the right end by its own auto margin. */
 .cmd-bar > .cmd-status {
   display: flex;
-  flex: 0 1 auto;
+  flex: 1 1 auto;
   flex-wrap: wrap;
+  justify-content: flex-end;
   align-items: center;
   gap: 8px;
   min-width: 0;
   max-width: 100%;
   order: 98;
   margin-left: auto;
-}
-
-.cmd-bar:has(> .cmd-status) > .ai-group {
-  margin-left: 0;
 }
 
 .cmd-status .dv-notice {
@@ -4247,13 +4271,14 @@ mark {
 }
 
 .view-tab.cmd-save:not(:disabled) {
-  background: var(--vscode-button-background);
-  color: var(--vscode-button-foreground);
+  background: var(--hx-on);
+  border-color: var(--hx-on);
+  color: var(--hx-on-ink);
 }
 
 .view-tab.cmd-save:not(:disabled):hover {
-  background: var(--vscode-button-hoverBackground);
-  color: var(--vscode-button-foreground);
+  background: color-mix(in srgb, var(--hx-on) 85%, white);
+  color: var(--hx-on-ink);
 }
 
 /* Detail pages, view mode: summary card, KPI tiles, the document and its side cards. */
@@ -6257,6 +6282,47 @@ body.vscode-high-contrast-light {
   box-sizing: border-box;
 }
 
+/* One input for every chat: the frame draws the box, the text sits borderless in it, and the row of buttons is inside the frame. */
+.chat-input {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 8px 8px;
+  background: var(--vscode-input-background);
+  border: 1px solid var(--hx-line);
+  border-radius: 4px;
+  cursor: text;
+}
+
+.chat-input:focus-within {
+  border-color: var(--hx-focus);
+  outline: 1px solid var(--hx-focus);
+  outline-offset: -1px;
+}
+
+.chat-input .chat-input-text,
+.chat-input .chat-input-text:focus {
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  resize: none;
+}
+
+.chat-input-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  cursor: default;
+}
+
+.chat-input-bar .spacer {
+  flex: 1;
+}
+
 .hunt-ask-text[readonly] {
   opacity: 0.6;
 }
@@ -6319,13 +6385,13 @@ body.vscode-high-contrast-light {
 }
 
 .hunt-when {
-  font-size: 11px;
-  opacity: 0.75;
+  font-size: 12px;
+  color: var(--hx-muted);
 }
 
 .hunt-prompt {
   font-size: 12px;
-  opacity: 0.7;
+  color: var(--hx-muted);
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
@@ -6349,7 +6415,7 @@ body.vscode-high-contrast-light {
 
 /* The bar of a card sits under its title row: add, count and Retire all on the left, the reason and Create on the right. */
 .hunt-card > .hunt-foot {
-  padding: 6px 8px;
+  padding: 8px 12px;
   border: 1px solid var(--vscode-panel-border);
   border-radius: 6px;
   background: color-mix(in srgb, var(--vscode-foreground) 4%, transparent);
@@ -6362,16 +6428,16 @@ body.vscode-high-contrast-light {
 /* Every row of the card shares one column grid, so the copy, Retire tick, Merge group and remove button of every element and every repo copy line up. At a narrow width the grid gives way to a wrapping row. */
 .hunt-asset {
   display: grid;
-  grid-template-columns: 20px minmax(0, 1fr) 104px 68px 112px 24px;
-  align-items: center;
-  column-gap: 10px;
-  padding: 8px 8px;
+  grid-template-columns: 28px minmax(0, 1fr) 24px;
+  align-items: start;
+  column-gap: 8px;
+  padding: 12px;
   border-bottom: 1px solid var(--hx-rule);
 }
 
 .hunt-asset > input[type='checkbox'] {
   align-self: start;
-  margin: 3px 0 0;
+  margin: 2px 0 0;
 }
 
 .hunt-asset:last-child {
@@ -6386,18 +6452,18 @@ body.vscode-high-contrast-light {
   opacity: 0.5;
 }
 
+/* A repo copy is one line: indented to the element's name (toggle 28 + gap 8 + icon 16 + gap 6 = 58px), the name and its tag, the Merge group, and Retire in a fixed column that ends where every other Retire ends. */
 .hunt-asset.sub {
-  padding-top: 6px;
-  padding-bottom: 6px;
+  grid-template-columns: 50px minmax(0, 1fr) auto 96px 24px;
+  align-items: center;
+  padding-top: 8px;
+  padding-bottom: 8px;
   background: color-mix(in srgb, var(--vscode-foreground) 4%, transparent);
-}
-
-.hunt-asset.sub .hunt-main {
-  padding-left: 4px;
 }
 
 .hunt-asset.done {
   grid-template-columns: 20px minmax(0, 1fr);
+  align-items: center;
 }
 
 .hunt-asset.done > .codicon {
@@ -6405,7 +6471,7 @@ body.vscode-high-contrast-light {
 }
 
 .hunt-gap {
-  width: 13px;
+  width: 50px;
 }
 
 .hunt-main {
@@ -6418,61 +6484,81 @@ body.vscode-high-contrast-light {
   min-width: 0;
 }
 
-.hunt-c-x {
+.hunt-c-x,
+.hunt-c-retire,
+.hunt-c-act {
   justify-content: flex-end;
 }
 
-.hunt-asset > .hunt-c-copy {
+.hunt-asset > .hunt-c-x {
+  grid-column: 3;
+  grid-row: 1;
+  align-self: start;
+  margin-top: -2px;
+}
+
+.hunt-asset.sub > .hunt-c-act {
   grid-column: 3;
 }
 
-.hunt-asset > .hunt-c-retire {
-  grid-column: 4;
+/* Retire reads label first, toggle after it, and the toggle ends under the × of the element rows above (the × glyph sits 4px inside its 24px button). */
+.hunt-asset.sub > .hunt-c-retire {
+  grid-column: 4 / 6;
+  padding-right: 4px;
 }
 
-.hunt-asset > .hunt-c-act {
+.hunt-asset.sub .hunt-retire {
+  flex-direction: row-reverse;
+}
+
+.hunt-asset.sub > .hunt-c-x {
   grid-column: 5;
+  align-self: center;
+  margin-top: 0;
 }
 
-.hunt-asset > .hunt-c-x {
-  grid-column: 6;
+.hunt-asset.sub > .hunt-gap,
+.hunt-asset.sub > .hunt-main,
+.hunt-asset.sub > .hunt-cell {
+  grid-row: 1;
 }
 
-/* Below the width the columns need, the cells wrap under the name instead of clipping. */
-@container hunt-card (max-width: 400px) {
-  .hunt-asset {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px 12px;
+/* In a narrow card a repo copy's Merge group and Retire drop to a second line under its name, Retire still at the right end. */
+@container hunt-card (max-width: 460px) {
+  .hunt-asset.sub {
+    grid-template-columns: 50px minmax(0, 1fr) auto;
   }
 
-  .hunt-asset > .hunt-main {
-    flex: 1 1 calc(100% - 40px);
+  .hunt-asset.sub > .hunt-main {
+    grid-column: 2 / -1;
   }
 
-  .hunt-asset > .hunt-cell:empty {
+  .hunt-asset.sub > .hunt-c-retire {
+    grid-column: 2;
+    grid-row: 2;
+    justify-content: flex-start;
+    margin-top: 8px;
+    padding-right: 0;
+  }
+
+  .hunt-asset.sub > .hunt-c-act {
+    grid-column: 3;
+    grid-row: 2;
+    margin-top: 8px;
+  }
+
+  .hunt-asset.sub > .hunt-c-act:empty,
+  .hunt-asset.sub > .hunt-c-x {
     display: none;
   }
-
-  .hunt-asset > .hunt-c-copy {
-    margin-left: 32px;
-  }
 }
 
-/* In a narrow card the name and its reason take the whole row and the controls sit under them, in the same columns. */
-@container hunt-card (max-width: 520px) {
-  .hunt-asset > .hunt-main {
-    grid-column: 2 / -1;
-    padding-bottom: 4px;
-  }
-
-  .hunt-asset:not(.done) > .hunt-cell {
-    grid-row: 2;
-  }
-
-  .hunt-asset:not(.done) > input,
-  .hunt-asset > .hunt-gap {
-    grid-row: 1;
+/* In the narrowest card the Merge group goes to its own line under Retire. */
+@container hunt-card (max-width: 320px) {
+  .hunt-asset.sub > .hunt-c-act {
+    grid-column: 2;
+    grid-row: 3;
+    justify-content: flex-start;
   }
 }
 
@@ -6481,10 +6567,34 @@ body.vscode-high-contrast-light {
   align-items: center;
   gap: 6px;
   min-width: 0;
+  min-height: 20px;
+}
+
+.hunt-name {
+  align-items: flex-start;
 }
 
 .hunt-name .codicon {
   flex: none;
+  margin-top: 2px;
+}
+
+.hunt-name-body {
+  min-height: 20px;
+}
+
+/* The name and its tags: a tag that does not fit wraps under the name instead of squeezing it. */
+.hunt-name-body {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  flex: 1;
+  gap: 2px 6px;
+  min-width: 0;
+}
+
+.hunt-name-body > .hunt-name-text {
+  max-width: 100%;
 }
 
 .hunt-asset:not(.sub) > .hunt-main .hunt-name-text {
@@ -6505,11 +6615,27 @@ body.vscode-high-contrast-light {
   border: 1px solid var(--hx-line);
 }
 
+/* The description and the copy line sit under the name, indented to its left edge (the kind icon's 16px plus the 6px gap). */
+.hunt-why,
+.hunt-meta {
+  padding-left: 22px;
+  font-size: 12px;
+}
+
 .hunt-why {
   margin-top: 2px;
-  font-size: 12px;
-  opacity: 0.8;
+  color: var(--hx-muted);
   overflow-wrap: anywhere;
+}
+
+.hunt-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  min-height: 20px;
+  margin-top: 4px;
+  color: var(--hx-muted);
 }
 
 .hunt-copy {
@@ -6520,8 +6646,6 @@ body.vscode-high-contrast-light {
 }
 
 .hunt-none {
-  opacity: 0.7;
-  font-size: 12px;
   white-space: nowrap;
 }
 
@@ -6817,6 +6941,29 @@ body.vscode-high-contrast-light {
   white-space: nowrap;
 }
 
+/* The kept-as tags share one width, so the names line up on the left and the tags in a column. */
+.bh-proc .tag {
+  flex: none;
+  min-width: 104px;
+  justify-content: center;
+}
+
+/* The chat is as tall as its conversation (a floor and a ceiling), not the whole page with the field at its bottom. */
+.bh-page .hunt-split {
+  min-height: 0;
+  align-items: start;
+}
+
+.bh-page .hunt-col-chat .hunt-chat-log {
+  flex: none;
+  min-height: 140px;
+  max-height: min(52vh, 460px);
+}
+
+.bh-page .hunt-col-chat {
+  height: auto;
+}
+
 .bh-proc:hover:not(:disabled) {
   background: var(--vscode-list-hoverBackground);
 }
@@ -6843,7 +6990,7 @@ body.vscode-high-contrast-light {
 
 .bh-stages {
   display: inline-flex;
-  border: 1px solid var(--vscode-panel-border);
+  border: 1px solid var(--hx-line);
   border-radius: 4px;
   overflow: hidden;
 }
@@ -6852,22 +6999,24 @@ body.vscode-high-contrast-light {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  min-height: 28px;
-  padding: 3px 10px;
+  height: var(--hx-h);
+  padding: 0 12px;
   border: none;
   border-radius: 0;
   background: transparent;
   color: var(--vscode-foreground);
+  font-size: 12px;
+  font-weight: 500;
   cursor: pointer;
 }
 
 .bh-stage + .bh-stage {
-  border-left: 1px solid var(--vscode-panel-border);
+  border-left: 1px solid var(--hx-line);
 }
 
 .bh-stage.on {
-  background: var(--vscode-button-background);
-  color: var(--vscode-button-foreground);
+  background: var(--hx-on);
+  color: var(--hx-on-ink);
 }
 
 .bh-keep-label {

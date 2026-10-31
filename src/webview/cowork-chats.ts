@@ -8,7 +8,7 @@ import { cmd, cmdBox, drawButton } from './detail';
 import { card } from './detail-view';
 import { askDrawing, drawState, drawingFigure } from './drawing';
 import { showHandover } from './handover';
-import { aiGroup, countHead, el, fmtAgo, icon, iconBtn, plural } from './dom';
+import { aiGroup, countHead, coworkIcon, el, fmtAgo, icon, iconBtn, plural, stateTag } from './dom';
 import { gridTable } from './tables';
 
 export const CHAT_PAGE = 'cowork-chat';
@@ -129,8 +129,8 @@ function cloudTable() {
   if (!rows.length) return reason(q() ? 'No session matches.' : 'claude.ai lists no Cowork session.');
   return gridTable(
     [
-      { head: 'Session', track: 'minmax(160px, 4fr)', cls: 'at-name', cell: x => [icon('cloud'), el('span', { className: 'at-label' }, x.title)] },
-      { head: 'Status', track: 'minmax(80px, 1fr)', muted: true, cell: x => x.status },
+      { head: 'Session', track: 'minmax(160px, 4fr)', cls: 'at-name', cell: x => [coworkIcon(),el('span', { className: 'at-label' }, x.title)] },
+      { head: 'Status', track: 'minmax(80px, 1fr)', muted: true, align: 'center', cell: x => stateTag(x.status) },
       { head: 'Messages', track: '84px', num: true, muted: true, cell: x => String(x.messages) },
       { head: 'Updated', track: '110px', muted: true, cell: x => (x.updated ? fmtAgo(x.updated) : '-') },
     ],
@@ -207,7 +207,7 @@ export function renderCoworkChat() {
         { className: 'dh-line' },
         el('span', { className: 'dh-kind', title: 'Chat\nA Cowork chat of the Claude desktop app on this PC.' }, icon('comment-discussion'), el('span', {}, 'Chat')),
         el('h1', { title: c ? c.title : 'Chat' }, el('span', { className: 'dh-name' }, c ? c.title : 'Chat')),
-        el('span', { className: 'dh-source', title: 'Cowork\nRead-only: the chat lives in the Claude desktop app; this page shows what it keeps on this PC.' }, icon('cloud'), el('span', {}, 'Cowork'))
+        el('span', { className: 'dh-source', title: 'Cowork\nRead-only: the chat lives in the Claude desktop app; this page shows what it keeps on this PC.' }, coworkIcon(),el('span', {}, 'Cowork'))
       )
     ),
     el('div', { className: 'cmd-bar' }, cmdBox('Page', '', back), cmdBox('Handover', '', go), drawn ? aiGroup('', drawButton(drawn)) : null)

@@ -1,6 +1,6 @@
 import * as assert from 'assert';
 import test from 'node:test';
-import { applyCard, chatPrompt, keepOf, leafText, parseProcedures, parseTurn, withRow } from '../../src/browser-hunt';
+import { BROWSER_HUNT_SYSTEM, applyCard, chatPrompt, howSentence, keepOf, leafGoal, leafRel, leafText, parseProcedures, procedureDesc, parseTurn, withRow, withTrigger } from '../../src/browser-hunt';
 import type { BrowserCard } from '../../src/shared/browser-hunt';
 
 const SKILL = [
@@ -30,6 +30,18 @@ test('chatPrompt carries the skill, the card and the message', () => {
   assert.match(text, /make it an API script/);
 });
 
+test('the system prompt holds the rules: the four keeps, the manual cases and the JSON-only answer; the chat prompt only the data and the shape', () => {
+  for (const keep of ['"api"', '"cli"', '"guided"', '"tool"']) assert.ok(BROWSER_HUNT_SYSTEM.includes(keep), keep);
+  for (const manual of ['sign-in', 'MFA', 'granting a desktop app access', 'accepting an invite']) assert.ok(BROWSER_HUNT_SYSTEM.includes(manual), manual);
+  assert.match(BROWSER_HUNT_SYSTEM, /^You are the Automation Hunter\./);
+  assert.match(BROWSER_HUNT_SYSTEM, /\n## How it is kept\n/);
+  assert.match(BROWSER_HUNT_SYSTEM, /Answer with one JSON object only\.$/);
+  const text = chatPrompt('go', SKILL, undefined, []);
+  assert.match(text, /^The owner is developing a procedure with you\. Follow the rules of your system prompt\./);
+  assert.ok(!/"manual" is true only|"stage" is "prototype"/.test(text));
+  assert.match(text, /"reply":"at most two short sentences","card":/);
+});
+
 test('parseTurn reads the JSON answer and falls back to plain text', () => {
   const t = parseTurn('{"reply":"Done.","card":{"name":"A B","goal":"g","keep":"api","stage":"prototype","steps":[{"text":"Sign in","manual":true},"Open the page",{"text":""}]}}');
   assert.equal(t.reply, 'Done.');
@@ -40,7 +52,7 @@ test('parseTurn reads the JSON answer and falls back to plain text', () => {
 test('leafText lists the steps with the manual ones marked, and withRow adds or replaces the skill row', () => {
   const c = card({ steps: [{ text: 'Sign in', manual: true }, { text: '', manual: false }, { text: 'Save', manual: false }] });
   const leaf = leafText(c);
-  assert.match(leaf, /Stage: Prototype on desktop\nKept as: Guided browser run/);
+  assert.match(leaf, /Stage: Prototype on desktop\nKept as: Guided run/);
   assert.match(leaf, /1\. Sign in \(manual\)\n2\. Save\n/);
   const added = withRow(SKILL, c);
   assert.equal(parseProcedures(added).length, 5);
@@ -50,6 +62,30 @@ test('leafText lists the steps with the manual ones marked, and withRow adds or 
   assert.equal(parseProcedures(withRow(added, card({ keep: 'cli' })))[4].keep, 'cli');
   // CRLF stays CRLF.
   assert.ok(!/[^\r]\n/.test(withRow(SKILL.replace(/\n/g, '\r\n'), c)));
+});
+
+test('withTrigger adds the card name to the description triggers once', () => {
+  const skill = '---\nname: browser-automations\ndescription: Procedures. Triggers on "ionos dns", "registrar nameservers".\n---\n\n# demo\n';
+  const added = withTrigger(skill, card({ name: 'desktop-app-signature' }));
+  assert.match(added, /\ndescription: Procedures\. Triggers on "ionos dns", "registrar nameservers", "desktop app signature"\.\n/);
+  assert.equal(withTrigger(added, card({ name: 'Desktop-App-Signature' })), added);
+  // No "Triggers on" stays as it is; CRLF stays CRLF.
+  const plain = '---\nname: x\ndescription: Procedures.\n---\n';
+  assert.equal(withTrigger(plain, card()), plain);
+  assert.ok(!/[^\r]\n/.test(withTrigger(skill.replace(/\n/g, '\r\n'), card({ name: 'a-b' }))));
+});
+
+test('the hover text is the leaf goal, then the how as a sentence without links or the steps tail', () => {
+  assert.equal(howSentence('a guided browser run (the account has no DNS Pro, so no DNS API)'), 'A guided browser run (the account has no DNS Pro, so no DNS API).');
+  assert.equal(howSentence('a guided run with the saved click path; steps in [references/x.md](references/x.md)'), 'A guided run with the saved click path.');
+  assert.equal(howSentence('see [the guide](references/g.md) first.'), 'See the guide first.');
+  const how = 'a guided run with the saved click path; steps in [references/x.md](references/x.md)';
+  assert.equal(leafRel({ name: 'ionos-dns', how }), 'references/x.md');
+  assert.equal(leafRel({ name: 'IONOS DNS records', how: 'a script' }), 'references/ionos-dns-records.md');
+  const goal = leafGoal('# x\n\nSet the DNS records of a [domain](a.md)\nat IONOS.\n\nStage: Prototype on desktop\n');
+  assert.equal(goal, 'Set the DNS records of a domain at IONOS.');
+  assert.equal(procedureDesc({ how }, goal), 'Set the DNS records of a domain at IONOS.\nA guided run with the saved click path.');
+  assert.equal(procedureDesc({ how: 'stay command line' }), 'Stay command line.');
 });
 
 test('applyCard makes a card, and updates only what Claude changed from what it was sent', () => {

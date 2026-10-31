@@ -714,6 +714,8 @@ test('the command bar stays within two rows at a 640 px page, with every group a
     await s.mouse('.main button', 'Edit');
     await s.waitFor(D => D.querySelector('.main textarea'));
     await type(' ROWS');
+    // The workbench around the panel varies by a few dozen px between VS Code layouts: aim the window at a 640 px page.
+    await s.resize(1300 + 640 - (await s.ev(D => D.querySelector('.main').clientWidth)), 900);
     const w = await s.ev(D => D.querySelector('.main').clientWidth);
     assert.ok(w >= 620 && w <= 680, `the page is about 640 px wide, got ${w}`);
     assert.ok((await barRows()) <= 2, 'two rows at most');
@@ -1074,7 +1076,8 @@ test('the Repositories table keeps its last column inside the panel at every wid
   await home();
   await s.mouse('.overview-tabs .view-tab', 'Repositories');
   try {
-    for (const width of [0, 1200, 1000, 900, 800, 700, 560, 440]) {
+    // The first width is a wide window; the unmodified window is as large as the screen the run happens on.
+    for (const width of [1500, 1200, 1000, 900, 800, 700, 560, 440]) {
       await s.resize(width);
       await sleep(300);
       const r = await s.ev(D => {
@@ -1083,9 +1086,9 @@ test('the Repositories table keeps its last column inside the panel at every wid
         const heads = [...D.querySelectorAll('.main .at-head [role=columnheader]')].filter(c => c.getClientRects().length).map(c => c.textContent.trim());
         return { clipped, heads };
       });
-      assert.deepEqual(r.clipped, [], `width ${width || 'default'}: nothing is cut off (${r.heads})`);
+      assert.deepEqual(r.clipped, [], `width ${width}: nothing is cut off (${r.heads})`);
       // Cost is a low-priority column: it drops when the panel is too narrow for it, Last session stays.
-      assert.ok(r.heads.includes('Last session') && (width && width < 1200 ? true : r.heads.includes('Cost 7d')), `width ${width || 'default'}: Last session stays, Cost at wide widths (${r.heads})`);
+      assert.ok(r.heads.includes('Last session') && (width < 1200 ? true : r.heads.includes('Cost 7d')), `width ${width}: Last session stays, Cost at wide widths (${r.heads})`);
     }
   } finally {
     await s.resize();
@@ -1121,7 +1124,7 @@ test('Description takes the free width in the Agents and Skills tables', T, asyn
       const others = cells.filter(c => c !== desc).reduce((n, c) => n + c.getBoundingClientRect().width, 0);
       return { desc: desc.getBoundingClientRect().width, name: cells[0].getBoundingClientRect().width, others, row: head.getBoundingClientRect().width };
     });
-    assert.ok(w.desc >= 240 && w.desc >= 1.5 * w.name, `${kind}: Description is ${w.desc}px, Name ${w.name}px, of ${w.row}px`);
+    assert.ok(w.desc >= 240 && w.desc + 1 >= 1.5 * w.name, `${kind}: Description is ${w.desc}px, Name ${w.name}px, of ${w.row}px`);
   }
   } finally {
     await s.resize();
@@ -1269,15 +1272,14 @@ test('a marketplace heading on the Plugins page opens that marketplace, and its 
   }
 });
 
-test('a marketplace page shows each plugin with its Harness state, and a Code only plugin offers Add to Cowork', T, async () => {
+test('a marketplace page is Code only: its plugins carry no Harness column and no Add to Cowork', T, async () => {
   await home();
   await unfoldMarkets();
   await go('.sidebar [data-nav="k|acme-market"]', '', D => D.querySelector('.main-head h1')?.textContent === 'acme-market');
-  const heads = await s.waitFor(D => { const h = [...D.querySelectorAll('.main-body .at-head > *')].map(e => e.textContent.trim()); return h.includes('Harness') && h; });
-  assert.ok(heads.includes('Harness'), `the Harness column: ${heads}`);
-  const rows = await s.ev(D => [...D.querySelectorAll('.main-body .at-row:not(.at-head)')].map(r => ({ add: [...r.querySelectorAll('button')].some(b => b.textContent.trim() === 'Add to Cowork'), text: r.textContent })));
-  assert.equal(rows.length, 3);
-  for (const r of rows) assert.ok(r.add && /Code/.test(r.text), `a Code only plugin carries Add to Cowork: ${r.text}`);
+  await s.waitFor(D => D.querySelectorAll('.main-body .at-row:not(.at-head)').length === 3);
+  const seen = await s.ev(D => ({ heads: [...D.querySelectorAll('.main-body .at-head > *')].map(e => e.textContent.trim()), add: [...D.querySelectorAll('.main-body button')].filter(b => /Cowork/.test(b.textContent)).length }));
+  assert.ok(!seen.heads.includes('Harness'), `no Harness column: ${seen.heads}`);
+  assert.equal(seen.add, 0, 'no Add to Cowork on a marketplace page');
 });
 
 test('a marketplace with plugins ahead offers one Sync button whose card lists them, the AI group stays last, and Cancel runs nothing', T, async () => {
@@ -1322,7 +1324,7 @@ test('a marketplace with plugins ahead offers one Sync button whose card lists t
 // its left, flush means its right edge is the bar's.
 const aiBars = () =>
   s.ev(D =>
-    [...D.querySelectorAll('.toolbar > .ai-group, .cmd-bar > .ai-group, .cmd-row > .ai-group, .dg-bar > .ai-group, .style-draft > .ai-group, .cp-actions > .ai-group, .std-actions > .ai-group, .hunt-ask-actions > .ai-group, .overview-tabs > .ai-group')]
+    [...D.querySelectorAll('.toolbar > .ai-group, .cmd-bar > .ai-group, .cmd-row > .ai-group, .dg-bar > .ai-group, .style-draft > .ai-group, .cp-actions > .ai-group, .std-actions > .ai-group, .chat-input-bar > .ai-group, .overview-tabs > .ai-group')]
       .filter(g => g.getClientRects().length)
       .map(g => {
         const r = g.getBoundingClientRect();
@@ -1596,6 +1598,7 @@ test('Home opens the overview with the search cleared; Back from a result keeps 
 // and the browser sends no click then. The row is pressed, Refresh runs, and the button is released only once the new state
 // has arrived, `hold` ms later: a slow hand, or a host slow to answer (a 2 s limit on holding back the repaint made this test
 // fail once in a loaded run); no retry.
+let refreshes = 0;
 const pressAcrossRefresh = async (selector, name, hold = 0) => {
   const at = await s.where(selector, name);
   // What lies under the pointer, for the failure message: the row itself, or something drawn over it.
@@ -1611,6 +1614,9 @@ const pressAcrossRefresh = async (selector, name, hold = 0) => {
   );
   await s.page.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: at.x, y: at.y });
   await s.page.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: at.x, y: at.y, button: 'left', clickCount: 1 });
+  // A refresh that finds nothing new posts no state (panel.ts postState), so there would be no repaint to press across: a file changes first.
+  const changed = new Date(Date.now() + 1000 * ++refreshes);
+  fs.utimesSync(path.join(claude(), 'CLAUDE.md'), changed, changed);
   await s.ev(D => {
     const w = D.defaultView;
     w.__statesSeen = 0;

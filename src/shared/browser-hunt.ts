@@ -6,7 +6,7 @@ export type BrowserKeep = 'api' | 'cli' | 'guided' | 'tool';
 export const BROWSER_KEEPS: { id: BrowserKeep; label: string }[] = [
   { id: 'api', label: 'API script' },
   { id: 'cli', label: 'Command line' },
-  { id: 'guided', label: 'Guided browser run' },
+  { id: 'guided', label: 'Guided run' },
   { id: 'tool', label: 'A tool' },
 ];
 
@@ -34,6 +34,8 @@ export interface BrowserProcedure {
   keep: BrowserKeep;
   /** The skill's own words for how it is kept. */
   how: string;
+  /** The hover text: the goal from the procedure's leaf when there is one, then the how as a sentence. */
+  desc?: string;
 }
 
 export interface BrowserTurn {

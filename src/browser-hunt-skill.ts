@@ -1,15 +1,15 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import type { BrowserCard } from './shared/browser-hunt';
+import type { BrowserCard, BrowserProcedure } from './shared/browser-hunt';
 import type { HuntMarket } from './shared/hunt';
-import { leafText, withRow } from './browser-hunt';
+import { leafGoal, leafRel, leafText, procedureDesc, withRow, withTrigger } from './browser-hunt';
 import { ScopeView, backupStamp } from './harness';
 import { items } from './hunt-catalog';
 import { Bump, CreatePlan, isInstalled, planBump, writeVersions } from './hunt-create';
 import { Entry, catalogOf, readMarkets } from './hunt-market';
 import { updatePluginFromMarket } from './sync';
 
-// Where the Browser Automation Hunter keeps its procedures and how a card is written into them. The panel (browser-hunt-host.ts) and the
+// Where the Automation Hunter keeps its procedures and how a card is written into them. The panel (browser-hunt-host.ts) and the
 // `browser-hunt` command line share this; nothing here needs VS Code.
 
 /** The skill whose procedure table the hunter starts from. */
@@ -57,6 +57,19 @@ export function locateSkill(views: ScopeView[], plugins: ScopeView[], root: stri
     return { file, text, plugin: { key, name, market, entries, dir } };
   }
   return { text: '' };
+}
+
+/** The procedures with their hover text; the goal is read from the leaf beside the skill file where it exists. */
+export function describeProcedures(list: BrowserProcedure[], skillFile?: string): BrowserProcedure[] {
+  return list.map(p => {
+    let goal: string | undefined;
+    try {
+      if (skillFile) goal = leafGoal(fs.readFileSync(path.join(path.dirname(skillFile), leafRel(p)), 'utf8'));
+    } catch {
+      // No leaf: the hover shows the how alone.
+    }
+    return { ...p, desc: procedureDesc(p, goal) };
+  });
 }
 
 export interface CardPlan {
@@ -116,7 +129,7 @@ export async function writeCard(root: string, s: SkillAt, card: BrowserCard, pla
       fs.mkdirSync(path.dirname(path.join(backup, f)), { recursive: true });
       fs.copyFileSync(path.join(dir, f), path.join(backup, f));
     }
-    fs.writeFileSync(file, withRow(before.skill, card));
+    fs.writeFileSync(file, withTrigger(withRow(before.skill, card), card));
     fs.mkdirSync(path.dirname(leaf), { recursive: true });
     fs.writeFileSync(leaf, leafText(card));
     if (s.plugin && plan.bump) {

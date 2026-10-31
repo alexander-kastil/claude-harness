@@ -1,3 +1,4 @@
+import { replaceOf } from './shared/hunt';
 import type { HuntAsset, HuntCatalogItem, HuntProposal, HuntTurn } from './shared/hunt';
 import { keyOf } from './hunt-catalog';
 
@@ -106,7 +107,7 @@ export function applyProposal(card: HuntProposal | undefined, answer: Answered, 
   const assets = next.assets.map(a => {
     const o = old.get(keyOf(a));
     if (!o) return a;
-    return { ...a, include: o.include, global: a.global && { path: a.global.path, retire: o.global?.path === a.global.path && o.global.retire }, repos: a.repos.map(r => ({ ...r, retire: !!o.repos.find(x => x.path === r.path)?.retire })) };
+    return { ...a, include: o.include, global: a.global && { path: a.global.path, replace: o.global?.path === a.global.path && replaceOf(o.global) }, repos: a.repos.map(r => ({ ...r, replace: replaceOf(o.repos.find(x => x.path === r.path)) })) };
   });
   const pick = (key: 'name' | 'description' | 'category') => (next[key] && next[key] !== sent?.[key] ? next[key] : card[key] || next[key]);
   return { ...card, name: pick('name'), description: pick('description'), category: pick('category'), assets };

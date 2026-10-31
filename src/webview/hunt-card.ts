@@ -11,7 +11,7 @@ const copyTag = same => el('span', { className: `tag ${same ? '' : 'warn'}` }, s
 const kindIcon = kind => icon(kind === 'skill' ? 'mortar-board' : 'hubot');
 
 // The icon and name of an element, with what follows the name.
-const nameLine = (a, ...after) => el('div', { className: 'hunt-name' }, kindIcon(a.kind), el('span', { className: 'hunt-name-text', title: a.name }, a.name), ...after);
+const nameLine = (a, ...after) => el('div', { className: 'hunt-name' }, kindIcon(a.kind), el('span', { className: 'hunt-name-body' }, el('span', { className: 'hunt-name-text', title: a.name }, a.name), ...after));
 
 const rootOf = file => file.replace(/[\\/]\.claude[\\/].*$/i, '');
 
@@ -23,13 +23,13 @@ const sharedNames = () => {
 };
 
 const repoName = r => el('span', { className: 'hunt-name-text', title: r.path }, r.repo);
-const repoWhere = (r, shared) => (shared.has(r.repo) ? el('div', { className: 'hunt-where', title: rootOf(r.path) }, `in ${rootOf(r.path).split(/[\\/]/).slice(-2, -1)[0] || rootOf(r.path)}`) : null);
+const repoWhere = (r, shared) => (shared.has(r.repo) ? el('span', { className: 'hunt-where', title: rootOf(r.path) }, `in ${rootOf(r.path).split(/[\\/]/).slice(-2, -1)[0] || rootOf(r.path)}`) : null);
 
 function assetRows(p, a) {
   const rows = [];
   const shared = sharedNames();
-  // A deselected element's Retire boxes (its own and its copies') are clear and cannot be ticked.
-  const tick = (label, checked, onchange, title) => el('label', { className: 'hunt-retire', title }, el('input', { type: 'checkbox', role: 'switch', checked: checked && a.include, disabled: !a.include, onchange: e => (onchange(e.target.checked), saveSoon(), syncRetireAll(p)) }), label);
+  // A deselected element's Replace switches (its own and its copies') are clear and cannot be ticked.
+  const tick = (label, checked, onchange, title) => el('label', { className: 'hunt-retire', title }, el('input', { type: 'checkbox', role: 'switch', checked: checked && a.include, disabled: !a.include, onchange: e => (onchange(e.target.checked), saveSoon(), syncReplaceAll(p)) }), label);
   const gone = !a.global && !a.repos.length;
   rows.push(
     el(
@@ -37,8 +37,8 @@ function assetRows(p, a) {
       { className: `hunt-asset${a.include ? '' : ' off'}` },
       el('input', { type: 'checkbox', role: 'switch', checked: a.include && !gone, 'aria-label': `Include ${a.name}`, disabled: gone, onchange: e => {
           a.include = e.target.checked;
-          // Unticking an element clears what it would retire; ticking it again leaves them clear.
-          if (!a.include) [a.global, ...a.repos].filter(Boolean).forEach(c => (c.retire = false));
+          // Unticking an element clears what it would replace; ticking it again leaves them clear.
+          if (!a.include) [a.global, ...a.repos].filter(Boolean).forEach(c => (c.replace = false));
           saveSoon();
           repaint();
         } }),
@@ -50,12 +50,15 @@ function assetRows(p, a) {
           a.as ? el('span', { className: 'tag hunt-in', title: `Renamed\nCreate writes this ${a.kind} into the plugin as ${a.as}.` }, `as ${a.as}`) : null,
           a.inPlugin ? el('span', { className: 'tag hunt-in', title: `Already shipped\nThe installed plugin ${a.inPlugin} already has this ${a.kind}.` }, `in ${a.inPlugin}`) : null
         ),
-        gone || a.why ? el('div', { className: 'hunt-why' }, gone ? 'Gone from disk. Remove it from the card.' : a.why) : null
+        gone || a.why ? el('div', { className: 'hunt-why' }, gone ? 'Gone from disk. Remove it from the card.' : a.why) : null,
+        el(
+          'div',
+          { className: 'hunt-meta' },
+          a.global ? el('span', { className: 'hunt-copy' }, icon('globe'), 'Global') : el('span', { className: 'hunt-none' }, 'No global copy'),
+          a.global ? tick('Replace', a.global.replace, v => (a.global.replace = v), 'Replace global copy\nOn: once the plugin is installed, the global copy is backed up and removed, and the plugin\'s version takes its place.\nOff: the global copy stays untouched and is left out of the refactor.') : null
+        )
       ),
-      el('div', { className: 'hunt-cell hunt-c-copy' }, a.global ? el('span', { className: 'hunt-copy' }, icon('globe'), 'Global') : el('span', { className: 'hunt-none' }, 'No global copy')),
-      el('div', { className: 'hunt-cell hunt-c-retire' }, a.global ? tick('Retire', a.global.retire, v => (a.global.retire = v), 'Retire global copy\nAfter the plugin is installed, the global copy is backed up and removed.') : null),
-      el('div', { className: 'hunt-cell hunt-c-act' }),
-      el('div', { className: 'hunt-cell hunt-c-x' }, iconBtn('close', `Remove ${a.name} from the card`, () => ((p.assets = p.assets.filter(x => x !== a)), saveSoon(), repaint())))
+      el('div', { className: 'hunt-cell hunt-c-x' }, iconBtn('trash', `Remove ${a.name} from the card`, () => ((p.assets = p.assets.filter(x => x !== a)), saveSoon(), repaint())))
     )
   );
   a.repos.forEach((r, i) => {
@@ -65,9 +68,7 @@ function assetRows(p, a) {
         'div',
         { className: `hunt-asset sub${a.include ? '' : ' off'}` },
         el('span', { className: 'hunt-gap' }),
-        el('div', { className: 'hunt-main' }, el('div', { className: 'hunt-name' }, icon('repo'), repoName(r)), repoWhere(r, shared)),
-        el('div', { className: 'hunt-cell hunt-c-copy' }, el('span', { className: 'hunt-copy' }, base ? el('span', { className: 'tag state', title: 'Used\nThe plugin takes this copy, there is no global one.' }, 'used') : copyTag(r.same))),
-        el('div', { className: 'hunt-cell hunt-c-retire' }, tick('Retire', r.retire, v => (r.retire = v), 'Retire repo copy\nAfter the plugin is installed, this copy is backed up and removed.')),
+        el('div', { className: 'hunt-main' }, el('div', { className: 'hunt-name' }, icon('repo'), el('span', { className: 'hunt-name-body' }, repoName(r), base ? el('span', { className: 'tag state', title: 'Used\nThe plugin takes this copy, there is no global one.' }, 'used') : copyTag(r.same), repoWhere(r, shared)))),
         el(
           'div',
           { className: 'hunt-cell hunt-c-act' },
@@ -77,6 +78,7 @@ function assetRows(p, a) {
               ? el('button', { className: 'secondary', title: 'Compare with the global copy\nOpens the repo copy next to the global one in the editor. Agents are not merged here.', onclick: () => vscode.postMessage({ type: 'huntMerge', path: r.path, kind: a.kind }) }, icon('diff'), 'Compare')
               : null
         ),
+        el('div', { className: 'hunt-cell hunt-c-retire' }, tick('Replace', r.replace, v => (r.replace = v), `Replace this copy\nOn: once the plugin is installed, this copy in ${r.repo} is backed up and removed, and the plugin's version takes its place.\nOff: this copy stays untouched and is left out of the refactor.`)),
         el('div', { className: 'hunt-cell hunt-c-x' })
       )
     );
@@ -84,45 +86,45 @@ function assetRows(p, a) {
   return rows;
 }
 
-// The Retire tick of every listed copy of the ticked elements as one tick: set, partly set or clear. A deselected element and its copies are never retired.
+// The Replace switch of every listed copy of the ticked elements as one switch: set, partly set or clear. A deselected element and its copies are never replaced.
 const copiesOf = p => p.assets.filter(a => a.include).flatMap(a => [a.global, ...a.repos].filter(Boolean));
 
-const showRetireAll = (box, copies) => {
-  const on = copies.filter(c => c.retire).length;
+const showReplaceAll = (box, copies) => {
+  const on = copies.filter(c => c.replace).length;
   box.checked = on === copies.length;
   box.indeterminate = on > 0 && on < copies.length;
-  // A mixed tick names the count: "Retire all · 1 of 2".
+  // A mixed switch names the count: "Replace all · 1 of 2".
   const text = box.closest('label')?.querySelector('.hunt-retire-text');
-  if (text) text.textContent = box.indeterminate ? `Retire all · ${on} of ${copies.length}` : 'Retire all';
+  if (text) text.textContent = box.indeterminate ? `Replace all · ${on} of ${copies.length}` : 'Replace all';
 };
 
-// A single Retire tick moved: bring the Retire all tick in line.
-const syncRetireAll = p => {
+// A single Replace switch moved: bring the Replace all switch in line.
+const syncReplaceAll = p => {
   const box = app.querySelector(`[data-card="${p.id}"] .hunt-retire-all`);
-  if (box) showRetireAll(box, copiesOf(p));
+  if (box) showReplaceAll(box, copiesOf(p));
 };
 
-function retireAll(p) {
+function replaceAll(p) {
   const copies = copiesOf(p);
   if (!copies.length) return null;
   const box = el('input', {
     type: 'checkbox',
     role: 'switch',
     className: 'hunt-retire-all',
-    'aria-label': 'Retire all',
+    'aria-label': 'Replace all',
     onchange: e => {
-      copies.forEach(c => (c.retire = e.target.checked));
+      copies.forEach(c => (c.replace = e.target.checked));
       saveSoon();
       repaint();
     },
   });
   const label = el(
     'label',
-    { className: 'hunt-retire', title: 'Retire all\nTicks Retire on every listed copy, global and repo. Untick to clear them all again.' },
+    { className: 'hunt-retire', title: 'Replace all\nOn: once the plugin is installed, every listed copy, global and repo, is backed up and removed, and the plugin\'s version takes its place.\nOff: every copy stays untouched and is left out of the refactor. Only the switch in front of an element takes that element out of the plugin.' },
     box,
-    el('span', { className: 'hunt-retire-text' }, 'Retire all')
+    el('span', { className: 'hunt-retire-text' }, 'Replace all')
   );
-  showRetireAll(box, copies);
+  showReplaceAll(box, copies);
   return label;
 }
 
@@ -266,10 +268,10 @@ export function card(p, history = false) {
         },
       },
       icon(open ? 'chevron-up' : 'add'),
-      open ? 'Done adding' : 'Add skill or agent'
+      open ? 'Done adding' : 'Add'
     ),
     el('span', { className: 'hunt-count' }, plural(p.assets.filter(a => a.include).length, 'asset')),
-    retireAll(p),
+    replaceAll(p),
     el('span', { className: 'hunt-hint', role: 'status' }, blocked),
     el('span', { className: 'spacer' }),
     create

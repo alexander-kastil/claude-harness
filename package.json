@@ -2,7 +2,7 @@
   "name": "claude-harness",
   "displayName": "Claude Harness",
   "description": "Harness engineering for Claude Code: see how your agents, skills, hooks and rules work together in each session, shape the whole harness in one place, and carry Cowork work into Code.",
-  "version": "0.15.3",
+  "version": "0.15.6",
   "publisher": "integrations-at",
   "license": "SEE LICENSE IN LICENSE",
   "icon": "media/icon.png",

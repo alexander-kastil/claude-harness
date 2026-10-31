@@ -9,6 +9,7 @@ import { assetAt, keyOf, pathOf, samePath } from './hunt-catalog';
 import { Entry, catalogFileOf, catalogOf, layoutOf, readJson, sourceFor, sourcesOf } from './hunt-market';
 import { compareVersions } from './repos-overview';
 import { rewriteSkillPaths } from './skill-paths';
+import { replaceOf } from './shared/hunt';
 import type { HuntAsset, HuntMarket, HuntProposal } from './shared/hunt';
 
 // Creating a plugin from a card: the plan shown before anything happens, the folder and catalog entry written, the install, the retired copies.
@@ -176,8 +177,9 @@ function planElements(included: HuntAsset[], ctx: CreateCtx, plan: CreatePlan, h
       plan.retires.push({ asset: hit.asset, base: isGlobal ? ctx.root : hit.view.path, label });
       plan.retired.push(`${a.kind} ${a.name} in ${label}`);
     };
-    if (a.global?.retire) retire(a.global.path, 'Global');
-    for (const r of a.repos) if (r.retire) retire(r.path, r.repo);
+    // Only a copy whose Replace switch is on is touched; an off copy is left exactly as it is.
+    if (replaceOf(a.global)) retire(a.global!.path, 'Global');
+    for (const r of a.repos) if (replaceOf(r)) retire(r.path, r.repo);
   }
 }
 

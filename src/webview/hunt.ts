@@ -19,7 +19,7 @@ export const openHunt = () => {
 // The Plugin Hunter button, in the AI group since the hunt is Claude's work and counts against the plan; like every AI group it sits last, at the right end of its bar.
 export const huntButton = () => aiGroup('hunt-cta', el('button', { className: 'secondary', title: 'Plugin Hunter\nClaude proposes a plugin from the skills and agents you already have, and creates it in a marketplace you own. It counts against your plan.', 'aria-label': 'Plugin Hunter', onclick: openHunt }, icon('telescope'), el('span', { className: 'cta-label' }, 'Plugin Hunter')), browserHuntButton(), handoverButton());
 
-// After the Browser Automation Hunter button, in the same AI group; the page reads its own inbox when it opens.
+// After the Automation Hunter button, in the same AI group; the page reads its own inbox when it opens.
 function handoverButton() {
   return el('button', { className: 'secondary', title: 'Cowork Handover\nHand a Cowork chat, an artifact link or a file of the apps to Claude Code in a terminal: Claude drafts the card, you tick what comes along. It counts against your plan.', 'aria-label': 'Cowork Handover', onclick: () => showPage('cowork-handover') }, coworkIcon(), el('span', { className: 'cta-label' }, 'Cowork Handover'));
 }

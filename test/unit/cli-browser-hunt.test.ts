@@ -29,7 +29,7 @@ test('browser-hunt procedures lists the skill table', async () => {
   const r = await cli(w, ['browser-hunt', 'procedures']);
   assert.equal(r.code, 0, r.err);
   assert.match(r.out, /^\*\*Browser automation procedures: 1/);
-  assert.match(r.out, /\| ionos-dns +\| Guided browser run +\|/);
+  assert.match(r.out, /\| ionos-dns +\| Guided run +\|/);
   const o = JSON.parse((await cli(w, ['browser-hunt', 'procedures', '--json'])).out);
   assert.equal(o.procedures[0].keep, 'guided');
   assert.equal(o.source, w.file);

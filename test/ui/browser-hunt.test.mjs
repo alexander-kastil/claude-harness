@@ -1,4 +1,4 @@
-// UI tests of the Browser Automation Hunter, run in a real, isolated VS Code (see harness.mjs) on a scratch home (fixture.mjs).
+// UI tests of the Automation Hunter (browser and desktop), run in a real, isolated VS Code (see harness.mjs) on a scratch home (fixture.mjs).
 // The page's data is a synthetic procedure list, cards and chat sent to the page the way the host sends them; Claude is never started:
 // the first Hunt press only shows the plan question. BROWSER_HUNT_SHOTS=<dir> also writes the screenshots, the VS Code side bar closed.
 import assert from 'node:assert/strict';
@@ -20,6 +20,8 @@ const INFO = {
     { name: 'Admin center settings', keep: 'guided', how: 'the existing setup skill, with the recorded click path added' },
     { name: 'Guest access and roles', keep: 'cli', how: 'stay command line (az, Graph)' },
     { name: 'Slides', keep: 'tool', how: 'the slide tools instead of the browser' },
+    { name: 'Desktop app signature', keep: 'guided', how: 'a guided run with the saved click path' },
+    { name: 'google-analytics-oauth-client', keep: 'api', how: 'a script against the Google API' },
   ],
   source: 'C:/demo/skills/browser-automations/SKILL.md',
   cards: [
@@ -74,9 +76,12 @@ before(async () => {
   await s.start();
   // A synthetic skill with a procedure table in the scratch Global, for the host to read.
   fs.mkdirSync(path.dirname(SKILL_MD()), { recursive: true });
-  // The same five procedures the page header counts, so the header and the plan question read one source.
+  // The same seven procedures the page header counts, so the header and the plan question read one source.
   const table = INFO.procedures.map(p => `| ${p.name} | ${p.how} |`).join('\n');
-  fs.writeFileSync(SKILL_MD(), `---\nname: browser-automations\ndescription: Demo procedures.\n---\n\n# demo\n\n| Procedure | Keep as |\n|---|---|\n${table}\n`);
+  fs.writeFileSync(SKILL_MD(), `---\nname: browser-automations\ndescription: Demo procedures. Triggers on "registrar records".\n---\n\n# demo\n\n| Procedure | Keep as |\n|---|---|\n${table}\n`);
+  // One procedure has a leaf beside the skill: its goal leads the hover text.
+  fs.mkdirSync(path.join(path.dirname(SKILL_MD()), 'references'), { recursive: true });
+  fs.writeFileSync(path.join(path.dirname(SKILL_MD()), 'references', 'registrar-records.md'), '# registrar-records\n\nSet the A and MX records of a domain.\n\nStage: Prototype on desktop\n');
   await s.openPanel();
   await s.waitFor(D => D.querySelector('.overview-tabs'));
   // Wide enough for the chat and the card to sit side by side.
@@ -89,9 +94,11 @@ after(async () => {
 
 test('the button beside Plugin Hunter, in the same AI group, opens the page', T, async () => {
   const group = await labels('.overview-tabs .ai-group.hunt-cta button');
-  assert.deepEqual(group, ['Plugin Hunter', 'Browser Automation Hunter', 'Cowork Handover']);
-  await s.mouse('.overview-tabs .ai-group button', 'Browser Automation Hunter');
-  await s.waitFor(D => D.querySelector('.bh-page .main-head h1')?.textContent.includes('Browser Automation Hunter'));
+  assert.deepEqual(group, ['Plugin Hunter', 'Automation Hunter', 'Cowork Handover']);
+  await s.mouse('.overview-tabs .ai-group button', 'Automation Hunter');
+  await s.waitFor(D => D.querySelector('.bh-page .main-head h1')?.textContent.includes('Automation Hunter'));
+  assert.equal(await s.ev(D => D.querySelector('.bh-page .main-head h1').textContent.trim()), 'Automation Hunter');
+  assert.match(await text('.bh-page .main-head'), /Browser and desktop/);
 });
 
 // The controls of the page, each with whether it sits in the header bar, and its size.
@@ -106,22 +113,20 @@ const controls = () =>
   });
 
 test('first visit: the commands are in the header bar, the kept procedures are the way in, nothing is at the bottom', T, async () => {
-  await s.waitFor(D => D.querySelectorAll('.bh-page .bh-proc').length === 5);
+  await s.waitFor(D => D.querySelectorAll('.bh-page .bh-proc').length === 7);
   const all = await controls();
   const bar = all.filter(c => c.header).map(c => c.label);
-  assert.deepEqual(bar, ['Back to Plugins', 'New procedure', 'Create', 'Start over', 'Hunt']);
-  // Non-AI commands left, the Claude group with Hunt at the right end.
+  assert.deepEqual(bar, ['Back to Plugins', 'New procedure', 'Create', 'Start over']);
+  // Hunt is the AI group at the right end of the chat's input, inside its frame, like every chat.
+  assert.deepEqual(all.filter(c => !c.header && c.ai).map(c => c.label), ['Hunt'], 'Hunt is the only Claude command below the header');
+  for (const name of ['New procedure', 'Create', 'Start over', 'Hunt']) assert.equal(all.filter(c => c.label === name).length, 1, `${name} is on the page once`);
   const place = await s.ev(D => {
-    const t = D.querySelector('.bh-page .main-head .toolbar');
-    const g = t.querySelector('.ai-group').getBoundingClientRect();
-    const last = [...t.children].filter(e => !e.classList.contains('ai-group')).pop().getBoundingClientRect();
-    return { aiRight: Math.round(D.querySelector('.bh-page .main-head').getBoundingClientRect().right - g.right), aiAfter: g.left > last.right, aiLast: t.lastElementChild.classList.contains('ai-group') };
+    const f = D.querySelector('.bh-page .hunt-composer .chat-input').getBoundingClientRect();
+    const g = D.querySelector('.bh-page .hunt-composer .chat-input .ai-group').getBoundingClientRect();
+    const t = D.querySelector('.bh-page .hunt-composer .chat-input-text').getBoundingClientRect();
+    return { right: Math.round(f.right - g.right), below: g.top >= t.bottom - 1, inside: g.bottom <= f.bottom };
   });
-  assert.ok(place.aiLast && place.aiAfter && place.aiRight < 40, JSON.stringify(place));
-  // Below the header: only the message box and the page's own fields; no button but the tabs, the procedure rows and the card's.
-  assert.deepEqual(all.filter(c => !c.header && c.ai).map(c => c.label), [], 'no Claude command below the header');
-  for (const name of ['New procedure', 'Create', 'Start over', 'Hunt']) assert.equal(all.filter(c => c.label === name).length, 1, `${name} is on the page once, in the header`);
-  assert.equal(await s.ev(D => D.querySelectorAll('.bh-page .hunt-composer button').length), 0, 'the composer holds no buttons');
+  assert.ok(place.right < 16 && place.below && place.inside, JSON.stringify(place));
   // Hunt waits for a message and says so.
   assert.equal(await s.ev(D => D.querySelector('.bh-page [data-confirm="browserHunt"]').disabled), true);
   assert.equal(await s.ev(D => D.querySelector('.bh-page [data-confirm="browserHuntCreate"]').disabled), true);
@@ -131,10 +136,14 @@ test('first visit: the commands are in the header bar, the kept procedures are t
     const col = D.querySelector('.bh-page .hunt-col-find');
     return { rows: rows.length, nested: [...col.querySelectorAll('*')].some(e => e !== col && e.scrollHeight > e.clientHeight + 1 && /auto|scroll/.test(getComputedStyle(e).overflowY)), text: col.innerText.replace(/\s+/g, ' ') };
   });
-  assert.equal(list.rows, 5);
+  assert.equal(list.rows, 7);
   assert.equal(list.nested, false, 'the list does not scroll inside the column');
   assert.ok(!/ready to edit|once you send/.test(list.text), 'no prose in the empty state');
   assert.match(await text('.bh-page .hunt-chat-log'), /^Describe a browser procedure\.$/);
+  // The hover text: the goal of the leaf where there is one, then the how as a sentence; without a leaf the how alone.
+  const tips = await s.ev(D => Object.fromEntries([...D.querySelectorAll('.bh-page .bh-proc')].map(r => [r.querySelector('.bh-proc-name').textContent, r.getAttribute('title') || r.dataset.tip])));
+  assert.equal(tips['Registrar records'], 'Registrar records\nSet the A and MX records of a domain.\nA script against the registrar API, only on the pro plan; otherwise a guided browser run.');
+  assert.equal(tips['Registrar nameservers'], 'Registrar nameservers\nA guided browser run with the saved click path.');
   // The History tab shows no count while it is empty.
   assert.equal(await s.ev(D => D.querySelector('.bh-page .view-tab:last-child .tab-count')), null);
 });
@@ -157,12 +166,26 @@ test('procedures, the card with its steps and the chat show from the host data',
   assert.equal(await s.ev(D => D.querySelector('.bh-page .hunt-title').value), 'registrar-nameservers');
   assert.equal(await s.ev(D => D.querySelectorAll('.bh-page .bh-step input[type=checkbox]:checked').length), 1);
   assert.equal(await s.ev(D => D.querySelector('.bh-page .bh-stage.on').textContent.trim()), 'Prototype on desktop');
-  assert.equal(await s.ev(D => D.querySelector('.bh-page .bh-keep').selectedOptions[0].textContent), 'Guided browser run');
+  assert.equal(await s.ev(D => D.querySelector('.bh-page .bh-keep').selectedOptions[0].textContent), 'Guided run');
   assert.match(await text('.bh-page .hunt-chat-log'), /guided browser run with a saved click path/);
   assert.match(await text('.bh-page .hunt-col-find'), /5 steps/);
   assert.equal(await s.ev(D => D.querySelectorAll('.bh-page .hunt-col-find .bh-proc').length), 0, 'a card with content does not offer the list again');
   // Create is in the header now and ready: the card has a name and steps.
   assert.equal(await s.ev(D => D.querySelector('.bh-page .main-head [data-confirm="browserHuntCreate"]').disabled), false);
+});
+
+test('a desktop procedure shows in Start from as a guided run and its card has a manual step that grants app access', T, async () => {
+  const desk = { id: 'bh-d', prompt: 'Develop the signature procedure', created: now + 1000, name: 'desktop-app-signature', goal: 'Set the Outlook signature through the desktop app.', keep: 'guided', stage: 'prototype', steps: [{ text: 'Grant the app access to Outlook', manual: true }, { text: 'Open the signature settings', manual: false }] };
+  await send({ type: 'browserHunt', info: { ...INFO, cards: [], chat: [] } });
+  await s.waitFor(D => D.querySelectorAll('.bh-page .bh-proc').length === 7);
+  const row = await s.ev(D => [...D.querySelectorAll('.bh-page .bh-proc')].find(r => r.textContent.includes('Desktop app signature'))?.querySelector('.tag')?.textContent.trim());
+  assert.equal(row, 'Guided run');
+  await send({ type: 'browserHunt', info: { ...INFO, cards: [desk], chat: [] } });
+  await s.waitFor(D => D.querySelector('.bh-page .hunt-title')?.value === 'desktop-app-signature');
+  const manual = await s.ev(D => [...D.querySelectorAll('.bh-page .bh-step')].filter(r => r.querySelector('input[type=checkbox]').checked).map(r => r.querySelector('.bh-step-text').value));
+  assert.deepEqual(manual, ['Grant the app access to Outlook']);
+  await send({ type: 'browserHunt', info: INFO });
+  await s.waitFor(D => D.querySelector('.bh-page .hunt-title')?.value === 'registrar-nameservers');
 });
 
 test('Enter in a step adds the next one under it and moves there', T, async () => {
@@ -181,8 +204,9 @@ test('Enter in a step adds the next one under it and moves there', T, async () =
 test('picking a kept procedure makes its card and readies the message; Hunt asks about the plan first', T, async () => {
   // A blank card offers the procedures; picking one fills it, with how it is kept, and focuses the message for Claude.
   await send({ type: 'browserHunt', info: { ...INFO, cards: [], chat: [] } });
-  await s.waitFor(D => D.querySelectorAll('.bh-page .bh-proc').length === 5);
-  assert.deepEqual((await labels('.bh-page .bh-proc')).map(t => t.replace(/\s+/g, ' ')).slice(0, 2), ['Registrar recordsAPI script', 'Registrar nameserversGuided browser run']);
+  await s.waitFor(D => D.querySelectorAll('.bh-page .bh-proc').length === 7);
+  // A desktop procedure sits among them with its tag, and a slug written by Create reads like the other names.
+  assert.deepEqual((await labels('.bh-page .bh-proc')).map(t => t.replace(/\s+/g, ' ')).slice(1), ['Registrar nameserversGuided run', 'Admin center settingsGuided run', 'Guest access and rolesCommand line', 'SlidesA tool', 'Desktop app signatureGuided run', 'Google analytics oauth clientAPI script']);
   await s.mouse('.bh-page .bh-proc', 'Registrar records');
   await s.waitFor(D => D.querySelector('.bh-page .hunt-title')?.value === 'registrar-records');
   assert.equal(await s.ev(D => D.querySelector('.bh-page .bh-keep').selectedOptions[0].textContent), 'API script');
@@ -193,8 +217,8 @@ test('picking a kept procedure makes its card and readies the message; Hunt asks
   await s.waitFor(D => D.querySelector('.cf'));
   const card = await s.ev(D => (D.querySelector('.cf') || {}).innerText || '');
   assert.match(card, /Hunt a browser automation with Claude/);
-  assert.match(card, /the 5 procedures your browser automation skill keeps/);
-  assert.match(await text('.bh-page .main-head'), /5 procedures kept/);
+  assert.match(card, /the 7 procedures your browser automation skill keeps/);
+  assert.match(await text('.bh-page .main-head'), /Browser and desktop · 7 procedures kept/);
   if (SHOTS) await shoot(path.join(SHOTS, '20-browser-hunt-confirm.png'), '.bh-page');
   await s.ev(D => [...D.querySelectorAll('.cf button')].find(b => b.textContent.trim() === 'Cancel').click());
   // The picked card goes again, so the host holds only the fixture cards.
@@ -216,7 +240,7 @@ test('edits to the card are saved by the host and come back after leaving the pa
   // Away to the overview and back: the host sends what it stored.
   await s.mouse('.bh-page .main-head .icon-btn', '');
   await s.waitFor(D => !D.querySelector('.bh-page'));
-  await s.mouse('.ai-group.hunt-cta button', 'Browser Automation Hunter').catch(() => {});
+  await s.mouse('.ai-group.hunt-cta button', 'Automation Hunter').catch(() => {});
   await s.waitFor(D => D.querySelector('.bh-page .hunt-card'));
   const back = await s.ev(D => ({ stage: D.querySelector('.bh-page .bh-stage.on').textContent.trim(), steps: D.querySelectorAll('.bh-page .bh-step').length, second: D.querySelectorAll('.bh-page .bh-step-text')[1].value }));
   assert.equal(back.stage, 'Optimized in code');
@@ -238,18 +262,19 @@ test('Create lists the files first, then writes the table row and the leaf into 
   await s.waitFor(D => D.querySelector('.bh-page .notice.done'));
   const skill = fs.readFileSync(SKILL_MD(), 'utf8');
   assert.equal(skill.split('| registrar-nameservers |').length - 1, 1);
-  assert.match(skill, /\| registrar-nameservers \| a guided browser run with the saved click path; steps in \[references\/registrar-nameservers\.md\]/);
+  assert.match(skill, /\| registrar-nameservers \| a guided run with the saved click path; steps in \[references\/registrar-nameservers\.md\]/);
+  assert.match(skill, /\ndescription: Demo procedures\. Triggers on "registrar records", "registrar nameservers"\.\n/, 'the skill loads on the new procedure\'s name');
   const leaf = fs.readFileSync(path.join(path.dirname(SKILL_MD()), 'references', 'registrar-nameservers.md'), 'utf8');
   assert.match(leaf, /Stage: Optimized in code/);
-  assert.match(leaf, /Kept as: Guided browser run/);
+  assert.match(leaf, /Kept as: Guided run/);
   assert.match(leaf, /1\. Sign in to the registrar admin page \(manual\)/);
   assert.match(leaf, /2\. Open the domain list and pick demo\.test\n/);
   const backups = path.join(s.fixture.claude, 'repo-sync-backups');
   const saved = fs.readdirSync(backups).filter(n => n.startsWith('browser-hunt-'));
   assert.equal(saved.length, 1);
   assert.equal(fs.readFileSync(path.join(backups, saved[0], 'SKILL.md'), 'utf8'), before, 'the backup is the skill as it was');
-  // The header counts the skill again: the new row is the sixth procedure.
-  await s.waitFor(D => /6 procedures kept/.test(D.querySelector('.bh-page .main-head')?.innerText || ''));
+  // The header counts the skill again: the new row is the eighth procedure.
+  await s.waitFor(D => /8 procedures kept/.test(D.querySelector('.bh-page .main-head')?.innerText || ''));
 });
 
 test('the History keeps the other card with its chat, collapsed', T, async () => {
@@ -316,7 +341,7 @@ test('a skill only an installed plugin ships is written in the owned marketplace
   await s.mouse('.bh-page .main-head .icon-btn', '');
   await s.waitFor(D => !D.querySelector('.bh-page'));
   await new Promise(r => setTimeout(r, 1500));
-  await s.mouse('.ai-group.hunt-cta button', 'Browser Automation Hunter');
+  await s.mouse('.ai-group.hunt-cta button', 'Automation Hunter');
   await s.waitFor(D => /1 procedure kept/.test(D.querySelector('.bh-page .main-head')?.innerText || ''));
   await s.waitFor(D => D.querySelector('.bh-page .hunt-card'));
   await s.mouse('.bh-page [data-confirm="browserHuntCreate"]', '');

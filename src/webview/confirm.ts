@@ -114,7 +114,7 @@ const CARDS = {
   browserHuntClear: ask => ({
     mark: icon('clear-all'),
     title: 'Start the conversation over?',
-    sub: 'Browser Automation Hunter',
+    sub: 'Automation Hunter',
     facts: [
       ['comment-discussion', 'The messages above are cleared, and Claude no longer sees them.'],
       ['globe', 'The procedure cards stay as they are.'],
@@ -144,9 +144,9 @@ const CARDS = {
     facts: [
       ['folder', el('span', {}, 'Writes the plugin into ', el('code', {}, ask.location), ':')],
       ...ask.files.map(f => ['file', el('code', {}, f)]),
-      ['extensions', el('span', {}, 'Installs ', el('code', {}, `${ask.name}@${ask.market}`), ' for you in every folder, then retires the copies below.')],
-      ...ask.retired.map(r => ['archive', `Retires ${r}. A backup is kept.`]),
-      ...(ask.retired.length ? [] : [['check', 'No copy is retired.']]),
+      ['extensions', el('span', {}, 'Installs ', el('code', {}, `${ask.name}@${ask.market}`), ' for you in every folder, then replaces the copies below with the plugin\'s version.')],
+      ...ask.replaced.map(r => ['archive', `Replaces ${r}. A backup is kept.`]),
+      ...(ask.replaced.length ? [] : [['check', 'No copy is replaced.']]),
       ...ask.kept.map(k => ['info', k]),
       ['git-commit', 'Nothing is committed in the marketplace.'],
     ],

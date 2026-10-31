@@ -91,16 +91,19 @@ Global `~/.claude`, each repository's `.claude/` and plugin-shipped items (read-
 
 ## Build with Claude
 
-- **Plugin Hunter:** talk to Claude about the skills and agents you have, and it proposes a plugin. Open it with the telescope button in the Claude group of the Plugins page or the overview. Create writes the plugin into a marketplace folder of yours, installs it and retires the copies you tick, with a backup; the History tab keeps every card with its chat.
-- **Browser Automation Hunter:** the browser procedures you repeat, such as DNS records, admin center settings or a publisher setup, prototyped on the desktop and then optimized in code. Pick a kept procedure or describe a new one; Claude proposes its steps and how to keep it (API script, command line, guided browser run or a tool), you mark the manual steps, and Create writes it into your browser-automations skill. Open it next to Plugin Hunter in the Claude group of the overview.
-- **Drawings:** one press of **Draw with Claude** draws any skill, agent, command, workflow, hook, MCP server, plugin or marketplace twice: the Harness view, how its parts connect to a session, and the Process view, what runs in which order, drawn for its kind (for a marketplace, how its plugins hand work to each other). A toggle switches between them.
-- **Claude actions in your terminal:** Edit, Slim, Try it, Analyze, Continue and Merge with Claude start your `claude` CLI in a VS Code terminal with the prompt and the measured context filled in, after a confirm card. The terminals open in the editor area and run `claudeHarness.terminal.command`; Ctrl+F1 opens a new one. The runs count against your Claude plan, Claude Harness adds no charge, and the status bar shows your 5-hour and weekly limits live. See [Settings](docs/settings.md#terminals).
+**Plugin Hunter:** talk to Claude about the skills and agents you have, and it proposes a plugin. Open it with the telescope button in the Claude group of the Plugins page or the overview. Create writes the plugin into a marketplace folder of yours, installs it and retires the copies you tick, with a backup; the History tab keeps every card with its chat.
 
 ![Plugin Hunter with the chat and its message box on the left and the card of a proposed plugin on the right](docs/images/plugin-hunter.png)
 
+**Browser Automation Hunter:** the browser procedures you repeat, such as DNS records, admin center settings or a publisher setup, prototyped on the desktop and then optimized in code. Pick a kept procedure or describe a new one; Claude proposes its steps and how to keep it (API script, command line, guided browser run or a tool), you mark the manual steps, and Create writes it into your browser-automations skill. Open it next to Plugin Hunter in the Claude group of the overview.
+
 ![Browser Automation Hunter with the chat on the left and a procedure card on the right: its steps, the manual ones ticked, Prototype on desktop and Kept as Guided browser run](docs/images/browser-automation-hunter.png)
 
+**Drawings:** one press of **Draw with Claude** draws any skill, agent, command, workflow, hook, MCP server, plugin or marketplace twice: the Harness view, how its parts connect to a session, and the Process view, what runs in which order, drawn for its kind (for a marketplace, how its plugins hand work to each other). A toggle switches between them.
+
 ![The Process perspective of a plugin drawing](docs/images/plugin-drawing-process.png)
+
+**Claude actions in your terminal:** Edit, Slim, Try it, Analyze, Continue and Merge with Claude start your `claude` CLI in a VS Code terminal with the prompt and the measured context filled in, after a confirm card. The terminals open in the editor area and run `claudeHarness.terminal.command`; Ctrl+F1 opens a new one. The runs count against your Claude plan, Claude Harness adds no charge, and the status bar shows your 5-hour and weekly limits live. See [Settings](docs/settings.md#terminals).
 
 ## Continue Cowork work in Code
 

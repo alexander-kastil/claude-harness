@@ -137,7 +137,7 @@ export function huntHost(d: HuntDeps): HuntHost {
       const backupRoot = path.join(d.root(), 'repo-sync-backups');
       const plan = planCreate(proposal, { root: d.root(), views: d.views(), market, backupRoot, keep: d.keep() });
       if (plan.problems.length) return say('error', plan.problems.join(' '));
-      if (!answer.confirmed) return ask({ kind: 'huntCreate', id, key: id, name: proposal.name, market: market.name, location: path.resolve(market.location), problems: [], files: plan.files, retired: plan.retired, kept: plan.kept });
+      if (!answer.confirmed) return ask({ kind: 'huntCreate', id, key: id, name: proposal.name, market: market.name, location: path.resolve(market.location), problems: [], files: plan.files, replaced: plan.retired, kept: plan.kept });
       busy = true;
       say('running');
       const key = `${proposal.name}@${market.name}`;
@@ -151,24 +151,24 @@ export function huntHost(d: HuntDeps): HuntHost {
         await installPlugin(proposal, market, d.root());
       } catch (e) {
         busy = false;
-        let undone = 'The plugin folder and its marketplace entry were removed again; no copy was retired.';
+        let undone = 'The plugin folder and its marketplace entry were removed again; no copy was replaced.';
         try {
           unwritePlugin(proposal, plan, market);
         } catch {
-          undone = 'The plugin folder and its marketplace entry are written; no copy was retired.';
+          undone = 'The plugin folder and its marketplace entry are written; no copy was replaced.';
         }
         d.refresh();
         return say('error', `${(e as Error).message} ${undone}`);
       }
       try {
         const backup = plan.retires.length ? retireCopies(plan, backupRoot, backupStamp()) : undefined;
-        const text = `Created and installed ${key}.${backup ? ` Retired ${plan.retires.length} ${plan.retires.length === 1 ? 'copy' : 'copies'}, each backed up first in ${path.relative(d.root(), backup)}.` : ''}`;
+        const text = `Created and installed ${key}.${backup ? ` Replaced ${plan.retires.length} ${plan.retires.length === 1 ? 'copy' : 'copies'} with the plugin's version, each backed up first in ${path.relative(d.root(), backup)}.` : ''}`;
         await d.state.update(CREATED, { ...d.state.get<Record<string, string>>(CREATED, {}), [id]: text });
         // The next proposal of the conversation is a new plugin, not a change to this one.
         if (d.state.get<string>(CURRENT) === id) await d.state.update(CURRENT, undefined);
         say('done', text);
       } catch (e) {
-        say('error', `${key} is installed, but retiring failed: ${(e as Error).message}`);
+        say('error', `${key} is installed, but replacing the copies failed: ${(e as Error).message}`);
       } finally {
         busy = false;
         d.refresh();

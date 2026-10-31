@@ -2,7 +2,8 @@
 // The chat column of the Plugin Hunter's New hunt tab, built like a traditional chat: the conversation in order with the newest message at the bottom, and the composer pinned under it. The card beside it is the artifact.
 import { vscode } from './core';
 import { confirmAt, showConfirm } from './confirm';
-import { aiGroup, claudeMark, el, icon } from './dom';
+import { chatComposer } from './chat-composer';
+import { claudeMark, el, icon } from './dom';
 import { hunt, newCard, repaint, waitText, workingTurns } from './hunt-state';
 
 /** One message of the conversation. */
@@ -49,30 +50,20 @@ function composer(working) {
     'hunt'
   );
   const hunter = confirmAt(el('button', { className: 'primary', onclick: () => send() }, icon('telescope'), hunt.running ? 'Hunting...' : 'Hunt'), 'hunt');
-  const text = el('textarea', {
-    className: 'hunt-ask-text',
-    rows: 3,
+  sync();
+  return chatComposer({
+    rows: 2,
     placeholder: hunt.running ? 'Claude is answering. Your message is in the conversation above.' : 'Message Claude, e.g. "search all angular skills" or "create the plugin". Go changes the ticked elements: "rename docker-images to hetzner-docker".',
     // The sent message shows once, in the conversation; the box holds it again only if the answer fails.
     value: hunt.running ? '' : hunt.prompt,
     readonly: hunt.running,
-    'aria-label': 'Message to Claude',
-    oninput: e => ((hunt.prompt = e.target.value), sync()),
-    onkeydown: e => {
-      if (e.key === 'Enter' && !e.shiftKey && !idle()) {
-        e.preventDefault();
-        hunter.click();
-      }
-    },
+    onInput: v => ((hunt.prompt = v), sync()),
+    onEnter: () => !idle() && hunter.click(),
+    note: hunt.notice,
+    error: hunt.error,
+    extra: el('button', { className: 'secondary', disabled: hunt.running, onclick: newCard }, icon('add'), 'New plugin'),
+    actions: [go, hunter],
   });
-  sync();
-  return el(
-    'div',
-    { className: 'hunt-composer' },
-    text,
-    hunt.error ? el('div', { className: 'notice bad', role: 'alert' }, hunt.error) : null,
-    el('div', { className: 'hunt-ask-actions' }, hunt.notice ? el('span', { className: 'hunt-note', role: 'status' }, icon('check'), hunt.notice) : null, el('span', { className: 'spacer' }), el('button', { className: 'secondary', disabled: hunt.running, onclick: newCard }, icon('add'), 'New plugin'), aiGroup('', go, hunter))
-  );
 }
 
 /** The column: its head, the conversation of the hunt in progress with the message being answered at its end, and the composer. */

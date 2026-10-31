@@ -2,7 +2,7 @@
 // The grid table every main page uses, and its asset flavour.
 import { SOURCES, agentColorClass, app, categoryOf, command, labelOf, metaOf, persist, select, state } from './core';
 import { skillContext } from './context';
-import { el, highlight, icon, pressable } from './dom';
+import { el, highlight, icon, pressable, stateTag, tag } from './dom';
 
 // A group header: the whole bar folds and unfolds its group, by click or by Enter and Space. `redraw` repaints
 // the list, after which the header gets its focus back. With `open` ({ title, go }) the name is a link to the group's own page,
@@ -57,7 +57,7 @@ export const CHANGED = ['Changed', [60, 72], a => daysSince(a.mtime), a => (a.mt
 // One grid for every table on the main pages. A column: { head, track, cell(row), title(row), num, muted, wide, cls };
 // `wide` columns drop out when the panel is narrow. A row with `open` is a button.
 export function gridTable(cols, rows, label) {
-  const cellClass = (c, r) => [c.cls, c.num ? 'at-fact' : 'at-cell', c.muted ? 'at-muted' : '', c.wide ? 'at-wide' : '', c.low ? 'at-low' : '', r && c.tone ? c.tone(r) : ''].filter(Boolean).join(' ');
+  const cellClass = (c, r) => [c.cls, c.num ? 'at-fact' : 'at-cell', c.muted ? 'at-muted' : '', c.wide ? 'at-wide' : '', c.low ? 'at-low' : '', c.align === 'center' ? 'at-center' : '', r && c.tone ? c.tone(r) : ''].filter(Boolean).join(' ');
   const table = el(
     'div',
     { className: 'asset-table', role: 'table', 'aria-label': label },
@@ -101,14 +101,24 @@ export const pluginSwitch = a =>
   );
 
 // Only numbers are right-aligned; every other fact is a short left-aligned token with its details in the hover card.
+const SOURCE_HEADS = new Set(['Source', 'Origin', 'Marketplace', 'Scope']);
+const STATE_HEADS = new Set(['Status', 'Sync']);
+const CENTER_HEADS = new Set(['Status', 'Sync', 'Version', 'Enabled', 'Installed', 'Latest']);
 const NUMERIC = new Set(['Files', 'Desc', 'Cost', 'Used', 'Changed', 'Keys']);
 
 // A fact column: [header, width in px, value, optional hover text, optional tone, optional control that replaces the text].
 export const factCol = ([head, width, value, tip, tone, control, low]) => {
   const text = e => String(value(e.a, e.v));
+  // Source, origin and scope values are plain tags; status and sync values are state tags whose dot carries the tone.
+  const asTag = !control && (SOURCE_HEADS.has(head) || STATE_HEADS.has(head));
+  if (asTag) {
+    const cell = STATE_HEADS.has(head) ? e => stateTag(text(e), tone && tone(e.a) === 'bad' ? 'fail' : tone && tone(e.a) === 'warn' ? 'warn' : undefined) : e => tag(text(e));
+    const [least, most] = Array.isArray(width) ? width : [width, width];
+    return { head, track: `minmax(${least}px, ${most}px)`, low, num: false, muted: true, align: CENTER_HEADS.has(head) ? 'center' : undefined, cell, title: e => (tip ? tip(e.a) : '') };
+  }
   // A width given as [least, most] keeps the column from shrinking below `least`; a plain width never shrinks, so the Description drops out first.
   const [least, most] = Array.isArray(width) ? width : [width, width];
-  return { head, track: `minmax(${least}px, ${most}px)`, low, num: NUMERIC.has(head), muted: !NUMERIC.has(head), tone: tone ? e => tone(e.a) : undefined, cell: control ? e => control(e.a) : text, title: e => (tip ? tip(e.a) : text(e).length * 7 > most ? text(e) : '') };
+  return { head, track: `minmax(${least}px, ${most}px)`, low, num: NUMERIC.has(head), muted: !NUMERIC.has(head), align: CENTER_HEADS.has(head) ? 'center' : undefined, tone: tone ? e => tone(e.a) : undefined, cell: control ? e => control(e.a) : head === 'Used' ? e => (text(e) === 'never' ? stateTag('never', 'none') : text(e)) : text, title: e => (tip ? tip(e.a) : text(e).length * 7 > most ? text(e) : '') };
 };
 
 export function assetTable(entries, facts, q, label, showScope = new Set(entries.map(e => e.v.id)).size > 1, withDesc = true) {

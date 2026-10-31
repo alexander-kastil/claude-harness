@@ -145,11 +145,11 @@ Usage: node cli.js <command> [options]
                                       What a handover writes into the repo, nothing written: the files copied under <folder>/files beside a CONTEXT.md, and the first prompt for Claude Code. --rule, --exists and --todo repeat; --skip leaves files out; --id is a chat id, a session id or a Downloads file name.
   cowork handover create <same options> [--dry-run]
                                       Write the handover into the repo as plan shows it. The Cowork side is only read.
-  browser-hunt procedures             The procedures of the browser-automations skill (Global, a repo or an installed plugin) and how each is kept.
+  browser-hunt procedures             The browser and desktop procedures of the browser-automations skill (Global, a repo or an installed plugin) and how each is kept.
   browser-hunt plan --name <procedure> --step <text> [--step <text>] [--goal <t>] [--keep api|cli|guided|tool] [--stage prototype|optimized]
                                       The same as browser-hunt create --dry-run. A step ending in (manual) stays with the person.
   browser-hunt create <same options> [--dry-run]
-                                      Write the procedure as a row of the skill's table and a leaf under references/, backed up first; in an installed plugin of your marketplace the plugin's patch version moves and it is updated.
+                                      Write the browser or desktop procedure as a row of the skill's table, its name in the skill's triggers, and a leaf under references/, backed up first; in an installed plugin of your marketplace the plugin's patch version moves and it is updated.
   complete --line "<command line>" [--position <n>]
                                       The candidates for the word at the cursor, one per line (--json for a list); the shell completers call it.
   completion powershell|bash          The script a shell profile evaluates to register Tab completion for harness.
@@ -371,7 +371,7 @@ function proposal(a: Args, w: World, catalog: HuntCatalogItem[], adding = false)
       }
       const hit = catalog.find(c => c.asset.kind === kind && c.asset.name === n);
       if (!hit) throw new Stop(`There is no ${kind} named ${n} in Global or the repos.`);
-      assets.push({ ...hit.asset, include: true, why: '', global: hit.asset.global && { ...hit.asset.global, retire }, repos: hit.asset.repos.map(r => ({ ...r, retire })) });
+      assets.push({ ...hit.asset, include: true, why: '', global: hit.asset.global && { ...hit.asset.global, replace: retire }, repos: hit.asset.repos.map(r => ({ ...r, replace: retire })) });
     }
   return { p: { id: name, prompt: '', created: 0, name, description: one(a, 'description') ?? name, category: one(a, 'category') ?? '', assets }, market };
 }

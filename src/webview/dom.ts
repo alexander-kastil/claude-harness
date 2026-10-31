@@ -17,6 +17,25 @@ export const el = (tag, attrs, ...children) => {
 
 export const icon = name => el('span', { className: `codicon codicon-${name}` });
 
+// The one glyph for Cowork wherever the panel names it: the nav region, scope and source tags, the Cowork pages.
+export const COWORK_GLYPH = 'briefcase';
+export const coworkIcon = () => icon(COWORK_GLYPH);
+
+// A source, origin or scope value (global, a repo, a plugin, Code, Cowork): a plain tag.
+export const tag = (word, title) => (word ? el('span', { className: 'tag', title }, word) : '');
+
+// The tone of a status word, for the dot of its tag: ok (green), fail (red), warn (amber) or none (no dot).
+export const toneOf = word => {
+  const w = String(word || '').toLowerCase();
+  if (/fail|error|denied|gone|invalid|cancel/.test(w)) return 'fail';
+  if (/auth|sign-?in|unconfigured|expired|wait|pending|update|differs|stale/.test(w)) return 'warn';
+  if (/archiv|^off|disabled|paused|idle|headless|none|never|uninstalled|inactive|unchecked|not /.test(w)) return 'none';
+  return 'ok';
+};
+
+// A status or state value: a tag with a dot coloured by its tone. The word stays, so colour is never the only signal.
+export const stateTag = (word, tone, title) => (word ? el('span', { className: `tag state${(tone || toneOf(word)) === 'ok' ? '' : ` ${tone || toneOf(word)}`}`, title }, word) : '');
+
 export const logo = size => (document.body.dataset.logo ? el('img', { className: `logo ${size}`, src: document.body.dataset.logo, alt: '' }) : icon('hubot'));
 
 // The Claude mark as Anthropic ships it in the Claude Code extension. It leads the AI group (`aiGroup`) as a marker.

@@ -6,7 +6,7 @@ import { coworkFilter } from './cowork-chats';
 import { command, labelOf, persist, showPage, state, vscode } from './core';
 import { cmd, cmdBox, drawButton, pullTextBox } from './detail';
 import { card } from './detail-view';
-import { aiGroup, countHead, el, fmtDate, icon, iconBtn, plural } from './dom';
+import { COWORK_GLYPH, aiGroup, countHead, el, fmtDate, icon, iconBtn, plural, stateTag, tag } from './dom';
 import { askDrawing, drawState, drawingFigure } from './drawing';
 import { refChip, viewEntry } from './refs';
 import { tabBar } from './repo-page';
@@ -16,7 +16,7 @@ const FOLD = 'cowork-scheduled';
 const tasks = () => (state.scheduled && state.scheduled.tasks) || [];
 const open = (target, id) => command('openScheduled', { target, id });
 const STATUS_GLYPH = { ok: 'pass', wait: 'watch', off: 'circle-slash' };
-const SOURCE_GLYPH = { Cowork: 'cloud', Code: 'terminal' };
+const SOURCE_GLYPH = { Cowork: COWORK_GLYPH, Code: 'terminal' };
 
 const ask = () => vscode.postMessage({ type: 'scheduled' });
 
@@ -97,7 +97,7 @@ export function renderScheduledList() {
       gridTable(
         [
           { head: 'Name', track: 'minmax(120px, 2fr)', cls: 'at-name', cell: t => [icon('calendar'), el('span', { className: 'at-label' }, t.name)] },
-          { head: 'Status', track: 'minmax(110px, 1.5fr)', cell: t => iconText(STATUS_GLYPH[t.statusKind], t.status), title: t => t.status },
+          { head: 'Status', track: 'minmax(110px, 1.5fr)', align: 'center', cell: t => stateTag(t.status, { ok: 'ok', wait: 'warn', off: 'none' }[t.statusKind]), title: t => t.status },
           { head: 'Repeats', track: 'minmax(100px, 1.2fr)', muted: true, cell: t => t.repeats, title: t => `${t.repeats}\n${t.cron}` },
           { head: 'Next run', track: 'minmax(100px, 130px)', muted: true, cell: t => when(t.nextRunAt) },
           {
@@ -107,7 +107,7 @@ export function renderScheduledList() {
             low: true,
             cell: t => (t.projectId ? el('button', { type: 'button', className: 'link', title: 'Open project\nThe project on claude.ai.', onclick: e => (e.stopPropagation(), open('project', t.projectId)) }, iconText('folder', 'Project')) : '-'),
           },
-          { head: 'Source', track: 'minmax(64px, 90px)', muted: true, low: true, cell: t => iconText(SOURCE_GLYPH[t.source], t.source) },
+          { head: 'Source', track: 'minmax(64px, 90px)', muted: true, low: true, cell: t => tag(t.source) },
         ],
         s.tasks.filter(t => !state.coworkFilter || [t.name, t.status, t.repeats, t.source].join(' ').toLowerCase().includes(state.coworkFilter.trim().toLowerCase())).map(t => Object.assign({ open: () => openTask(t.id) }, t)),
         'Scheduled tasks'
@@ -169,7 +169,7 @@ function runsBody(t) {
     gridTable(
       [
         { head: 'Started', track: 'minmax(150px, 2fr)', cls: 'at-name', cell: x => [el('span', { className: `sched-dot${x.unread ? ' on' : ''}`, title: x.unread ? 'Unread\nYou have not opened this run yet.' : 'Opened\nYou have opened this run.' }), el('span', { className: 'at-label' }, x.startedAt ? fmtDate(x.startedAt) : '-')] },
-        { head: 'State', track: 'minmax(110px, 1fr)', cell: x => x.state || '-', title: x => x.title },
+        { head: 'State', track: 'minmax(110px, 1fr)', align: 'center', cell: x => (x.state ? stateTag(x.state) : '-'), title: x => x.title },
         { head: 'Permissions', track: 'minmax(150px, 1.5fr)', muted: true, low: true, cell: x => x.permissions || '-' },
       ],
       r.runs.map(x => Object.assign({ open: () => open('run', x.id) }, x)),

@@ -106,7 +106,7 @@ export type Confirm =
   | { kind: 'hunt'; prompt: string; items: number; card?: string }
   | { kind: 'browserHunt'; prompt: string; procedures: number; card?: string }
   | { kind: 'browserHuntCreate'; id: string; key: string; name: string; location: string; files: string[]; backups: string[]; /** The plugin whose source is written, as `name@marketplace`; its version moves. */ plugin?: string; /** Whether that plugin is installed and is updated afterwards. */ installed?: boolean }
-  | { kind: 'huntCreate'; id: string; key: string; name: string; market: string; location: string; problems: string[]; files: string[]; retired: string[]; kept: string[] }
+  | { kind: 'huntCreate'; id: string; key: string; name: string; market: string; location: string; problems: string[]; files: string[]; replaced: string[]; kept: string[] }
   | { kind: 'handover'; id: string; key: string; title: string; cwd: string; folder: string; files: { name: string; missing: boolean }[]; prompt: string }
   | { kind: 'handoverDraft'; key: string; files: number; chars: number }
   | ShareChoice

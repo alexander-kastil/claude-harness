@@ -3,9 +3,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { test } from 'node:test';
-import { run } from '../../src/cli';
-import type { MarketplacesOut } from '../../src/cli-markets';
-import { harnessState, marketplaceHealth } from '../../src/repos-overview';
+import { marketplaceHealth } from '../../src/repos-overview';
 
 const tmp = (what: string) => fs.mkdtempSync(path.join(os.tmpdir(), `market-harness-${what}-`));
 const write = (root: string, rel: string, text: string) => {
@@ -39,29 +37,6 @@ function fixture() {
   return { root, market };
 }
 
-test('harnessState names the four states', () => {
-  assert.deepEqual([harnessState(true, false), harnessState(false, true), harnessState(true, true), harnessState(false, false)], ['code', 'cowork', 'both', 'none']);
-});
-
-test('every plugin of the marketplace carries its Harness state, read from the synced plugins', () => {
-  const { root } = fixture();
-  const own = marketplaceHealth(root).find(m => m.name === 'own')!;
-  const states = Object.fromEntries(own.plugins.map(p => [p.name, p.harness]));
-  assert.deepEqual(states, { design: 'code', marketing: 'both', tools: 'code' });
-});
-
-test('the marketplaces command counts the plugins not in Cowork and lists each state', async () => {
-  const { root } = fixture();
-  const out: string[] = [];
-  const config = path.join(tmp('config'), 'claude.json');
-  write(path.dirname(config), 'claude.json', '{}');
-  const code = await run(['marketplaces', '--root', root, '--user-config', config, '--json'], { out: t => out.push(t), err: () => undefined });
-  assert.equal(code, 0);
-  const own = (JSON.parse(out.join('\n')) as MarketplacesOut).marketplaces.find(m => m.name === 'own')!;
-  assert.equal(own.notInCowork, 2);
-  assert.deepEqual(own.harness.map(h => `${h.plugin}:${h.state}`).sort(), ['design:code', 'marketing:both', 'tools:code']);
-});
-
 test('reading the marketplaces writes nothing under the synced folders', () => {
   const { root } = fixture();
   const list = (dir: string): string[] => fs.readdirSync(dir, { recursive: true, withFileTypes: false }).map(String).sort();
@@ -70,7 +45,7 @@ test('reading the marketplaces writes nothing under the synced folders', () => {
   assert.deepEqual(list(path.join(root, 'plugins', 'synced')), before);
 });
 
-test('a hosted marketplace lists its uninstalled plugins with their Harness state too', () => {
+test('a hosted marketplace lists its uninstalled plugins too', () => {
   const { root, market } = fixture();
   write(root, 'plugins/known_marketplaces.json', JSON.stringify({ hosted: { source: { source: 'github', repo: 'o/r' }, installLocation: market } }));
   const hosted = marketplaceHealth(root).find(m => m.name === 'hosted')!;

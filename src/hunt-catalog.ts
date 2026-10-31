@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { Asset, ScopeView, contentHash, isPluginCopy } from './harness';
+import { replaceOf } from './shared/hunt';
 import type { HuntCatalogItem, HuntProposal } from './shared/hunt';
 
 // The Plugin Hunter's read of the harness: the skills and agents it can choose from, where their copies are, and the inventory Claude is shown.
@@ -43,12 +44,12 @@ export function buildCatalog(views: ScopeView[], plugins: ScopeView[]): HuntCata
       const others = copies.filter(c => c.view.id !== 'global' && c !== base);
       // Only a name with several copies is compared; the hash reads every file of the folder.
       const baseHash = others.length ? contentHash(base.asset) : '';
-      const repos = others.map(c => ({ repo: c.view.label, path: pathOf(c.asset), same: contentHash(c.asset) === baseHash, retire: false }));
+      const repos = others.map(c => ({ repo: c.view.label, path: pathOf(c.asset), same: contentHash(c.asset) === baseHash, replace: false }));
       // With no global copy the first repo copy is the plugin's version and is listed as the repo row.
-      if (!global) repos.unshift({ repo: base.view.label, path: pathOf(base.asset), same: true, retire: false });
+      if (!global) repos.unshift({ repo: base.view.label, path: pathOf(base.asset), same: true, replace: false });
       out.push({
         description: base.asset.description,
-        asset: { kind, name, include: false, why: '', global: global ? { path: pathOf(global.asset), retire: false } : undefined, repos, inPlugin: shipped.get(name) },
+        asset: { kind, name, include: false, why: '', global: global ? { path: pathOf(global.asset), replace: false } : undefined, repos, inPlugin: shipped.get(name) },
       });
     }
   }
@@ -133,8 +134,8 @@ export function reconcile(proposals: HuntProposal[], catalog: HuntCatalogItem[],
             return {
               ...a,
               inPlugin: now.inPlugin,
-              global: now.global ? { path: now.global.path, retire: a.global?.path === now.global.path && a.global.retire } : undefined,
-              repos: now.repos.map(r => ({ ...r, retire: !!a.repos.find(o => o.path === r.path)?.retire })),
+              global: now.global ? { path: now.global.path, replace: a.global?.path === now.global.path && replaceOf(a.global) } : undefined,
+              repos: now.repos.map(r => ({ ...r, replace: replaceOf(a.repos.find(o => o.path === r.path)) })),
             };
           }),
         }

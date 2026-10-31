@@ -3,7 +3,7 @@
 import { standardCard } from './standard-card';
 import { agentColorClass, app, checkBadge, checkText, command, kindLabel, metaOf, openAt, persist, showPage, state, std, total, vscode } from './core';
 import { slugOf } from './week';
-import { aiGroup, el, fmtAgo, fmtDate, fmtNum, icon, iconBtn, plural, pressable, shortModel, tailPath } from './dom';
+import { aiGroup, el, fmtAgo, fmtDate, fmtNum, icon, iconBtn, plural, pressable, shortModel, stateTag, tag, tailPath } from './dom';
 import { hideHover, placeCard, tabTip } from './hover';
 import { showKindPage } from './kind-page';
 import { renderMain } from './main';
@@ -293,14 +293,14 @@ export function renderEffective(view) {
   const loaded = trace && trace.loaded;
   const memoryFiles = e.memory.flatMap(n => memoryList(n, 0)).filter(r => r.node.exists).map(r => r.node.file);
   const missing = loaded ? notLoaded([...memoryFiles, ...e.rules.filter(r => r.always).map(r => r.file)], loaded) : new Set();
-  const loadedCol = (file, applies) => ({ head: 'Last session', track: '96px', muted: true, cell: r => (!applies(r) ? '' : missing.has(file(r)) ? el('span', { className: 'warn' }, icon('warning'), 'not loaded') : 'loaded'), title: r => (applies(r) && missing.has(file(r)) ? 'Declared here, but the last session in this repo did not load it.' : '') });
+  const loadedCol = (file, applies) => ({ head: 'Last session', track: '96px', muted: true, align: 'center', cell: r => (!applies(r) ? '' : missing.has(file(r)) ? stateTag('not loaded', 'warn') : stateTag('loaded', 'ok')), title: r => (applies(r) && missing.has(file(r)) ? 'Declared here, but the last session in this repo did not load it.' : '') });
   const name = (glyph, text, depth, title) => ({ head: 'Name', track: 'minmax(160px, 1.2fr)', cls: 'at-name', cell: r => [indent(depth ? depth(r) : 0), icon(glyph(r)), el('span', { className: 'at-label' }, text(r))], title });
-  const switchCol = (head, key) => ({ head, track: '64px', muted: true, cell: p => (p[key] === undefined ? '' : p[key] ? 'on' : 'off') });
+  const switchCol = (head, key) => ({ head, track: '64px', muted: true, align: 'center', cell: p => (p[key] === undefined ? '' : p[key] ? stateTag('on', 'ok') : stateTag('off', 'none')) });
   const memory = e.memory.flatMap(n => memoryList(n, 0));
   const memoryTable = gridTable(
     [
       name(r => (r.depth ? 'arrow-small-right' : 'markdown'), r => r.node.label, r => r.depth, r => r.node.file),
-      { head: 'Loaded as', track: '96px', muted: true, cell: r => (!r.node.exists ? 'not found' : r.depth ? 'import' : 'memory') },
+      { head: 'Loaded as', track: '96px', muted: true, align: 'center', cell: r => (!r.node.exists ? stateTag('not found', 'fail') : tag(r.depth ? 'import' : 'memory')) },
       loaded ? loadedCol(r => r.node.file, r => r.node.exists) : null,
     ].filter(Boolean),
     memory.map(r => Object.assign({ open: r.node.exists ? () => openAt(r.node.file) : undefined, className: r.node.exists ? '' : 'disabled' }, r)),
@@ -311,7 +311,7 @@ export function renderEffective(view) {
       name(r => (r.always ? 'law' : r.total ? 'filter' : 'warning'), r => r.name),
       { head: 'Loads', track: 'minmax(0, 2fr)', muted: true, wide: true, cell: r => (r.always ? 'always' : r.globs.map(g => g.glob).join(', ')), title: r => r.globs.map(g => g.glob).join('\n') },
       { head: 'Files', track: '72px', num: true, cell: r => (r.always ? '' : `${r.total}${e.capped ? '+' : ''}`) },
-      { head: 'Origin', track: '92px', muted: true, cell: r => (r.scope === 'Global' ? 'global' : 'repo'), title: r => `Origin · ${r.scope === 'Global' ? 'Global' : 'Repo'}
+      { head: 'Origin', track: '92px', muted: true, cell: r => tag(r.scope === 'Global' ? 'global' : 'repo'), title: r => `Origin · ${r.scope === 'Global' ? 'Global' : 'Repo'}
 ${r.scope === 'Global' ? 'Authored in ~/.claude' : `Authored in ${r.scope}`}` },
       loaded ? loadedCol(r => r.file, r => r.always) : null,
     ].filter(Boolean),
@@ -321,7 +321,7 @@ ${r.scope === 'Global' ? 'Authored in ~/.claude' : `Authored in ${r.scope}`}` },
   const pluginsTable = gridTable(
     [
       name(p => (p.enabled ? 'pass-filled' : 'circle-large-outline'), p => p.key.split('@')[0]),
-      { head: 'Marketplace', track: 'minmax(0, 1fr)', muted: true, wide: true, cell: p => p.key.split('@')[1] || '' },
+      { head: 'Marketplace', track: 'minmax(0, 1fr)', muted: true, wide: true, cell: p => tag(p.key.split('@')[1] || '') },
       switchCol('User', 'user'),
       switchCol('Project', 'project'),
       switchCol('Local', 'local'),
@@ -335,7 +335,7 @@ ${r.scope === 'Global' ? 'Authored in ~/.claude' : `Authored in ${r.scope}`}` },
     [
       name(h => (h.event === 'mod' ? 'extensions' : 'zap'), h => (h.matcher ? `${h.event} · ${h.matcher}` : h.event)),
       { head: 'Command', track: 'minmax(0, 2fr)', muted: true, wide: true, cell: h => h.command, title: h => h.command },
-      { head: 'Origin', track: '92px', muted: true, cell: h => hookOrigin(h.source), title: h => `Origin · ${hookOrigin(h.source)}
+      { head: 'Origin', track: '92px', muted: true, cell: h => tag(hookOrigin(h.source)), title: h => `Origin · ${hookOrigin(h.source)}
 ${h.source}` },
       failed.size ? { head: 'Failures', track: '96px', num: true, cell: h => (failed.has(h.index) ? el('span', { className: 'bad' }, icon('error'), `${failed.get(h.index).reduce((n, f) => n + f.count, 0)}x`) : ''), title: h => (failed.has(h.index) ? `${failureText(failed.get(h.index))}\nin the last ${plural(trace.scanned, 'session')} with a failure` : '') } : null,
     ].filter(Boolean),

@@ -91,7 +91,7 @@ after(async () => {
 });
 
 test('the Overview AI group ends with Cowork Handover after the two hunters, and it opens the page', T, async () => {
-  assert.deepEqual(await labels('.overview-tabs ~ .hunt-cta button, .hunt-cta button'), ['Plugin Hunter', 'Browser Automation Hunter', 'Cowork Handover']);
+  assert.deepEqual(await labels('.overview-tabs ~ .hunt-cta button, .hunt-cta button'), ['Plugin Hunter', 'Automation Hunter', 'Cowork Handover']);
   await s.mouse('.hunt-cta button', 'Cowork Handover');
   await s.waitFor(D => D.querySelector('.main-head .dh-kind')?.textContent.trim() === 'Handover');
   await s.mouse('.sidebar-head [aria-label="Overview"]', '');

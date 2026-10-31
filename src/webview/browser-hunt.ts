@@ -1,10 +1,11 @@
 // @ts-nocheck
-// The Browser Automation Hunter page: a chat with Claude beside the procedure card it proposes, and a History of the other cards.
+// The Automation Hunter page: a chat with Claude beside the procedure card it proposes, and a History of the other cards.
 // A procedure is prototyped on the desktop in the browser, then optimized in code; the card holds its steps and how it is kept.
-// Every command sits in the page's header bar: the page's own on the left, the Claude group with Hunt at the right end.
+// The page's own commands sit in the header bar; Hunt sits in the AI group at the right end of the chat's input, like every chat.
 import { app, showPage, state, vscode } from './core';
 import { confirmAt, showConfirm } from './confirm';
-import { aiGroup, claudeMark, countHead, el, icon, iconBtn } from './dom';
+import { chatComposer } from './chat-composer';
+import { claudeMark, countHead, el, icon, iconBtn } from './dom';
 import { hideHover } from './hover';
 import { showKindPage } from './kind-page';
 import { tabBar } from './repo-page';
@@ -13,12 +14,15 @@ import { renderMain } from './main';
 const KEEPS = [
   ['api', 'API script'],
   ['cli', 'Command line'],
-  ['guided', 'Guided browser run'],
+  ['guided', 'Guided run'],
   ['tool', 'A tool'],
 ];
 // A command's text, hidden when the page is narrow so the header bar stays one row; each command has its aria-label.
 const lab = t => el('span', { className: 'bh-label' }, t);
 const keepLabel =id => (KEEPS.find(k => k[0] === id) || KEEPS[2])[1];
+
+// A procedure Create wrote is a kebab-case slug ("google-analytics-oauth-client"); the list shows it as the words the other rows use.
+const readable = name => (/^[a-z0-9]+(-[a-z0-9]+)+$/.test(name) ? name.replace(/-/g, ' ').replace(/^./, c => c.toUpperCase()) : name);
 
 const bh = {
   info: undefined,
@@ -49,7 +53,7 @@ export const openBrowserHunt = () => {
 
 // Beside the Plugin Hunter button, in the same AI group.
 export const browserHuntButton = () =>
-  el('button', { className: 'secondary', title: 'Browser Automation Hunter\nTalk to Claude about a browser procedure: prototype it on the desktop, then optimize it in code. It counts against your plan.', 'aria-label': 'Browser Automation Hunter', onclick: openBrowserHunt }, icon('globe'), el('span', { className: 'cta-label' }, 'Browser Automation Hunter'));
+  el('button', { className: 'secondary', title: 'Automation Hunter\nTalk to Claude about a browser or desktop procedure: prototype it on the desktop, then optimize it in code. It counts against your plan.', 'aria-label': 'Automation Hunter', onclick: openBrowserHunt }, icon('globe'), el('span', { className: 'cta-label' }, 'Automation Hunter'));
 
 const waitText = () => {
   const s = Math.max(0, Math.floor((Date.now() - bh.startedAt) / 1000));
@@ -248,35 +252,28 @@ const huntButton = () =>
 
 function chatColumn(sp) {
   const turns = [...workingTurns(sp), ...(bh.pending ? [{ role: 'owner', text: bh.pending }, { role: 'claude', text: waitText(), wait: true }] : [])];
-  const text = el('textarea', {
-    className: 'hunt-ask-text',
+  const hunter = huntButton();
+  const composer = chatComposer({
     rows: 2,
     placeholder: 'Message Claude',
     value: bh.running ? '' : bh.prompt,
     readonly: bh.running,
-    'aria-label': 'Message to Claude',
-    oninput: e => {
-      bh.prompt = e.target.value;
-      const go = app.querySelector('.bh-page [data-confirm="browserHunt"]');
-      if (go) {
-        go.disabled = idle();
-        go.title = idle() ? 'Hunt\nWrite a message to Claude first.' : 'Hunt\nSends your message to Claude.';
-      }
+    onInput: v => {
+      bh.prompt = v;
+      const go = hunter.querySelector('button') || hunter;
+      go.disabled = idle();
+      go.title = idle() ? 'Hunt\nWrite a message to Claude first.' : 'Hunt\nSends your message to Claude.';
     },
-    onkeydown: e => {
-      if (e.key === 'Enter' && !e.shiftKey && !idle()) {
-        e.preventDefault();
-        app.querySelector('.bh-page [data-confirm="browserHunt"]')?.click();
-      }
-    },
+    onEnter: () => !idle() && (hunter.querySelector('button') || hunter).click(),
+    error: bh.error,
+    actions: [hunter],
   });
   return el(
     'div',
     { className: 'hunt-col hunt-col-chat' },
     el('div', { className: 'hunt-col-head' }, icon('comment-discussion'), el('span', {}, 'Chat'), bh.notice ? el('span', { className: 'hunt-note', role: 'status' }, icon('check'), bh.notice) : null),
     el('div', { className: 'hunt-chat-log', role: 'log', 'aria-live': 'polite' }, turns.length ? turns.map(turnRow) : el('div', { className: 'empty flush' }, 'Describe a browser procedure.')),
-    bh.error ? el('div', { className: 'notice bad', role: 'alert' }, bh.error) : null,
-    el('div', { className: 'hunt-composer' }, text)
+    composer
   );
 }
 
@@ -333,8 +330,8 @@ function procedures() {
     list.map(p =>
       el(
         'button',
-        { className: 'bh-proc', title: `${p.name}\n${p.how}`, disabled: bh.running, onclick: () => pick(p) },
-        el('span', { className: 'bh-proc-name' }, p.name),
+        { className: 'bh-proc', title: `${readable(p.name)}\n${p.desc || p.how}`, disabled: bh.running, onclick: () => pick(p) },
+        el('span', { className: 'bh-proc-name' }, readable(p.name)),
         el('span', { className: 'tag' }, keepLabel(p.keep))
       )
     )
@@ -391,7 +388,7 @@ export function renderBrowserHunt() {
     ],
     bh.tab,
     id => ((bh.tab = id), hideHover(), repaint()),
-    'Browser Automation Hunter views'
+    'Automation Hunter views'
   );
   const showPicker = !sp.working || blank(sp.working);
   const fresh = el(
@@ -410,13 +407,12 @@ export function renderBrowserHunt() {
   const count = bh.info && bh.info.procedures.length;
   const head = countHead(
     'globe',
-    'Browser Automation Hunter',
-    bh.info ? `${count} ${count === 1 ? 'procedure' : 'procedures'} kept` : 'Reading...',
+    'Automation Hunter',
+    bh.info ? `Browser and desktop · ${count} ${count === 1 ? 'procedure' : 'procedures'} kept` : 'Reading...',
     iconBtn('arrow-left', 'Back to Plugins', () => showKindPage('plugin', undefined)),
     el('button', { className: 'secondary', 'aria-label': 'New procedure', title: 'New procedure\nAn empty card to start from.', disabled: bh.running, onclick: newCard }, icon('add'), lab('New procedure')),
     createButton(bh.tab === 'new' ? sp.working : undefined),
-    startOver(),
-    aiGroup('', huntButton())
+    startOver()
   );
   head.classList.toggle('busy', bh.running);
   return el('section', { className: 'main bh-page' }, head, el('div', { className: 'main-body hunt-body', onscroll: hideHover }, bar, bh.tab === 'history' ? history : fresh));

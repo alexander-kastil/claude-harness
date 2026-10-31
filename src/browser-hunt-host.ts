@@ -2,7 +2,7 @@ import * as os from 'os';
 import * as vscode from 'vscode';
 import type { BrowserHuntHost } from './panel';
 import { BROWSER_HUNT_SYSTEM, applyCard, chatPrompt, parseProcedures, parseTurn } from './browser-hunt';
-import { locateSkill, planCardWrite, writeCard } from './browser-hunt-skill';
+import { describeProcedures, locateSkill, planCardWrite, writeCard } from './browser-hunt-skill';
 import { shortReply } from './hunt';
 import { ScopeView } from './harness';
 import type { BrowserCard, BrowserHuntInfo, BrowserTurn } from './shared/browser-hunt';
@@ -39,7 +39,7 @@ export function browserHuntHost(d: BrowserHuntDeps): BrowserHuntHost {
 
   const info = (): BrowserHuntInfo => {
     const s = skill();
-    return { procedures: parseProcedures(s.text), source: s.file, problem: s.problem, cards: stored().sort((a, b) => b.created - a.created), chat: d.state.get<BrowserTurn[]>(CHAT, []), created: d.state.get<Record<string, string>>(CREATED, {}) };
+    return { procedures: describeProcedures(parseProcedures(s.text), s.file), source: s.file, problem: s.problem, cards: stored().sort((a, b) => b.created - a.created), chat: d.state.get<BrowserTurn[]>(CHAT, []), created: d.state.get<Record<string, string>>(CREATED, {}) };
   };
 
   return {

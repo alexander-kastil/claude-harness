@@ -3,7 +3,7 @@
 import { repoContext } from './context';
 import { bylineNodes } from './byline';
 import { kindLabel, labelOf, matches, persist, select, showRepo, state, total, vscode } from './core';
-import { el, fmtAgo, fmtDate, fmtDur, highlight, icon, logo, plural, pressable } from './dom';
+import { el, fmtAgo, fmtDate, fmtDur, highlight, icon, logo, plural, pressable, stateTag, tag } from './dom';
 import { hideHover } from './hover';
 import { huntButton } from './hunt';
 import { showKindPage } from './kind-page';
@@ -64,7 +64,7 @@ function lastSessionsBlock(repos) {
             { head: 'Duration', track: '76px', num: true, wide: true, cell: s => (s.start ? fmtDur(s.end - s.start) : '') },
             { head: 'Agents', track: '60px', num: true, wide: true, cell: s => String(s.agents || 0) },
             // The State column exists only while some session shows a state.
-            ...(shown.some(s => sessionState(s)) ? [{ head: 'State', track: '84px', muted: true, wide: true, cell: sessionState }] : []),
+            ...(shown.some(s => sessionState(s)) ? [{ head: 'State', track: '84px', muted: true, wide: true, align: 'center', cell: s => stateTag(sessionState(s), s.live ? 'ok' : undefined) }] : []),
           ],
           shown,
           'Last sessions'
@@ -220,7 +220,7 @@ export function renderOverview() {
       [
         { head: 'Name', track: 'minmax(100px, 2fr)', cls: 'at-name', cell: a => [icon(a.icon), el('span', { className: 'at-label' }, a.name)], title: a => a.name },
         { head: 'Type', track: 'minmax(0, 1fr)', muted: true, wide: true, cell: a => kindLabel(a.kind) },
-        { head: 'Scope', track: 'minmax(72px, 1fr)', muted: true, cell: a => a.scopeLabel },
+        { head: 'Scope', track: 'minmax(72px, 1fr)', muted: true, cell: a => tag(a.scopeLabel) },
         { head: 'Changed', track: '120px', num: true, cell: a => fmtDate(a.mtime) },
       ],
       recent.map(a => Object.assign({ open: () => select(a.id) }, a)),
