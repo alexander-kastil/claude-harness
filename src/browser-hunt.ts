@@ -32,6 +32,10 @@ export const BROWSER_HUNT_SYSTEM = [
   '- "tool" when an existing tool or skill already does it; the reply names it.',
   'A procedure the skill already lists keeps what the skill says unless the owner changes it. When you are not sure an API covers it, choose "guided" and say in the reply what to check. "stage" stays "prototype" until the owner says the procedure runs in code.',
   '',
+  '## Hunting sessions',
+  '',
+  'When the message carries a "Sessions with browser or desktop use" section, it is a prefiltered list of the owner\'s Cowork chats and Claude Code sessions in the period they named, each with its prompts and its browser or desktop tool calls. Judge each against "What a procedure is": a session that only read pages, tested the owner\'s own app on localhost or ran a class lab is skipped. The card is the strongest procedure the skill does not list yet, built from the calls that worked; the reply names the other candidates in the same two sentences, so the owner can ask for the next one.',
+  '',
   '## How you talk',
   '',
   'Plain words, at most two short sentences. Ask one question only when the card cannot be right without the answer (which account, tenant, project or channel); otherwise make a sensible choice and say it. Answer with one JSON object only.',
@@ -155,13 +159,14 @@ export function withTrigger(skill: string, card: BrowserCard): string {
 const cardJson =(card: BrowserCard) => JSON.stringify({ name: card.name, goal: card.goal, keep: card.keep, stage: card.stage, steps: card.steps });
 
 /** One turn of the conversation: the procedures the skill keeps, the card as it stands, the earlier turns and the owner's new message. */
-export function chatPrompt(message: string, skill: string, card: BrowserCard | undefined, history: BrowserTurn[]): string {
+export function chatPrompt(message: string, skill: string, card: BrowserCard | undefined, history: BrowserTurn[], sessions?: string): string {
   return [
     'The owner is developing a procedure with you. Follow the rules of your system prompt.',
     '',
     '## The skill that keeps their procedures',
     skill || '(no procedures are known yet)',
     '',
+    ...(sessions ? [sessions, ''] : []),
     '## The procedure card as it stands now',
     card ? cardJson(card) : 'none yet',
     '',

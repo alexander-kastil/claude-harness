@@ -64,7 +64,7 @@ test('agents completes its subcommands', () => {
 test('cowork and browser-hunt complete their subcommands and --source', () => {
   assert.deepEqual(texts('harness cowork handover '), ['sources', 'plan', 'create']);
   assert.ok(texts('harness cowork ').includes('chats'));
-  assert.deepEqual(texts('harness browser-hunt '), ['procedures', 'plan', 'create']);
+  assert.deepEqual(texts('harness browser-hunt '), ['procedures', 'sessions', 'plan', 'create']);
   assert.deepEqual(texts('harness cowork handover plan --source '), ['chat', 'download', 'cloud', 'link']);
 });
 

@@ -7,6 +7,8 @@ All notable changes to Claude Harness are listed here, newest first. The format 
 ### Changed
 
 - Browser Automation Hunter is Automation Hunter and covers browser and desktop procedures: a guided run replaces the guided browser run, Create adds the procedure's name to the skill's triggers, Start from shows readable names with the procedure's goal and how in its hover, and the chat is as tall as its conversation
+- Automation Hunter hunts your own Cowork chats and Claude Code sessions for browser and desktop procedures: ask for "last week", "week 2" or "my sessions" and a script prefilter hands Claude only digests of the sessions that used an external page or a desktop app; `harness browser-hunt sessions` runs the same prefilter
+- Automation Hunter's Claude follows a system prompt built from the procedures hunted so far: what counts as a procedure, deep URLs and visible labels in each step, lessons inside the step they belong to, a last step that checks the result is live, no secret in a step, which steps stay manual, and how each procedure is kept
 - `harness fleet` is `harness repos` and `@harness:fleet` is `@harness:repos`
 - The extension's description and the README banner speak of harness engineering, and the README shows how Cowork work continues in Code with Handover
 - The README opens with Quick start and Why Claude Harness, a table that links every section, and screenshots of Browser Automation Hunter and Cowork Handover

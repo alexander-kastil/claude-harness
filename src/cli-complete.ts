@@ -140,6 +140,7 @@ export const COMMANDS: CommandSpec[] = [
   { path: 'cowork handover plan', flags: HANDOVER },
   { path: 'cowork handover create', flags: [...HANDOVER, DRY] },
   { path: 'browser-hunt procedures', flags: [REPO] },
+  { path: 'browser-hunt sessions', flags: [{ name: 'period', takes: ['this week', 'last week', 'week 1', 'week 2'] }, { name: 'source', takes: ['cowork', 'code'] }, { name: 'limit', takes: [] }, { name: 'digest' }] },
   { path: 'browser-hunt plan', flags: BROWSER_CARD },
   { path: 'browser-hunt create', flags: [...BROWSER_CARD, DRY] },
   { path: 'complete', flags: [{ name: 'line', takes: [] }, { name: 'position', takes: [] }] },

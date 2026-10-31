@@ -1,6 +1,7 @@
 import * as os from 'os';
 import * as vscode from 'vscode';
 import type { BrowserHuntHost } from './panel';
+import { findSessions, periodInMessage, sessionsSection } from './automation-sessions';
 import { BROWSER_HUNT_SYSTEM, applyCard, chatPrompt, parseProcedures, parseTurn } from './browser-hunt';
 import { describeProcedures, locateSkill, planCardWrite, writeCard } from './browser-hunt-skill';
 import { shortReply } from './hunt';
@@ -24,6 +25,8 @@ const REMEMBERED = 'browserHuntRemembered';
 const CREATED = 'browserHuntCreated';
 // Turns sent back to Claude with each message.
 const HISTORY = 20;
+// Candidate sessions a message may bring to Claude.
+const SESSION_LIMIT = 25;
 
 const friendly = (error: string): string => {
   const code = /\b([45]\d\d)\b/.exec(error)?.[1];
@@ -85,7 +88,10 @@ export function browserHuntHost(d: BrowserHuntDeps): BrowserHuntHost {
       try {
         const currentId = cardId && stored().some(c => c.id === cardId) ? cardId : d.state.get<string>(CURRENT);
         const sent = stored().find(c => c.id === currentId);
-        const result = await draftStyle(chatPrompt(prompt, s.text, sent, chat.slice(-HISTORY)), 'sonnet', os.tmpdir(), 300000, BROWSER_HUNT_SYSTEM);
+        // A message that names a period or asks for "my sessions" gets the prefiltered sessions of that period; any other sends none.
+        const asked = periodInMessage(prompt);
+        const sessions = asked.asked ? await sessionsSection(asked.period, await findSessions({ root: d.root(), period: asked.period, limit: SESSION_LIMIT })) : undefined;
+        const result = await draftStyle(chatPrompt(prompt, s.text, sent, chat.slice(-HISTORY), sessions), 'sonnet', os.tmpdir(), 300000, BROWSER_HUNT_SYSTEM);
         if ('error' in result) return void post({ type: 'browserHuntRun', state: 'error', error: friendly(result.error) });
         const turn = parseTurn(result.text);
         const reply = shortReply(turn.reply) || 'Done.';

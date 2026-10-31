@@ -15,8 +15,8 @@ export interface Args {
   flags: Map<string, string[]>;
 }
 
-const BOOLEAN = new Set(['json', 'help', 'cowork', 'retire', 'dry-run', 'apply', 'yes', 'week', 'drop-files']);
-const VALUED = new Set(['root', 'repo', 'repos', 'user-config', 'from', 'name', 'kind', 'into', 'category', 'skills', 'agents', 'market', 'description', 'session', 'week-used', 'line', 'position', 'leaf', 'leaves', 'to', 'file', 'files', 'scope', 'model', 'tools', 'url', 'command', 'args', 'transport', 'paths', 'matcher', 'summary', 'area', 'rule', 'title', 'limit', 'days', 'find', 'query', 'plugin', 'source', 'stage', 'version', 'id', 'link', 'folder', 'task', 'exists', 'todo', 'skip', 'snapshot', 'step', 'goal', 'keep']);
+const BOOLEAN = new Set(['json', 'help', 'cowork', 'retire', 'dry-run', 'apply', 'yes', 'week', 'drop-files', 'digest']);
+const VALUED = new Set(['root', 'repo', 'repos', 'user-config', 'from', 'name', 'kind', 'into', 'category', 'skills', 'agents', 'market', 'description', 'session', 'week-used', 'line', 'position', 'leaf', 'leaves', 'to', 'file', 'files', 'scope', 'model', 'tools', 'url', 'command', 'args', 'transport', 'paths', 'matcher', 'summary', 'area', 'rule', 'title', 'limit', 'days', 'find', 'query', 'plugin', 'source', 'stage', 'version', 'id', 'link', 'folder', 'task', 'exists', 'todo', 'skip', 'snapshot', 'step', 'goal', 'keep', 'period']);
 
 export class Stop extends Error {
   constructor(message: string, readonly code = 1) {

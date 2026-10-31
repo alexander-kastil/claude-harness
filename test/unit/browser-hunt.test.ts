@@ -40,6 +40,11 @@ test('the system prompt holds the rules: the four keeps, the manual cases and th
   assert.match(text, /^The owner is developing a procedure with you\. Follow the rules of your system prompt\./);
   assert.ok(!/"manual" is true only|"stage" is "prototype"/.test(text));
   assert.match(text, /"reply":"at most two short sentences","card":/);
+  assert.ok(!text.includes('Sessions with browser or desktop use'), 'no sessions without the words');
+  assert.match(BROWSER_HUNT_SYSTEM, /\n## How it is kept\n[\s\S]*\n## Hunting sessions\n\nWhen the message carries a "Sessions with browser or desktop use" section[\s\S]*so the owner can ask for the next one\.\n\n## How you talk\n/);
+  const withSessions = chatPrompt('hunt last week', SKILL, undefined, [], '## Sessions with browser or desktop use (last week)\n\n| Date |');
+  assert.ok(withSessions.indexOf('## Sessions with browser or desktop use (last week)') > withSessions.indexOf('## The skill that keeps their procedures'));
+  assert.ok(withSessions.indexOf('## Sessions with') < withSessions.indexOf('## The procedure card as it stands now'));
 });
 
 test('parseTurn reads the JSON answer and falls back to plain text', () => {

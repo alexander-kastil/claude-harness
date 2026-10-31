@@ -146,6 +146,8 @@ Usage: node cli.js <command> [options]
   cowork handover create <same options> [--dry-run]
                                       Write the handover into the repo as plan shows it. The Cowork side is only read.
   browser-hunt procedures             The browser and desktop procedures of the browser-automations skill (Global, a repo or an installed plugin) and how each is kept.
+  browser-hunt sessions [--period "this week|last week|week N"] [--source cowork|code] [--limit <n>] [--digest]
+                                      Your Cowork chats and Claude Code sessions that drove an external browser page or a desktop app, found by a script (no Claude); --digest adds what Claude would read of each.
   browser-hunt plan --name <procedure> --step <text> [--step <text>] [--goal <t>] [--keep api|cli|guided|tool] [--stage prototype|optimized]
                                       The same as browser-hunt create --dry-run. A step ending in (manual) stays with the person.
   browser-hunt create <same options> [--dry-run]

@@ -1,3 +1,6 @@
+import * as os from 'os';
+import * as path from 'path';
+import { candidateTable, digestsOf, findSessions, parsePeriod, plain } from './automation-sessions';
 import { Args, Io, Stop, emit, headline, load, one, table } from './cli-core';
 import { KEEP_LABELS, parseProcedures } from './browser-hunt';
 import { CardPlan, SKILL, locateSkill, planCardWrite, writeCard } from './browser-hunt-skill';
@@ -76,10 +79,33 @@ async function card(a: Args, io: Io, dry: boolean): Promise<number> {
   return 0;
 }
 
+/** `browser-hunt sessions`: the sessions of a period that used a browser page or a desktop app, found by the prefilter. */
+async function sessions(a: Args, io: Io): Promise<number> {
+  const spec = one(a, 'period');
+  const period = spec === undefined ? undefined : parsePeriod(spec);
+  if (spec !== undefined && !period) throw new Stop(`--period takes this week, last week or week N, got "${spec}".`, 2);
+  const source = one(a, 'source');
+  if (source !== undefined && source !== 'cowork' && source !== 'code') throw new Stop(`--source takes cowork or code, got "${source}".`, 2);
+  const limit = one(a, 'limit') === undefined ? undefined : Number(one(a, 'limit'));
+  if (limit !== undefined && !(limit > 0)) throw new Stop(`--limit takes a number above 0, got "${one(a, 'limit')}".`, 2);
+  const root = path.resolve(one(a, 'root') ?? path.join(os.homedir(), '.claude'));
+  const found = await findSessions({ root, period, source, limit });
+  const digests = one(a, 'digest') ? await digestsOf(found) : undefined;
+  const lines = [
+    headline(`Browser and desktop sessions: ${found.length} (${period?.label ?? 'all'})`),
+    '',
+    ...(found.length ? candidateTable(found) : ['No session used a browser page or a desktop app in this period.']),
+    ...(digests ? ['', ...digests.map(d => `${d.text}\n`)] : []),
+  ];
+  emit(io, a, { period: period?.label ?? null, from: period?.from ?? null, to: period?.to ?? null, candidates: found.map(plain), ...(digests ? { digests } : {}) }, lines);
+  return 0;
+}
+
 export async function browserHuntCommand(a: Args, io: Io): Promise<number> {
   const [, sub] = a.words;
+  if (sub === 'sessions') return sessions(a, io);
   if (sub === 'procedures') return procedures(a, io);
   if (sub === 'plan') return card(a, io, true);
   if (sub === 'create') return card(a, io, !!one(a, 'dry-run'));
-  throw new Stop('browser-hunt needs a subcommand: browser-hunt procedures | plan | create.', 2);
+  throw new Stop('browser-hunt needs a subcommand: browser-hunt procedures | sessions | plan | create.', 2);
 }
