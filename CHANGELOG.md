@@ -4,6 +4,12 @@ All notable changes to Claude Harness are listed here, newest first. The format 
 
 ## [Unreleased]
 
+### Added
+
+- Release build
+
+## [1.0.0] - 2026-10-31
+
 ### Changed
 
 - Browser Automation Hunter is Automation Hunter and covers browser and desktop procedures: a guided run replaces the guided browser run, Create adds the procedure's name to the skill's triggers, Start from shows readable names with the procedure's goal and how in its hover
