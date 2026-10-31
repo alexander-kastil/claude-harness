@@ -665,7 +665,7 @@ export function renderSidebar() {
         'div',
         {
           className: `repo-head${!state.detail && state.repo === view.id ? ' selected' : ''}`,
-          'aria-label': `${view.label}, ${view.path}`,
+          'aria-label': `${view.label} ${count}, ${view.path}`,
           ...repoContext(view),
           onclick: () => {
             hideHover();
@@ -703,6 +703,7 @@ export function renderSidebar() {
           e.stopPropagation();
           command('create', { scope: view.id });
         }),
+        ' ',
         el('span', { className: 'count' }, count)
     );
     list.append(

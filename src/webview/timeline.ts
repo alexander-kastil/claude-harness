@@ -94,7 +94,7 @@ export function drawTimeline(host, d) {
   const cy = i => AXIS + i * LANE + LANE / 2;
   const laneOf = new Map(d.agents.map((a, i) => [a.id, i + 1]));
   const selected = state.session && state.session.selected;
-  const root = svg('svg', { width: W, height: H, viewBox: `0 0 ${W} ${H}`, class: 'tl', role: 'img', 'aria-label': 'Delegation timeline' });
+  const root = svg('svg', { width: W, height: H, viewBox: `0 0 ${W} ${H}`, class: 'tl', role: 'group', 'aria-label': 'Delegation timeline' });
   grid(root, AXIS, H);
 
   const row = (i, label, depth, onclick, isSelected, extraClass) =>

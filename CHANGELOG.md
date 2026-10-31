@@ -29,6 +29,7 @@ All notable changes to Claude Harness are listed here, newest first. The format 
 - The left nav collapses to a rail and expands from any rail icon (Alt+Shift+B); the rail's active item is a quiet tint like the active nav toggle
 - `harness cowork chats`, `cowork chat`, `cowork artifacts` and `cowork handover sources|plan|create`, and `harness browser-hunt procedures|plan|create`
 - `harness sessions open` and the `@harness:session-analyze` mention open the current session on its session page
+- Retake the four README screenshots: All four screenshots were retaken in Dracula Theme Soft and written to docs/images
 
 ### Fixed
 

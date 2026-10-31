@@ -34,6 +34,8 @@ paths:
   - Fixed-length columns (versions, toggles, status tags) are centred ("fixed lenght cols like version numbers and slide toggles should be centered").
   - Cowork's icon is `coworkIcon()` everywhere.
   - An active icon toggle is quiet ("this is far too bold").
+  - Words on a card, from the owner's Plugin Hunter corrections of 2026-10-31 (`tasks/lessons.md`, "Plugin Hunter and Automation Hunter wording"): a switch is labelled with what it does (Replace) and its hover says what On and Off do; a tag states one plain fact with a hover on why it matters ("this chips are pure ai prose"); a card never repeats what the chat or the head already shows ("we dont need this ... we have the chat"); a label reads the same in every state, no counts; a row's state marker is one small icon on its left ("just a small icon on the left").
+  - Every chat (Plugin Hunter, Automation Hunter) is one `chatPane()` with one `chatComposer()`: full height beside its card, the input pinned at the bottom with its actions inside, Start over in the page header. `test/ui/hunters.test.mjs` checks this for all three hunters.
   The board is https://claude.ai/artifact/FfVPX3YaLeHsbkhsgAvD3o.
 - A Cowork view is proposed with its coverage counted against what the owner sees on claude.ai ("shows N of the M you see") after a read-only probe of its source, and built only when that covers what the owner expects (owner, 2026-10-30, after Projects and design systems were built and then removed: "then remove projects", "remove design systems").
 - Code views show Code only: marketplace and plugin pages carry no Cowork column or Add to Cowork; Cowork parts live in the Cowork region and its own pages (owner, 2026-10-30: "B … pure code", "No Cowork for marketplace").

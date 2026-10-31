@@ -915,6 +915,7 @@
     "watch:webview": "node scripts/webview.mjs --watch",
     "test": "npm run compile && node --test \"out/test/unit/**/*.test.js\"",
     "test:ui": "npm run compile && node --test --test-concurrency=1 \"test/ui/*.test.mjs\"",
+    "shots": "npm run compile && node test/ui/shots.mjs",
     "vscode:prepublish": "npm run compile",
     "package": "vsce package",
     "version": "node scripts/sync-plugin-version.mjs"

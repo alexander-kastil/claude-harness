@@ -194,14 +194,14 @@ function wire(node: HTMLElement, e: Entry): HTMLElement {
 
 /** An inline reference: the name as written, styled as a link to the element. */
 export const refChip = (e: Entry, label?: string): HTMLElement =>
-  wire(el('button', { type: 'button', className: `ref ref-${e.a.kind}`, 'aria-label': `${kindLabel(e.a.kind)} ${labelOf(e.a)}` }, icon(glyphOf(e.a)), el('span', {}, label ?? labelOf(e.a))), e);
+  wire(el('button', { type: 'button', className: `ref ref-${e.a.kind}`, 'aria-label': `${kindLabel(e.a.kind)} ${label ?? labelOf(e.a)}` }, icon(glyphOf(e.a)), el('span', {}, label ?? labelOf(e.a))), e);
 
 /** A reference in a list: icon, name, kind and where it comes from. */
 export const refRow = (e: Entry): HTMLElement =>
   wire(
     el(
       'button',
-      { type: 'button', className: 'ref-row', 'aria-label': `${kindLabel(e.a.kind)} ${labelOf(e.a)}` },
+      { type: 'button', className: 'ref-row' },
       icon(glyphOf(e.a)),
       el('span', { className: 'ref-name' }, labelOf(e.a)),
       el('span', { className: 'ref-kind' }, kindLabel(e.a.kind)),

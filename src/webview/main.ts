@@ -59,6 +59,7 @@ export function renderMain() {
           : repo
             ? renderRepo(repo)
             : renderOverview();
+  main.setAttribute('role', 'main');
   const current = app.querySelector('.main');
   current ? current.replaceWith(main) : app.append(main);
 }

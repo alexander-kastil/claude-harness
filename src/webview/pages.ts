@@ -133,7 +133,7 @@ export function renderMarkets() {
         el(
           'div',
           { className: 'recent' },
-          el('div', { className: 'market-head', onclick: e => (e.target.closest('button') ? undefined : (foldedMarkets.has(m.name) ? foldedMarkets.delete(m.name) : foldedMarkets.add(m.name), renderMain())) }, icon('package'), el('span', { className: 'label' }, m.name), el('span', { className: 'market-source', title: sourceTip(m) }, icon(SOURCE_ICONS[m.kind] ?? 'question'), `${sourceToken(m)} · ${sourceName(m)}`), ahead ? el('span', { className: 'tag warn' }, `${ahead} ahead`) : null, el('span', { className: 'spacer' }),
+          el('div', { className: 'market-head', onclick: e => (e.target.closest('button') ? undefined : (foldedMarkets.has(m.name) ? foldedMarkets.delete(m.name) : foldedMarkets.add(m.name), renderMain())) }, icon('package'), el('span', { className: 'label', role: 'button', tabindex: '0', 'aria-expanded': String(!foldedMarkets.has(m.name)), onkeydown: e => { if (e.key !== 'Enter' && e.key !== ' ') return; e.preventDefault(); foldedMarkets.has(m.name) ? foldedMarkets.delete(m.name) : foldedMarkets.add(m.name); renderMain(); } }, m.name), el('span', { className: 'market-source', title: sourceTip(m) }, icon(SOURCE_ICONS[m.kind] ?? 'question'), `${sourceToken(m)} · ${sourceName(m)}`), ahead ? el('span', { className: 'tag warn' }, `${ahead} ahead`) : null, el('span', { className: 'spacer' }),
             m.kind === 'directory' ? el('button', { className: 'secondary', onclick: () => command('renameMarketplace', { market: m.name }) }, icon('edit'), 'Rename...') : null),
           foldedMarkets.has(m.name)
             ? null

@@ -541,7 +541,7 @@ export function renderDetail() {
       )
     );
   } else {
-    body.append(el('pre', { className: 'json' }, d.body));
+    body.append(el('pre', { className: 'json', tabindex: '0' }, d.body));
   }
   headNode = renderHead();
   const page = el('section', { className: 'main' }, headNode, body);
@@ -596,7 +596,7 @@ export function renderMcp(d) {
       )
     );
   }
-  if (d.body) box.append(el('div', { className: 'group-label' }, 'Config'), el('pre', { className: 'json' }, d.body));
+  if (d.body) box.append(el('div', { className: 'group-label' }, 'Config'), el('pre', { className: 'json', tabindex: '0' }, d.body));
   return box;
 }
 

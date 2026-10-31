@@ -701,7 +701,7 @@ ${a.target}`) : null,
     tabbed(a, [
       { id: 'tools', label: 'Tools', glyph: 'tools', about: 'Every tool the server offers, with the description Claude reads.', count: info && !info.error ? toolList.length : undefined, body: tools },
       instructions ? { id: 'instructions', label: 'Server instructions', glyph: 'book', about: 'What the server tells Claude about using its tools.', body: () => card('Server instructions', null, renderMarkdown(instructions).node) } : null,
-      d.body ? { id: 'config', label: 'Config', glyph: 'json', about: 'The entry that registers the server.', body: () => card('Config', null, el('pre', { className: 'md-pre' }, el('code', {}, d.body))) } : null,
+      d.body ? { id: 'config', label: 'Config', glyph: 'json', about: 'The entry that registers the server.', body: () => card('Config', null, el('pre', { className: 'md-pre', tabindex: '0' }, el('code', {}, d.body))) } : null,
     ]),
   ];
 }
@@ -812,7 +812,7 @@ function codeView(d: Detail, body: string): Child[] {
               el('span', { className: 'dv-spacer' }),
               d.mode === 'json' || !editable() ? null : el('button', { type: 'button', className: 'link', onclick: () => setMode('edit') }, icon('edit'), 'Edit')
             ),
-            el('pre', { className: 'md-pre dv-code' }, el('code', {}, body))
+            el('pre', { className: 'md-pre dv-code', tabindex: '0' }, el('code', {}, body))
           ),
       },
       fired,

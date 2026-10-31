@@ -142,6 +142,7 @@ export function renderMarkdown(src: string, hooks: MdHooks = {}): { node: HTMLEl
       body.push(line.slice(Math.min(indent, indentOf(line))));
     }
     const pre = node('pre', 'md-pre', node('code', '', body.join('\n')));
+    pre.tabIndex = 0;
     if (m[2]) pre.dataset.lang = m[2];
     return [pre, i + 1];
   };

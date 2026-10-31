@@ -748,7 +748,7 @@ pre.json {
 }
 
 .empty {
-  opacity: 0.6;
+  color: var(--vscode-descriptionForeground);
   padding: 6px 20px;
   font-size: 12px;
 }
@@ -1190,6 +1190,11 @@ table.grid .cell {
 
 .market-head .label {
   font-weight: 600;
+}
+
+.market-head .label:focus-visible {
+  outline: 1px solid var(--hx-focus);
+  outline-offset: 2px;
 }
 
 .recent > .market-head {
@@ -4031,16 +4036,16 @@ mark {
   font-size: 16px;
 }
 
-.overview.compact .tile.zero {
-  opacity: 0.65;
+.overview.compact .tile.zero .l,
+.overview.compact .tile.zero .n {
+  color: var(--hx-muted);
 }
 
-.overview.compact .tile.zero:focus-visible {
-  opacity: 1;
-}
-
-.overview.compact .tile.zero:hover {
-  opacity: 1;
+.overview.compact .tile.zero:focus-visible .l,
+.overview.compact .tile.zero:focus-visible .n,
+.overview.compact .tile.zero:hover .l,
+.overview.compact .tile.zero:hover .n {
+  color: inherit;
 }
 
 .tab-count {
