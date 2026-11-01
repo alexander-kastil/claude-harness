@@ -918,7 +918,8 @@
     "shots": "npm run compile && node test/ui/shots.mjs",
     "vscode:prepublish": "npm run compile",
     "package": "vsce package",
-    "version": "node scripts/sync-plugin-version.mjs"
+    "version": "node scripts/sync-plugin-version.mjs",
+    "sync:ci": "node scripts/sync-ci.mjs"
   },
   "dependencies": {
     "@vscode/codicons": "^0.0.36",
