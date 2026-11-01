@@ -164,6 +164,8 @@ export interface PanelHost {
 
 export class HarnessPanel {
   private static current: HarnessPanel | undefined;
+  /** Drawing runs by drawing id: running, or how the last one failed; the entry of a drawing that was made is gone. */
+  private static readonly draws = new Map<string, { running: boolean; error?: string }>();
   private selected: string | undefined;
   private page: Page | undefined;
 
@@ -612,16 +614,27 @@ export class HarnessPanel {
         } catch {
           svg = undefined;
         }
-        this.post({ type: 'drawing', id: m.id, svg });
+        // A page that asks again after a page change gets the run's real state: still running, or how the last run failed.
+        const run = HarnessPanel.draws.get(m.id);
+        this.post({ type: 'drawing', id: m.id, svg, ...(run?.running ? { running: true } : run?.error ? { error: run.error } : {}) });
         return;
       }
       case 'drawAsset': {
+        // The run belongs to the extension, not to the panel that started it: its end is posted to the panel open then.
+        const to = (message: ToWebview) => (HarnessPanel.current ?? this).post(message);
         await this.host.drawAsset?.(
           m.id,
           { confirmed: m.confirmed, remember: m.remember },
           ask => this.post({ type: 'confirm', ask }),
-          id => this.post({ type: 'drawing', id, running: true }),
-          (id, result) => this.post('svg' in result ? { type: 'drawing', id, svg: result.svg } : { type: 'drawing', id, error: result.error })
+          id => {
+            HarnessPanel.draws.set(id, { running: true });
+            to({ type: 'drawing', id, running: true });
+          },
+          (id, result) => {
+            if ('svg' in result) HarnessPanel.draws.delete(id);
+            else HarnessPanel.draws.set(id, { running: false, error: result.error });
+            to('svg' in result ? { type: 'drawing', id, svg: result.svg } : { type: 'drawing', id, error: result.error });
+          }
         );
         return;
       }

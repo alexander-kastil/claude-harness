@@ -139,6 +139,65 @@ def src_drift(root, text):
     return unlisted, [n for n in named if n and not os.path.exists(os.path.join(src, n))]
 
 
+IMPORT = re.compile(r"(^|\s)@((?:~[\\/]|\.{1,2}[\\/]|[A-Za-z]:[\\/]|/)?[^\s`'\"()<>,;]+)")
+MAX_DEPTH = 5
+
+
+def imports_of(text):
+    """The @ imports of a doc, outside code fences and inline code; the same reading as importsOf in src/harness.ts."""
+    out, fence = [], False
+    for line in text.splitlines():
+        if re.match(r"^\s*(```|~~~)", line):
+            fence = not fence
+            continue
+        if fence:
+            continue
+        for m in IMPORT.finditer(re.sub(r"`[^`]*`", " ", line)):
+            out.append(re.sub(r"[.:!?]+$", "", m.group(2)))
+    return out
+
+
+def import_target(ref, base):
+    if re.match(r"^~[\\/]", ref):
+        return os.path.join(os.path.expanduser("~"), ref[2:])
+    return ref if os.path.isabs(ref) else os.path.normpath(os.path.join(base, ref))
+
+
+def imported_files(path, depth=0, seen=None):
+    """Every file the doc imports, recursively to MAX_DEPTH, each once; a cycle ends. Mirrors memoryTree in src/harness.ts."""
+    seen = set() if seen is None else seen
+    key = os.path.normcase(os.path.abspath(path))
+    if depth >= MAX_DEPTH or key in seen or not os.path.isfile(path):
+        return []
+    seen.add(key)
+    out = []
+    for ref in imports_of(open(path, encoding="utf-8", errors="replace").read()):
+        target = import_target(ref, os.path.dirname(path))
+        if not os.path.isfile(target):
+            continue
+        out.append(target)
+        out.extend(imported_files(target, depth + 1, seen))
+    return out
+
+
+def expand(path, root, depth=0, seen=None):
+    """The (file, line, text) rows of a doc with each whole-line @file import replaced by the imported file's rows, to MAX_DEPTH."""
+    seen = set() if seen is None else seen
+    key = os.path.normcase(os.path.abspath(path))
+    rel = os.path.relpath(path, root).replace("\\", "/")
+    rows = []
+    seen.add(key)
+    for i, l in enumerate(open(path, encoding="utf-8", errors="replace").read().splitlines(), 1):
+        m = re.match(r"^@(\S+)\s*$", l)
+        inc = import_target(m.group(1), os.path.dirname(path)) if m else ""
+        if inc and os.path.isfile(inc) and depth + 1 < MAX_DEPTH and os.path.normcase(os.path.abspath(inc)) not in seen:
+            rows.extend(expand(inc, root, depth + 1, seen))
+        else:
+            rows.append((rel, i, l))
+    seen.discard(key)
+    return rows
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("root")
@@ -157,16 +216,15 @@ def main():
     if os.path.isfile(md):
         own = open(md, encoding="utf-8", errors="replace").read()
         lines = own.count("\n") + (0 if own.endswith("\n") else 1)
-        sources = []
-        for i, l in enumerate(own.splitlines(), 1):
-            m = re.match(r"^@(\S+)\s*$", l)
-            inc = os.path.join(root, m.group(1)) if m else ""
-            if inc and os.path.isfile(inc):
-                body = open(inc, encoding="utf-8", errors="replace").read()
-                rel = os.path.relpath(inc, root).replace("\\", "/")
-                sources.extend((rel, j, s) for j, s in enumerate(body.splitlines(), 1))
-            else:
-                sources.append(("CLAUDE.md", i, l))
+        sources = expand(md, root)
+        # files reached by an inline @ mention are not spliced into the text, but their em dashes count like the others
+        spliced = {f for f, _, _ in sources}
+        extra = []
+        for inc in dict.fromkeys(imported_files(md)):
+            rel = os.path.relpath(inc, root).replace("\\", "/")
+            if rel not in spliced:
+                extra.extend((rel, j, s) for j, s in enumerate(open(inc, encoding="utf-8", errors="replace").read().splitlines(), 1))
+        dash_rows = [(f, n, s) for f, n, s in sources + extra if "—" in s]
         text = "\n".join(s for _, _, s in sources) + "\n"
         heads = headings([s for _, _, s in sources])
         found = [n for _, n in heads]
@@ -193,8 +251,9 @@ def main():
                 add(f"FAIL Working Method differs from templates/working-method.md: missing or out of order: {gone[:60].rstrip()}", "sections",
                     (*at("Working Method"), None))
         dashes = [i for i, (_, _, s) in enumerate(sources, 1) if "—" in s]
-        if dashes:
-            add(f"FAIL em dashes on lines {dashes[:12]}{'...' if len(dashes) > 12 else ''}", "em-dash", *((f, n, "—") for f, n, s in sources if "—" in s))
+        if dash_rows:
+            shown = dashes or [n for _, n, _ in dash_rows]
+            add(f"FAIL em dashes on lines {shown[:12]}{'...' if len(shown) > 12 else ''}", "em-dash", *((f, n, "—") for f, n, s in dash_rows))
         unlisted, phantom = src_drift(root, text)
         if unlisted:
             add(f"REVIEW src drift: on disk but not named in CLAUDE.md: {' '.join(unlisted)}", "src-drift", ("CLAUDE.md", None, None))
@@ -274,7 +333,7 @@ def main():
         metrics, layout = {"lines": 0, "emDashes": 0}, "none"
         if os.path.isfile(md):
             names = [n for _, n in heads]
-            metrics = {"lines": len(own_lines), "emDashes": sum(1 for l in own_lines if "—" in l)}
+            metrics = {"lines": len(own_lines), "emDashes": len(dash_rows)}
             layout = "router" if "Harness" in names else "class boilerplate" if cls else "old template" if any(h in STANDARD["boilerplate"] for h in names) else "other"
         print(json.dumps({"repo": os.path.basename(root), "kind": kind, "layout": layout, "metrics": metrics, "fail": fails, "review": reviews, "findings": findings}))
         return 1 if fails else 0

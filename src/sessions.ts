@@ -649,6 +649,8 @@ export interface WeekTotal {
   plan?: string;
   /** Estimated weekly limit of the plan in USD at list prices; 0 when there is no plan or it bills by the token. */
   limit: number;
+  /** Where `limit` comes from: Claude's own weekly meter, or the fixed figure of the plan. Absent without a limit. */
+  limitSource?: 'meter' | 'estimate';
   since: number;
   until: number;
   /** True when the window starts at the plan's last reset, false for a rolling 7 days. */
@@ -730,19 +732,25 @@ export function addWeek(models: Map<string, WeekModel>, seen: Set<string>, entri
 }
 
 /** Costliest model first. */
-export function weekTotal(account: Account, models: Map<string, WeekModel>, since: number, until: number, extra: { repos?: WeekRepo[]; agents?: WeekAgent[] } = {}): WeekTotal {
+export function weekTotal(account: Account, models: Map<string, WeekModel>, since: number, until: number, extra: { repos?: WeekRepo[]; agents?: WeekAgent[] } = {}, meter?: { percent: number; resetsAt: number }): WeekTotal {
   const rows = [...models.values()].sort((a, b) => b.cost - a.cost || b.messages - a.messages || a.model.localeCompare(b.model));
   const cost = rows.reduce((n, r) => n + r.cost, 0);
-  const limit = planLimit(account.plan);
+  const fixed = planLimit(account.plan);
+  // With Claude's weekly meter readable, the limit is what the cost since the meter's reset divided by the meter's percent says it is.
+  const calibrated = fixed > 0 && meter && meter.percent > 0 && cost > 0 ? cost / (meter.percent / 100) : undefined;
+  const limit = calibrated ?? fixed;
+  const scale = fixed > 0 ? limit / fixed : 1;
   return {
     account: account.label,
     plan: account.plan,
     limit,
+    ...(limit > 0 ? { limitSource: calibrated ? ('meter' as const) : ('estimate' as const) } : {}),
     since,
     until,
-    fromReset: !!lastReset(account.weekStart, until),
+    fromReset: !!lastReset(account.weekStart, until) || !!calibrated,
     models: rows,
-    families: Object.entries(PLANS.find(p => p.id === account.plan)?.families ?? {}).map(([family, fl]) => {
+    families: Object.entries(PLANS.find(p => p.id === account.plan)?.families ?? {}).map(([family, base]) => {
+      const fl = base * scale;
       const used = rows.filter(r => r.model.toLowerCase().includes(family)).reduce((n, r) => n + r.cost, 0);
       return { family, cost: used, limit: fl, share: used / fl };
     }),
@@ -822,10 +830,12 @@ function transcriptFiles(root: string, since: number): string[] {
 }
 
 /** The week of one account by model: since the plan's last reset when `weekStart` is set, else the last 7 days. Reads transcripts touched in that window only, and keeps what it read per file until the file changes. */
-export async function accountWeek(account: Account, now = Date.now()): Promise<WeekTotal> {
+export async function accountWeek(account: Account, now = Date.now(), meter?: { percent: number; resetsAt: number }): Promise<WeekTotal> {
   const models = new Map<string, WeekModel>();
   const seen = new Set<string>();
-  const since = lastReset(account.weekStart, now) ?? now - WEEK_MS;
+  // The meter's own reset wins over `weekStart`, so "since reset" matches Claude's count. A reset already past is a stale reading.
+  const usable = meter && meter.percent > 0 && meter.resetsAt > now && meter.resetsAt - WEEK_MS <= now ? meter : undefined;
+  const since = usable ? usable.resetsAt - WEEK_MS : (lastReset(account.weekStart, now) ?? now - WEEK_MS);
   const all: WeekEntry[] = [];
   const projects = path.join(account.root, 'projects');
   for (const file of transcriptFiles(account.root, since)) {
@@ -845,7 +855,7 @@ export async function accountWeek(account: Account, now = Date.now()): Promise<W
     addWeek(models, seen, cached.entries, since, now);
     all.push(...cached.entries);
   }
-  return weekTotal(account, models, since, now, { repos: weekRepos(all, since, now), agents: weekAgents(all, since, now) });
+  return weekTotal(account, models, since, now, { repos: weekRepos(all, since, now), agents: weekAgents(all, since, now) }, usable);
 }
 
 /** Finds a session of the repo, or a headless child of one, by id, in any account. */

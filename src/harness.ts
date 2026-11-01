@@ -1289,6 +1289,43 @@ export function memoryTree(file: string, label: string, depth = 0, seen = new Se
   return node;
 }
 
+export type PointerKind = 'path' | 'skill' | 'agent';
+
+export interface CheckedDoc {
+  file: string;
+  kinds: PointerKind[];
+}
+
+const DOC_KINDS: PointerKind[] = ['skill', 'agent'];
+const RULE_KINDS: PointerKind[] = ['path', 'skill', 'agent'];
+
+/** The docs whose pointers a repo check reads: the root docs and rules files, then every file they import, each with the kinds of the doc that imports it. */
+export function checkedDocs(repo: string): CheckedDoc[] {
+  const roots: CheckedDoc[] = [CLAUDE_DOC_NAMES.map(n => ({ file: path.join(repo, n), kinds: DOC_KINDS })), [{ file: path.join(repo, '.claude', 'CLAUDE.md'), kinds: DOC_KINDS }]].flat();
+  const rulesDir = path.join(repo, '.claude', 'rules');
+  if (fs.existsSync(rulesDir)) for (const f of fs.readdirSync(rulesDir).filter(n => n.endsWith('.md'))) roots.push({ file: path.join(rulesDir, f), kinds: RULE_KINDS });
+  const out = new Map<string, CheckedDoc>();
+  const add = (file: string, kinds: PointerKind[]) => {
+    const key = path.resolve(file).toLowerCase();
+    const have = out.get(key);
+    if (have) have.kinds = RULE_KINDS.filter(k => have.kinds.includes(k) || kinds.includes(k));
+    else out.set(key, { file, kinds: [...kinds] });
+  };
+  const walk = (node: MemoryNode, kinds: PointerKind[], top: boolean) => {
+    if (!node.exists) return;
+    if (!top && /\.md$/i.test(node.file)) add(node.file, kinds);
+    for (const child of node.imports) walk(child, kinds, false);
+  };
+  for (const root of roots) {
+    if (!fs.existsSync(root.file)) continue;
+    add(root.file, root.kinds);
+    walk(memoryTree(root.file, path.basename(root.file)), root.kinds, true);
+  }
+  return [...out.values()];
+}
+
+export const CLAUDE_DOC_NAMES = ['CLAUDE.md', 'AGENTS.md'];
+
 export interface EffectiveRule {
   name: string;
   scope: string;

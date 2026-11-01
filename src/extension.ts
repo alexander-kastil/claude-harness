@@ -79,6 +79,7 @@ import { HarnessPanel, PanelHost } from './panel';
 import { coworkShown, setCoworkChoice } from './settings';
 import { mentionText, pathText, saveClipboardImage } from './image-paste';
 import { claudeCli, claudeCommand, claudeExecutable, defaultCwd, openTerminal, uniqueTerminalName } from './terminals';
+import { calibratedWeek } from './weekly-limit';
 import { Account, accountWeek, checkpointFiles, findAccountSession, importTranscript, listAccountSessions, listAccountSessionsAsync, parseAccounts, readSession, renameSession, planRewrites } from './sessions';
 import { STYLE_MODELS, StyleModel, draftStyle, stylePrompt, writeStyleDraft } from './style';
 import { Specialist, fitGeneralFindings } from './findings';
@@ -176,6 +177,19 @@ export function activate(context: vscode.ExtensionContext): void {
   let timer: NodeJS.Timeout | undefined;
   // Where each agent and skill was used, over the transcripts of every account; built the first time the Used in tab opens.
   const drawingsDir = path.join(context.globalStorageUri.fsPath, 'drawings');
+  // A drawing run ends with the extension, so no claude outlives it.
+  const drawRuns = new AbortController();
+  context.subscriptions.push({ dispose: () => drawRuns.abort() });
+  // Both perspectives of one Draw press run at once: each ends on its own, stores its drawing and reports it.
+  const drawAll = (jobs: { drawId: string; text: string; prompt: string; system: string }[], done: (id: string, result: { svg: string } | { error: string }) => void) =>
+    Promise.all(
+      jobs.map(async ({ drawId, text, prompt, system }) => {
+        const result = await draftStyle(prompt, 'sonnet', os.tmpdir(), 300000, system, drawRuns.signal);
+        const svg = 'error' in result ? undefined : extractSvg(result.text);
+        if (svg) writeDrawing(drawingsDir, drawId, contentHash(text), svg);
+        done(drawId, svg ? { svg } : { error: 'error' in result ? result.error : 'Claude did not answer with an svg drawing.' });
+      })
+    );
   // A plugin is drawn from its folder: the installed copy, or the source folder of a directory marketplace.
   // A synced Cowork plugin is drawn from its mirror folder.
   const pluginDirOf = (asset: Asset) => (asset.kind === 'plugin' ? (asset.scope === COWORK_ID ? asset.dir : pluginDirs(global.root).find(p => p.key === asset.name)?.dir) : undefined);
@@ -386,7 +400,7 @@ export function activate(context: vscode.ExtensionContext): void {
     const repo = repoOfFile(file);
     if (!repo) return undefined;
     const rel = path.relative(repo.path, file).split(path.sep).join('/');
-    return rel === 'CLAUDE.md' || rel === 'CLAUDE.local.md' || rel.startsWith('.claude/') ? repo : undefined;
+    return rel === 'CLAUDE.md' || rel === 'AGENTS.md' || rel === 'CLAUDE.local.md' || rel.startsWith('.claude/') ? repo : undefined;
   };
   const checksChanged = new vscode.EventEmitter<void>();
   // A check fires when it starts and when it ends, so checking every repo fires twice per repo within seconds. The first
@@ -498,7 +512,7 @@ export function activate(context: vscode.ExtensionContext): void {
       const view = viewOfScope(id);
       return view && view.id !== global.id ? listAccountSessionsAsync(view.path, accounts()) : [];
     },
-    weekly: () => Promise.all(accounts().map(a => accountWeek(a))),
+    weekly: () => Promise.all(accounts().map(a => calibratedWeek(a))),
     coworkSessions: () => fetchCloudSessions(global.root),
     scheduled: async () => {
       const list = await fetchScheduled(global.root);
@@ -532,7 +546,9 @@ export function activate(context: vscode.ExtensionContext): void {
         ...plugins.flatMap(p => (p.categories.find(c => c.kind === 'agent')?.items ?? []).map(a => ({ use: `${p.id.slice('plugin:'.length).split('@')[0]}:${a.name}`, name: a.name, description: a.description }))),
       ].filter(s => s.name !== 'general-purpose');
       rest.findings = fitGeneralFindings(rest.findings, rest.agents, specialists);
-      return { ...rest, repo: view!.label, agentColors, account: summary.account, plan: accounts().find(a => a.root === (summary.accountRoot ?? global.root))?.plan, ...(layers.length ? { layers } : {}) };
+      const owner = accounts().find(a => a.root === (summary.accountRoot ?? global.root));
+      const week = owner?.plan ? await calibratedWeek(owner) : undefined;
+      return { ...rest, repo: view!.label, agentColors, account: summary.account, plan: owner?.plan, ...(week?.limit ? { weeklyLimit: { usd: week.limit, source: week.limitSource } } : {}), ...(layers.length ? { layers } : {}) };
     },
     draftStyle: async (id, sessionId, model, started, answer, ask) => {
       const scope = scopes.find(s => s.id === id && s.id !== global.id);
@@ -809,14 +825,10 @@ export function activate(context: vscode.ExtensionContext): void {
         }
         if (answer.remember) await context.globalState.update('drawRemembered', true);
         drawn.forEach(s => started(s.drawId));
-        for (const { drawId, proc, text } of drawn) {
-          const result = proc
-            ? await draftStyle(marketProcessPrompt(market.name, text), 'sonnet', os.tmpdir(), 300000, PROCESS_SYSTEM)
-            : await draftStyle(drawPrompt('market', market.name, text), 'sonnet', os.tmpdir(), 300000, DRAW_SYSTEM);
-          const svg = 'error' in result ? undefined : extractSvg(result.text);
-          if (svg) writeDrawing(drawingsDir, drawId, contentHash(text), svg);
-          done(drawId, svg ? { svg } : { error: 'error' in result ? result.error : 'Claude did not answer with an svg drawing.' });
-        }
+        await drawAll(
+          drawn.map(({ drawId, proc, text }) => ({ drawId, text, prompt: proc ? marketProcessPrompt(market.name, text) : drawPrompt('market', market.name, text), system: proc ? PROCESS_SYSTEM : DRAW_SYSTEM })),
+          done
+        );
         return;
       }
       // A Cowork task, project, chat or connector: one text for both perspectives, read from this PC and the list the panel loaded.
@@ -827,15 +839,13 @@ export function activate(context: vscode.ExtensionContext): void {
         if (answer.remember) await context.globalState.update('drawRemembered', true);
         const both = [id, process ? base : base + PROCESS_SUFFIX];
         both.forEach(drawId => started(drawId));
-        for (const drawId of both) {
-          const proc = drawId.endsWith(PROCESS_SUFFIX);
-          const result = proc
-            ? await draftStyle(processPrompt(own.kind, own.name, own.text), 'sonnet', os.tmpdir(), 300000, PROCESS_SYSTEM)
-            : await draftStyle(drawPrompt(own.kind, own.name, own.text), 'sonnet', os.tmpdir(), 300000, DRAW_SYSTEM);
-          const svg = 'error' in result ? undefined : extractSvg(result.text);
-          if (svg) writeDrawing(drawingsDir, drawId, contentHash(own.text), svg);
-          done(drawId, svg ? { svg } : { error: 'error' in result ? result.error : 'Claude did not answer with an svg drawing.' });
-        }
+        await drawAll(
+          both.map(drawId => {
+            const proc = drawId.endsWith(PROCESS_SUFFIX);
+            return { drawId, text: own.text, prompt: proc ? processPrompt(own.kind, own.name, own.text) : drawPrompt(own.kind, own.name, own.text), system: proc ? PROCESS_SYSTEM : DRAW_SYSTEM };
+          }),
+          done
+        );
         return;
       }
       const asset = find(base);
@@ -853,15 +863,14 @@ export function activate(context: vscode.ExtensionContext): void {
       }
       if (answer.remember) await context.globalState.update('drawRemembered', true);
       sources.forEach(s => started(s.drawId));
-      for (const { drawId, proc, source } of sources) {
-        const text = source!.text;
-        const result = proc
-          ? await draftStyle(processPrompt(asset.kind, asset.name, text), 'sonnet', os.tmpdir(), 300000, PROCESS_SYSTEM)
-          : await draftStyle(drawPrompt(asset.kind, asset.name, text), 'sonnet', os.tmpdir(), 300000, DRAW_SYSTEM);
-        const svg = 'error' in result ? undefined : extractSvg(result.text);
-        if (svg) writeDrawing(drawingsDir, drawId, contentHash(text), svg);
-        done(drawId, svg ? { svg } : { error: 'error' in result ? result.error : 'Claude did not answer with an svg drawing.' });
-      }
+      const kind = asset.kind;
+      await drawAll(
+        sources.map(({ drawId, proc, source }) => {
+          const text = source!.text;
+          return { drawId, text, prompt: proc ? processPrompt(kind, asset.name, text) : drawPrompt(kind, asset.name, text), system: proc ? PROCESS_SYSTEM : DRAW_SYSTEM };
+        }),
+        done
+      );
     },
     slim: id => {
       const asset = find(id);
@@ -1911,10 +1920,7 @@ export function activate(context: vscode.ExtensionContext): void {
   registerLenses(context, {
     problemsFor: file => constitution.problemsFor(file),
     baseOf: file => {
-      const repo = harnessFileOf(file);
-      if (!repo) return undefined;
-      const rel = path.relative(repo.path, file).split(path.sep).join('/');
-      return rel === 'CLAUDE.md' || rel.startsWith('.claude/rules/') ? repo.path : undefined;
+      return repoOfFile(file)?.path;
     },
     roster: base => rosterFor(base),
     alsoDirs: () => [path.join(global.root, 'skills')],

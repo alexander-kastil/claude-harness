@@ -160,7 +160,12 @@ export const BILLING = [
   ['api', 'API billing', 'credit-card', 0, 'API'],
 ];
 
-export const billingAbout = (label, grant) => (grant ? `Share of one ${label} weekly limit (about $${grant.toLocaleString()}, estimated).` : 'This session at Anthropic API list prices, paid per token, with no weekly limit.');
+export const billingAbout = (label, grant, source) =>
+  grant
+    ? source === 'meter'
+      ? `Share of one ${label} weekly limit (about $${Math.round(grant).toLocaleString()}), worked out from Claude's weekly meter.`
+      : `Share of one ${label} weekly limit (about $${grant.toLocaleString()}, a fixed estimate).`
+    : 'This session at Anthropic API list prices, paid per token, with no weekly limit.';
 
 // A share of the total; a thin slice reads "<1%", never "0%" beside a nonzero amount.
 const share = (cost, total) => {
@@ -204,11 +209,14 @@ export function renderCost(d, colors) {
   }));
   // The plan set for the session's account in the settings is the default; a click on the switch overrides it.
   const billingId = state.billingPick || (BILLING.some(b => b[0] === d.plan) ? d.plan : state.billing);
-  const [, , , grant] = BILLING.find(b => b[0] === billingId) || BILLING[BILLING.length - 1];
+  // The session's own plan uses the limit the host worked out from Claude's weekly meter; any other plan keeps its fixed figure.
+  const own = d.weeklyLimit && d.weeklyLimit.usd > 0 && billingId === d.plan ? d.weeklyLimit : undefined;
+  const [, , , fixed] = BILLING.find(b => b[0] === billingId) || BILLING[BILLING.length - 1];
+  const grant = own ? own.usd : fixed;
   const fmt = grant ? v => fmtShare(v, grant) : fmtUsd;
   const plans = modeSwitch(
     app,
-    BILLING.map(([id, label, glyph, g, short]) => [id, short || label, glyph, billingAbout(label, g), label]),
+    BILLING.map(([id, label, glyph, g, short]) => [id, short || label, glyph, id === d.plan && own ? billingAbout(label, own.usd, own.source) : billingAbout(label, g, 'estimate'), label]),
     billingId,
     'Billing',
     id => {

@@ -104,6 +104,27 @@ test('validate of a clean script exits 0; a dead CLAUDE.md pointer in --repo exi
   assert.match(r.out, /not found/);
 });
 
+test('validate --repo follows the @ imports of CLAUDE.md and reports a dead skill at the imported file and line', async () => {
+  const f = fixture();
+  write(path.join(f.repo, 'CLAUDE.md'), '# repo\n\n@AGENTS.md\n');
+  write(path.join(f.repo, 'AGENTS.md'), '# agents\n\nfine\nUse the `ghost-skill` skill here.\n');
+  const r = await cli(['validate', '--json', ...f.base]);
+  const out = JSON.parse(r.out);
+  assert.ok(out.problems.some((p: { file: string; line: number; message: string }) => p.file === 'AGENTS.md' && p.line === 4 && /skill `ghost-skill` not found/.test(p.message)), r.out);
+  assert.equal(r.code, 1);
+});
+
+test('validate --repo ends on an import cycle and checks a lone AGENTS.md like CLAUDE.md', async () => {
+  const f = fixture();
+  write(path.join(f.repo, 'CLAUDE.md'), '@a.md\n');
+  write(path.join(f.repo, 'a.md'), '@b.md\n');
+  write(path.join(f.repo, 'b.md'), '@a.md\nthe `ghost-skill` skill\n');
+  write(path.join(f.repo, 'AGENTS.md'), 'the `other-ghost` agent\n');
+  const out = JSON.parse((await cli(['validate', '--json', ...f.base])).out);
+  const files = out.problems.map((p: { file: string }) => p.file).sort();
+  assert.deepEqual(files, ['AGENTS.md', 'b.md']);
+});
+
 test('generate agent creates, reruns with nothing to be done, and changes only what differs', async () => {
   const f = fixture();
   const argv = ['generate', 'agent', 'fact-gatherer', '--scope', 'repo', '--model', 'haiku', '--tools', 'Read,Grep,Glob', ...f.base];
@@ -301,6 +322,17 @@ test('validate --repo runs the standard\'s check from a real provider', async ()
   write(path.join(target, 'CLAUDE.md'), '# x\n');
   const empty = await cli(['validate', '--root', f.root, '--user-config', f.userConfig, '--repo', path.join(f.tmp, 'repo'), '--json']);
   assert.ok(!JSON.parse(empty.out).notes.some((n: string) => /No harness standard provider/.test(n)));
+});
+
+test('the standard\'s check follows @ imports two levels deep, reports an em dash at the second-level file, and ends on a cycle', async () => {
+  const f = fixture();
+  providerRoot(f);
+  const dash = String.fromCharCode(0x2014);
+  write(path.join(f.repo, 'CLAUDE.md'), '# repo\n\n@docs/one.md\n');
+  write(path.join(f.repo, 'docs/one.md'), '@two.md\n');
+  write(path.join(f.repo, 'docs/two.md'), `fine\nnot fine ${dash} here\n@one.md\n`);
+  const out = JSON.parse((await cli(['validate', '--root', f.root, '--user-config', f.userConfig, '--repo', f.repo, '--json'])).out);
+  assert.ok(out.problems.some((p: { file: string; line: number; message: string }) => p.file === 'docs/two.md' && p.line === 2 && /em dash/.test(p.message)), JSON.stringify(out.problems));
 });
 
 test('update refreshes marketplaces, updates a plugin that is behind and syncs a differing repo skill; a rerun does nothing', async () => {

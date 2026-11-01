@@ -188,7 +188,7 @@ export function repoModels(view) {
     });
     const block = (label, tip, ...body) => el('div', { className: 'recent' }, el('div', { className: 'group-label', title: tip }, label), ...body);
     return [
-      block(`${span} · ${head}`, `${span}, all repos and agents, at API list prices.${t.limit ? ' The limit is an estimate.' : ''}`, mine ? usage('Repo', repoRows, 'Replies', 'This repo') : null),
+      block(`${span} · ${head}`, `${span}, all repos and agents, at API list prices.${t.limit ? (t.limitSource === 'meter' ? " The limit is worked out from Claude's weekly meter." : ' The limit is a fixed estimate.') : ''}`, mine ? usage('Repo', repoRows, 'Replies', 'This repo') : null),
       block(
         'By model',
         'Every repo on this account, not only this one.',

@@ -134,8 +134,10 @@ export function askDrawing(a: Drawn, page?: object): void {
 export function storeDrawing(m: { id: string; svg?: string; running?: boolean; error?: string }): boolean {
   const before = JSON.stringify(drawings.get(m.id));
   const old = drawings.get(m.id);
-  // A failed run leaves the drawing that was there; a stored answer replaces everything.
-  drawings.set(m.id, m.error ? { svg: old?.svg, error: m.error } : m.running ? { svg: old?.svg, running: true } : { svg: m.svg });
+  // A failed run leaves the drawing that was there; a stored answer replaces everything. The host's answer to a page that
+  // asks again carries the run's state beside the stored drawing, so a page change never hides a run that is still going.
+  const svg = m.svg ?? old?.svg;
+  drawings.set(m.id, m.error ? { svg, error: m.error } : m.running ? { svg, running: true } : { svg: m.svg });
   return before !== JSON.stringify(drawings.get(m.id));
 }
 
@@ -200,7 +202,12 @@ export function drawingFigure(a: Drawn): HTMLElement | null {
   const process = processOf(a);
   const svg = drawingOf(drawingId(a))?.svg;
   // The figure stays while either perspective has a drawing, so the toggle stays reachable; the shown one may be empty.
-  if (!canDraw(a) || (!svg && !drawingOf(a.id)?.svg && !drawingOf(a.id + PROCESS)?.svg)) return null;
+  if (!canDraw(a)) return null;
+  if (!svg && !drawingOf(a.id)?.svg && !drawingOf(a.id + PROCESS)?.svg) {
+    // A run that failed says so on the page, in one plain line; the full reason is in the Draw button's hover.
+    const failed = drawState(a);
+    return failed.error && !failed.running ? el('figure', { className: 'dv-draw' }, el('div', { className: 'dv-empty', title: failed.error }, 'The last drawing failed. Draw again in the AI group above.')) : null;
+  }
   const clean = svg ? cleanSvg(svg) : undefined;
   const title = market ? (process ? `When the plugins of ${a.name} act` : `What ${a.name} offers`) : process ? `How ${a.name} runs` : `What ${a.name} does`;
   clean?.setAttribute('aria-label', title);

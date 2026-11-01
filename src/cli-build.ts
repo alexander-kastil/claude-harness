@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { Args, Io, Stop, winPath, emit, headline, list, load, one, parse, table } from './cli-core';
-import { Asset, McpConfig, closest, deadPointers, marketplacePlugins, mcpAddCommand, parseMarkdown, readMarkdown, readText, rosterOf, serializeMarkdown, setPluginEnabled, splitCommandLine, validateName, MCP_NAME, repoScope, pluginDirs } from './harness';
+import { Asset, McpConfig, checkedDocs, closest, deadPointers, marketplacePlugins, mcpAddCommand, parseMarkdown, readMarkdown, readText, rosterOf, serializeMarkdown, setPluginEnabled, splitCommandLine, validateName, MCP_NAME, repoScope, pluginDirs } from './harness';
 import { CliResult, runClaude } from './hunt-create';
 import { samePath } from './hunt-catalog';
 import { readJson } from './hunt-market';
@@ -595,14 +595,10 @@ async function checkHarness(a: Args, repo: string, ctx: Ctx): Promise<{ problems
   } else notes.push(`${NO_PROVIDER} The standard's check was skipped.`);
   const w = load(a);
   const roster = rosterOf(w.views, w.plugins);
-  const docs = [['CLAUDE.md', ['skill', 'agent']], ['.claude/CLAUDE.md', ['skill', 'agent']]] as const;
-  const rulesDir = path.join(repo, '.claude', 'rules');
-  const files: [string, ('path' | 'skill' | 'agent')[]][] = docs.map(([f, k]) => [f, [...k]] as [string, ('path' | 'skill' | 'agent')[]]);
-  if (fs.existsSync(rulesDir)) for (const f of fs.readdirSync(rulesDir).filter(n => n.endsWith('.md'))) files.push([`.claude/rules/${f}`, ['path', 'skill', 'agent']]);
-  for (const [rel, kinds] of files) {
-    const abs = path.join(repo, rel);
-    if (!fs.existsSync(abs)) continue;
-    for (const t of deadPointers(fs.readFileSync(abs, 'utf8'), repo, roster, kinds)) problems.push({ file: rel, line: t.line + 1, level: 'POINTER', message: `${t.kind} \`${t.token}\` not found` });
+  for (const { file: abs, kinds } of checkedDocs(repo)) {
+    const rel = path.relative(repo, abs).split(path.sep).join('/');
+    const shown = rel.startsWith('..') || path.isAbsolute(rel) ? abs : rel;
+    for (const t of deadPointers(fs.readFileSync(abs, 'utf8'), repo, roster, kinds)) problems.push({ file: shown, line: t.line + 1, level: 'POINTER', message: `${t.kind} \`${t.token}\` not found` });
   }
   return { problems, notes };
 }

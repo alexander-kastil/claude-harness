@@ -2,7 +2,7 @@
 
 All notable changes to Claude Harness are listed here, newest first. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions with no version change in the package.json history (0.1.3, 0.1.5 to 0.1.18, 0.1.20 to 0.1.24, 0.1.27, 0.2.1 and 0.2.3 to 0.2.11) and development builds (0.2.14 to 0.2.22, 0.2.24 to 0.2.30, 0.2.32 to 0.2.34, 0.2.36 to 0.2.44, 0.3.0, 0.3.2, 0.4.1 to 0.4.3, 0.5.2 and 0.5.3) have no entry.
 
-## [Unreleased]
+## [1.0.1] - 2026-11-01
 
 ### Added
 
@@ -11,6 +11,9 @@ All notable changes to Claude Harness are listed here, newest first. The format 
 ### Fixed
 
 - The Duration of a session and its place in the list follow its last message, not the last time the file was touched
+- Weekly limit used on the session page and the weekly totals on the repo page follow Claude's own weekly meter: an account's limit is what it used since the meter's last reset divided by the meter's percentage, counted from that reset; without a readable meter the fixed estimate stays, and the hover says which one it is
+- The CLAUDE.md checks follow its `@` imports: `harness validate`, the editor warnings and the Standard check read each imported file, such as an AGENTS.md, and report on that file's own lines; AGENTS.md gets the same editor warnings as CLAUDE.md
+- Draw on a skill draws both perspectives at once instead of one after the other, a page change keeps showing Drawing... until the drawing arrives, a failed run says so on the page, and no `claude` process outlives its run or the extension
 
 ## [1.0.0] - 2026-10-31
 

@@ -31,7 +31,7 @@ export function stylePrompt(scan: StyleScan): string {
 const quote = (arg: string) => (/^[\w@%+=:,./\-]+$/.test(arg) ? arg : `"${arg.replace(/"/g, '\\"')}"`);
 
 /** Runs `claude -p` on the user's own Claude login, with no tools, MCP servers, skills, CLAUDE.md or saved session, so Claude sees the prompt only. */
-export function draftStyle(prompt: string, model: StyleModel, cwd: string, timeoutMs = 300000, system = SYSTEM): Promise<{ text: string; cost?: number } | { error: string }> {
+export function draftStyle(prompt: string, model: StyleModel, cwd: string, timeoutMs = 300000, system = SYSTEM, signal?: AbortSignal): Promise<{ text: string; cost?: number } | { error: string }> {
   const args = ['-p', '--model', model, '--output-format', 'json', '--tools', '', '--strict-mcp-config', '--disable-slash-commands', '--no-session-persistence', '--setting-sources', 'project', '--system-prompt', system];
   const env = { ...process.env, CLAUDE_CODE_DISABLE_CLAUDE_MDS: '1' };
   const windows = process.platform === 'win32';
@@ -45,19 +45,33 @@ export function draftStyle(prompt: string, model: StyleModel, cwd: string, timeo
     }
     let out = '';
     let err = '';
-    const timer = setTimeout(() => {
+    // The whole process tree goes: on Windows `claude` runs under a shell, and a killed shell leaves claude behind.
+    const stop = () => {
       if (windows && child.pid) execFile('taskkill', ['/pid', String(child.pid), '/T', '/F'], { windowsHide: true }, () => undefined);
       else child.kill();
+    };
+    const timer = setTimeout(() => {
+      stop();
       resolve({ error: `Claude did not answer within ${Math.round(timeoutMs / 60000)} minutes.` });
     }, timeoutMs);
+    // The extension ending (or the caller giving up) ends the run, so no claude outlives it.
+    const abort = () => {
+      clearTimeout(timer);
+      stop();
+      resolve({ error: 'The run was stopped.' });
+    };
+    if (signal?.aborted) abort();
+    else signal?.addEventListener('abort', abort, { once: true });
     child.stdout?.on('data', d => (out += d));
     child.stderr?.on('data', d => (err += d));
     child.on('error', e => {
       clearTimeout(timer);
+      signal?.removeEventListener('abort', abort);
       resolve({ error: `Could not start claude: ${e.message}` });
     });
     child.on('close', code => {
       clearTimeout(timer);
+      signal?.removeEventListener('abort', abort);
       let reply: { is_error?: boolean; result?: string; total_cost_usd?: number } | undefined;
       try {
         reply = JSON.parse(out);
@@ -67,6 +81,7 @@ export function draftStyle(prompt: string, model: StyleModel, cwd: string, timeo
       if (!reply || reply.is_error || code) resolve({ error: (reply?.result || err || out || `claude exited with code ${code}.`).trim().split('\n')[0].slice(0, 300) });
       else resolve({ text: reply.result ?? '', cost: reply.total_cost_usd });
     });
+    child.stdin?.on('error', () => undefined);
     child.stdin?.end(prompt);
   });
 }

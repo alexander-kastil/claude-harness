@@ -1,6 +1,6 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { PointerToken, Roster, closest, deadPointers, pathCandidates } from './harness';
+import { CLAUDE_DOC_NAMES, PointerToken, Roster, checkedDocs, closest, deadPointers, pathCandidates } from './harness';
 import { Problem } from './standard';
 
 export interface LensHost {
@@ -13,9 +13,7 @@ export interface LensHost {
 
 const norm = (p: string) => p.split('\\').join('/');
 
-export const isHarnessDoc = (file: string) => path.basename(file) === 'CLAUDE.md' || (/\/\.claude\/rules\//.test(norm(file)) && /\.md$/i.test(file));
-
-const isRules = (file: string) => /\/\.claude\/rules\//.test(norm(file));
+export const isHarnessDoc = (file: string) => CLAUDE_DOC_NAMES.includes(path.basename(file)) || (/\/\.claude\/rules\//.test(norm(file)) && /\.md$/i.test(file));
 
 const kindLabel = (k: PointerToken['kind']) => (k === 'path' ? 'Path' : k === 'skill' ? 'Skill' : 'Agent');
 
@@ -34,19 +32,29 @@ const lineRange = (doc: vscode.TextDocument, line: number) =>
 const selector: vscode.DocumentSelector = [
   { language: 'markdown', scheme: 'file' },
   { scheme: 'file', pattern: '**/CLAUDE.md' },
+  { scheme: 'file', pattern: '**/AGENTS.md' },
   { scheme: 'file', pattern: '**/.claude/rules/**/*.md' },
 ];
 
 export function registerLenses(context: vscode.ExtensionContext, host: LensHost): vscode.DiagnosticCollection {
   const collection = vscode.languages.createDiagnosticCollection('claudeHarness.pointers');
+  // a checked doc is a root doc, a rules file, or a file one of them imports (followed to the walker's depth); it takes the kinds of the doc that imports it
+  const checked = (file: string): { base: string; kinds: PointerToken['kind'][] } | undefined => {
+    if (!/\.md$/i.test(file)) return undefined;
+    const base = host.baseOf(file);
+    if (!base) return undefined;
+    const key = path.resolve(file).toLowerCase();
+    const hit = checkedDocs(base).find(d => path.resolve(d.file).toLowerCase() === key);
+    return hit && { base, kinds: hit.kinds };
+  };
+  const isChecked = (doc: vscode.TextDocument) => doc.uri.scheme === 'file' && (isHarnessDoc(doc.uri.fsPath) || !!checked(doc.uri.fsPath));
   const own = (doc: vscode.TextDocument): PointerToken[] => {
-    if (doc.uri.scheme !== 'file' || !isHarnessDoc(doc.uri.fsPath)) return [];
-    const base = host.baseOf(doc.uri.fsPath);
-    if (!base) return [];
-    return deadPointers(doc.getText(), base, host.roster(base), isRules(doc.uri.fsPath) ? ['path', 'skill', 'agent'] : ['skill', 'agent'], host.alsoDirs());
+    if (doc.uri.scheme !== 'file') return [];
+    const hit = checked(doc.uri.fsPath);
+    return hit ? deadPointers(doc.getText(), hit.base, host.roster(hit.base), hit.kinds, host.alsoDirs()) : [];
   };
   const update = (doc: vscode.TextDocument) => {
-    if (doc.uri.scheme !== 'file' || !isHarnessDoc(doc.uri.fsPath)) return;
+    if (!isChecked(doc)) return;
     collection.set(
       doc.uri,
       own(doc).map(t => {
@@ -68,7 +76,7 @@ export function registerLenses(context: vscode.ExtensionContext, host: LensHost)
   const lenses: vscode.CodeLensProvider = {
     onDidChangeCodeLenses: lensChanged.event,
     provideCodeLenses: doc => {
-      if (doc.uri.scheme !== 'file' || !isHarnessDoc(doc.uri.fsPath)) return [];
+      if (!isChecked(doc)) return [];
       const out: vscode.CodeLens[] = [];
       const at = (line: number) => doc.lineAt(Math.min(line, doc.lineCount - 1)).range;
       for (const p of host.problemsFor(doc.uri.fsPath)) {
@@ -153,7 +161,7 @@ export function registerLenses(context: vscode.ExtensionContext, host: LensHost)
     vscode.commands.registerCommand('claudeHarness.removeLine', removeLine),
     vscode.commands.registerCommand('claudeHarness.repoint', repoint),
     vscode.workspace.onDidOpenTextDocument(update),
-    vscode.workspace.onDidSaveTextDocument(update),
+    vscode.workspace.onDidSaveTextDocument(refreshAll),
     vscode.workspace.onDidCloseTextDocument(doc => collection.delete(doc.uri)),
     host.changed(refreshAll)
   );
