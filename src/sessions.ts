@@ -342,6 +342,19 @@ function readTail(file: string, bytes: number, size: number): Rec[] {
   }
 }
 
+/** The timestamp of the last record that has one; the tail window widens until one turns up. */
+export function lastRecordTime(file: string, size: number): number {
+  for (const bytes of [64 * 1024, 1024 * 1024, 16 * 1024 * 1024]) {
+    const recs = readTail(file, bytes, size);
+    for (let i = recs.length - 1; i >= 0; i--) {
+      const t = time(recs[i]);
+      if (!Number.isNaN(t)) return t;
+    }
+    if (bytes >= size) break;
+  }
+  return NaN;
+}
+
 const TITLE_WINDOW = 64 * 1024;
 const TITLE_KEYS = [
   ['agent-name', 'agentName'],
@@ -465,7 +478,7 @@ function summaryOf(file: string, live: Map<string, string>): SessionSummary | un
       file,
       title: sessionTitle(titleRecords(file, stat.size), prompt, id),
       start: time(first),
-      end: stat.mtimeMs,
+      end: lastRecordTime(file, stat.size) || stat.mtimeMs,
       size: stat.size,
       agents: agentFiles.length,
       types: [...types].sort(),

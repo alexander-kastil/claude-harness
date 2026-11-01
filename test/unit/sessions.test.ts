@@ -81,6 +81,16 @@ function fixture() {
   return { tmp, root, repo, folder, sid, write };
 }
 
+test('a session ends at its last record, not at the time its file was touched', () => {
+  const { tmp, root, repo, folder, sid } = fixture();
+  const file = path.join(folder, `${sid}.jsonl`);
+  const last = fs.readFileSync(file, 'utf8').trim().split('\n').map(l => JSON.parse(l)).filter(o => typeof o.timestamp === 'string').map(o => Date.parse(o.timestamp)).pop()!;
+  const later = new Date(last + 5 * 86400000);
+  fs.utimesSync(file, later, later);
+  assert.equal(listSessions(repo, root)[0].end, last);
+  fs.rmSync(tmp, { recursive: true, force: true });
+});
+
 test('promptText reads typed prompts and slash commands, and skips harness messages', () => {
   assert.equal(promptText('  fix   the\nbug '), 'fix the bug');
   assert.equal(promptText('<command-message>r</command-message>\n<command-name>/report</command-name>\n<command-args>5m</command-args>'), '/report 5m');

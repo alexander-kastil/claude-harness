@@ -8,6 +8,10 @@ All notable changes to Claude Harness are listed here, newest first. The format 
 
 - Release build
 
+### Fixed
+
+- The Duration of a session and its place in the list follow its last message, not the last time the file was touched
+
 ## [1.0.0] - 2026-10-31
 
 ### Changed
@@ -443,7 +447,7 @@ All notable changes to Claude Harness are listed here, newest first. The format 
 - The cost card and the weekly summary say less: a shorter billing description, no asterisks, and no hover cards repeating how the limits were measured.
 - Draft output style asks in a card under its button instead of a system dialog, like Analyze, with a Don't ask again switch that remembers the answer.
 - A type page opened from a repo starts filtered to Global and that repo, the elements that load there, instead of the repo alone.
-- The license is the Claude Harness License 1.0, replacing CC BY-NC-SA 4.0: free for internal use in your company, no redistribution or derived works. See [LICENSE](LICENSE).
+- The license is the Claude Harness License 1.0: free for internal use in your company, no redistribution or derived works. See [LICENSE](LICENSE).
 
 ## [0.2.35] - 2026-10-22
 

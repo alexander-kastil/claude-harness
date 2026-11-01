@@ -29,6 +29,7 @@ interface Spec {
 function session(folder: string, id: string, spec: Spec) {
   const file = path.join(folder, `${id}.jsonl`);
   const records: unknown[] = [{ sessionId: id, type: 'user', uuid: `${id}-u1`, timestamp: at(spec.started), entrypoint: 'cli', message: { role: 'user', content: spec.prompt } }];
+  records.push({ sessionId: id, type: 'assistant', uuid: `${id}-a1`, timestamp: at(spec.ended), message: { role: 'assistant', content: [{ type: 'text', text: 'done' }] } });
   if (spec.title) records.push({ type: 'custom-title', customTitle: spec.title, sessionId: id });
   fs.mkdirSync(folder, { recursive: true });
   fs.writeFileSync(file, records.map(r => JSON.stringify(r)).join('\n') + '\n');
