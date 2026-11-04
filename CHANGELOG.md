@@ -2,11 +2,16 @@
 
 All notable changes to Claude Harness are listed here, newest first. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions with no version change in the package.json history (0.1.3, 0.1.5 to 0.1.18, 0.1.20 to 0.1.24, 0.1.27, 0.2.1 and 0.2.3 to 0.2.11) and development builds (0.2.14 to 0.2.22, 0.2.24 to 0.2.30, 0.2.32 to 0.2.34, 0.2.36 to 0.2.44, 0.3.0, 0.3.2, 0.4.1 to 0.4.3, 0.5.2 and 0.5.3) have no entry.
 
-## [Unreleased]
+## [1.1.0] - 2026-11-04
 
 ### Added
 
+- AGENTS.md (root, `.claude/AGENTS.md` and subfolder files) is listed as memory in a repo, with whether Claude Code loads it under the Project instructions setting and the CLAUDE.md files present; its pointers are checked and a change to any of them refreshes the repo
 - `npm run sync:ci` copies the product's logos, its marketplace header, the final cut of each film and the demo film to the integrations.at CI folder on OneDrive, named by that folder's convention
+
+### Changed
+
+- The house rules' empty-search rule says the Grep tool skips gitignored files, so an absence check in a repo with ignored content folders runs `grep -r`
 
 ## [1.0.1] - 2026-11-01
 

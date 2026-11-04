@@ -101,6 +101,8 @@ export interface Asset {
   refs?: string[];
   /** Lines of the file body, for the sidebar byline of memory, rules, output styles and hook scripts. */
   lines?: number;
+  /** An AGENTS.md of a repo: whether Claude Code loads it under the Project instructions setting. */
+  load?: AgentsLoad;
 }
 
 /** An item a plugin ships: the installed copy is overwritten on update, so it is read-only. */
@@ -196,7 +198,7 @@ export const repoScope = (dir: string, userConfig = path.join(os.homedir(), '.cl
   label: path.basename(dir),
   base: dir,
   root: path.join(dir, '.claude'),
-  memory: ['CLAUDE.md', 'CLAUDE.local.md', '.claude/CLAUDE.md'],
+  memory: ['CLAUDE.md', 'CLAUDE.local.md', '.claude/CLAUDE.md', 'AGENTS.md', '.claude/AGENTS.md'],
   mcpFile: path.join(dir, '.mcp.json'),
   userConfig,
   installedPlugins: false,
@@ -322,7 +324,7 @@ export function knownRepos(extra: string[], userConfig = path.join(os.homedir(),
     const key = process.platform === 'win32' ? dir.toLowerCase() : dir;
     if (seen.has(key) || path.relative(os.homedir(), dir) === '') continue;
     if (!explicit && isInside(realPath(dir), realPath(os.tmpdir()))) continue;
-    if (!fs.existsSync(path.join(dir, '.claude')) && !fs.existsSync(path.join(dir, 'CLAUDE.md'))) continue;
+    if (!fs.existsSync(path.join(dir, '.claude')) && !fs.existsSync(path.join(dir, 'CLAUDE.md')) && !fs.existsSync(path.join(dir, 'AGENTS.md'))) continue;
     seen.set(key, dir.length > 2 && dir[1] === ':' ? dir[0].toUpperCase() + dir.slice(1) : dir);
   }
   return [...seen.values()].sort((a, b) => path.basename(a).localeCompare(path.basename(b)) || a.localeCompare(b));
@@ -675,11 +677,13 @@ export function scan(scope: HarnessScope): Category[] {
   const items = new Map<Kind, Asset[]>(KINDS.map(k => [k.kind, []]));
   const make = (kind: Kind, key: string, rest: Omit<Asset, 'id' | 'scope' | 'kind'>): Asset => ({ id: `${scope.id}|${kind}:${key}`, scope: scope.id, kind, ...rest });
 
-  for (const rel of scope.memory) {
+  const isRepo = scope.id.startsWith('repo:');
+  const setting = isRepo ? instructionFilesSetting() : 'claude-md-or-agents-md';
+  for (const rel of isRepo ? [...scope.memory, ...nestedAgentsMd(scope.base)] : scope.memory) {
     const file = path.join(scope.base, rel);
     if (fs.existsSync(file)) {
       const { body } = readMarkdown(file);
-      items.get('memory')!.push(make('memory', rel, { name: rel, description: '', file, mtime: mtimeOf(file), refs: refsOf(body), lines: lineCount(body) }));
+      items.get('memory')!.push(make('memory', rel, { name: rel, description: '', file, mtime: mtimeOf(file), refs: refsOf(body), lines: lineCount(body), load: isRepo ? agentsMdLoad(scope.base, rel, setting) : undefined }));
     }
   }
 
@@ -1252,11 +1256,72 @@ export function ruleInfo(asset: Asset, repoDir: string, roster: Roster, ownerPat
   return { globs, total, capped, owner, ownerFound: owner ? roster.agents.has(owner) : undefined, base: repoDir };
 }
 
+export type InstructionFiles = 'claude-md-or-agents-md' | 'claude-md-and-agents-md' | 'claude-md' | 'managed-only';
+
+/** Whether Claude Code reads an AGENTS.md here, and when: at session start, when Claude reads a file in its folder, or not at all. */
+export interface AgentsLoad {
+  state: 'loaded' | 'on read' | 'not loaded';
+  why: string;
+}
+
 export interface MemoryNode {
   file: string;
   label: string;
   exists: boolean;
   imports: MemoryNode[];
+  /** Set on an AGENTS.md. */
+  load?: AgentsLoad;
+}
+
+/** The Project instructions setting, read from user settings only (https://code.claude.com/docs/en/memory#agents-md): pluginConfigs > cc-plugin-agents-md@builtin (or agents-md@builtin before v2.1.285) > options.instructionFiles. */
+export function instructionFilesSetting(userSettings = path.join(os.homedir(), '.claude', 'settings.json')): InstructionFiles {
+  const configs = (readJson(userSettings).pluginConfigs ?? {}) as Record<string, { options?: { instructionFiles?: unknown } }>;
+  const value = configs['cc-plugin-agents-md@builtin']?.options?.instructionFiles ?? configs['agents-md@builtin']?.options?.instructionFiles;
+  return value === 'claude-md-and-agents-md' || value === 'claude-md' || value === 'managed-only' ? value : 'claude-md-or-agents-md';
+}
+
+const CLAUDE_MD_FILES = ['CLAUDE.md', path.join('.claude', 'CLAUDE.md'), 'CLAUDE.local.md'];
+const hasClaudeMd = (dir: string) => CLAUDE_MD_FILES.find(n => fs.existsSync(path.join(dir, n)));
+
+/** The AGENTS.md files below a repo's root (the root's own and .claude/AGENTS.md are in the scope's memory list), as relative paths with forward slashes. */
+export function nestedAgentsMd(base: string, depth = 4): string[] {
+  const out: string[] = [];
+  let budget = 3000;
+  const walk = (dir: string, level: number) => {
+    if (level > depth || budget-- <= 0) return;
+    let entries: fs.Dirent[];
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    if (level > 0 && entries.some(e => e.isFile() && e.name === 'AGENTS.md')) out.push(path.relative(base, path.join(dir, 'AGENTS.md')).split(path.sep).join('/'));
+    for (const e of entries) if (e.isDirectory() && !e.name.startsWith('.') && !['node_modules', 'out', 'dist', 'build', 'target', 'vendor'].includes(e.name)) walk(path.join(dir, e.name), level + 1);
+  };
+  walk(base, 0);
+  return out.sort((a, b) => a.localeCompare(b));
+}
+
+/** Whether Claude Code loads the AGENTS.md at `rel` (a path in a repo) under the user's Project instructions setting and the CLAUDE.md files present. Undefined for any other file. */
+export function agentsMdLoad(base: string, rel: string, setting: InstructionFiles = instructionFilesSetting()): AgentsLoad | undefined {
+  const r = rel.split(path.sep).join('/');
+  const nested = r.endsWith('/AGENTS.md') && r !== '.claude/AGENTS.md';
+  if (r !== 'AGENTS.md' && r !== '.claude/AGENTS.md' && !nested) return undefined;
+  const when = nested ? 'on read' : 'loaded';
+  if (setting === 'managed-only') return { state: 'not loaded', why: 'Project instructions is managed-only: no AGENTS.md is read.' };
+  if (setting === 'claude-md') return { state: 'not loaded', why: 'Project instructions is claude-md: AGENTS.md is read only through an @AGENTS.md import in a CLAUDE.md.' };
+  const how = nested ? 'Claude reads it when it opens a file in this folder' : 'Claude reads it at the start of every session here';
+  if (setting === 'claude-md-and-agents-md') return { state: when, why: `Project instructions is claude-md-and-agents-md. ${how}.` };
+  if (nested) {
+    const own = hasClaudeMd(path.join(base, path.dirname(r)));
+    return own ? { state: 'not loaded', why: `This folder has a ${own}, so Claude reads that instead of AGENTS.md.` } : { state: 'on read', why: `${how}; this folder has no CLAUDE.md, .claude/CLAUDE.md or CLAUDE.local.md.` };
+  }
+  for (let dir = path.resolve(base); ; dir = path.dirname(dir)) {
+    const hit = hasClaudeMd(dir);
+    if (hit) return { state: 'not loaded', why: `${path.join(dir, hit)} exists, so Claude reads the CLAUDE.md files and not AGENTS.md. Set Project instructions to claude-md-and-agents-md or import it with @AGENTS.md.` };
+    if (path.dirname(dir) === dir) break;
+  }
+  return { state: 'loaded', why: `No CLAUDE.md, .claude/CLAUDE.md or CLAUDE.local.md in this folder or above, so ${how}.` };
 }
 
 const IMPORT = /(^|\s)@((?:~[\\/]|\.{1,2}[\\/]|[A-Za-z]:[\\/]|\/)?[^\s`'"()<>,;]+)/g;
@@ -1301,7 +1366,11 @@ const RULE_KINDS: PointerKind[] = ['path', 'skill', 'agent'];
 
 /** The docs whose pointers a repo check reads: the root docs and rules files, then every file they import, each with the kinds of the doc that imports it. */
 export function checkedDocs(repo: string): CheckedDoc[] {
-  const roots: CheckedDoc[] = [CLAUDE_DOC_NAMES.map(n => ({ file: path.join(repo, n), kinds: DOC_KINDS })), [{ file: path.join(repo, '.claude', 'CLAUDE.md'), kinds: DOC_KINDS }]].flat();
+  const roots: CheckedDoc[] = [
+    ...CLAUDE_DOC_NAMES.map(n => ({ file: path.join(repo, n), kinds: DOC_KINDS })),
+    ...['CLAUDE.md', 'AGENTS.md'].map(n => ({ file: path.join(repo, '.claude', n), kinds: DOC_KINDS })),
+    ...nestedAgentsMd(repo).map(rel => ({ file: path.join(repo, rel), kinds: DOC_KINDS })),
+  ];
   const rulesDir = path.join(repo, '.claude', 'rules');
   if (fs.existsSync(rulesDir)) for (const f of fs.readdirSync(rulesDir).filter(n => n.endsWith('.md'))) roots.push({ file: path.join(rulesDir, f), kinds: RULE_KINDS });
   const out = new Map<string, CheckedDoc>();
@@ -1374,7 +1443,9 @@ export function pluginHooks(dir: string, key: string): EffectiveHook[] {
 }
 
 export function effectiveHarness(global: HarnessScope, repo: HarnessScope): Effective {
-  const memory = [memoryTree(path.join(global.root, 'CLAUDE.md'), '~/.claude/CLAUDE.md'), ...repo.memory.map(rel => memoryTree(path.join(repo.base, rel), rel))].filter(n => n.exists);
+  const setting = instructionFilesSetting(path.join(global.root, 'settings.json'));
+  const repoMemory = [...repo.memory, ...nestedAgentsMd(repo.base)].map(rel => Object.assign(memoryTree(path.join(repo.base, rel), rel), { load: agentsMdLoad(repo.base, rel, setting) }));
+  const memory = [memoryTree(path.join(global.root, 'CLAUDE.md'), '~/.claude/CLAUDE.md'), ...repoMemory].filter(n => n.exists);
   let capped = false;
   const rules = [
     ...markdownAssets(global, path.join(global.root, 'rules'), 'rule', true, stripMd).map(a => ({ a, scope: 'Global' })),

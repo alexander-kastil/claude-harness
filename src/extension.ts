@@ -400,7 +400,7 @@ export function activate(context: vscode.ExtensionContext): void {
     const repo = repoOfFile(file);
     if (!repo) return undefined;
     const rel = path.relative(repo.path, file).split(path.sep).join('/');
-    return rel === 'CLAUDE.md' || rel === 'AGENTS.md' || rel === 'CLAUDE.local.md' || rel.startsWith('.claude/') ? repo : undefined;
+    return rel === 'CLAUDE.md' || rel === 'AGENTS.md' || rel.endsWith('/AGENTS.md') || rel === 'CLAUDE.local.md' || rel.startsWith('.claude/') ? repo : undefined;
   };
   const checksChanged = new vscode.EventEmitter<void>();
   // A check fires when it starts and when it ends, so checking every repo fires twice per repo within seconds. The first

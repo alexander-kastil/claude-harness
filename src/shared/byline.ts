@@ -119,7 +119,7 @@ export function factsOf(a: Asset, ctx: BylineContext = {}): Fact[] {
       break;
     }
     case 'memory':
-      facts = [modified(a, 'file'), lines(a)];
+      facts = [a.load ? { text: a.load.state, tip: `Claude Code ${a.load.state === 'not loaded' ? 'does not load this AGENTS.md' : 'loads this AGENTS.md'}\n${a.load.why}`, tone: a.load.state === 'not loaded' ? 'warn' : undefined } : undefined, modified(a, 'file'), lines(a)];
       break;
     case 'outputStyle':
       facts = [modified(a, 'output style file'), lines(a)];
