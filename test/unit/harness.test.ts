@@ -3,6 +3,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { test } from 'node:test';
+import { agentsMdLoad, checkedDocs, instructionFilesSetting, nestedAgentsMd, type InstructionFiles } from '../../src/harness';
 import { applyMcpState, isPluginCopy, parseMcpList, mcpToolPrefix, setMcpEnabled } from '../../src/harness';
 import { createAsset, duplicateAsset, expandRepoFolders, fromFields, globalScope, knownRepos, linkCopies, readMarkdown, renameAsset, repoScope, scan, serializeMarkdown, setFrontmatterList, setPluginEnabled, toFields } from '../../src/harness';
 
@@ -269,4 +270,35 @@ test('linkCopies sees a copy that changed since the last refresh, though hashes 
   assert.deepEqual(same(), [false]);
   fs.writeFileSync(traps, '# Traps\n');
   assert.deepEqual(same(), [true]);
+});
+
+test('AGENTS.md: listed as memory with its loaded state, nested files, and checked for pointers', () => {
+  const repo = fs.mkdtempSync(path.join(os.tmpdir(), 'agents-'));
+  fs.writeFileSync(path.join(repo, 'AGENTS.md'), '# Agents\n\nUse `skill: nothing-here`.\n');
+  fs.mkdirSync(path.join(repo, '.claude'));
+  fs.writeFileSync(path.join(repo, '.claude', 'AGENTS.md'), '# Local\n');
+  fs.mkdirSync(path.join(repo, 'pkg', 'a'), { recursive: true });
+  fs.mkdirSync(path.join(repo, 'pkg', 'b'), { recursive: true });
+  fs.mkdirSync(path.join(repo, 'node_modules', 'x'), { recursive: true });
+  fs.writeFileSync(path.join(repo, 'pkg', 'a', 'AGENTS.md'), '# A\n');
+  fs.writeFileSync(path.join(repo, 'pkg', 'b', 'AGENTS.md'), '# B\n');
+  fs.writeFileSync(path.join(repo, 'pkg', 'b', 'CLAUDE.local.md'), '# mine\n');
+  fs.writeFileSync(path.join(repo, 'node_modules', 'x', 'AGENTS.md'), '# dep\n');
+  assert.deepEqual(nestedAgentsMd(repo), ['pkg/a/AGENTS.md', 'pkg/b/AGENTS.md']);
+  const states = (setting: InstructionFiles) => Object.fromEntries(['AGENTS.md', '.claude/AGENTS.md', 'pkg/a/AGENTS.md', 'pkg/b/AGENTS.md'].map(r => [r, agentsMdLoad(repo, r, setting)!.state]));
+  assert.deepEqual(states('claude-md-or-agents-md'), { 'AGENTS.md': 'loaded', '.claude/AGENTS.md': 'loaded', 'pkg/a/AGENTS.md': 'on read', 'pkg/b/AGENTS.md': 'not loaded' });
+  assert.equal(agentsMdLoad(repo, 'pkg/b/AGENTS.md', 'claude-md-and-agents-md')!.state, 'on read');
+  assert.equal(agentsMdLoad(repo, 'AGENTS.md', 'claude-md')!.state, 'not loaded');
+  assert.equal(agentsMdLoad(repo, 'AGENTS.md', 'managed-only')!.state, 'not loaded');
+  assert.equal(agentsMdLoad(repo, 'CLAUDE.md'), undefined);
+  fs.writeFileSync(path.join(repo, 'CLAUDE.md'), '@AGENTS.md\n');
+  assert.equal(agentsMdLoad(repo, 'AGENTS.md', 'claude-md-or-agents-md')!.state, 'not loaded');
+  const names = scan(repoScope(repo)).find(c => c.kind === 'memory')!.items.map(a => a.name);
+  assert.deepEqual(names, ['.claude/AGENTS.md', 'AGENTS.md', 'CLAUDE.md', 'pkg/a/AGENTS.md', 'pkg/b/AGENTS.md']);
+  const files = checkedDocs(repo).map(d => path.relative(repo, d.file).split(path.sep).join('/'));
+  for (const f of ['AGENTS.md', '.claude/AGENTS.md', 'pkg/a/AGENTS.md', 'pkg/b/AGENTS.md']) assert.ok(files.includes(f), f);
+  const settings = path.join(repo, 'user.json');
+  fs.writeFileSync(settings, JSON.stringify({ pluginConfigs: { 'cc-plugin-agents-md@builtin': { options: { instructionFiles: 'claude-md-and-agents-md' } } } }));
+  assert.equal(instructionFilesSetting(settings), 'claude-md-and-agents-md');
+  assert.equal(instructionFilesSetting(path.join(repo, 'none.json')), 'claude-md-or-agents-md');
 });

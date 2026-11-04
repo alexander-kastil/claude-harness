@@ -469,7 +469,9 @@ function kpisFor(a: Asset, draft: Draft, description: string, mentions: Entry[],
       connections,
     ],
     memory: [
-      tile(fmtTokens(tokens(body)), 'Always loaded', 'layers', 'tokens, in every session here'),
+      a.load
+        ? tile(a.load.state === 'loaded' ? 'Loaded' : a.load.state === 'on read' ? 'On read' : 'Not loaded', 'Claude Code', 'layers', a.load.state === 'on read' ? 'when Claude reads a file in this folder' : a.load.state === 'loaded' ? 'at the start of every session here' : 'AGENTS.md is skipped here', a.load.state === 'not loaded' ? 'warn' : undefined, a.load.why)
+        : tile(fmtTokens(tokens(body)), 'Always loaded', 'layers', 'tokens, in every session here'),
       tile(String(lines(body)), 'Lines', 'list-flat', plural(words(body), 'word')),
       tile(String((body.match(/^@\S+/gm) || []).length), 'Imports', 'references', '@-lines that pull in more files'),
       connections,

@@ -300,7 +300,7 @@ export function renderEffective(view) {
   const memoryTable = gridTable(
     [
       name(r => (r.depth ? 'arrow-small-right' : 'markdown'), r => r.node.label, r => r.depth, r => r.node.file),
-      { head: 'Loaded as', track: '96px', muted: true, align: 'center', cell: r => (!r.node.exists ? stateTag('not found', 'fail') : tag(r.depth ? 'import' : 'memory')) },
+      { head: 'Loaded as', track: '96px', muted: true, align: 'center', cell: r => (!r.node.exists ? stateTag('not found', 'fail') : r.node.load && !r.depth ? stateTag(r.node.load.state, r.node.load.state === 'not loaded' ? 'warn' : 'ok', r.node.load.why) : tag(r.depth ? 'import' : 'memory')), title: r => (r.node.load && !r.depth ? r.node.load.why : '') },
       loaded ? loadedCol(r => r.node.file, r => r.node.exists) : null,
     ].filter(Boolean),
     memory.map(r => Object.assign({ open: r.node.exists ? () => openAt(r.node.file) : undefined, className: r.node.exists ? '' : 'disabled' }, r)),
