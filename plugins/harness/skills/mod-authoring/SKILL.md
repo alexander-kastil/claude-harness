@@ -39,6 +39,7 @@ Observe (`await next(e)` then look), rewrite (`next({ ...e, ... })`) or answer (
 6. Ship in a marketplace repo (`.claude-plugin/marketplace.json`), install with
    `claude plugin marketplace add <owner>/<repo>` and `claude plugin install <plugin>@<marketplace>`.
    Install all mods at once, user scope, once per machine, or put one new plugin live, prove it loaded and smoke-run its agent: [references/install-mods.md](references/install-mods.md).
+   A fix ends live (owner, 2026-11-07: "when i say fix this should be done automatically"): the version bump in each changed plugin's `plugin.json` with its changelog line, the commit, `claude plugin update <plugin>@<marketplace>` and a new session; a fix that stays in the source never ran.
    When READMEs are asked for: the root `README.md` is an index (one-line row and link per plugin, the
    dependency diagram, install); each plugin's details and diagrams go in `<plugin>/README.md`.
 

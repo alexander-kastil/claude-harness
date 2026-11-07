@@ -2,11 +2,31 @@
 
 All notable changes to Claude Harness are listed here, newest first. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions with no version change in the package.json history (0.1.3, 0.1.5 to 0.1.18, 0.1.20 to 0.1.24, 0.1.27, 0.2.1 and 0.2.3 to 0.2.11) and development builds (0.2.14 to 0.2.22, 0.2.24 to 0.2.30, 0.2.32 to 0.2.34, 0.2.36 to 0.2.44, 0.3.0, 0.3.2, 0.4.1 to 0.4.3, 0.5.2 and 0.5.3) have no entry.
 
+## [Unreleased]
+
+### Changed
+
+- The caveman hook templates (`hook-caveman-compression`, bash and PowerShell) keep caveman mode off for the rest of a session after a prompt that starts with `creative:`, the owner's trigger for creative work (2026-11-06); a flag file per session under `$CLAUDE_CODE_TMPDIR/creative-runs/` carries the run.
+
+- AGENTS.md is read at the repo root and in subfolders only; a `.claude/AGENTS.md` is no longer listed as memory, checked or given editor warnings
+- The `mod-authoring` skill ends a fix live: version bump with its changelog line, commit, `claude plugin update <plugin>@<marketplace>` and a new session (owner, 2026-11-07: "when i say fix this should be done automatically") (harness 1.1.2).
+- The noun test in `context-engineering` (leaf `literal-requirements`) covers a class the owner names as the scope: its members are listed from disk and each one that fits is included, the projects named after it being the hard cases (harness 1.1.1).
+
+### Fixed
+
+- A skill installed in a repo with `npx skills add` now shows the source it came from, read from the repo's `skills-lock.json`, like a global one; Check updates says plainly that this lock file cannot tell a newer version
+
+### Added
+
+- Drop .claude/AGENTS.md from Claude Harness: .claude/AGENTS.md is no longer listed, checked or given warnings in Claude Harness
+- Add skill hint to routing mod: I replayed your past prompts against the 14 repo agents from before the plugin move
+
+
 ## [1.1.0] - 2026-11-04
 
 ### Added
 
-- AGENTS.md (root, `.claude/AGENTS.md` and subfolder files) is listed as memory in a repo, with whether Claude Code loads it under the Project instructions setting and the CLAUDE.md files present; its pointers are checked and a change to any of them refreshes the repo
+- AGENTS.md (root and subfolder files) is listed as memory in a repo, with whether Claude Code loads it under the Project instructions setting and the CLAUDE.md files present; its pointers are checked and a change to any of them refreshes the repo
 - `npm run sync:ci` copies the product's logos, its marketplace header, the final cut of each film and the demo film to the integrations.at CI folder on OneDrive, named by that folder's convention
 
 ### Changed
