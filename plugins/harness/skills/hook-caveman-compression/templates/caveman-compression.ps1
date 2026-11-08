@@ -8,7 +8,22 @@ $exclude = 'teaching|tutorial|\blab\b|\bdemo\b|slide|deck|handout|readme|\bdocs?
 $payload = [Console]::In.ReadToEnd()
 
 # .prompt holds the raw user text
-$prompt = ($payload | ConvertFrom-Json).prompt
+$data = $payload | ConvertFrom-Json
+$prompt = $data.prompt
+
+# A prompt that starts with "creative:" opens a creative run: no caveman for the rest of the session
+$base = if ($env:CLAUDE_CODE_TMPDIR) { $env:CLAUDE_CODE_TMPDIR } else { [IO.Path]::GetTempPath() }
+$runs = Join-Path $base 'creative-runs'
+if ($prompt -imatch '^\s*creative:') {
+    if ($data.session_id) {
+        New-Item -ItemType Directory -Force -Path $runs | Out-Null
+        Set-Content -Path (Join-Path $runs $data.session_id) -Value '' -NoNewline
+    }
+    exit 0
+}
+if ($data.session_id -and (Test-Path (Join-Path $runs $data.session_id))) {
+    exit 0
+}
 
 # -imatch is the case-insensitive regex operator; a match leaves the turn uncompressed
 if ($prompt -imatch $exclude) {

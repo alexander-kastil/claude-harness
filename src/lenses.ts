@@ -1,6 +1,6 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { CLAUDE_DOC_NAMES, PointerToken, Roster, checkedDocs, closest, deadPointers, pathCandidates } from './harness';
+import { CLAUDE_DOC_NAMES, PointerToken, Roster, checkedDocs, closest, deadPointers, pathCandidates, specProblems } from './harness';
 import { Problem } from './standard';
 
 export interface LensHost {
@@ -13,7 +13,7 @@ export interface LensHost {
 
 const norm = (p: string) => p.split('\\').join('/');
 
-export const isHarnessDoc = (file: string) => CLAUDE_DOC_NAMES.includes(path.basename(file)) || (/\/\.claude\/rules\//.test(norm(file)) && /\.md$/i.test(file));
+export const isHarnessDoc = (file: string) => (CLAUDE_DOC_NAMES.includes(path.basename(file)) && !/\/\.claude\/AGENTS\.md$/i.test(norm(file))) || (/\/\.claude\/rules\//.test(norm(file)) && /\.md$/i.test(file));
 
 const kindLabel = (k: PointerToken['kind']) => (k === 'path' ? 'Path' : k === 'skill' ? 'Skill' : 'Agent');
 
@@ -53,17 +53,31 @@ export function registerLenses(context: vscode.ExtensionContext, host: LensHost)
     const hit = checked(doc.uri.fsPath);
     return hit ? deadPointers(doc.getText(), hit.base, host.roster(hit.base), hit.kinds, host.alsoDirs()) : [];
   };
+  // A SKILL.md that breaks the Agent Skills spec (agentskills.io/specification), whatever folder it sits in.
+  const specOf = (doc: vscode.TextDocument): vscode.Diagnostic[] =>
+    doc.uri.scheme !== 'file'
+      ? []
+      : specProblems(doc.uri.fsPath, doc.getText()).map(p => {
+          const d = new vscode.Diagnostic(doc.lineAt(Math.min(p.line, doc.lineCount - 1)).range, p.message, vscode.DiagnosticSeverity.Warning);
+          d.source = 'Claude Harness';
+          d.code = 'skill-spec';
+          return d;
+        });
   const update = (doc: vscode.TextDocument) => {
-    if (!isChecked(doc)) return;
-    collection.set(
-      doc.uri,
-      own(doc).map(t => {
+    const spec = specOf(doc);
+    if (!isChecked(doc)) {
+      if (spec.length || collection.has(doc.uri)) collection.set(doc.uri, spec);
+      return;
+    }
+    collection.set(doc.uri, [
+      ...own(doc).map(t => {
         const d = new vscode.Diagnostic(new vscode.Range(t.line, t.start, t.line, t.end), `${kindLabel(t.kind)} \`${t.token}\` not found`, vscode.DiagnosticSeverity.Warning);
         d.source = 'Claude Harness';
         d.code = 'pointer';
         return d;
-      })
-    );
+      }),
+      ...spec,
+    ]);
   };
   const candidates = (file: string, token: string, kind: PointerToken['kind']): string[] => {
     const base = host.baseOf(file);

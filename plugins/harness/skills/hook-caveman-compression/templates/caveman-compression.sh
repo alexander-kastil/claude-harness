@@ -12,6 +12,17 @@ payload=$(cat)
 prompt=$(printf '%s' "$payload" | jq -r '.prompt // empty' 2>/dev/null)
 [ -n "$prompt" ] || prompt=$(printf '%s' "$payload" | sed -n 's/.*"prompt"[[:space:]]*:[[:space:]]*"\(.*\)".*/\1/p')
 
+# A prompt that starts with "creative:" opens a creative run: no caveman for the rest of the session
+session=$(printf '%s' "$payload" | jq -r '.session_id // empty' 2>/dev/null)
+runs="${CLAUDE_CODE_TMPDIR:-${TMPDIR:-/tmp}}/creative-runs"
+if printf '%s' "$prompt" | grep -qiE '^[[:space:]]*creative:'; then
+  [ -n "$session" ] && mkdir -p "$runs" && : > "$runs/$session"
+  exit 0
+fi
+if [ -n "$session" ] && [ -f "$runs/$session" ]; then
+  exit 0
+fi
+
 # A match means the deliverable is prose: leave the turn uncompressed
 if printf '%s' "$prompt" | grep -qiE "$EXCLUDE"; then
   exit 0

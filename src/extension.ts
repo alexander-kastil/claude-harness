@@ -75,6 +75,7 @@ import {
   setPluginEnabled,
   validateName,
 } from './harness';
+import { lockMissing } from './skill-lock';
 import { HarnessPanel, PanelHost } from './panel';
 import { coworkShown, setCoworkChoice } from './settings';
 import { mentionText, pathText, saveClipboardImage } from './image-paste';
@@ -278,7 +279,7 @@ export function activate(context: vscode.ExtensionContext): void {
     const next: ScopeView[] = [];
     for (const s of scopes) {
       const lastUsed = s !== global ? yield* lastSessionSteps(s.base) : undefined;
-      next.push({ id: s.id, label: s.label, path: s.base, local: s !== global && folders.some(f => samePath(f, s.base)), lastUsed, categories: scan(s) });
+      next.push({ id: s.id, label: s.label, path: s.base, local: s !== global && folders.some(f => samePath(f, s.base)), lastUsed, categories: scan(s), lockMissing: s !== global ? lockMissing(s.base) : undefined });
       yield;
     }
     const globalMcp = next[0].categories.find(c => c.kind === 'mcp');

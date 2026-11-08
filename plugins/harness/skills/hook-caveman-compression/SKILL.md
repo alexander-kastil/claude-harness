@@ -68,6 +68,7 @@ The `EXCLUDE` regex at the top of the script decides when caveman mode stays off
 - Voice-bound copy: `brand voice`, `marketing`, `copywriting`, `blog`, `article`, `newsletter`, `email`, `announcement`.
 - Exactness-bound text: `commit message`, `pull request description`, `verbatim`, `prose`.
 - Manual escape hatches: `no caveman`, `full prose`.
+- A creative run: a prompt that starts with `creative:` keeps caveman mode off for the rest of the session (a flag file per session under `$CLAUDE_CODE_TMPDIR/creative-runs/`); the agentic-orchestration mod reads the same trigger and routes the work (owner, 2026-11-06).
 
 Matching is case-insensitive and substring-based, and a match fails safe: the turn simply runs uncompressed. Add a term whenever a compressed answer damaged a deliverable; remove one only when it is suppressing turns that produce no prose.
 

@@ -578,6 +578,12 @@
         "icon": "$(sync)"
       },
       {
+        "command": "claudeHarness.restoreSkills",
+        "title": "Restore Skills from skills-lock.json",
+        "category": "Claude Harness",
+        "icon": "$(cloud-download)"
+      },
+      {
         "command": "claudeHarness.updateSkill",
         "title": "Update Skills from their Source",
         "category": "Claude Harness",

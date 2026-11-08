@@ -10,6 +10,8 @@ import { backupStamp } from './harness';
 import type { Asset } from './harness';
 import { HarnessPanel, PanelAnswer } from './panel';
 import type { DistCheck, DistNote, PanelAsk } from './shared/messages';
+import { lockMissing } from './skill-lock';
+import { CliRunner, checkViaCli, cwdOf, restoreArgs, runSkills, updateArgs } from './skills-cli';
 
 export interface DistDeps {
   /** The Claude folder, `~/.claude`. */
@@ -22,6 +24,8 @@ export interface DistDeps {
   find: (arg: unknown) => Asset | undefined;
   refresh: () => void;
   backupRoot: () => string;
+  /** Runs `npx skills <args>`; a test replaces it. */
+  runner?: CliRunner;
 }
 
 type Card = Omit<PanelAsk, 'kind' | 'token' | 'facts'> & { facts?: string[]; validate?: (v: string) => string | undefined };
@@ -57,6 +61,19 @@ export function registerDistributor(deps: DistDeps): vscode.Disposable[] {
   sweepStaged();
 
   const tracked = () => deps.skills().filter(a => a.origin);
+  const run = deps.runner ?? runSkills;
+  /** A skill the skills CLI recorded: its lock's hash is checked and updated by `npx skills`, not by the harness. */
+  const viaLock = (a: Asset) => !!a.origin?.lock;
+  const cwdFor = (a: Asset) => cwdOf(a.scope, deps.root());
+
+  /** What the distributor says about each skill: the lock-recorded ones through `npx skills check`, the rest from GitHub directly. */
+  const answersFor = async (list: Asset[]): Promise<Record<string, Latest>> => {
+    const out = await latest(list.filter(a => !viaLock(a)).map(a => ({ name: a.name, origin: a.origin! })));
+    const groups = new Map<string, Asset[]>();
+    for (const a of list.filter(viaLock)) groups.set(cwdFor(a), [...(groups.get(cwdFor(a)) ?? []), a]);
+    for (const [cwd, items] of groups) Object.assign(out, await checkViaCli(items.map(a => a.name), cwd, run));
+    return out;
+  };
 
   /** A line in the panel; a notification when the panel is not open. */
   const say = (tone: DistNote['tone'], text: string, more: Partial<DistNote> = {}) => {
@@ -95,7 +112,7 @@ export function registerDistributor(deps: DistDeps): vscode.Disposable[] {
     running = true;
     HarnessPanel.post({ type: 'distChecks', checks: {}, running: true });
     try {
-      const answers = await latest(list.map(a => ({ name: a.name, origin: a.origin! })));
+      const answers = await answersFor(list);
       const at = Date.now();
       const changed: Record<string, DistCheck> = {};
       for (const a of list) {
@@ -152,6 +169,7 @@ export function registerDistributor(deps: DistDeps): vscode.Disposable[] {
     const one = deps.find(arg);
     let list = one ? [one] : tracked().filter(a => checks.get(a.id)?.state === 'newer');
     if (one && !one.origin) return say('info', `${one.name} is not installed from a distributor. Connect it to its source first.`);
+    if (one && one.scope !== 'global' && !viaLock(one)) return say('info', `${one.name} is a skill of a repo. Update installs into the global skills, so run npx skills add in the repo to update it.`);
     if (!one && !list.length) {
       if (!tracked().length) return say('info', 'No skill is installed from a distributor yet. Add one from a skills.sh or GitHub address.');
       const answers = await runCheck(tracked());
@@ -161,7 +179,7 @@ export function registerDistributor(deps: DistDeps): vscode.Disposable[] {
     const staged = new Map<string, Staged>();
     try {
       await busy(`Downloading ${list.length === 1 ? list[0].name : plural(list.length, 'skill')}...`, async () => {
-        for (const a of list) {
+        for (const a of list.filter(a => !viaLock(a))) {
           const s = await stage(await resolveOrigin(a.origin!));
           s.name = a.name;
           staged.set(a.id, s);
@@ -171,6 +189,7 @@ export function registerDistributor(deps: DistDeps): vscode.Disposable[] {
       const root = deps.root();
       const backups = path.join(deps.backupRoot(), backupStamp(), 'skills');
       const facts = list.map(a => {
+        if (viaLock(a)) return `${a.name}: runs npx skills ${updateArgs([a.name], a.origin!.lock!).join(' ')} in ${tilde(cwdFor(a))}; the skills CLI replaces the files and its lock.`;
         const s = staged.get(a.id)!;
         const link = a.link ? ` Its link into ${tilde(a.link)} is replaced by the files themselves.` : '';
         return `${a.name}${versions(a, s.version)}: ${changesText(diffFolders(a.dir!, s.dir))}.${link}`;
@@ -179,7 +198,7 @@ export function registerDistributor(deps: DistDeps): vscode.Disposable[] {
         key: (arg as { anchor?: string } | undefined)?.anchor ?? (one ? 'update' : 'update-all'),
         title: list.length === 1 ? `Update ${list[0].name}` : `Update ${plural(list.length, 'skill')}`,
         sub: list.length === 1 ? `from ${list[0].origin!.source}` : 'from their distributors',
-        facts: [...facts.slice(0, 7), ...(facts.length > 7 ? [`and ${facts.length - 7} more skills`] : []), `The old files are backed up first, in ${tilde(deps.backupRoot())}. Repos still linked to a skill by an older version pick up the update.`],
+        facts: [...facts.slice(0, 7), ...(facts.length > 7 ? [`and ${facts.length - 7} more skills`] : []), ...(list.every(viaLock) ? [] : [`The old files are backed up first, in ${tilde(deps.backupRoot())}. Repos still linked to a skill by an older version pick up the update.`])],
         action: 'Update',
       });
       if (answer.choice !== 'ok') return clearNote();
@@ -187,7 +206,10 @@ export function registerDistributor(deps: DistDeps): vscode.Disposable[] {
       const failed: string[] = [];
       for (const a of list) {
         try {
-          install(root, staged.get(a.id)!, backups);
+          if (viaLock(a)) {
+            const r = await run(updateArgs([a.name], a.origin!.lock!), cwdFor(a));
+            if (r.code !== 0 && !/✓|updated/i.test(r.out)) throw new Error(r.out.trim().split(/\r?\n/).filter(Boolean).pop() ?? `npx skills update ended with code ${r.code}`);
+          } else install(root, staged.get(a.id)!, backups);
           done.push(a.name);
         } catch (e) {
           failed.push(`${a.name}: ${(e as Error).message}`);
@@ -198,7 +220,7 @@ export function registerDistributor(deps: DistDeps): vscode.Disposable[] {
       for (const a of list) if (done.includes(a.name)) checks.set(a.id, (now[a.id] = { state: 'current', at: Date.now() }));
       HarnessPanel.post({ type: 'distChecks', checks: now, running: false });
       if (failed.length) say('bad', `Could not update ${failed.join('; ')}`);
-      else say('ok', `Updated ${done.join(', ')}. The old files are in ${tilde(backups)}.`, { focus: list.length === 1 ? list[0].id : undefined });
+      else say('ok', `Updated ${done.join(', ')}.${list.every(viaLock) ? '' : ` The old files are in ${tilde(backups)}.`}`, { focus: list.length === 1 ? list[0].id : undefined });
     } catch (e) {
       if (e instanceof Cancelled) return clearNote();
       say('bad', `Could not update: ${(e as Error).message}`);
@@ -216,7 +238,7 @@ export function registerDistributor(deps: DistDeps): vscode.Disposable[] {
     if (running) return;
     try {
       // The page is not redrawn before the card, so the card still has the row to point at.
-      const r = (await latest([{ name: one.name, origin: one.origin }]))[one.name];
+      const r = (await answersFor([one]))[one.name];
       if (r?.state === 'newer') return await updateSkill({ ...(given as object), anchor: 'click' });
       if (r?.state === 'error') return say('bad', `Could not check for updates, so nothing is known about ${one.name} yet: ${r.error}`);
       if (r?.state === 'gone') return say('info', `No longer in their repository: ${one.name}.`);
@@ -351,6 +373,28 @@ export function registerDistributor(deps: DistDeps): vscode.Disposable[] {
       }
       deps.refresh();
       say('ok', `${found.name} moved into ${choices.find(c => c.id === dir)?.label ?? dir}.`);
+    }),
+
+    /** The skills a repo's skills-lock.json lists that are missing on disk, restored by `npx skills experimental_install`. */
+    vscode.commands.registerCommand('claudeHarness.restoreSkills', async (arg?: unknown) => {
+      clearNote();
+      const scope = arg && typeof arg === 'object' && 'scope' in arg ? String((arg as { scope: unknown }).scope) : '';
+      const repo = scope.startsWith('repo:') ? scope.slice('repo:'.length) : (await vscode.window.showQuickPick(deps.repos().map(r => ({ label: r.label, description: r.path, path: r.path })), { title: 'Restore the skills of which repo?' }))?.path;
+      if (!repo) return;
+      const missing = lockMissing(repo);
+      if (!missing.length) return say('info', `Every skill in the skills-lock.json of ${path.basename(repo)} is on disk.`);
+      const answer = await prompt(arg, {
+        key: 'restore-skills',
+        title: `Restore ${plural(missing.length, 'skill')}`,
+        sub: `listed in skills-lock.json, missing in ${path.basename(repo)}`,
+        facts: [`${missing.join(', ')}: npx skills experimental_install downloads them from their sources into ${tilde(path.join(repo, '.agents', 'skills'))}, as the lock records them.`, 'Claude Code reads nothing under .agents, so a restored skill is not loaded by Claude Code until it is copied into .claude/skills.'],
+        action: 'Restore',
+      });
+      if (answer.choice !== 'ok') return clearNote();
+      const r = await busy('Restoring skills...', () => run(restoreArgs(), repo));
+      deps.refresh();
+      if (r.code === 0 || /✓|restored/i.test(r.out)) say('ok', `Restored ${missing.join(', ')} into .agents/skills.`);
+      else say('bad', `Could not restore the skills: ${r.out.trim().split(/\r?\n/).filter(Boolean).pop() ?? `npx skills ended with code ${r.code}`}`);
     }),
 
     vscode.commands.registerCommand('claudeHarness.checkSkillUpdates', check),

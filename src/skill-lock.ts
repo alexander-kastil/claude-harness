@@ -17,9 +17,11 @@ export interface SkillOrigin {
   ref?: string;
   installedAt?: string;
   updatedAt?: string;
+  /** Set when the skills CLI recorded it: its global lock or the repo's skills-lock.json. `npx skills check` and `update` work from that lock. */
+  lock?: 'global' | 'project';
 }
 
-type Entry = Record<string, unknown> & { source?: string; sourceType?: string; sourceUrl?: string; skillPath?: string; skillFolderHash?: string; ref?: string; installedAt?: string; updatedAt?: string };
+type Entry = Record<string, unknown> & { source?: string; sourceType?: string; sourceUrl?: string; skillPath?: string; skillFolderHash?: string; computedHash?: string; ref?: string; installedAt?: string; updatedAt?: string };
 
 interface Record_ {
   version: number;
@@ -43,14 +45,20 @@ function read(file: string): Record_ | undefined {
   }
 }
 
+/** A repo's own lock file, `skills-lock.json` at the repo root (`npx skills add` without -g): it holds a hash of the files (`computedHash`), not the git tree SHA. */
+export const projectLockFile = (claudeRoot: string): string => path.join(path.dirname(claudeRoot), 'skills-lock.json');
+
+/** Whether a recorded hash is a git tree SHA, which a newer version can be compared against. */
+export const isTreeHash = (hash: string): boolean => /^[0-9a-f]{40}$/i.test(hash);
+
 const originOf = (e: Entry): SkillOrigin | undefined =>
-  typeof e.source === 'string' && typeof e.skillPath === 'string' && typeof e.skillFolderHash === 'string'
+  typeof e.source === 'string' && typeof e.skillPath === 'string' && (typeof e.skillFolderHash === 'string' || typeof e.computedHash === 'string')
     ? {
         source: e.source,
         sourceType: String(e.sourceType ?? 'github'),
         url: typeof e.sourceUrl === 'string' ? e.sourceUrl : `https://github.com/${e.source}.git`,
         path: e.skillPath,
-        hash: e.skillFolderHash,
+        hash: (e.skillFolderHash ?? e.computedHash) as string,
         ref: typeof e.ref === 'string' ? e.ref : undefined,
         installedAt: e.installedAt,
         updatedAt: e.updatedAt,
@@ -67,20 +75,32 @@ const mtime = (file: string) => {
   }
 };
 
-/** Every skill with a known source, by name: the extension's record first, then what the skills CLI recorded. */
+/** Every skill with a known source, by name: the extension's record first, then what the skills CLI recorded (its global lock, and a repo's skills-lock.json). */
 export function originsOf(claudeRoot: string): Map<string, SkillOrigin> {
   const own = recordFile(claudeRoot);
   const cli = cliLockFile(claudeRoot);
-  const key = `${own}:${mtime(own)}:${cli}:${mtime(cli)}`;
+  const project = projectLockFile(claudeRoot);
+  const key = `${own}:${mtime(own)}:${cli}:${mtime(cli)}:${project}:${mtime(project)}`;
   if (cache?.key === key) return cache.origins;
   const origins = new Map<string, SkillOrigin>();
-  for (const file of [cli, own])
+  for (const [file, lock] of [[project, 'project'], [cli, 'global'], [own, undefined]] as const)
     for (const [name, e] of Object.entries(read(file)?.skills ?? {})) {
       const origin = originOf(e);
-      if (origin) origins.set(name, origin);
+      if (origin) origins.set(name, lock ? { ...origin, lock } : origin);
     }
   cache = { key, origins };
   return origins;
+}
+
+/** The skills a repo's skills-lock.json lists, by name. */
+export function projectLockNames(repoDir: string): string[] {
+  return Object.keys(read(path.join(repoDir, 'skills-lock.json'))?.skills ?? {});
+}
+
+/** The skills a repo's skills-lock.json lists that are on disk in neither .agents/skills nor .claude/skills: what `npx skills experimental_install` restores. */
+export function lockMissing(repoDir: string): string[] {
+  const here = (folder: string, name: string) => fs.existsSync(path.join(repoDir, folder, 'skills', name, 'SKILL.md'));
+  return projectLockNames(repoDir).filter(name => !here('.agents', name) && !here('.claude', name));
 }
 
 /** A skill a marketplace plugin ships whose source is a GitHub repo: kept apart from `skills` because the plugin, not ~/.claude/skills, holds the copy. */

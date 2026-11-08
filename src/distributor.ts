@@ -6,7 +6,7 @@ import * as os from 'os';
 import * as path from 'path';
 import { compareVersions } from './repos-overview';
 import { parseMarkdown, versionOf } from './harness';
-import { SkillOrigin, forgetOrigin, originsOf, recordOrigin } from './skill-lock';
+import { SkillOrigin, forgetOrigin, isTreeHash, originsOf, recordOrigin } from './skill-lock';
 
 /** What a skills.sh or GitHub address names: a repo, and perhaps a skill in it. */
 export interface Source {
@@ -274,6 +274,7 @@ export async function latest(items: { name: string; origin: SkillOrigin }[]): Pr
         const dir = path.posix.dirname(origin.path) === '.' ? '' : path.posix.dirname(origin.path);
         const hash = hashOf(tree, dir);
         if (!hash) out[name] = { state: 'gone' };
+        else if (!isTreeHash(origin.hash)) out[name] = { state: 'error', error: 'its lock file holds a hash of the files, not the version it came from, so a newer one cannot be told. Install it again with npx skills add.' };
         else if (hash === origin.hash) out[name] = { state: 'current' };
         else {
           out[name] = { state: 'newer' };

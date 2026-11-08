@@ -118,7 +118,7 @@ export const updateBanner = a => {
     'div',
     { className: 'dist-note update', role: 'status' },
     icon('arrow-circle-down'),
-    el('span', { className: 'dist-note-text' }, `A newer version is at ${a.origin.source}${c.version ? (a.version === c.version ? `: its files changed, the version number is still v${c.version}` : a.version ? `: v${a.version} to v${c.version}` : `: v${c.version}`) : ''}. Press Update in the toolbar above to install it; the old files are backed up.`)
+    el('span', { className: 'dist-note-text' }, `A newer version is at ${a.origin.source}${c.version ? (a.version === c.version ? `: its files changed, the version number is still v${c.version}` : a.version ? `: v${a.version} to v${c.version}` : `: v${c.version}`) : ''}. Press Update in the toolbar above to install it${a.origin.lock ? ' with npx skills update' : '; the old files are backed up'}.`)
   );
 };
 
@@ -153,16 +153,21 @@ export const distButtons = skills => {
 // A skill page's commands for a global skill; `cmd` is the command bar's button. The command bar shows glyphs and a hover card,
 // as for every kind, so each command here has a glyph of its own.
 export const distCommands = (a, cmd) => {
-  if (a.scope !== 'global' || a.source === 'plugin') return [];
+  // A repo's skill is listed only when the skills CLI recorded it in the repo's skills-lock.json: `npx skills` checks and updates it.
+  const lock = a.origin && a.origin.lock;
+  if ((a.scope !== 'global' && !(String(a.scope).startsWith('repo:') && lock)) || a.source === 'plugin') return [];
   const c = checkOf(a);
+  const cli = lock === 'project' ? ' in this repo' : lock ? ' in the home folder' : '';
   return [
-    a.origin ? cmd('sync', 'Check update', `Check update\nAsks GitHub whether ${a.origin.source} changed this skill since it was installed.`, () => (hideHover(), command('checkSkillUpdates', { id: a.id })), { disabled: state.distRunning }) : null,
+    a.origin ? cmd('sync', 'Check update', lock ? `Check update\nRuns npx skills check${cli}: the lock's hash against ${a.origin.source} on GitHub.` : `Check update\nAsks GitHub whether ${a.origin.source} changed this skill since it was installed.`, () => (hideHover(), command('checkSkillUpdates', { id: a.id })), { disabled: state.distRunning }) : null,
     a.origin && hasUpdate(a)
-      ? confirmAt(cmd('arrow-circle-down', 'Update', `Update\nReplace the files with the newer version from ${a.origin.source}${c.version ? `: ${a.version ? `v${a.version} to ` : ''}v${c.version}` : ''}. The old files are backed up.`, () => (hideHover(), command('updateSkill', { id: a.id }))), 'panel', 'update')
+      ? confirmAt(cmd('arrow-circle-down', 'Update', lock ? `Update\nRuns npx skills update ${lock === 'global' ? '-g ' : '-p '}${a.name}${cli}. The skills CLI replaces the files and the lock.` : `Update\nReplace the files with the newer version from ${a.origin.source}${c.version ? `: ${a.version ? `v${a.version} to ` : ''}v${c.version}` : ''}. The old files are backed up.`, () => (hideHover(), command('updateSkill', { id: a.id }))), 'panel', 'update')
       : null,
-    !a.origin
+    a.scope === 'global' && !a.origin
       ? confirmAt(cmd('plug', 'Connect to source', `Connect to source\nName the skills.sh or GitHub address ${a.name} comes from. Its files are replaced by the distributor's, the current ones are backed up, and checks and updates work from then on.`, () => (hideHover(), command('connectSkillSource', { id: a.id }))), 'panel', 'link')
       : null,
-    confirmAt(cmd('repo', 'Move into repo', `Move into repo\nPick a repo that gets this skill as .claude/skills/${a.name}. The folder leaves the global skills, so only that repo has it afterwards.${linkedRepos(a).length ? ` Still linked from an older version: ${linkedRepos(a).join(', ')}.` : ''}`, () => (hideHover(), command('linkSkillToRepo', { id: a.id }))), 'panel', 'link-repo'),
+    a.scope !== 'global' || (a.agents && !a.agents.claude)
+      ? null
+      : confirmAt(cmd('repo', 'Move into repo', `Move into repo\nPick a repo that gets this skill as .claude/skills/${a.name}. The folder leaves the global skills, so only that repo has it afterwards.${linkedRepos(a).length ? ` Still linked from an older version: ${linkedRepos(a).join(', ')}.` : ''}`, () => (hideHover(), command('linkSkillToRepo', { id: a.id }))), 'panel', 'link-repo'),
   ];
 };

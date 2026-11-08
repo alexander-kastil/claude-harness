@@ -60,6 +60,8 @@ Before reaching for the ecosystem, check what is already on disk:
 
 - `.claude/skills/` in this repository - project-specific workflows
 - `~/.claude/skills/` - globally installed skills available in any project
+- `.agents/skills/` in this repository and `~/.agents/skills/` - where `npx skills add` puts every skill it installs; Claude Code reads nothing under `.agents`, so a skill found only there is installed but not loaded here (copy it into `.claude/skills/` to use it)
+- `skills-lock.json` in the repository and `~/.agents/.skill-lock.json` - the skills `npx skills add` recorded, with their sources; a skill listed there is already installed, so do not suggest installing it again
 
 Each skill has a `SKILL.md` with a `description` field; read those to match intent.
 

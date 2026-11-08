@@ -107,6 +107,22 @@ const tile = (n: string, label: string, glyph: string, note: string, tone?: stri
 
 const stats = (caption: string, cells: (HTMLElement | null)[]) => group(caption, cells);
 
+// What a skill adds beyond Claude Code: the .agents/skills copy and who loads it, Codex's openai.yaml, and the Agent Skills spec check.
+function agentFacts(a: Asset): HTMLElement | null {
+  const cells: HTMLElement[] = [];
+  if (a.agents)
+    cells.push(
+      a.agents.claude
+        ? tile('Loaded', 'Claude Code', 'layers', 'from .claude/skills', undefined, `The copy in .claude/skills is what Claude Code loads. The copy in ${a.agents.dir} is for the other agents; Claude Code reads nothing under .agents.`)
+        : tile('Not loaded', 'Claude Code', 'layers', 'only in .agents/skills', 'warn', `This skill sits only in ${a.agents.dir}. Claude Code reads nothing under .agents, so it never loads here. Copy it to .claude/skills to use it in Claude Code.`),
+      tile(String(a.agents.loadedBy.length), 'Loaded by', 'organization', a.agents.loadedBy.join(', '), undefined, `${a.agents.loadedBy.join('\n')}\nread the copy in .agents/skills.`)
+    );
+  if (a.codex)
+    cells.push(tile(a.codex.implicit ? 'Implicit' : 'Explicit only', 'Codex', 'play', a.codex.implicit ? 'may start on its own' : 'allow_implicit_invocation: false', undefined, 'agents/openai.yaml: policy.allow_implicit_invocation is the counterpart of disable-model-invocation. False means Codex runs the skill only when it is named.'));
+  if (a.spec) cells.push(a.spec.length ? tile(String(a.spec.length), 'Spec', 'checklist', plural(a.spec.length, 'problem'), 'warn', a.spec.join('\n')) : tile('Valid', 'Spec', 'checklist', 'Agent Skills spec'));
+  return cells.length ? stats('Agents', cells) : null;
+}
+
 const fieldOf = (draft: Draft, key: string) => draft.fields.find(f => f.key === key)?.value;
 const listField = (v: unknown) => (Array.isArray(v) ? v.map(String) : typeof v === 'string' ? v.split(/[,\n]/) : []).map(s => s.trim()).filter(Boolean);
 const lines = (text: string) => (text ? text.split('\n').length : 0);
@@ -470,7 +486,7 @@ function kpisFor(a: Asset, draft: Draft, description: string, mentions: Entry[],
     ],
     memory: [
       a.load
-        ? tile(a.load.state === 'loaded' ? 'Loaded' : a.load.state === 'on read' ? 'On read' : 'Not loaded', 'Claude Code', 'layers', a.load.state === 'on read' ? 'when Claude reads a file in this folder' : a.load.state === 'loaded' ? 'at the start of every session here' : 'AGENTS.md is skipped here', a.load.state === 'not loaded' ? 'warn' : undefined, a.load.why)
+        ? tile(a.load.state === 'loaded' ? 'Loaded' : a.load.state === 'on read' ? 'On read' : 'Not loaded', 'Claude Code', 'layers', a.load.state === 'on read' ? 'when Claude reads a file in this folder' : a.load.state === 'loaded' ? 'at the start of every session here' : 'Claude Code does not read this file', a.load.state === 'not loaded' ? 'warn' : undefined, a.load.why)
         : tile(fmtTokens(tokens(body)), 'Always loaded', 'layers', 'tokens, in every session here'),
       tile(String(lines(body)), 'Lines', 'list-flat', plural(words(body), 'word')),
       tile(String((body.match(/^@\S+/gm) || []).length), 'Imports', 'references', '@-lines that pull in more files'),
@@ -526,6 +542,7 @@ function markdownView(d: Detail, draft: Draft): Child[] {
     // A skill's page has no info card: the drawing says what it does; only the sync notices that card carried stay.
     a.kind === 'skill' ? distNotice(a) : hero(a, v, draft, description, [], a.kind === 'agent' ? [weekAgentChip(a)] : [], kpisFor(a, draft, description, mentions, mentioned, tools)),
     a.kind === 'skill' ? updateBanner(a) : null,
+    a.kind === 'skill' ? agentFacts(a) : null,
     tabbed(a, [
       {
         id: 'doc',
@@ -546,6 +563,9 @@ function markdownView(d: Detail, draft: Draft): Child[] {
           }
         : null,
       a.kind === 'skill' && plain.length ? { id: 'files', label: 'Files', glyph: 'files', about: 'The scripts, templates and other files beside SKILL.md.', count: plain.length, body: () => filesCard(a, 'Files', plain) } : null,
+      a.kind === 'skill' && a.codex
+        ? { id: 'codex', label: 'Codex', glyph: 'file-code', about: 'agents/openai.yaml: the file the Codex app reads for this skill.', body: () => card('agents/openai.yaml', null, el('pre', { className: 'md-pre dv-code', tabindex: '0' }, el('code', {}, a.codex!.text))) }
+        : null,
       a.kind === 'agent' ? toolsTab : a.kind === 'command' ? allowedToolsTab : null,
       skills.length
         ? {

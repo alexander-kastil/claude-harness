@@ -285,8 +285,9 @@ test('AGENTS.md: listed as memory with its loaded state, nested files, and check
   fs.writeFileSync(path.join(repo, 'pkg', 'b', 'CLAUDE.local.md'), '# mine\n');
   fs.writeFileSync(path.join(repo, 'node_modules', 'x', 'AGENTS.md'), '# dep\n');
   assert.deepEqual(nestedAgentsMd(repo), ['pkg/a/AGENTS.md', 'pkg/b/AGENTS.md']);
-  const states = (setting: InstructionFiles) => Object.fromEntries(['AGENTS.md', '.claude/AGENTS.md', 'pkg/a/AGENTS.md', 'pkg/b/AGENTS.md'].map(r => [r, agentsMdLoad(repo, r, setting)!.state]));
-  assert.deepEqual(states('claude-md-or-agents-md'), { 'AGENTS.md': 'loaded', '.claude/AGENTS.md': 'loaded', 'pkg/a/AGENTS.md': 'on read', 'pkg/b/AGENTS.md': 'not loaded' });
+  const states = (setting: InstructionFiles) => Object.fromEntries(['AGENTS.md', 'pkg/a/AGENTS.md', 'pkg/b/AGENTS.md'].map(r => [r, agentsMdLoad(repo, r, setting)!.state]));
+  assert.deepEqual(states('claude-md-or-agents-md'), { 'AGENTS.md': 'loaded', 'pkg/a/AGENTS.md': 'on read', 'pkg/b/AGENTS.md': 'not loaded' });
+  assert.equal(agentsMdLoad(repo, '.claude/AGENTS.md', 'claude-md-or-agents-md'), undefined);
   assert.equal(agentsMdLoad(repo, 'pkg/b/AGENTS.md', 'claude-md-and-agents-md')!.state, 'on read');
   assert.equal(agentsMdLoad(repo, 'AGENTS.md', 'claude-md')!.state, 'not loaded');
   assert.equal(agentsMdLoad(repo, 'AGENTS.md', 'managed-only')!.state, 'not loaded');
@@ -294,9 +295,10 @@ test('AGENTS.md: listed as memory with its loaded state, nested files, and check
   fs.writeFileSync(path.join(repo, 'CLAUDE.md'), '@AGENTS.md\n');
   assert.equal(agentsMdLoad(repo, 'AGENTS.md', 'claude-md-or-agents-md')!.state, 'not loaded');
   const names = scan(repoScope(repo)).find(c => c.kind === 'memory')!.items.map(a => a.name);
-  assert.deepEqual(names, ['.claude/AGENTS.md', 'AGENTS.md', 'CLAUDE.md', 'pkg/a/AGENTS.md', 'pkg/b/AGENTS.md']);
+  assert.deepEqual(names, ['AGENTS.md', 'CLAUDE.md', 'pkg/a/AGENTS.md', 'pkg/b/AGENTS.md']);
   const files = checkedDocs(repo).map(d => path.relative(repo, d.file).split(path.sep).join('/'));
-  for (const f of ['AGENTS.md', '.claude/AGENTS.md', 'pkg/a/AGENTS.md', 'pkg/b/AGENTS.md']) assert.ok(files.includes(f), f);
+  for (const f of ['AGENTS.md', 'pkg/a/AGENTS.md', 'pkg/b/AGENTS.md']) assert.ok(files.includes(f), f);
+  assert.ok(!files.includes('.claude/AGENTS.md'));
   const settings = path.join(repo, 'user.json');
   fs.writeFileSync(settings, JSON.stringify({ pluginConfigs: { 'cc-plugin-agents-md@builtin': { options: { instructionFiles: 'claude-md-and-agents-md' } } } }));
   assert.equal(instructionFilesSetting(settings), 'claude-md-and-agents-md');
