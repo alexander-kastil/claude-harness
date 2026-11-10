@@ -15,6 +15,7 @@ known) and installs each listed plugin at user scope. Re-running it picks up mod
 | Another machine with GitHub access to the private repo | `install-mods.sh alexander-kastil/integrations-marketplace` |
 | Teammates of one repo should get the mods | Commit `extraKnownMarketplaces` (GitHub source) and `enabledPlugins` to that repo's `.claude/settings.json`; they get an install prompt when they trust the folder |
 | The repo's GitHub marketplace and your local directory marketplace share a name | Your user-level directory source wins on your machine, so edits still load without a push; check with `claude plugin marketplace list` |
+| A fix in a directory-source marketplace should go live before it is committed | `claude plugin update <plugin>@<marketplace>` copies the working tree, uncommitted edits included, whenever the source `version` is above the installed one; a job that waits for the commit before updating waits for nothing (2026-11-10: agentic-orchestration went from 2.12.0 to 2.20.0 with an uncommitted Security Guard fix) |
 | A mod declares `userConfig` | `claude plugin configure <plugin>@integrations-marketplace`, or `--config KEY=VALUE` on install |
 | Only one repo should get a mod | `claude plugin install <plugin>@integrations-marketplace --scope project` in that repo |
 | Mods do not show in the running session | `/reload-plugins`, or start a new session |
