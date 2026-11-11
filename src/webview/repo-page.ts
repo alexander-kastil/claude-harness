@@ -4,6 +4,7 @@ import { standardCard } from './standard-card';
 import { agentColorClass, app, checkBadge, checkText, command, kindLabel, metaOf, openAt, persist, showPage, state, std, total, vscode } from './core';
 import { slugOf } from './week';
 import { aiGroup, el, fmtAgo, fmtDate, fmtNum, icon, iconBtn, plural, pressable, shortModel, stateTag, tag, tailPath } from './dom';
+import { confirmAt } from './confirm';
 import { hideHover, placeCard, tabTip } from './hover';
 import { showKindPage } from './kind-page';
 import { renderMain } from './main';
@@ -239,7 +240,11 @@ export function renderRepo(view) {
         { className: 'toolbar' },
         std() ? iconBtn('checklist', 'Check against the harness standard', () => command('checkRepos', { scope: view.id })) : null,
         view.lockMissing && view.lockMissing.length
-          ? iconBtn('cloud-download', `Restore skills...\n${view.lockMissing.join(', ')} ${view.lockMissing.length === 1 ? 'is' : 'are'} in skills-lock.json but not on disk. npx skills experimental_install downloads ${view.lockMissing.length === 1 ? 'it' : 'them'} into .agents/skills.`, () => command('restoreSkills', { scope: view.id }))
+          ? confirmAt(
+              iconBtn('cloud-download', `Restore skills...\n${view.lockMissing.join(', ')} ${view.lockMissing.length === 1 ? 'is' : 'are'} in skills-lock.json but not on disk. npx skills experimental_install downloads ${view.lockMissing.length === 1 ? 'it' : 'them'} into .agents/skills.`, () => command('restoreSkills', { scope: view.id })),
+              'panel',
+              'restore-skills'
+            )
           : null,
         aiGroup('', std('align') ? iconBtn('markdown', 'Align CLAUDE.md...', () => command('alignClaudeMd', { scope: view.id })) : null),
         std('fix') ? iconBtn('wrench', 'Fix settings and hooks...', () => command('fixSettings', { scope: view.id })) : null,
