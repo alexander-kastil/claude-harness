@@ -782,7 +782,7 @@ export class HarnessPanel {
           return;
         }
         // These ask in the panel; the same commands from the left nav or a tree menu keep their dialog.
-        if (['delete', 'uninstallPlugin', 'retire', 'retireCopies', 'addSkillFromUrl', 'connectSkillSource', 'updateSkill', 'linkSkillToRepo', 'share', 'syncFromGlobal', 'syncPlugin', 'syncMarketplace', 'syncMcp', 'pullToCode', 'compareCowork'].includes(m.command) || /^import[A-Z]/.test(m.command)) {
+        if (['delete', 'uninstallPlugin', 'retire', 'retireCopies', 'addSkillFromUrl', 'connectSkillSource', 'updateSkill', 'restoreSkills', 'linkSkillToRepo', 'share', 'syncFromGlobal', 'syncPlugin', 'syncMarketplace', 'syncMcp', 'pullToCode', 'compareCowork'].includes(m.command) || /^import[A-Z]/.test(m.command)) {
           await vscode.commands.executeCommand(`claudeHarness.${m.command}`, { fromPanel: true, id: m.id, scope: m.scope, plugin: m.plugin, market: m.market, kind: m.kind, into: m.into });
           return;
         }

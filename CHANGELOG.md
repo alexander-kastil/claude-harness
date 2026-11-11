@@ -2,36 +2,32 @@
 
 All notable changes to Claude Harness are listed here, newest first. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions with no version change in the package.json history (0.1.3, 0.1.5 to 0.1.18, 0.1.20 to 0.1.24, 0.1.27, 0.2.1 and 0.2.3 to 0.2.11) and development builds (0.2.14 to 0.2.22, 0.2.24 to 0.2.30, 0.2.32 to 0.2.34, 0.2.36 to 0.2.44, 0.3.0, 0.3.2, 0.4.1 to 0.4.3, 0.5.2 and 0.5.3) have no entry.
 
-## [Unreleased]
+## [1.2.0] - 2026-11-12
+
+### Added
+
+- AGENTS.md (root and subfolder files) is listed as memory in a repo, with whether Claude Code loads it under the Project instructions setting and the CLAUDE.md files present; its pointers are checked and a change to any of them refreshes the repo
+- `npm run sync:ci` copies the product's logos, its marketplace header, the final cut of each film and the demo film to the integrations.at CI folder on OneDrive, named by that folder's convention
+- Add skill hint to routing mod: I replayed your past prompts against the 14 repo agents from before the plugin move
+- A skill the skills CLI (`npx skills add`) put in `.agents/skills` or `~/.agents/skills` shows once, in its scope, with its source; one found only in `.agents` shows as installed there and not loaded by Claude Code, beside the agents that load it from that folder (GitHub Copilot, Codex, Cursor, Gemini CLI, OpenCode)
+- Check updates and Update run `npx skills check` and `npx skills update` (`-g` for a global skill) for skills the skills CLI installed, after a confirm card
+- Restore skills on a repo page runs `npx skills experimental_install` for skills listed in `skills-lock.json` but missing on disk, after a confirm card
+- A skill's SKILL.md is checked against the Agent Skills specification: `name` and `description` required, the name lowercase with single hyphens, at most 64 characters and equal to its folder, `compatibility` at most 500 characters, `license`, `metadata` and `allowed-tools` optional
+- A skill's `agents/openai.yaml` shows on its page; `policy.allow_implicit_invocation: false` reads as Codex's counterpart of `disable-model-invocation`
+- `AGENTS.override.md` and `AGENTS.local.md` are listed as present and not read by Claude Code, and `~/.codex/AGENTS.md` and `~/.agents/AGENTS.md` as global AGENTS.md files other agents read
+- `harness:find-skills` also searches `.agents/skills`, `~/.agents/skills` and the skills CLI's lock files before installing
 
 ### Changed
 
+- The house rules' empty-search rule says the Grep tool skips gitignored files, so an absence check in a repo with ignored content folders runs `grep -r`
 - The caveman hook templates (`hook-caveman-compression`, bash and PowerShell) keep caveman mode off for the rest of a session after a prompt that starts with `creative:`, the owner's trigger for creative work (2026-11-06); a flag file per session under `$CLAUDE_CODE_TMPDIR/creative-runs/` carries the run.
-
 - AGENTS.md is read at the repo root and in subfolders only; a `.claude/AGENTS.md` is no longer listed as memory, checked or given editor warnings
 - The `mod-authoring` skill ends a fix live: version bump with its changelog line, commit, `claude plugin update <plugin>@<marketplace>` and a new session (owner, 2026-11-07: "when i say fix this should be done automatically") (harness 1.1.2).
 - The noun test in `context-engineering` (leaf `literal-requirements`) covers a class the owner names as the scope: its members are listed from disk and each one that fits is included, the projects named after it being the hard cases (harness 1.1.1).
 
 ### Fixed
 
-- A skill installed in a repo with `npx skills add` now shows the source it came from, read from the repo's `skills-lock.json`, like a global one; Check updates says plainly that this lock file cannot tell a newer version
-
-### Added
-
-- Drop .claude/AGENTS.md from Claude Harness: .claude/AGENTS.md is no longer listed, checked or given warnings in Claude Harness
-- Add skill hint to routing mod: I replayed your past prompts against the 14 repo agents from before the plugin move
-
-
-## [1.1.0] - 2026-11-04
-
-### Added
-
-- AGENTS.md (root and subfolder files) is listed as memory in a repo, with whether Claude Code loads it under the Project instructions setting and the CLAUDE.md files present; its pointers are checked and a change to any of them refreshes the repo
-- `npm run sync:ci` copies the product's logos, its marketplace header, the final cut of each film and the demo film to the integrations.at CI folder on OneDrive, named by that folder's convention
-
-### Changed
-
-- The house rules' empty-search rule says the Grep tool skips gitignored files, so an absence check in a repo with ignored content folders runs `grep -r`
+- A skill installed in a repo with `npx skills add` now shows the source it came from, read from the repo's `skills-lock.json`, like a global one
 
 ## [1.0.1] - 2026-11-01
 

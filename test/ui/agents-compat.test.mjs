@@ -99,8 +99,10 @@ test('a skill only in .agents/skills shows once, from its lock, as not loaded by
 
 test('global AGENTS.md files other agents read are listed as not read by Claude Code', T, async () => {
   await open('.sidebar [data-nav="s|global|memory"]');
-  assert.ok((await s.ev(D => [...D.querySelectorAll('.main .at-name')].map(n => n.innerText.trim()))).includes('~/.codex/AGENTS.md'));
-  await open('.main .at-name', '~/.codex/AGENTS.md');
+  const row = '.sidebar [data-nav="r|global|memory:~/.codex/AGENTS.md"]';
+  // The head folds its rows when they were open: press it again then.
+  if (!(await s.ev((D, row) => !!D.querySelector(row), row))) await open('.sidebar [data-nav="s|global|memory"]');
+  await open(row);
   assert.match(await main(), /Not loaded\s*\n?Claude Code does not read this file/);
 });
 
@@ -128,11 +130,14 @@ test('a repo shows its lock source, the AGENTS.override.md as not read, a spec p
 test('Restore asks first and names the missing skill', T, async () => {
   await s.mouse('.sidebar .repo-head', 'agents-repo');
   await sleep(1500);
-  await s.click('.main-head .toolbar button', 'Restore skills');
+  await s.mouse('.main-head .toolbar button', 'Restore skills');
   const card = await s.waitFor(D => {
     const t = D.body.innerText;
     return /Restore 1 skill/.test(t) && t;
   });
   assert.match(card, /restore-me/);
   assert.match(card, /experimental_install/);
+  await s.mouse('.cf button', 'Cancel');
+  await sleep(500);
+  assert.equal(await s.ev(D => !!D.querySelector('.cf')), false);
 });
