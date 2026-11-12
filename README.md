@@ -34,20 +34,30 @@ Claude Harness reads the transcripts Claude Code already writes and sets them be
 
 | Feature | What it does |
 | --- | --- |
-| [See how a session ran](#see-how-a-session-ran) | Know what a session cost, see how its agents ran in six views, and restore files to any checkpoint |
+| [See how a session ran](#see-how-a-session-ran) | Know what a session cost, see how its agents ran in six views (plus a team view), and restore files to any checkpoint |
+| [Agent teams view](#agent-teams-view) | The roster, task list and messages of a session's teammates, in a Team view |
+| [Remote Control](#remote-control) | Continue a session in a terminal with Remote Control on, after one confirm |
+| [Usage history and plan advisor](#usage-history-and-plan-advisor) | Cost per day and per month at API list prices, set against the Pro, Max and Ultra plans |
 | [Find what never runs](#find-what-never-runs) | See which agents, skills, hooks and rules ran, fired or loaded in your sessions, and which never did |
 | [Keep the harness lean](#keep-the-harness-lean) | Find oversized skills, retire duplicate copies and repoint dead lines in CLAUDE.md |
+| [Harness security check](#harness-security-check) | Findings on hooks, MCP secrets, permission rules and unknown skill sources, with fixes after one confirm |
 | [Edit everything in one place](#edit-everything-in-one-place) | Change all twelve kinds, globally or per repository, in one tree with typed fields |
+| [Sync instructions across tools](#sync-instructions-across-tools) | Keeps CLAUDE.md in step with the AGENTS.md, Cursor, Copilot, Codex and Gemini instruction files |
+| [Worktrees](#worktrees) | Every git worktree with its branch, changes, sessions and a Stale tag, with Remove and Prune |
 | [Plugin Hunter](#build-with-claude) | Tell Claude which skills and agents you have, and get a plugin proposed, created and installed |
 | [Automation Hunter](#build-with-claude) | Turn a browser or desktop procedure you repeat, or one found in your own sessions, into a kept one, prototyped on the desktop and optimized in code |
 | [Drawings](#build-with-claude) | See how any element connects to a session and in what order it runs |
 | [Continue Cowork work in Code](#continue-cowork-work-in-code) | Pick up a desktop chat or Cowork session in a Claude terminal in your repo |
 | [Keep plugins current](#keep-plugins-current) | See which plugins have a newer version and update them all after one confirm |
+| [Skills catalog](#skills-catalog) | Searches the public skills on skills.sh and installs one after a confirm card |
+| [Permissions editor](#permissions-editor) | Edits allow, ask and deny rules and the default mode per scope, and shows what asked for permission |
+| [Status line builder](#status-line-builder) | Picks the fields and their order for Claude Code's status line, with a live preview |
+| [Claude Code routines](#claude-code-routines) | Lists your cloud routines and repo schedules, and switches, renames or reschedules them after a confirm |
 | [Command line and @harness mentions](#command-line-and-harness-mentions) | Run `harness` commands and `.harness` scripts, or hand a view to Claude as an `@harness` mention |
 
 ## See how a session ran
 
-The session page reads Claude Code's session and subagent JSONL transcripts. Cost comes from each message's input, cache-write, cache-read and output tokens at API list prices. Under the cost and the KPIs, **How the work ran** has six views behind one toggle bar; click a lane or a node for that agent's brief, report, tools and tokens.
+The session page reads Claude Code's session and subagent JSONL transcripts. Cost comes from each message's input, cache-write, cache-read and output tokens at API list prices. Under the cost and the KPIs, **How the work ran** has six views behind one toggle bar, and a seventh, Team, when the session had teammates; click a lane or a node for that agent's brief, report, tools and tokens.
 
 ![A session page with the cost breakdown, the KPIs and the six views of how the work ran](docs/images/session-overview.png)
 
@@ -66,6 +76,34 @@ The session page reads Claude Code's session and subagent JSONL transcripts. Cos
 - **Findings:** failed or silent agents, stopped runs, general-purpose runs where one of your agents fits, and failing hooks, each with its token cost and what to do.
 - **Cost per agent type and model:** the **Models** tab of a repo page sums the last 7 days of each account by model and by agent type, with the share of the weekly limit on a plan.
 
+## Agent teams view
+
+When a session had teammates, **How the work ran** gets a seventh view, **Team**, that shows the team as it ran.
+
+- **Roster:** each teammate with its name, agent type, color, model, tokens and run time.
+- **Tasks:** the team's task list, with the status and owner of each task.
+- **Messages:** the messages between teammates and the lead, in the order they were sent.
+
+See [Agent teams](docs/agent-teams.md).
+
+## Remote Control
+
+A **Remote** button in the Claude group of the session page continues that session in a terminal with Remote Control turned on, after a confirm card.
+
+- Sessions that ran with Remote Control carry a **Remote** tag in the session lists, so you can find them.
+
+See [Remote Control](docs/remote-control.md).
+
+## Usage history and plan advisor
+
+See what your Claude usage cost at API list prices, per day and per month, and which plan fits each month.
+
+- **Repository:** a **History** tab beside Models on a repository page, over 30 days, 90 days or 12 months.
+- **All repositories:** a **Usage history** page from the sidebar head, which adds the cost per project.
+- **Plan advisor:** each month set against the Pro, Max and Ultra plan prices, with the plan that fits it.
+
+See [Usage history](docs/usage-history.md).
+
 ## Find what never runs
 
 | Tab | On | Shows |
@@ -83,11 +121,42 @@ The session page reads Claude Code's session and subagent JSONL transcripts. Cos
 - **CLAUDE.md lenses:** dead pointers, such as an agent that no longer exists, with a quick fix to repoint or drop the line.
 - **Effective harness:** the memory, rules, plugins and hooks a session in a repo loads, with the rules that were not loaded and the hooks that fail.
 
+## Harness security check
+
+A **Security** button on the overview opens a page of findings about your harness, each with a severity tag, its file and line, and why it matters.
+
+- **What it finds:** hooks that download and run code or read secrets, MCP configs with literal secrets, permission rules that allow every command or skip prompts, and skills or plugins from unknown sources or with scripts that fetch remote code.
+- **Secrets** are masked on the page.
+- **Resolve** fixes the mechanical findings, such as a rule, a mode key, or a literal secret in a repo `.mcp.json` turned into a variable, after a confirm card.
+- **Chips** filter the list by severity and by check.
+
+See [Security check](docs/security-check.md).
+
 ## Edit everything in one place
 
 Global `~/.claude`, each repository's `.claude/` and plugin-shipped items (read-only) sit in one tree, all twelve kinds, with frontmatter as typed fields and a tool picker. The tree collapses to a rail of icons with their counts and expands again from any of them (Alt+Shift+B). The GitHub Repo overview puts every repository in one table, with a search.
 
 ![An agent open in the editor with typed frontmatter fields, a color picker and Configure Tools](docs/images/feature-editor.png)
+
+## Sync instructions across tools
+
+A **Sync** button on the Memory page, globally or per repository, keeps your CLAUDE.md in step with the instruction files of other tools. CLAUDE.md is the source.
+
+- **Targets:** one row per file, such as the repository's AGENTS.md, Cursor rules and Copilot instructions, or the global AGENTS.md, Codex, Gemini and Copilot files. The AGENTS.md row says whether Claude Code loads it.
+- **State:** each row shows whether it is in sync, differs or is missing, and **Compare** opens a side-by-side diff.
+- **Sync** writes the ticked targets after a confirm card and backs up each file it overwrites.
+
+See [Sync instructions](docs/sync-tools.md).
+
+## Worktrees
+
+A **Worktrees** tab on a repository page lists every git worktree of the repository.
+
+- **Each row** shows the branch, the changes, how far it is ahead and behind, and the Claude sessions that ran in it.
+- **Stale tag:** git reports the worktree as prunable, its upstream is gone, or no session ran in it for 7, 30 or 90 days.
+- **Remove** deletes a worktree without force, so git refuses one with uncommitted changes. **Prune** clears the records of worktrees whose folders are gone. Each runs after a confirm card.
+
+See [Worktrees](docs/worktrees.md).
 
 ## Build with Claude
 
@@ -122,6 +191,44 @@ The chats of claude.ai itself are not on your PC and the Claude Code sign-in can
 The Marketplaces section of the sidebar lists every marketplace with its plugin count and how many plugins have a newer version than the one installed. A marketplace page shows its source, its plugins with the installed and the latest version, and its drawings. **Sync all** updates every plugin that is ahead after one confirm card.
 
 ![Marketplace health with a local and a hosted marketplace, each plugin's installed and latest version, the plugins that are ahead and their Sync buttons](docs/images/marketplace-health.png)
+
+## Skills catalog
+
+A **Browse** button on the Skills page searches the public skills on skills.sh. The network is used only when you search.
+
+- **Results** list each skill's name, source and installs, and whether it is installed. The **All**, **Not installed** and **Installed** chips narrow the list.
+- **Install** goes through the existing Add from skills.sh confirm card.
+
+See [Skills catalog](docs/skills-catalog.md).
+
+## Permissions editor
+
+**Settings** in the sidebar, then **Permissions**, edits the permission rules of Claude Code.
+
+- **Rules:** the User, Project and Local scopes, and the Managed scope when present, which is read-only. Each scope has the default mode as chips (default, acceptEdits, plan, auto, dontAsk, bypassPermissions), its allow, ask and deny rules, and its additional directories. Each change runs after a confirm card and keeps the other settings.
+- **Prompted in:** the tools that asked for permission in your sessions over 24 hours, 7 days, 30 days or all time, counted per rule. **Allow** adds the rule to a scope you pick.
+
+See [Permissions](docs/permissions.md).
+
+## Status line builder
+
+**Settings** in the sidebar, then **Status line**, builds the status line that Claude Code shows at the bottom of its window.
+
+- **Fields:** switch on the fields you want and order them: model, context used, 5-hour limit, weekly limit, session cost, git branch and folder.
+- **Preview:** a live preview shows the line as you change it.
+- **Save** writes the status line for User or Project after a confirm card. **Remove** puts back what was there before.
+
+See [Status line](docs/status-line.md).
+
+## Claude Code routines
+
+The **Routines** button in the sidebar head opens a page of your scheduled work.
+
+- **Lists:** your cloud routines, not the Cowork ones, and the scheduled tasks of each repository, with **All**, **Cloud** and **Repos** chips. Each row shows the name, schedule, repository, last run, source and state.
+- **Changes:** a cloud routine can be switched on or off and get a new name or schedule. A repo task gets a new prompt or schedule. Each change runs after a confirm card.
+- **Without a claude.ai sign-in**, the repo tasks still list.
+
+See [Routines](docs/routines.md).
 
 ## Command line and @harness mentions
 
@@ -182,11 +289,17 @@ claude plugin install harness@claude-harness
 | [Harness kinds](docs/harness-kinds.md) | The twelve kinds of harness items, where they are stored and which ones you can change |
 | [Editing](docs/editing.md) | Edits frontmatter and instructions, saves or reverts, and creates, renames, duplicates or deletes items |
 | [Repositories](docs/repositories.md) | Shows the harness of each repo, and adds or removes repos |
+| [Worktrees](docs/worktrees.md) | Lists each git worktree of a repo with its branch, changes, sessions and Stale tag, with Remove and Prune |
 | [Sessions](docs/sessions.md) | Lists the Claude Code sessions of each repo, with a search and a session page for cost, agents, delegation, findings and the events of mods, plus where each element was used and the last 7 days of cost |
+| [Agent teams](docs/agent-teams.md) | The Team view of a session with teammates: roster, task list and messages in order |
+| [Remote Control](docs/remote-control.md) | Continues a session in a terminal with Remote Control on, and tags such sessions in the session lists |
+| [Usage history](docs/usage-history.md) | Cost per day and per month over 30 days, 90 days or 12 months, set against the Pro, Max and Ultra plans |
 | [CLAUDE.md lenses](docs/claude-md-lenses.md) | Flags dead pointers in CLAUDE.md and rules files, with quick fixes |
 | [Effective harness](docs/effective-harness.md) | Lists the memory, rules, plugins and hooks that a session in a repo loads |
 | [Duplicates](docs/duplicates.md) | Finds copies of an item across scopes and plugins, compares them, and retires repo copies |
+| [Security check](docs/security-check.md) | Findings on hooks, MCP secrets, permission rules and unknown skill sources, with Resolve for the mechanical fixes |
 | [Share and Import](docs/commands.md#share-and-import) | Packs an agent, skill, command, rule, plugin, MCP server or hook into a file in your Downloads folder, and imports one that someone shared, with a backup of what it replaces |
+| [Sync instructions](docs/sync-tools.md) | Compares and syncs CLAUDE.md with the AGENTS.md, Cursor, Copilot, Codex and Gemini instruction files, globally and per repository, backing up each file it overwrites |
 | [Sync](docs/duplicates.md#sync) | Brings a repo copy in step with Global, a plugin with its marketplace, a skill with its source, and an MCP server with its other copies |
 | [Bulk-edit guard](docs/bulk-edits.md) | Leaves out repos with uncommitted harness files, busy sessions or stale worktree copies before a bulk change |
 | [GitHub Repo overview](docs/repos-overview.md) | One table of every repo, with a search by name or path, its lines, plugins and copies |
@@ -196,7 +309,11 @@ claude plugin install harness@claude-harness
 | [MCP servers](docs/mcp-servers.md) | Lists MCP servers with their source and status, sorts them, shows their tools, and adds, copies or deletes them |
 | [MCP switches](docs/mcp-toggles.md) | Turns an MCP server on or off for one repo or in every folder |
 | [Plugins](docs/plugins.md) | Enables, disables, installs and uninstalls plugins, marks mods, builds a new plugin from your skills and agents with Plugin Hunter, and draws a plugin as a Harness and a Process view |
+| [Skills catalog](docs/skills-catalog.md) | Searches the public skills on skills.sh, shows which are installed, and installs one through the Add from skills.sh card |
 | [Skill sources](docs/skill-sources.md) | Adds skills from skills.sh or GitHub, checks them for a newer version, updates them in place, and moves a global skill into a repo |
+| [Permissions](docs/permissions.md) | Edits allow, ask and deny rules, the default mode and additional directories per scope, and lists the tools that asked for permission |
+| [Status line](docs/status-line.md) | Builds the Claude Code status line from fields you switch on and order, with a live preview and a Save that writes it for User or Project |
+| [Routines](docs/routines.md) | Lists your cloud routines and each repo's scheduled tasks, and changes them after a confirm card |
 | [Settings](docs/settings.md) | Sets the global harness folder, the repo lists, where Claude terminals open and which command starts them, the Claude usage item in the status bar and the list lengths, and edits the settings files |
 | [Commands](docs/commands.md) | Every Claude Harness command, what it does and where to find it |
 | [Command line](docs/command-line.md) | Runs inventory, consolidate, hunt, agents, usage, delegation and media checks from a terminal, with `--json` for scripts, builds a harness with `generate`, `add`, `new` and `update`, and hands the views to Claude as `@harness:` mentions |
