@@ -2,6 +2,25 @@
 
 All notable changes to Claude Harness are listed here, newest first. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions with no version change in the package.json history (0.1.3, 0.1.5 to 0.1.18, 0.1.20 to 0.1.24, 0.1.27, 0.2.1 and 0.2.3 to 0.2.11) and development builds (0.2.14 to 0.2.22, 0.2.24 to 0.2.30, 0.2.32 to 0.2.34, 0.2.36 to 0.2.44, 0.3.0, 0.3.2, 0.4.1 to 0.4.3, 0.5.2 and 0.5.3) have no entry.
 
+## [2.0.0] - 2026-11-12
+
+### Added
+
+- Sync instructions across tools: a Sync button on the Memory page keeps AGENTS.md, Cursor rules and Copilot instructions (and the global Codex, Gemini CLI and Copilot CLI files) in step with CLAUDE.md, with a state per target, a side-by-side Compare and backups, after a confirm card
+- Permissions editor: a Permissions page under Settings edits the allow, ask and deny rules, the default mode (auto included) and additional directories per scope, and its Prompted in tab lists the tools that asked for permission in your sessions with Allow per rule
+- Remote Control: a Remote button on the session page continues the session with Remote Control in a terminal, and sessions that ran with it carry a Remote tag
+- Agent teams view: a Team view on the session page shows a team's roster, its task list and the messages between teammates
+- Usage history and plan advisor: a History tab on a repository page and a Usage history page show the cost per day and month at API list prices against the Pro, Max and Ultra plans, with the plan that fits
+- Status line builder: a Status line page under Settings builds the Claude Code status line from fields you pick and order, with a live preview, and Remove puts back the earlier one
+- Skills catalog: Browse on the Skills page searches the public skills on skills.sh and installs one through the Add from skills.sh card
+- Harness security check: a Security page lists risky hooks, literal secrets in MCP configs, allow-all permission rules and untrusted skill sources, masks every secret, and resolves the mechanical ones after a confirm card
+- Claude Code routines: a Routines page lists your cloud routines and each repository's scheduled tasks, and switches, renames or reschedules them after a confirm card
+- Worktrees: a Worktrees tab on a repository page lists every git worktree with its changes, ahead and behind, its sessions and a Stale tag, and removes or prunes them after a confirm card
+
+### Changed
+
+- The sidebar head holds Routines and Usage history beside Overview and Marketplace health
+
 ## [1.2.0] - 2026-11-12
 
 ### Added
