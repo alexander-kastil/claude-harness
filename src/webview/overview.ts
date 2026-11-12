@@ -6,12 +6,15 @@ import { kindLabel, labelOf, matches, persist, select, showRepo, state, total, v
 import { el, fmtAgo, fmtDate, fmtDur, highlight, icon, logo, plural, pressable, stateTag, tag } from './dom';
 import { hideHover } from './hover';
 import { huntButton } from './hunt';
+import { securityButton } from './security';
 import { showKindPage } from './kind-page';
 import { tabBar } from './repo-page';
 import { fmtUsd } from './session-page';
 import { filterSessions, sessionIcon, showSession } from './sessions';
 import { gridTable } from './tables';
 import { askWeekly, repoWeek } from './week';
+// remote
+import { remoteTag } from './remote';
 
 const DAY = 86400000;
 // The lists show as many rows as the panel's height holds, never fewer than this, never more than the cap.
@@ -57,7 +60,7 @@ function lastSessionsBlock(repos) {
     shown.length
       ? gridTable(
           [
-            { head: 'Session', track: 'minmax(180px, 3fr)', cls: 'at-name', cell: s => [sessionIcon(s), el('span', { className: 'at-label' }, s.title)], title: s => s.title },
+            { head: 'Session', track: 'minmax(180px, 3fr)', cls: 'at-name', cell: s => [sessionIcon(s), el('span', { className: 'at-label' }, s.title), remoteTag(s)], title: s => s.title },
             { head: 'Repository', track: 'minmax(84px, 1fr)', muted: true, cell: s => s.repo, title: s => s.repo },
             { head: 'Branch', track: 'minmax(72px, 1fr)', muted: true, wide: true, cell: s => s.branch || '', title: s => s.branch || '' },
             { head: 'Started', track: '120px', num: true, cell: s => (s.start ? fmtDate(s.start) : '') },
@@ -248,7 +251,8 @@ export function renderOverview() {
       hideHover();
       showTab(again);
     };
-    tabsBox.replaceChildren(tabBar(tabs, tab, pick, 'Overview lists'), huntButton());
+    // security
+    tabsBox.replaceChildren(tabBar(tabs, tab, pick, 'Overview lists'), securityButton(), huntButton());
     current = tab;
     syncLists();
     fit();

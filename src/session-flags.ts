@@ -5,6 +5,9 @@ import * as path from 'path';
 export interface SessionFlags {
   hookFailed: boolean;
   modDenied: boolean;
+  // remote
+  /** The session ran with Remote Control: Claude Code records a `bridge_status` system line when it goes live. */
+  remote: boolean;
 }
 
 const CHUNK = 1024 * 1024;
@@ -15,6 +18,7 @@ const DENIAL = /hook error: |<tool_use_error>[a-z0-9][a-z0-9._-]*: /;
 
 /** The flags of one line of a transcript. */
 export function lineFlags(line: string): Partial<SessionFlags> {
+  if (line.includes('bridge_status') && /"type":\s*"system"/.test(line) && /"subtype":\s*"bridge_status"/.test(line)) return { remote: true };
   if (line.includes('hook_') && HOOK_FAILURE.test(line) && /"type":\s*"attachment"/.test(line)) return { hookFailed: true };
   if (/"is_error":\s*true/.test(line) && DENIAL.test(line) && /"type":\s*"tool_result"/.test(line)) return { modDenied: true };
   return {};
@@ -66,11 +70,11 @@ function scanFile(file: string, over: () => boolean = () => false): SessionFlags
   try {
     size = fs.statSync(file).size;
   } catch {
-    return { hookFailed: false, modDenied: false };
+    return { hookFailed: false, modDenied: false, remote: false };
   }
   let s = scanned.get(file);
-  if (!s || size < s.offset) s = { offset: 0, rest: '', flags: { hookFailed: false, modDenied: false } };
-  if (s.flags.hookFailed && s.flags.modDenied) s.offset = size;
+  if (!s || size < s.offset) s = { offset: 0, rest: '', flags: { hookFailed: false, modDenied: false, remote: false } };
+  if (s.flags.hookFailed && s.flags.modDenied && s.flags.remote) s.offset = size;
   if (size > s.offset) {
     let fd: number | undefined;
     try {
@@ -88,9 +92,10 @@ function scanFile(file: string, over: () => boolean = () => false): SessionFlags
         // latin1 keeps the bytes of a multibyte character that a chunk splits; the markers are ASCII.
         const lines = (s.rest + buf.toString('latin1', 0, n)).split('\n');
         s.rest = lines.pop() ?? '';
-        if (s.flags.hookFailed && s.flags.modDenied) continue;
+        if (s.flags.hookFailed && s.flags.modDenied && s.flags.remote) continue;
         for (const line of lines) {
           const f = lineFlags(line);
+          if (f.remote) s.flags.remote = true;
           if (f.hookFailed) s.flags.hookFailed = true;
           if (f.modDenied) s.flags.modDenied = true;
         }
@@ -157,6 +162,7 @@ export function sessionFlags(file: string): SessionFlags {
     const sub = scanFile(path.join(dir, f), overListBudget);
     out.hookFailed ||= sub.hookFailed;
     out.modDenied ||= sub.modDenied;
+    out.remote ||= sub.remote;
   }
   return out;
 }

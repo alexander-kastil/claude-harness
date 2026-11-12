@@ -1,7 +1,7 @@
 // @ts-nocheck
 // Skills from a distributor (skills.sh, GitHub): the Origin cell, the line that reports what a command did, the Skills page's
 // buttons and the skill page's commands. The host does the downloading and the questions (src/dist-host.ts); this module shows what it found.
-import { command, pluginLabel, skillPluginOf, state } from './core';
+import { command, pluginLabel, showPage, skillPluginOf, state } from './core';
 import { confirmAt } from './confirm';
 import { el, fmtAgo, icon } from './dom';
 import { hideHover } from './hover';
@@ -132,6 +132,8 @@ export const distButtons = skills => {
       'panel',
       'add'
     ),
+    // skills-catalog
+    el('button', { className: 'secondary', title: 'Browse\nSearch the public skills on skills.sh. Nothing is asked of the network until you search.', onclick: () => (hideHover(), showPage('skills-catalog')) }, icon('search'), 'Browse'),
     tracked.length
       ? el(
           'button',

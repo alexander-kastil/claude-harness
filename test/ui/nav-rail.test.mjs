@@ -77,7 +77,7 @@ test('the rail holds the logo, the top-bar actions, every region and top-level g
     mismatched: [...D.querySelectorAll('.rail-list .rail-btn')].filter(b => !b.querySelector('.codicon') || !b.querySelector('.rail-count')).length,
     size: [...D.querySelectorAll('.rail-btn')].every(b => { const r = b.getBoundingClientRect(); const g = b.querySelector('.codicon').getBoundingClientRect(); const c = b.querySelector('.rail-count').getBoundingClientRect(); return Math.round(r.width) === 56 && Math.round(r.height) === 40 && c.left >= g.right; }) && [...D.querySelectorAll('.rail-top button')].every(b => Math.round(b.getBoundingClientRect().width) === 32 && Math.round(b.getBoundingClientRect().height) === 32),
   }));
-  assert.deepEqual(seen.top, ['Expand navigation', 'Overview', 'Marketplace health', 'Collapse all', 'New...', 'Refresh', 'Expand navigation']);
+  assert.deepEqual(seen.top, ['Expand navigation', 'Overview', 'Marketplace health', 'Routines', 'Usage history', 'Collapse all', 'New...', 'Refresh', 'Expand navigation']);
   assert.ok(seen.regions.includes('region:code') && seen.regions.includes('region:repos'), `regions: ${seen.regions}`);
   assert.ok(seen.ids.includes('global|skill') && seen.ids.includes('markets'), `groups: ${seen.ids}`);
   assert.equal(seen.mismatched, 0);
@@ -143,7 +143,8 @@ test('the open page marks its group on the rail', T, async () => {
 });
 
 test('Alt+Shift+B collapses and expands from the panel, and VS Code opens nothing of its own', T, async () => {
-  await s.mouse('.main-head');
+  // Focus the panel on the title: the middle of the head is a button on a page with a crowded command bar.
+  await s.mouse('.main-head h1');
   await s.chord('b', { alt: true, shift: true });
   await s.waitFor(D => D.getElementById('app').classList.contains('rail-on'));
   await settled(72);

@@ -11,6 +11,7 @@ import { drawMap } from './map';
 import { renderMarkdown } from './markdown';
 import { colorsOf, modeSwitch, peakParallel } from './session-common';
 import { sessionTable } from './sessions';
+import { drawTeams, hasTeam } from './teams';
 import { drawTimeline, renderAgent, renderCheckpoint } from './timeline';
 
 export const SESSION_VIEWS = [
@@ -20,11 +21,15 @@ export const SESSION_VIEWS = [
   ['concurrency', 'Concurrency', 'pulse', 'How many agents were busy at the same time.'],
   ['flow', 'Token flow', 'git-merge', 'Where the tokens went: the main thread or the agents, and whether their work came back.'],
   ['scatter', 'Scatter', 'graph-scatter', 'Every agent by time and tokens, so the slow or costly ones stand out.'],
+  ['teams', 'Team', 'organization', 'The teammates, the team task list and the messages between the teammates and the lead.'],
 ];
 
-export const currentView = () => (SESSION_VIEWS.some(v => v[0] === state.sessionView) ? state.sessionView : 'timeline');
+// The Team view is offered only to a session that had teammates.
+const offered = (id, d) => id !== 'teams' || !d || hasTeam(d);
 
-export const drawView = (host, d) => ({ timeline: drawTimeline, map: drawMap, decisions: drawDecisions, concurrency: drawConcurrency, flow: drawFlow, scatter: drawScatter })[currentView()](host, d);
+export const currentView = d => (SESSION_VIEWS.some(v => v[0] === state.sessionView && offered(v[0], d)) ? state.sessionView : 'timeline');
+
+export const drawView = (host, d) => ({ timeline: drawTimeline, map: drawMap, decisions: drawDecisions, concurrency: drawConcurrency, flow: drawFlow, scatter: drawScatter, teams: drawTeams })[currentView(d)](host, d);
 
 // Legend under each diagram: the marks it uses, in a few words each.
 export function viewLegend(d) {
@@ -39,13 +44,14 @@ export function viewLegend(d) {
     concurrency: [...types, fact('height: agents running'), fact('one bar per agent run'), fact('ticks: prompts')],
     flow: [main, ...types, fact('width: tokens in, cache and out')],
     scatter: [...types, fact('size: cost'), fact('dashed: medians'), fact('log scales')],
+    teams: [fact('dot: the color the teammate was given')],
   };
-  return parts[currentView()];
+  return parts[currentView(d)];
 }
 
 export function viewTabs(d, host, legend) {
   const tabs = el('div', { className: 'view-tabs', role: 'tablist', 'aria-label': 'Session views' });
-  const buttons = SESSION_VIEWS.map(([id, label, glyph, about]) => {
+  const buttons = SESSION_VIEWS.filter(v => offered(v[0], d)).map(([id, label, glyph, about]) => {
     const tip = target => {
       const r = target.getBoundingClientRect();
       placeCard(`tab:${id}`, () => tabTip(label, glyph, about), { x: r.left - 14, y: r.bottom - 6 });
@@ -69,7 +75,7 @@ export function viewTabs(d, host, legend) {
   });
   const sync = () =>
     buttons.forEach(b => {
-      const on = b.dataset.view === currentView();
+      const on = b.dataset.view === currentView(d);
       b.classList.toggle('active', on);
       b.setAttribute('aria-selected', on ? 'true' : 'false');
       b.setAttribute('tabindex', on ? '0' : '-1');
@@ -85,8 +91,9 @@ export function viewTabs(d, host, legend) {
   tabs.addEventListener('keydown', e => {
     if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
     e.preventDefault();
-    const i = SESSION_VIEWS.findIndex(v => v[0] === currentView());
-    const next = SESSION_VIEWS[(i + (e.key === 'ArrowRight' ? 1 : SESSION_VIEWS.length - 1)) % SESSION_VIEWS.length][0];
+    const shown = SESSION_VIEWS.filter(v => offered(v[0], d));
+    const i = shown.findIndex(v => v[0] === currentView(d));
+    const next = shown[(i + (e.key === 'ArrowRight' ? 1 : shown.length - 1)) % shown.length][0];
     setView(next);
     buttons.find(b => b.dataset.view === next).focus();
   });

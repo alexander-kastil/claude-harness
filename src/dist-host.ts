@@ -275,7 +275,7 @@ export function registerDistributor(deps: DistDeps): vscode.Disposable[] {
         state === 'none' ? '' : `The current files are backed up first, in ${tilde(deps.backupRoot())}.`,
         `Remembers where it came from, so Check updates and Update work for it.`,
       ].filter(Boolean);
-      const answer = await prompt(arg, { key: existing ? 'link' : 'add', title: `${verb} ${s.name}${s.version ? ` v${s.version}` : ''}`, sub: `from ${s.source}`, facts, action: verb });
+      const answer = await prompt(arg, { key: existing ? 'link' : ((arg as { anchor?: string } | undefined)?.anchor ?? 'add'), title: `${verb} ${s.name}${s.version ? ` v${s.version}` : ''}`, sub: `from ${s.source}`, facts, action: verb });
       if (answer.choice !== 'ok') return clearNote();
       const done = install(root, s, backups);
       deps.refresh();
@@ -321,7 +321,9 @@ export function registerDistributor(deps: DistDeps): vscode.Disposable[] {
 
     vscode.commands.registerCommand('claudeHarness.addSkillFromUrl', async (arg?: unknown) => {
       clearNote();
-      const src = await askAddress(arg, 'Add a skill', 'from skills.sh or GitHub', 'Address of the skill, or owner/repo/skill');
+      // The Browse page names the skill (`source`), so there is no address to ask for; the confirm card still comes before anything is written.
+      const given = arg && typeof arg === 'object' && 'source' in arg ? parseSource(String((arg as { source: unknown }).source)) : undefined;
+      const src = given ?? (await askAddress(arg, 'Add a skill', 'from skills.sh or GitHub', 'Address of the skill, or owner/repo/skill'));
       if (!src) return clearNote();
       const same = src.skill ? tracked().find(a => a.name.toLowerCase() === src.skill!.toLowerCase() && a.origin!.source.toLowerCase() === `${src.owner}/${src.repo}`.toLowerCase()) : undefined;
       if (same) return say('info', `${same.name} is already installed from ${same.origin!.source}.`, { action: { label: 'Check for updates', command: 'checkSkillUpdates', id: same.id } });

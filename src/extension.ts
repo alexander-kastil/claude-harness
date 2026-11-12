@@ -8,6 +8,12 @@ import { Shell, addLine, hasLine, pathWith, pathWithout, profileLine, psProfileF
 import { applyPull, applyTextPull, coworkDrift, planPull, planTaskPull } from './cli-cowork';
 import { Constitution } from './constitution';
 import { fetchRuns, fetchScheduled } from './cowork-scheduled';
+import { worktreesRequest } from './worktrees';
+// routines
+import { fetchRoutines, updateLocalTask, updateRoutine } from './routines';
+import { runStatusline } from './statusline';
+import { permissionsWrite, readPermissions, scanPrompted } from './permissions';
+import { resolveSecurity, scanSecurity } from './security';
 import { connectorSource, coworkSource } from './cowork-draw';
 import type { CoworkSource } from './cowork-draw';
 import { fetchCloudSessions } from './cowork-chats';
@@ -22,6 +28,8 @@ import type { BrowserCard } from './shared/browser-hunt';
 import { huntHost } from './hunt-host';
 import { keyChanges, mcpApply, mcpConfig, mcpVersions, syncApply, syncFiles, syncSource, updateMarketPlugins, updatePluginFromMarket } from './sync';
 import { registerDistributor } from './dist-host';
+import { createSyncToolsHost } from './sync-tools-host';
+import { searchCatalog } from './skills-catalog';
 import { registerShare } from './share-host';
 import { EventSource, eventLayers, findEventSources, transcriptLayers } from './events';
 import { registerLenses } from './lenses';
@@ -81,6 +89,8 @@ import { coworkShown, setCoworkChoice } from './settings';
 import { mentionText, pathText, saveClipboardImage } from './image-paste';
 import { claudeCli, claudeCommand, claudeExecutable, defaultCwd, openTerminal, uniqueTerminalName } from './terminals';
 import { calibratedWeek } from './weekly-limit';
+// usage-history
+import { usageHistory } from './usage-history-host';
 import { Account, accountWeek, checkpointFiles, findAccountSession, importTranscript, listAccountSessions, listAccountSessionsAsync, parseAccounts, readSession, renameSession, planRewrites } from './sessions';
 import { STYLE_MODELS, StyleModel, draftStyle, stylePrompt, writeStyleDraft } from './style';
 import { Specialist, fitGeneralFindings } from './findings';
@@ -95,8 +105,12 @@ import { registerQuota } from './quota';
 import { analyzeSkill, resolvePrompt, slimPrompt } from './slim';
 import { DRAW_SYSTEM, MARKET_PREFIX, PROCESS_SUFFIX, PROCESS_SYSTEM, contentHash, drawPrompt, drawSource, drawable, extractSvg, marketProcessPrompt, marketProcessText, marketText, processPrompt, processSource, readDrawing, writeDrawing } from './drawing';
 import type { SlimReport } from './shared/slim';
+// teams
+import { readTeam } from './teams';
 import { usageMore, usageRows, usageTarget, usageTotals } from './usage-rows';
 import type { UsageTarget } from './usage-rows';
+// remote
+import { remoteCommand } from './remote';
 
 const WATCHED = '{CLAUDE.md,settings.json,settings.local.json,agents/**,skills/**,commands/**,output-styles/**,rules/**,workflows/**,hooks/**,plugins/installed_plugins.json,plugins/known_marketplaces.json}';
 
@@ -242,6 +256,9 @@ export function activate(context: vscode.ExtensionContext): void {
     const local = (dir: string) => folders.some(f => samePath(f, dir));
     scopes = [global, ...[...repos.filter(local), ...repos.filter(dir => !local(dir))].map(dir => repoScope(dir))];
   };
+
+  // security
+  const securityRoots = () => ({ root: global.root, home: path.dirname(global.userConfig), repos: scopes.slice(1).map(s => s.base) });
 
   let cliServers: Asset[] = [];
   const loadCliServers = () =>
@@ -513,7 +530,19 @@ export function activate(context: vscode.ExtensionContext): void {
       const view = viewOfScope(id);
       return view && view.id !== global.id ? listAccountSessionsAsync(view.path, accounts()) : [];
     },
+    // worktrees
+    worktrees: async req => {
+      const view = viewOfScope(req.scope);
+      if (!view || view.id === global.id) return { scope: req.scope, days: req.days, list: [], note: 'This is not a repository.', failed: true };
+      return worktreesRequest(req, {
+        repo: view.path,
+        ask: card => HarnessPanel.ask(card),
+        sessionsOf: async dir => (await listAccountSessionsAsync(dir, accounts())).map(s => ({ id: s.id, title: s.title, end: s.end })),
+      });
+    },
     weekly: () => Promise.all(accounts().map(a => calibratedWeek(a))),
+    // usage-history
+    usageHistory: () => usageHistory(accounts()),
     coworkSessions: () => fetchCloudSessions(global.root),
     scheduled: async () => {
       const list = await fetchScheduled(global.root);
@@ -524,6 +553,36 @@ export function activate(context: vscode.ExtensionContext): void {
       return list;
     },
     scheduledRuns: id => fetchRuns(global.root, id),
+    // routines
+    routines: () => fetchRoutines(global.root, repoViews().map(v => v.path)),
+    routinesWrite: async m =>
+      m.type === 'routinesCloudUpdate'
+        ? updateRoutine(global.root, m.id, m.patch)
+        : // only a repo the harness knows is written
+          repoViews().some(v => samePath(v.path, m.dir))
+          ? updateLocalTask(m.dir, m.id, m.patch)
+          : { ok: false, error: 'That folder is not one of your repositories.' },
+    // statusline
+    statusline: m => runStatusline(m, { userRoot: global.root, projectDir: vscode.workspace.workspaceFolders?.[0]?.uri.fsPath }, refresh),
+    // permissions
+    permissions: {
+      read: dir => readPermissions(global.root, dir),
+      prompted: days => scanPrompted(global.root, days),
+      write: m => permissionsWrite(global.root, m, card => HarnessPanel.ask({ key: 'click', ...card })),
+    },
+    // security
+    securityScan: () => scanSecurity(securityRoots()),
+    securityResolve: (id, answer, ask) => resolveSecurity(securityRoots(), id, answer.confirmed, ask),
+    // syncTools
+    syncTools: createSyncToolsHost({ root: () => global.root, folder: id => viewOfScope(id)?.path, backupRoot: () => path.join(global.root, 'repo-sync-backups') }),
+    // skills-catalog
+    skillsCatalogSearch: query => searchCatalog(query),
+    // teams
+    teams: async (id, sessionId) => {
+      const view = viewOfScope(id);
+      const summary = view && view.id !== global.id ? findAccountSession(view.path, accounts(), sessionId) : undefined;
+      return summary ? readTeam(summary.file, summary.id, summary.accountRoot ?? global.root) : undefined;
+    },
     session: async (id, sessionId) => {
       const view = viewOfScope(id);
       const summary = view && view.id !== global.id ? findAccountSession(view.path, accounts(), sessionId) : undefined;
@@ -659,6 +718,19 @@ export function activate(context: vscode.ExtensionContext): void {
       const env = summary.accountRoot && path.resolve(summary.accountRoot) !== path.resolve(global.root) ? { CLAUDE_CONFIG_DIR: summary.accountRoot } : undefined;
       const t = openTerminal({ name: `Continue: ${summary.title.slice(0, 40)}`, cwd, env });
       t.sendText(claudeCommand(`--resume ${summary.id}`));
+    },
+    // remote
+    remoteSession: async (id, sessionId, answer, ask) => {
+      const scope = scopes.find(s => s.id === id && s.id !== global.id);
+      const summary = scope ? findAccountSession(scope.base, accounts(), sessionId) : undefined;
+      if (!scope || !summary) return void vscode.window.showErrorMessage('The session transcript is gone.');
+      const recorded = (await readSession(summary)).cwd;
+      const cwd = recorded && fs.existsSync(recorded) ? recorded : scope.base;
+      if (!answer.confirmed && !context.globalState.get<boolean>('remoteRemembered')) return ask({ kind: 'remote', scope: id, id: sessionId, cwd, live: !!summary.live });
+      if (answer.remember) await context.globalState.update('remoteRemembered', true);
+      const env = summary.accountRoot && path.resolve(summary.accountRoot) !== path.resolve(global.root) ? { CLAUDE_CONFIG_DIR: summary.accountRoot } : undefined;
+      const t = openTerminal({ name: `Remote: ${summary.title.slice(0, 40)}`, cwd, env });
+      t.sendText(remoteCommand(claudeCommand, summary.id));
     },
     reviewAsset: async (id, answer, ask) => {
       const asset = find(id);

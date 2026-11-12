@@ -262,7 +262,22 @@ export const showPage = (page, extra) => {
   if (page === 'repos') vscode.postMessage({ type: 'repos' });
   if (page === 'marketplaces' || page === 'market') vscode.postMessage({ type: 'marketplaces' });
   if (page === 'scheduled' || page === 'scheduled-task') vscode.postMessage({ type: 'scheduled' });
+  // routines
+  if (page === 'routines') vscode.postMessage({ type: 'routinesRead' });
+  // statusline
+  if (page === 'statusline') vscode.postMessage({ type: 'statuslineRead', scope: state.statuslineScope || 'user' });
+  // permissions
+  if (page === 'permissions') {
+    state.permissionsDir = state.permissionsDir || state.views.slice(1).find(v => v.local && v.id !== 'cowork')?.path;
+    vscode.postMessage({ type: 'permissionsRead', dir: state.permissionsDir });
+  }
+  // security
+  if (page === 'security') vscode.postMessage({ type: 'securityRead' });
+  // syncTools
+  if (page === 'sync-tools' && state.syncToolsPage) vscode.postMessage({ type: 'syncToolsRead', scope: state.syncToolsPage.scope });
   if (page === 'init') vscode.postMessage({ type: 'initForm', dir: extra });
+  // usage-history
+  if (page === 'usage-history') vscode.postMessage({ type: 'usageHistory' });
   if (state.detail) select(undefined);
   else render();
 };

@@ -9,6 +9,7 @@ import { hideHover, hover, placeCard } from './hover';
 import { showKindPage } from './kind-page';
 import { render } from './main';
 import { SOURCE_ICONS, sourceTip } from './pages';
+import { permissionsNavRow } from './permissions';
 import { splitDescription } from './refs';
 import { sessionDesc, sessionIcon, showSession, showSessionsPage } from './sessions';
 import { groupHead, rowName } from './tables';
@@ -229,6 +230,19 @@ export function renderCategories(list, view, q, nested) {
     list.append(treeItem(head, `s|${key}`, base, !collapsed, fold));
     if (collapsed) continue;
     askCounted(cat.kind);
+    // statusline
+    if (cat.kind === 'settings' && !nested) {
+      const here = !state.detail && state.page === 'statusline';
+      list.append(
+        treeItem(
+          el('div', { className: `row${here ? ' selected' : ''}`, title: 'Status line\nPick what the line under the prompt shows and write its script.', onclick: () => showPage('statusline') }, icon('layout-statusbar'), el('span', { className: 'name' }, 'Status line')),
+          's|statusline',
+          base + 1
+        )
+      );
+    }
+    // permissions
+    if (cat.kind === 'settings' && view.id === 'global') list.append(permissionsNavRow(treeItem, base + 1));
     if (!items.length) list.append(el('div', { className: 'empty' }, 'None'));
     const row = a => {
       const selected = state.detail && state.detail.asset.id === a.id;
@@ -542,6 +556,10 @@ const topActions = () => [
     showRepo(undefined);
   }),
   iconBtn('package', 'Marketplace health', () => showPage('marketplaces')),
+  // routines
+  iconBtn('watch', 'Routines', () => showPage('routines')),
+  // usage-history
+  iconBtn('graph', 'Usage history', () => showPage('usage-history')),
   foldAllButton(),
   iconBtn('add', 'New...', () => command('create')),
   iconBtn('refresh', 'Refresh', () => command('refresh')),

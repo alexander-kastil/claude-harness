@@ -25,13 +25,13 @@ test('sessionFlags covers the subagents and reads only what a transcript grew by
   const dir = tmp();
   const file = path.join(dir, 's1.jsonl');
   fs.writeFileSync(file, jsonl(attach({ type: 'hook_success' })));
-  assert.deepEqual(sessionFlags(file), { hookFailed: false, modDenied: false });
+  assert.deepEqual(sessionFlags(file), { hookFailed: false, modDenied: false, remote: false });
   fs.appendFileSync(file, jsonl(denial('<tool_use_error>guard-mod: no.</tool_use_error>')));
-  assert.deepEqual(sessionFlags(file), { hookFailed: false, modDenied: true });
+  assert.deepEqual(sessionFlags(file), { hookFailed: false, modDenied: true, remote: false });
   fs.mkdirSync(path.join(dir, 's1', 'subagents'), { recursive: true });
   fs.writeFileSync(path.join(dir, 's1', 'subagents', 'agent-a1.jsonl'), jsonl(attach({ type: 'hook_non_blocking_error' })));
-  assert.deepEqual(sessionFlags(file), { hookFailed: true, modDenied: true });
-  assert.deepEqual(sessionFlags(path.join(dir, 'gone.jsonl')), { hookFailed: false, modDenied: false });
+  assert.deepEqual(sessionFlags(file), { hookFailed: true, modDenied: true, remote: false });
+  assert.deepEqual(sessionFlags(path.join(dir, 'gone.jsonl')), { hookFailed: false, modDenied: false, remote: false });
 });
 
 test('loadedFiles returns the paths of the first instructions attachment and no contents', () => {

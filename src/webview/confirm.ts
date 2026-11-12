@@ -47,6 +47,20 @@ const CARDS = {
     action: 'Continue',
     send: remember => vscode.postMessage({ type: 'continueSession', scope: ask.scope, id: ask.id, confirmed: true, remember }),
   }),
+  // remote
+  remote: ask => ({
+    mark: claudeMark(18),
+    title: 'Continue this session remotely',
+    sub: 'in Claude, in a terminal, with Remote Control',
+    facts: [
+      ['terminal', el('span', {}, 'A terminal opens in ', el('code', {}, ask.cwd), ' and resumes this very session with ', el('code', {}, '--remote-control'), '.')],
+      ['broadcast', 'The session can then be continued from claude.ai/code and the Claude app.'],
+      ['edit', ask.live ? 'It is still running elsewhere. Two Claudes writing to one session mix their turns; end the other one first.' : 'What you say is added to this session, not to a copy.'],
+      ['credit-card', 'Claude reads the session again before it answers. That counts against your plan.'],
+    ],
+    action: 'Remote',
+    send: remember => vscode.postMessage({ type: 'remoteSession', scope: ask.scope, id: ask.id, confirmed: true, remember }),
+  }),
   review: ask => ({
     mark: claudeMark(18),
     title: `Edit ${ask.name} with Claude`,
@@ -120,6 +134,16 @@ const CARDS = {
       ['globe', 'The procedure cards stay as they are.'],
     ],
     action: 'Start over',
+    plain: true,
+    send: () => ask.onConfirm(),
+  }),
+  // routines: a change to a routine or a repo's scheduled task, no host involved. No Don't ask again switch.
+  routinesWrite: ask => ({
+    mark: icon('watch'),
+    title: ask.title,
+    sub: ask.sub,
+    facts: ask.facts.map(f => ['circle-small-filled', f]),
+    action: ask.action,
     plain: true,
     send: () => ask.onConfirm(),
   }),
@@ -201,6 +225,47 @@ const CARDS = {
     danger: true,
     plain: true,
     send: () => ask.onConfirm(),
+  }),
+  // statusline: the Status line page writes a script and a settings key; every file is named first, no host involved before the answer. No Don't ask again switch.
+  statuslineSave: ask => ({
+    mark: icon('layout-statusbar'),
+    title: 'Save the status line',
+    sub: 'a Node script and the statusLine setting',
+    facts: [
+      ['file', el('span', {}, 'Writes the script ', el('code', {}, ask.script), '.')],
+      ['settings-gear', el('span', {}, 'Sets statusLine in ', el('code', {}, ask.file), '. The rest of the file stays as it is.')],
+      ask.replaces ? ['archive', el('span', {}, 'Replaces ', el('code', {}, ask.replaces), '. Remove puts it back.')] : ['check', 'No status line is replaced.'],
+    ],
+    action: 'Save',
+    plain: true,
+    send: () => ask.onConfirm(),
+  }),
+  statuslineRemove: ask => ({
+    mark: icon('layout-statusbar'),
+    title: 'Remove the status line',
+    sub: 'the script and the statusLine setting',
+    facts: [
+      ['settings-gear', el('span', {}, 'Puts back the statusLine value that was in ', el('code', {}, ask.file), ask.hasPrevious ? ' before the first Save.' : ' before: none, so the key is removed.')],
+      ['trash', el('span', {}, 'Deletes the script ', el('code', {}, ask.script), '.')],
+    ],
+    action: 'Remove',
+    danger: true,
+    plain: true,
+    send: () => ask.onConfirm(),
+  }),
+  // security: an edit of one value in a config file, after this card. No Don't ask again switch.
+  securityResolve: ask => ({
+    mark: icon('shield'),
+    title: 'Resolve this finding',
+    sub: ask.title,
+    facts: [
+      ['file', el('span', {}, 'Edits ', el('code', {}, ask.file), ` at line ${ask.line}.`)],
+      ['edit', ask.does],
+      ['info', 'Only that value changes; the rest of the file stays as written.'],
+    ],
+    action: 'Resolve',
+    plain: true,
+    send: () => vscode.postMessage({ type: 'securityResolve', id: ask.id, confirmed: true }),
   }),
   slim: ask => ({
     mark: claudeMark(18),

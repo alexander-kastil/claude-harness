@@ -4,9 +4,15 @@ import type { CheckSummary } from '../constitution';
 import type { Asset, Category, Field, ScopeView } from '../harness';
 import type { McpInfo } from '../probe';
 import type { ScheduledList, ScheduledRuns } from '../cowork-scheduled';
+import type { LocalPatch, RoutinePatch, RoutinesList } from '../routines';
+import type { PermissionsChange, PermissionsData, PromptedResult } from '../permissions';
+import type { SecurityReport } from '../security';
 import type { SessionSummary } from '../sessions';
+import type { SyncToolsData } from '../sync-tools';
+import type { CatalogResult } from '../skills-catalog';
 import type { ScaffoldForm } from '../standard';
 import type { Progress } from '../usage';
+import type { WorktreesReply } from '../worktrees';
 import type { SlimReport } from './slim';
 import type { UsageSession } from '../usage-rows';
 import type { ChatContents, CloudSessions, CoworkChats } from '../cowork-chats';
@@ -61,6 +67,25 @@ export interface Standard {
 
 export type Page = { page?: string; repo?: string; dir?: string; session?: string };
 
+// statusline
+export type StatuslineScope = 'user' | 'project';
+
+/** What the Status line page shows for one scope. `fields` are the ids of the script already written, in order. */
+export interface StatuslineState {
+  scope: StatuslineScope;
+  /** False for the project scope when no folder is open. */
+  available: boolean;
+  settingsFile: string;
+  scriptFile: string;
+  fields: string[];
+  /** The scope's `statusLine` runs the script this builder wrote. */
+  installed: boolean;
+  /** The `statusLine` value in the scope's settings now. */
+  current: unknown;
+  /** A value from before the first Save is kept for Remove. */
+  hasPrevious: boolean;
+}
+
 export type StyleDraft = { state: 'idle' } | { state: 'running'; model: string } | { state: 'done'; file: string; cost?: number; text?: string } | { state: 'error'; error: string };
 
 /** One line of a provider plugin's per-session event log (`.claude-plugin/harness-events.json` names the log). */
@@ -97,6 +122,8 @@ export type Confirm =
   | { kind: 'analyze'; scope: string; id: string; cwd: string; live: boolean }
   | { kind: 'draftStyle'; scope: string; id: string; model: string; corrections: number; folder: string }
   | { kind: 'continue'; scope: string; id: string; cwd: string; live: boolean }
+  // remote
+  | { kind: 'remote'; scope: string; id: string; cwd: string; live: boolean }
   | { kind: 'review'; id: string; name: string; file: string; cwd: string }
   | { kind: 'consolidate'; id: string; name: string; repo: string; cwd: string; targets: ConsolidateTarget[]; target: string; notes: string[]; careful?: string; /** `click`: point at the element the owner last pressed, for a right-click menu. */ key?: string }
   | { kind: 'try'; id: string; name: string; as: 'agent' | 'skill' | 'command'; cwd: string }
@@ -109,6 +136,8 @@ export type Confirm =
   | { kind: 'huntCreate'; id: string; key: string; name: string; market: string; location: string; problems: string[]; files: string[]; replaced: string[]; kept: string[] }
   | { kind: 'handover'; id: string; key: string; title: string; cwd: string; folder: string; files: { name: string; missing: boolean }[]; prompt: string }
   | { kind: 'handoverDraft'; key: string; files: number; chars: number }
+  // security
+  | { kind: 'securityResolve'; id: string; key: string; title: string; file: string; line: number; does: string }
   | ShareChoice
   | PanelAsk;
 
@@ -246,6 +275,8 @@ export type ToHost =
   | { type: 'initRun'; dir: string; form: ScaffoldForm; apply: boolean }
   | { type: 'sessions'; scope: string }
   | { type: 'weekly' }
+  // usage-history
+  | { type: 'usageHistory' }
   /** The desktop app's chats and the files they produced (artifacts) on this PC; answered by `coworkChats`. */
   | { type: 'coworkChats' }
   /** The Cowork sessions claude.ai lists, one GET with the Claude Code login; answered by `coworkSessions`. */
@@ -265,10 +296,14 @@ export type ToHost =
   /** Continue in terminal: with `card` it asks, listing every file and the first prompt; confirmed, it copies the files and opens Claude Code. */
   | ({ type: 'handoverRun'; card?: HandoverCard } & Answer)
   | { type: 'session'; scope: string; id: string }
+  // teams
+  | { type: 'teamsRead'; scope: string; id: string }
   | ({ type: 'draftStyle'; scope: string; id: string; model: string } & Answer)
   | { type: 'exportSession'; scope: string; id: string }
   | ({ type: 'analyzeSession'; scope: string; id: string } & Answer)
   | ({ type: 'continueSession'; scope: string; id: string } & Answer)
+  // remote
+  | ({ type: 'remoteSession'; scope: string; id: string } & Answer)
   | ({ type: 'reviewAsset'; id: string } & Answer)
   /** Consolidates a repo skill into global or the plugin it comes from; always asks, and `route` is the card's button. */
   | ({ type: 'consolidateAsset'; id: string; target?: string; route?: ConsolidateRoute } & Answer)
@@ -328,8 +363,58 @@ export type ToHost =
   | { type: 'browserHuntSave'; cards: BrowserCard[] }
   /** Reads the Cowork scheduled tasks from claude.ai (one GET); the reply is `scheduled`. */
   | { type: 'scheduled' }
+  // statusline
+  /** Reads what the Status line page shows for one scope; the reply is `statuslineState`. */
+  | { type: 'statuslineRead'; scope: StatuslineScope }
+  /** Writes the status line script with the fields, in order, and sets `statusLine` in the scope's settings; the page asked first. */
+  | { type: 'statuslineSave'; scope: StatuslineScope; fields: string[] }
+  /** Puts back the `statusLine` value from before the first Save and deletes the script; the page asked first. */
+  | { type: 'statuslineRemove'; scope: StatuslineScope }
   /** Reads every run of one scheduled task from claude.ai; the reply is `scheduledRuns`. */
-  | { type: 'scheduledRuns'; id: string };
+  | { type: 'scheduledRuns'; id: string }
+  // worktrees
+  /** Lists the git worktrees of a repo; the reply is `worktrees`. `days` is the period the Stale tag looks back over. */
+  | { type: 'worktreesRead'; scope: string; days: number }
+  /** Removes one worktree with `git worktree remove` (no --force) after a card naming its path; the reply is `worktrees`. */
+  | { type: 'worktreesRemove'; scope: string; days: number; path: string }
+  /** Runs `git worktree prune` after a card naming what it deletes; the reply is `worktrees`. */
+  | { type: 'worktreesPrune'; scope: string; days: number }
+  | { type: 'scheduledRuns'; id: string }
+  // routines
+  /** Reads the Claude Code routines (one GET) and the durable scheduled tasks of every repo; the reply is `routinesList`. */
+  | { type: 'routinesRead' }
+  /** Changes one cloud routine after the confirm card; the replies are `routinesResult` and `routinesList`. */
+  | { type: 'routinesCloudUpdate'; id: string; patch: RoutinePatch }
+  /** Changes the prompt or schedule of one durable task of a repo after the confirm card. */
+  | { type: 'routinesLocalUpdate'; dir: string; id: string; patch: LocalPatch }
+  | { type: 'scheduledRuns'; id: string }
+  // permissions
+  /** Reads the permission rules of every scope (project and local for `dir`); the reply is `permissionsData`. */
+  | { type: 'permissionsRead'; dir?: string }
+  /** Reads the tools that asked for permission in the sessions of the last `days` days (0 is all); the reply is `permissionsPrompted`. */
+  | { type: 'permissionsPrompted'; days: number }
+  /** One change to a scope's rules; always asks first, and the reply is `permissionsData`. */
+  | { type: 'permissionsWrite'; dir?: string; scope: 'user' | 'project' | 'local'; change: PermissionsChange }
+  | { type: 'scheduledRuns'; id: string }
+  // security
+  /** Scans the Claude configuration for security findings; the reply is `securityReport`. */
+  | { type: 'securityRead' }
+  /** Applies the fix of one finding after the confirm card; the reply is a fresh `securityReport`. */
+  | ({ type: 'securityResolve'; id: string } & Answer)
+  | { type: 'scheduledRuns'; id: string }
+  // syncTools
+  /** Reads where each tool's instruction file stands against CLAUDE.md (scope: 'global' or a repo id); the reply is `syncToolsData`. */
+  | { type: 'syncToolsRead'; scope: string }
+  /** Opens one target and what the sync would write side by side in the diff editor. */
+  | { type: 'syncToolsDiff'; scope: string; target: string }
+  /** Writes the chosen targets after the confirm card that names every file; the reply is `syncToolsData`. */
+  | { type: 'syncToolsWrite'; scope: string; targets: string[] }
+  | { type: 'scheduledRuns'; id: string }
+  // skills-catalog
+  /** Searches the public skills on skills.sh (the only network call of the Browse page); the reply is `skillsCatalogResults`. */
+  | { type: 'skillsCatalogSearch'; query: string }
+  /** Installs one result, `owner/repo/skill`, through Add from skills.sh: its confirm card points at the button with `anchor`. */
+  | { type: 'skillsCatalogInstall'; address: string; anchor: string };
 
 // Share and Import start from commands (`share`, `importSkill`, ...) posted as `command`; the right-click menu and the
 // palette run the same commands, and their questions come back as `confirm` cards answered with `answer`.
@@ -351,6 +436,8 @@ export type ToWebview =
   | { type: 'initResult'; dir: string; apply: boolean; data: unknown }
   | { type: 'sessions'; scope: string; list: SessionSummary[] }
   | { type: 'weekly'; list: unknown }
+  // usage-history
+  | { type: 'usageHistory'; data: unknown }
   | ({ type: 'coworkChats' } & CoworkChats)
   | { type: 'coworkSessions'; data: CloudSessions }
   /** For `coworkChat`: none when the chat is gone. */
@@ -365,6 +452,8 @@ export type ToWebview =
   /** For `handoverDraft`: Claude is drafting, the draft, or why not. */
   | { type: 'handoverDraft'; state: 'running' | 'done' | 'error'; draft?: HandoverDraft; error?: string }
   | { type: 'session'; scope: string; id: string; data: unknown }
+  // teams
+  | { type: 'teams'; scope: string; id: string; data: unknown }
   | ({ type: 'styleDraft'; scope: string; id: string } & StyleDraft)
   /** For `checkpointFiles`; `restored` follows a restore, with the files that could not be written. */
   | { type: 'checkpointFiles'; scope: string; id: string; checkpoint: string; files: { path: string; action: 'overwrite' | 'remove' | 'recreate' }[]; restored?: { count: number; failed: string[] } }
@@ -395,8 +484,37 @@ export type ToWebview =
   | { type: 'distNote'; note?: DistNote }
   /** The Cowork scheduled tasks, or why they are not listed. */
   | { type: 'scheduled'; list: ScheduledList }
+  // statusline
+  /** The Status line page's data for one scope; `note` says what a Save or Remove did, or why it failed. */
+  | { type: 'statuslineState'; state: StatuslineState; note?: string }
   /** The runs of one scheduled task, newest first, or why they are not listed. */
-  | { type: 'scheduledRuns'; id: string; runs: ScheduledRuns };
+  | { type: 'scheduledRuns'; id: string; runs: ScheduledRuns }
+  // worktrees
+  /** The worktrees of a repo, with a plain line about what the last Remove or Prune did. */
+  | ({ type: 'worktrees' } & WorktreesReply)
+  | { type: 'scheduledRuns'; id: string; runs: ScheduledRuns }
+  // routines
+  /** The Claude Code routines and the repos' durable scheduled tasks, or what is missing. */
+  | { type: 'routinesList'; list: RoutinesList }
+  /** What a write of the Routines page did; `key` names the row. */
+  | { type: 'routinesResult'; key: string; ok: boolean; error?: string }
+  | { type: 'scheduledRuns'; id: string; runs: ScheduledRuns }
+  // permissions
+  /** The permission rules of every scope. */
+  | { type: 'permissionsData'; data: PermissionsData }
+  /** The tools that asked for permission in the period, counted per rule pattern. */
+  | { type: 'permissionsPrompted'; days: number; result: PromptedResult }
+  | { type: 'scheduledRuns'; id: string; runs: ScheduledRuns }
+  // security
+  /** The findings of the security check, secrets masked. */
+  | { type: 'securityReport'; report: SecurityReport }
+  | { type: 'scheduledRuns'; id: string; runs: ScheduledRuns }
+  // syncTools
+  | { type: 'syncToolsData'; data: SyncToolsData }
+  | { type: 'scheduledRuns'; id: string; runs: ScheduledRuns }
+  // skills-catalog
+  /** What a search of the skills.sh catalog found, or why it could not. */
+  | { type: 'skillsCatalogResults'; result: CatalogResult };
 
 /** What the distributor said about a skill when it was last asked. `current`: the skill's folder is unchanged; `newer`: it changed; `gone`: the repo no longer has it. */
 export interface DistCheck {

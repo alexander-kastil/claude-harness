@@ -11,8 +11,11 @@ import { renderMain } from './main';
 import { BILLING, fmtShare, fmtUsd } from './session-page';
 import { renderSessionList, showSessionsPage } from './sessions';
 import { assetTable, gridTable } from './tables';
+import { renderWorktrees } from './worktrees';
 import { failureText, failuresByHook, notLoaded } from '../shared/harness-trace';
 import { repoTraceOf } from './trace';
+// usage-history
+import { renderUsageHistory } from './usage-history';
 
 // A hook's settings file as the shared Origin token: global, repo or marketplace (the plugin's own hooks).
 const hookOrigin = source => (String(source).startsWith('~') ? 'global' : /^\.claude[\\/]/.test(source) ? 'repo' : 'marketplace');
@@ -23,6 +26,10 @@ export const REPO_TABS = [
   ['effective', 'Effective harness', 'layers', 'What a session here loads: memory with its imports, rules, plugins and hooks.'],
   ['sessions', 'Sessions', 'history', 'Every Claude Code session that ran in this repo.'],
   ['models', 'Models', 'chip', 'Tokens and cost by model over the last 7 days, all repos of each account.'],
+  // usage-history
+  ['history', 'History', 'graph', 'Cost per day and month of this repo at API list prices, set against the plan prices.'],
+  // worktrees
+  ['worktrees', 'Worktrees', 'git-branch', 'Every git worktree of the repo, the Claude sessions that ran in each and which ones look stale.'],
 ];
 
 export function tabBar(tabs, current, pick, label) {
@@ -220,6 +227,10 @@ export function renderRepo(view) {
   const pick = (id, focus) => {
     state.repoTab = id;
     if (id === 'models') state.weekly = undefined;
+    // worktrees: the list is read again on every visit of the tab
+    if (id === 'worktrees' && state.worktrees) state.worktrees[view.id] = undefined;
+    // usage-history
+    if (id === 'history') state.usageHistoryData = undefined;
     persist();
     hideHover();
     renderMain();
@@ -260,7 +271,7 @@ export function renderRepo(view) {
       'div',
       { className: 'main-body', onscroll: hideHover },
       tabBar(tabs, tab, pick, `${view.label} views`),
-      tab === 'effective' ? renderEffective(view) : tab === 'sessions' ? repoSessions(view) : tab === 'models' ? repoModels(view) : repoOverview(view, pick)
+      tab === 'effective' ? renderEffective(view) : tab === 'sessions' ? repoSessions(view) : tab === 'models' ? repoModels(view) : tab === 'history' ? renderUsageHistory(view) : tab === 'worktrees' ? renderWorktrees(view) : repoOverview(view, pick)
     )
   );
 }

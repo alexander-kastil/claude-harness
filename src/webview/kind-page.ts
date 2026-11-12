@@ -5,6 +5,7 @@ import { countHead, el, highlight, icon, iconBtn, plural } from './dom';
 import { hideHover } from './hover';
 import { distButtons, distNotice, hasUpdate, isTracked, originText, originTip, sourceTone, syncText, syncTip } from './dist';
 import { huntButton } from './hunt';
+import { openSyncTools } from './sync-tools';
 import { render } from './main';
 import { assetTable, descOf, glyphOf, groupHead, pluginSwitch } from './tables';
 import { fmtTokens } from './refs';
@@ -449,6 +450,8 @@ export function renderKindPage() {
   // A kind with a share format can take one back in: a file someone shared with Share.
   const importCmd = { skill: 'importSkill', plugin: 'importPlugin', agent: 'importAgent', command: 'importCommand', outputStyle: 'importOutputStyle', rule: 'importRule', memory: 'importMemory', mcp: 'importMcp', hook: 'importHook' }[p.kind];
   const importBtn = importCmd ? iconBtn('desktop-download', `Import ${p.kind === 'memory' ? 'CLAUDE.md' : singular(cat).toLowerCase()}...`, () => command(importCmd, { scope: p.origin })) : null;
+  // syncTools: CLAUDE.md to the other tools' instruction files, for Global or this repo.
+  const syncBtn = p.kind === 'memory' ? iconBtn('sync', `Sync instructions to other tools${origin ? ` from ${origin.label}` : ''}...`, () => openSyncTools(p.origin || 'global')) : null;
   // Until the usage index exists the Used column says "not counted yet"; this button builds it, on the owner's click.
   p.shownKnown = totalsKnown(p.kind);
   const countBtn =
@@ -479,6 +482,7 @@ export function renderKindPage() {
       back,
       create,
       importBtn,
+      syncBtn,
       countBtn,
       ...(p.kind === 'skill' ? distButtons(entries.map(e => e.a)) : []),
       // The AI group comes last, at the right end of the bar, as on every other bar.

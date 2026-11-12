@@ -3,6 +3,8 @@
 import { analyzeRowButton } from './confirm';
 import { select, showRepo, state, viewOf, vscode } from './core';
 import { clip, countHead, el, fmtDate, fmtDur, highlight, icon, iconBtn, plural, stateTag } from './dom';
+// remote
+import { remoteTag } from './remote';
 import { render, renderMain } from './main';
 import { gridTable } from './tables';
 
@@ -40,7 +42,7 @@ const sessionsHead = (view, ...tools) => {
 export const sessionTable = (list, scope, label, { q = '', analyze = false } = {}) =>
   gridTable(
     [
-      { head: 'Session', track: 'minmax(180px, 3fr)', cls: 'at-name', cell: s => [sessionIcon(s), el('span', { className: 'at-label' }, q ? highlight(s.title, q) : s.title)], title: s => sessionTip(s, scope) },
+      { head: 'Session', track: 'minmax(180px, 3fr)', cls: 'at-name', cell: s => [sessionIcon(s), el('span', { className: 'at-label' }, q ? highlight(s.title, q) : s.title), remoteTag(s)], title: s => sessionTip(s, scope) },
       { head: 'Branch', track: 'minmax(0, 1fr)', muted: true, wide: true, cell: s => s.branch || '' },
       { head: 'Started', track: '120px', num: true, cell: s => (s.start ? fmtDate(s.start) : '') },
       { head: 'Duration', track: '76px', num: true, cell: s => (s.start ? fmtDur(s.end - s.start) : '') },

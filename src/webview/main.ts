@@ -11,13 +11,24 @@ import { onHuntMessage, renderHunt } from './hunt';
 import { onBrowserHuntMessage, renderBrowserHunt } from './browser-hunt';
 import { onHandoverMessage, renderHandover } from './handover';
 import { onChatMessage, renderCoworkArtifacts, renderCoworkChat, renderCoworkChats } from './cowork-chats';
+import { onPermissionsMessage, renderPermissions } from './permissions';
 import { renderInit, renderMarket, renderMarkets, renderRepoOverview } from './pages';
 import { renderRepo } from './repo-page';
 import { renderScheduledList, renderScheduledTask } from './scheduled';
+// routines
+import { onRoutinesMessage, renderRoutines } from './routines';
+import { onStatuslineMessage, renderStatusline } from './statusline';
+import { renderSecurity } from './security';
+import { renderSyncTools } from './sync-tools';
+// usage-history
+import { renderUsageHistoryPage } from './usage-history';
 import { redrawCheckpoint, renderSession } from './session-page';
 import { renderSessionsPage, showSession } from './sessions';
 import { renderSidebar } from './sidebar';
+import { renderSkillsCatalog } from './skills-catalog';
 import { storeSlim } from './slim';
+// teams
+import { onTeamsMessage } from './teams';
 import { storeDrawing } from './drawing';
 import { setModActivity, setRepoTrace } from './trace';
 import { askTotals, storeMore, storeTotals } from './usage-more';
@@ -38,10 +49,29 @@ export function renderMain() {
         ? renderHunt()
       : state.page === 'browser-hunt'
         ? renderBrowserHunt()
+      : state.page === 'permissions'
+        ? renderPermissions()
+      // usage-history
+      : state.page === 'usage-history'
+        ? renderUsageHistoryPage()
       : state.page === 'scheduled'
         ? renderScheduledList()
+      : state.page === 'statusline'
+        ? renderStatusline()
       : state.page === 'scheduled-task'
         ? renderScheduledTask()
+      // routines
+      : state.page === 'routines'
+        ? renderRoutines()
+      // security
+      : state.page === 'security'
+        ? renderSecurity()
+      // syncTools
+      : state.page === 'sync-tools'
+        ? renderSyncTools()
+      // skills-catalog
+      : state.page === 'skills-catalog'
+        ? renderSkillsCatalog()
       : state.page === 'cowork-handover'
         ? renderHandover()
       : state.page === 'cowork-chats'
@@ -159,12 +189,41 @@ onMessage(m => {
     const current = app.querySelector('.sidebar');
     if (current) keepScroll(() => current.replaceWith(renderSidebar()));
     if ((state.page === 'marketplaces' || state.page === 'market') && !state.detail) renderMain();
+  } else if (m.type === 'worktrees') {
+    // worktrees
+    state.worktrees = { ...state.worktrees, [m.scope]: m };
+    if (state.repo === m.scope && state.repoTab === 'worktrees' && !state.detail) keepMainScroll(renderMain);
+  } else if (m.type === 'permissionsData' || m.type === 'permissionsPrompted') {
+    // permissions
+    onPermissionsMessage(m, () => {
+      if (state.page === 'permissions' && !state.detail) keepMainScroll(renderMain);
+    });
   } else if (m.type === 'scheduled') {
     state.scheduled = m.list;
     render();
+  } else if (m.type === 'statuslineState') {
+    onStatuslineMessage(m);
+  } else if (m.type === 'syncToolsData') {
+    // syncTools
+    state.syncTools = m.data;
+    if (state.page === 'sync-tools' && !state.detail) renderMain();
+  // skills-catalog
+  } else if (m.type === 'skillsCatalogResults') {
+    state.skillsCatalogResult = m.result;
+    state.skillsCatalogBusy = false;
+    if (state.page === 'skills-catalog' && !state.detail) renderMain();
   } else if (m.type === 'scheduledRuns') {
     state.scheduledRuns = { ...state.scheduledRuns, [m.id]: m.runs };
     if (state.page === 'scheduled-task' && !state.detail && state.scheduledPage && state.scheduledPage.id === m.id) renderMain();
+  // routines
+  } else if (m.type === 'routinesList' || m.type === 'routinesResult') {
+    onRoutinesMessage(m, () => {
+      if (state.page === 'routines' && !state.detail) keepMainScroll(renderMain);
+    });
+  // security
+  } else if (m.type === 'securityReport') {
+    state.securityReport = m.report;
+    if (state.page === 'security' && !state.detail) renderMain();
   } else if (['handoverInbox', 'handoverSeed', 'handoverLocated', 'handoverDraft', 'handover'].includes(m.type)) {
     onHandoverMessage(m, () => {
       if (state.page === 'cowork-handover' && !state.detail) keepMainScroll(renderMain);
@@ -179,6 +238,10 @@ onMessage(m => {
         if (!(document.activeElement && app.querySelector('.main')?.contains(document.activeElement) && document.activeElement.tagName === 'INPUT')) keepMainScroll(renderMain);
       }
     });
+  // usage-history
+  } else if (m.type === 'usageHistory') {
+    state.usageHistoryData = m.data;
+    if (!state.detail && (state.page === 'usage-history' || (state.repo && state.repoTab === 'history'))) renderMain();
   } else if (m.type === 'weekly') {
     state.weekly = m.list || [];
     if (!state.detail && state.repo && state.repoTab === 'models') renderMain();
@@ -207,6 +270,9 @@ onMessage(m => {
       if (onScreen) keepMainScroll(renderMain);
       else renderMain();
     }
+  // teams
+  } else if (m.type === 'teams') {
+    onTeamsMessage(m);
   } else if (m.type === 'checkpointFiles') {
     const s = state.session;
     if (s && s.scope === m.scope && s.id === m.id && s.checkpoint === m.checkpoint) {
@@ -283,6 +349,8 @@ onMessage(m => {
   } else if (m.type === 'distNote') {
     state.distNote = m.note;
     state.distScroll = m.note?.focus;
+    // skills-catalog: an install started on the Browse page reports on it
+    if (state.page === 'skills-catalog' && !state.detail) keepMainScroll(renderMain);
     const onSkillPage = state.page === 'kind' && !state.detail && state.kindPage?.kind === 'skill';
     if (onSkillPage || (state.detail && state.detail.asset.kind === 'skill' && state.detailMode !== 'edit')) {
       keepMainScroll(renderMain);

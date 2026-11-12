@@ -127,7 +127,7 @@ test('claudeHarness.cowork.show hides the Cowork region from the nav and shows i
 
 test('the nav head repeats no title: the tab says Claude Harness, the head holds the mark and its buttons', T, async () => {
   assert.equal(await s.ev(D => D.querySelector('.sidebar-head').textContent.trim()), '');
-  assert.equal(await s.ev(D => D.querySelectorAll('.sidebar-head button').length), 6);
+  assert.equal(await s.ev(D => D.querySelectorAll('.sidebar-head button').length), 8);
 });
 
 test('each of the three region heads folds its region on a click and opens it on the next', T, async () => {

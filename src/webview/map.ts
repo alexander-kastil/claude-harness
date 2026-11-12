@@ -233,6 +233,18 @@ function mapToggles(host, d) {
               hideHover();
               vscode.postMessage({ type: 'continueSession', scope: s.scope, id: s.id });
             }
+          ),
+          // remote
+          bare(
+            'remote',
+            'Remote',
+            'broadcast',
+            'Resumes this very session in Claude, in a terminal, with Remote Control on, so you can carry on from claude.ai/code or the Claude app.',
+            { 'data-confirm': 'remote' },
+            () => {
+              hideHover();
+              vscode.postMessage({ type: 'remoteSession', scope: s.scope, id: s.id });
+            }
           )
         )
       : null,

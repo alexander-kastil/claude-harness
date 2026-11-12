@@ -8,6 +8,7 @@ import { McpInfo, StdioConfig, probeHttp, probeStdio } from './probe';
 import type { CheckSummary } from './constitution';
 import type { ScaffoldForm } from './standard';
 import type { SessionSummary } from './sessions';
+import type { WorktreesReply, WorktreesRequest } from './worktrees';
 import type { SlimReport } from './shared/slim';
 import type { HuntInfo, HuntProposal } from './shared/hunt';
 import type { BrowserCard, BrowserHuntInfo } from './shared/browser-hunt';
@@ -15,6 +16,12 @@ import type { Answer, Confirm, ConsolidateRoute,Detail, ModActivity, Page, Panel
 import { pickTools, splitTools } from './tools';
 import { SCHEDULED_TEMPLATES_URL, SCHEDULED_URL, projectUrl, runUrl, taskUrl } from './cowork-scheduled';
 import type { ScheduledList, ScheduledRuns } from './cowork-scheduled';
+// routines
+import type { RoutinesList, WriteResult } from './routines';
+import type { PermissionsData, PermissionsWrite, PromptedResult } from './permissions';
+import type { SecurityReport } from './security';
+import type { SyncToolsHost } from './sync-tools-host';
+import type { CatalogResult } from './skills-catalog';
 import { chatById, insideData, loadChat, loadChats } from './cowork-chats';
 import type { DownloadFile, HandoverCard, HandoverRepo, HandoverSeed, HandoverSource } from './cowork-handover';
 import type { CloudSessions } from './cowork-chats';
@@ -22,7 +29,7 @@ import type { CloudSessions } from './cowork-chats';
 export type { Detail, Page } from './shared/messages';
 
 /** Requests a page makes for its own data; none of them is an action the owner is waiting on. */
-const BACKGROUND = new Set<ToHost['type']>(['sessions', 'weekly', 'usage', 'usageMore', 'usageTotals', 'repoTrace', 'modActivity', 'slim', 'drawing', 'ruleInfo', 'effective', 'repos', 'scheduled', 'scheduledRuns', 'coworkChats', 'coworkSessions', 'coworkChat', 'handoverInbox', 'handoverSeed']);
+const BACKGROUND = new Set<ToHost['type']>(['sessions', 'weekly', 'usage', 'usageMore', 'usageTotals', 'repoTrace', 'modActivity', 'slim', 'drawing', 'ruleInfo', 'effective', 'repos', 'worktreesRead', 'scheduled', 'scheduledRuns', 'coworkChats', 'coworkSessions', 'coworkChat', 'handoverInbox', 'handoverSeed', 'routinesRead', 'usageHistory']);
 
 /** What a `panel` card answered: the button, and the text and the picked ids when the card had an input or choices. */
 export interface PanelAnswer {
@@ -99,8 +106,14 @@ export interface PanelHost {
   initRun?(dir: string, form: ScaffoldForm, apply: boolean): Promise<unknown>;
   sessions?(scopeId: string): Promise<SessionSummary[]>;
   session?(scopeId: string, id: string): Promise<unknown>;
+  // teams
+  /** The task list and the messages of the session's agent team. */
+  teams?(scopeId: string, id: string): Promise<unknown>;
   /** The last 7 days of every account by model, over all repos. */
   weekly?(): Promise<unknown>;
+  // usage-history
+  /** Cost per day and project of every account over the last 12 months, at API list prices. */
+  usageHistory?(): Promise<unknown>;
   /** The Cowork sessions claude.ai lists, read with one GET. */
   coworkSessions?(): Promise<CloudSessions>;
   /** The Handover tool: inbox, sources, Claude's draft and Continue in terminal. */
@@ -109,6 +122,35 @@ export interface PanelHost {
   scheduled?(): Promise<ScheduledList>;
   /** Every run of one scheduled task, read from claude.ai. */
   scheduledRuns?(id: string): Promise<ScheduledRuns>;
+  // worktrees
+  /** The git worktrees of a repo; Remove and Prune ask on a card in the panel first. */
+  worktrees?(req: WorktreesRequest): Promise<WorktreesReply>;
+  // routines
+  /** The Claude Code routines (one GET) and the durable scheduled tasks of every repo. */
+  routines?(): Promise<RoutinesList>;
+  /** Changes a cloud routine or a durable task, already confirmed in the panel. */
+  routinesWrite?(m: Extract<ToHost, { type: 'routinesCloudUpdate' | 'routinesLocalUpdate' }>): Promise<WriteResult>;
+  // statusline
+  /** The Status line builder: reads, saves or removes the status line of a scope; the answer carries a note for a write. */
+  statusline?(m: Extract<ToHost, { type: 'statuslineRead' | 'statuslineSave' | 'statuslineRemove' }>): Promise<{ state: import('./shared/messages').StatuslineState; note?: string }>;
+  // permissions
+  /** The Permissions page: rules per scope, the prompted tools, and one confirmed change at a time. */
+  permissions?: {
+    read(dir?: string): PermissionsData;
+    prompted(days: number): Promise<PromptedResult>;
+    /** Asks in the panel, then writes; the data to show afterwards, with a note when the write was refused. */
+    write(m: PermissionsWrite): Promise<PermissionsData>;
+  };
+  // security
+  /** The security check's findings, read from the Claude configuration on this PC. */
+  securityScan?(): SecurityReport;
+  /** Resolve for one finding: asks through `ask` until confirmed, then edits the file and returns the new report. */
+  securityResolve?(id: string, answer: Answer, ask: (c: Confirm) => void): SecurityReport | undefined;
+  // syncTools
+  syncTools?: SyncToolsHost;
+  // skills-catalog
+  /** Searches the public skills on skills.sh; called only when a search runs. */
+  skillsCatalogSearch?(query: string): Promise<CatalogResult>;
   /** Asks first, then drafts an output style from the session's style scan; `started` fires once the user agreed. */
   /** Without a confirmed answer and a remembered one, asks in the panel through `ask` and returns idle. */
   draftStyle?(scopeId: string, id: string, model: string, started: () => void, answer: Answer, ask: (c: Confirm) => void): Promise<StyleDraft>;
@@ -123,6 +165,9 @@ export interface PanelHost {
   analyzeSession?(scopeId: string, id: string, answer: Answer, ask: (c: Confirm) => void): Promise<void>;
   /** Opens a terminal that resumes the session itself (no copy); asks first like analyzeSession. */
   continueSession?(scopeId: string, id: string, answer: Answer, ask: (c: Confirm) => void): Promise<void>;
+  // remote
+  /** Opens a terminal that resumes the session with Remote Control on; asks first like continueSession. */
+  remoteSession?(scopeId: string, id: string, answer: Answer, ask: (c: Confirm) => void): Promise<void>;
   /** Opens a terminal in the asset's repo with Claude asked to review the file; asks first like analyzeSession. */
   reviewAsset?(id: string, answer: Answer, ask: (c: Confirm) => void): Promise<void>;
   /** Opens a terminal in the skill's repo with Claude asked to slim it, given what its size report found; asks first like reviewAsset. */
@@ -488,6 +533,20 @@ export class HarnessPanel {
       case 'sessions':
         this.post({ type: 'sessions', scope: m.scope, list: (await this.host.sessions?.(m.scope)) ?? [] });
         return;
+      // worktrees
+      case 'worktreesRead':
+      case 'worktreesRemove':
+      case 'worktreesPrune': {
+        const op = m.type === 'worktreesRead' ? 'read' : m.type === 'worktreesRemove' ? 'remove' : 'prune';
+        let reply: WorktreesReply;
+        try {
+          reply = (await this.host.worktrees?.({ op, scope: m.scope, days: m.days, path: m.type === 'worktreesRemove' ? m.path : undefined })) ?? { scope: m.scope, days: m.days, list: [], note: 'Worktrees are not available here.', failed: true };
+        } catch (e) {
+          reply = { scope: m.scope, days: m.days, list: [], note: (e as Error).message, failed: true };
+        }
+        this.post({ type: 'worktrees', ...reply });
+        return;
+      }
       case 'scheduled': {
         let list: ScheduledList;
         try {
@@ -496,6 +555,14 @@ export class HarnessPanel {
           list = { state: 'error', note: 'claude.ai could not be reached, so the tasks are not listed here.', tasks: [], fetchedAt: Date.now() };
         }
         this.post({ type: 'scheduled', list });
+        return;
+      }
+      // statusline
+      case 'statuslineRead':
+      case 'statuslineSave':
+      case 'statuslineRemove': {
+        const reply = await this.host.statusline?.(m);
+        if (reply) this.post({ type: 'statuslineState', ...reply });
         return;
       }
       case 'scheduledRuns': {
@@ -508,6 +575,74 @@ export class HarnessPanel {
         this.post({ type: 'scheduledRuns', id: m.id, runs });
         return;
       }
+      // routines
+      case 'routinesRead': {
+        let list: RoutinesList;
+        try {
+          list = (await this.host.routines?.()) ?? { cloud: 'error', note: 'Routines are not available here.', routines: [], local: [], fetchedAt: Date.now() };
+        } catch {
+          list = { cloud: 'error', note: 'The routines could not be read.', routines: [], local: [], fetchedAt: Date.now() };
+        }
+        this.post({ type: 'routinesList', list });
+        return;
+      }
+      case 'routinesCloudUpdate':
+      case 'routinesLocalUpdate': {
+        const key = m.type === 'routinesCloudUpdate' ? m.id : `${m.dir}|${m.id}`;
+        let res: WriteResult;
+        try {
+          res = (await this.host.routinesWrite?.(m)) ?? { ok: false, error: 'Routines cannot be changed here.' };
+        } catch {
+          res = { ok: false, error: 'The change failed, nothing was changed.' };
+        }
+        this.post({ type: 'routinesResult', key, ok: res.ok, error: res.error });
+        if (res.ok) {
+          try {
+            const list = await this.host.routines?.();
+            if (list) this.post({ type: 'routinesList', list });
+          } catch {
+            // the next read shows the state
+          }
+        }
+        return;
+      }
+      // permissions
+      case 'permissionsRead':
+      case 'permissionsPrompted':
+      case 'permissionsWrite': {
+        const perms = this.host.permissions;
+        if (!perms) return;
+        if (m.type === 'permissionsRead') this.post({ type: 'permissionsData', data: perms.read(m.dir) });
+        else if (m.type === 'permissionsPrompted') this.post({ type: 'permissionsPrompted', days: m.days, result: await perms.prompted(m.days).catch(() => ({ rows: [], sessions: 0 })) });
+        else this.post({ type: 'permissionsData', data: await perms.write({ dir: m.dir, scope: m.scope, change: m.change }) });
+        return;
+      }
+      // security
+      case 'securityRead':
+        this.post({ type: 'securityReport', report: this.host.securityScan?.() ?? { findings: [], scanned: 0, at: Date.now() } });
+        return;
+      case 'securityResolve': {
+        const report = this.host.securityResolve?.(m.id, { confirmed: m.confirmed, remember: m.remember }, ask => this.post({ type: 'confirm', ask }));
+        if (report) this.post({ type: 'securityReport', report });
+        return;
+      }
+      // syncTools
+      case 'syncToolsRead':
+      case 'syncToolsDiff':
+      case 'syncToolsWrite': {
+        const h = this.host.syncTools;
+        if (!h) return;
+        if (m.type === 'syncToolsDiff') return void (await h.diff(m.scope, m.target));
+        this.post({ type: 'syncToolsData', data: m.type === 'syncToolsWrite' ? await h.write(m.scope, m.targets) : h.read(m.scope) });
+        return;
+      }
+      // skills-catalog
+      case 'skillsCatalogSearch':
+        this.post({ type: 'skillsCatalogResults', result: (await this.host.skillsCatalogSearch?.(m.query)) ?? { query: m.query, skills: [], error: 'The skills catalog is not available here.' } });
+        return;
+      case 'skillsCatalogInstall':
+        await vscode.commands.executeCommand('claudeHarness.addSkillFromUrl', { fromPanel: true, source: m.address, anchor: m.anchor });
+        return;
       case 'coworkChats':
         this.post({ type: 'coworkChats', ...loadChats() });
         return;
@@ -554,6 +689,17 @@ export class HarnessPanel {
         this.post({ type: 'weekly', list });
         return;
       }
+      // usage-history
+      case 'usageHistory': {
+        let data: unknown = { until: Date.now(), accounts: [] };
+        try {
+          data = (await this.host.usageHistory?.()) ?? data;
+        } catch {
+          // an unreadable account folder shows no history
+        }
+        this.post({ type: 'usageHistory', data });
+        return;
+      }
       case 'session': {
         let data: unknown;
         try {
@@ -562,6 +708,17 @@ export class HarnessPanel {
           data = { error: (e as Error).message };
         }
         this.post({ type: 'session', scope: m.scope, id: m.id, data: data ?? { error: 'The session transcript is gone.' } });
+        return;
+      }
+      // teams
+      case 'teamsRead': {
+        let data: unknown;
+        try {
+          data = await this.host.teams?.(m.scope, m.id);
+        } catch {
+          data = undefined;
+        }
+        this.post({ type: 'teams', scope: m.scope, id: m.id, data: data ?? { lead: 'team-lead', tasks: [], messages: [], source: 'transcript' } });
         return;
       }
       case 'draftStyle': {
@@ -597,6 +754,10 @@ export class HarnessPanel {
         return;
       case 'continueSession':
         await this.host.continueSession?.(m.scope, m.id, { confirmed: m.confirmed, remember: m.remember }, ask => this.post({ type: 'confirm', ask }));
+        return;
+      // remote
+      case 'remoteSession':
+        await this.host.remoteSession?.(m.scope, m.id, { confirmed: m.confirmed, remember: m.remember }, ask => this.post({ type: 'confirm', ask }));
         return;
       case 'reviewAsset':
         await this.host.reviewAsset?.(m.id, { confirmed: m.confirmed, remember: m.remember }, ask => this.post({ type: 'confirm', ask }));
